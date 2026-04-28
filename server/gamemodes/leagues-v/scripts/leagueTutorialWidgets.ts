@@ -1,7 +1,6 @@
 import type { PlayerState } from "../../../src/game/player";
 import type { IScriptRegistry, ScriptServices } from "../../../src/game/scripts/types";
 
-import { getViewportTrackerFrontUid } from "../../../src/game/scripts/types";
 import { getRootInterfaceId, DisplayMode } from "../../../src/widgets/viewport";
 import {
     decodeSideJournalTabFromStateVarp,
@@ -18,9 +17,10 @@ import {
 import { getTutorialCompleteStep } from "../playerWorldRules";
 import { LeagueTaskService } from "../LeagueTaskService";
 import { syncLeagueGeneralVarp } from "../leagueGeneral";
-
-// Interface/group IDs
-const LEAGUE_TUTORIAL_MAIN_GROUP_ID = 677; // league_tutorial_main
+import {
+    closeLeagueTutorialOverlay,
+    LEAGUE_TUTORIAL_MAIN_GROUP_ID,
+} from "./leagueTutorialOverlay";
 
 // Widget child IDs (cache group 677)
 const COMP_TUTORIAL_BUTTON_LEFT = 8;
@@ -42,15 +42,6 @@ const TOPLEVEL_RESIZABLE_GROUP_ID = 161;
 const TOPLEVEL_FIXED_GROUP_ID = 548;
 const RESIZABLE_QUESTS_TAB_COMPONENT = 61;
 const FIXED_QUESTS_TAB_COMPONENT = 66;
-
-function closeLeagueTutorialOverlay(player: PlayerState, services: ScriptServices): void {
-    const targetUid = getViewportTrackerFrontUid(player.displayMode);
-    services.dialog.closeSubInterface(player, targetUid, LEAGUE_TUTORIAL_MAIN_GROUP_ID);
-    services.dialog.queueWidgetEvent(player.id, {
-        action: "close_sub",
-        targetUid,
-    });
-}
 
 export function registerLeagueTutorialWidgetHandlers(registry: IScriptRegistry, services: ScriptServices): void {
     const syncLeagueGeneralVarpAndQueue = (player: PlayerState): void => {

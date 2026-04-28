@@ -59,6 +59,10 @@ import {
 } from "../leaguePackedVarps";
 import { type IScriptRegistry, type ScriptServices, type WidgetActionEvent } from "../../../src/game/scripts/types";
 import type { PlayerState } from "../../../src/game/player";
+import {
+    closeLeagueTutorialOverlay,
+    LEAGUE_TUTORIAL_MAIN_GROUP_ID,
+} from "./leagueTutorialOverlay";
 
 export type LeagueWsUiPlayer = {
     id: number;
@@ -110,7 +114,6 @@ const LEAGUE_RELICS_GROUP_ID = 655; // league_relics
 const LEAGUE_3_FRAGMENTS_GROUP_ID = 735; // league_3_fragments (L3)
 const LEAGUE_SIDE_PANEL_L5_GROUP_ID = 656; // league_side_panel (L5)
 const LEAGUE_TASKS_GROUP_ID = 657; // league_tasks
-const LEAGUE_TUTORIAL_MAIN_GROUP_ID = 677; // league_tutorial_main
 const LEAGUE_UNLOCKS_GROUP_ID = 733; // league_3_unlocks (L3)
 const LEAGUE_SIDE_PANEL_L3_GROUP_ID = 736; // league_3_side_panel (L3)
 const LEAGUE_COMBAT_MASTERY_GROUP_ID = 311; // league_combat_mastery
@@ -246,15 +249,6 @@ const COMP_VIEW_RELICS = 7;
 // Close button for the tasks interface (user confirmed child 3)
 const COMP_TASKS_CLOSE_BUTTON = 3;
 
-function closeLeagueTutorialOverlay(player: PlayerState, services: ScriptServices): void {
-    const targetUid = getViewportTrackerFrontUid(player.displayMode);
-    services.dialog.closeSubInterface(player, targetUid, LEAGUE_TUTORIAL_MAIN_GROUP_ID);
-    services.dialog.queueWidgetEvent(player.id, {
-        action: "close_sub",
-        targetUid,
-    });
-}
-
 // ============================================================================
 // League tutorial UI highlights (screenhighlight / ui_highlights)
 // ============================================================================
@@ -308,6 +302,12 @@ type LeagueRelicIndexEntry = {
     relicStructId: number;
     tierPointsRequired: number;
     tierPassiveStructId: number;
+};
+
+type DbColumnValue = { values?: unknown[] };
+type DbRowLookup = { getColumn?: (col: number) => DbColumnValue | undefined };
+type DbRowLookupRepository = {
+    findRows?: (predicate: (row: DbRowLookup) => boolean) => DbRowLookup[];
 };
 
 const leagueRelicIndexCache: Map<number, LeagueRelicIndexEntry[]> = new Map();
@@ -575,10 +575,10 @@ function getLeagueAreaTeleportCoord(services: ScriptServices, regionId: number):
     const cached = leagueAreaTeleportCoordCache.get(normalized);
     if (cached !== undefined) return cached;
 
-    const db = services?.getDbRepository?.();
+    const db = services.data.getDbRepository() as DbRowLookupRepository | undefined;
     if (db?.findRows) {
         try {
-            const rows = db.findRows((row: { getColumn?: (col: number) => { values?: unknown[] } | undefined }) => {
+            const rows = db.findRows((row) => {
                 const col = row?.getColumn?.(DB_COL_REGION_DATA_REGION_ID);
                 const value = Array.isArray(col?.values) ? col.values[0] : undefined;
                 return value === normalized;
@@ -1171,6 +1171,10 @@ function queueWidgetFlagsRange(
     });
 }
 
+function queueStaticWidgetOp1(player: PlayerState, services: ScriptServices, uid: number): void {
+    queueWidgetFlagsRange(player, services, uid, -1, -1, IF_SETEVENTS_TRANSMIT_OP1);
+}
+
 function ensureLeagueBasicsInitialized(player: PlayerState, services: ScriptServices): void {
     // League interfaces depend on these varbits being set; initialize on demand for older saves.
     const leagueType = player.varps.getVarbitValue?.(VARBIT_LEAGUE_TYPE) ?? 0;
@@ -1335,6 +1339,11 @@ export function registerLeagueWidgetHandlers(registry: IScriptRegistry, services
             varps: getLeagueVarpsForPlayer(player),
             varbits: getLeagueVarbits(player),
         });
+        queueStaticWidgetOp1(
+            player,
+            services,
+            ((LEAGUE_TASKS_GROUP_ID & 0xffff) << 16) | (COMP_TASKS_CLOSE_BUTTON & 0xffff),
+        );
 
         // Clear Tasks button highlight and add close button highlight (progression happens on close)
         if (tutorial === 5) {
@@ -1549,25 +1558,24 @@ export function registerLeagueWidgetHandlers(registry: IScriptRegistry, services
                 toSlot,
                 IF_SETEVENTS_TRANSMIT_OP1,
             );
+            queueStaticWidgetOp1(
+                event.player,
+                services,
+                (LEAGUE_RELICS_GROUP_ID << 16) | L5_RELIC_CLOSE_BUTTON_CHILD,
+            );
             // Confirm must transmit to the server (selection is server-authoritative).
             // Use set_flags_range with [-1,-1] so it works even if the interface isn't loaded yet.
             // Static widgets have childIndex=-1 in the client (Widget constructor).
-            queueWidgetFlagsRange(
+            queueStaticWidgetOp1(
                 event.player,
                 services,
                 (LEAGUE_RELICS_GROUP_ID << 16) | L5_RELIC_CONFIRM_BUTTON_CHILD,
-                -1,
-                -1,
-                IF_SETEVENTS_TRANSMIT_OP1,
             );
             // Cancel button should also be clickable
-            queueWidgetFlagsRange(
+            queueStaticWidgetOp1(
                 event.player,
                 services,
                 (LEAGUE_RELICS_GROUP_ID << 16) | L5_RELIC_CANCEL_BUTTON_CHILD,
-                -1,
-                -1,
-                IF_SETEVENTS_TRANSMIT_OP1,
             );
         }
 
@@ -1627,6 +1635,11 @@ export function registerLeagueWidgetHandlers(registry: IScriptRegistry, services
             varps: getLeagueVarpsForPlayer(player),
             varbits: getLeagueVarbits(player),
         });
+        queueStaticWidgetOp1(player, services, uidForTrailblazerAreas(COMP_AREAS_CLOSE_BUTTON));
+        queueStaticWidgetOp1(player, services, uidForTrailblazerAreas(COMP_SELECT_BUTTON));
+        queueStaticWidgetOp1(player, services, uidForTrailblazerAreas(COMP_SELECT_BACK));
+        queueStaticWidgetOp1(player, services, uidForTrailblazerAreas(COMP_AREAS_CONFIRM_BUTTON));
+        queueStaticWidgetOp1(player, services, uidForTrailblazerAreas(COMP_AREAS_CANCEL_BUTTON));
 
         // Clear Areas button highlight and add Karamja shield highlight
         if (needsKaramjaHighlight) {
@@ -2869,6 +2882,11 @@ export function registerLeagueWidgetHandlers(registry: IScriptRegistry, services
             varps: getLeagueVarpsForPlayer(player),
             varbits: getLeagueVarbits(player),
         });
+        queueStaticWidgetOp1(
+            player,
+            services,
+            ((LEAGUE_TASKS_GROUP_ID & 0xffff) << 16) | (COMP_TASKS_CLOSE_BUTTON & 0xffff),
+        );
 
         // Clear Tasks button highlight and add close button highlight (progression happens on close via onInterfaceClose hook)
         if (tutorial === 5) {
@@ -3025,21 +3043,20 @@ export function registerLeagueWidgetHandlers(registry: IScriptRegistry, services
                 toSlot,
                 IF_SETEVENTS_TRANSMIT_OP1,
             );
-            queueWidgetFlagsRange(
+            queueStaticWidgetOp1(
+                player,
+                services,
+                (LEAGUE_RELICS_GROUP_ID << 16) | L5_RELIC_CLOSE_BUTTON_CHILD,
+            );
+            queueStaticWidgetOp1(
                 player,
                 services,
                 (LEAGUE_RELICS_GROUP_ID << 16) | L5_RELIC_CONFIRM_BUTTON_CHILD,
-                -1,
-                -1,
-                IF_SETEVENTS_TRANSMIT_OP1,
             );
-            queueWidgetFlagsRange(
+            queueStaticWidgetOp1(
                 player,
                 services,
                 (LEAGUE_RELICS_GROUP_ID << 16) | L5_RELIC_CANCEL_BUTTON_CHILD,
-                -1,
-                -1,
-                IF_SETEVENTS_TRANSMIT_OP1,
             );
         }
     });
