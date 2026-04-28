@@ -1,4 +1,5 @@
 {
     "serverName": "Your Server Name",
-    "maxPlayers": 2047
+    "maxPlayers": 2047,
+    "gamemode": "leagues-v"
 }
