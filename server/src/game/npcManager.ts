@@ -177,8 +177,6 @@ export class NpcManager {
         number,
         { despawnTick: number; respawnTick: number; pendingDrops?: PendingNpcDrop[] }
     >();
-    private npcCombatStats?: Record<string, any>;
-
     // Boss scripts for NPCs with complex combat behaviors
     private readonly bossScripts = new Map<number, BossScript>();
 
@@ -349,8 +347,7 @@ export class NpcManager {
 
         // Prefer server-side NPC combat stats (OSRS source of truth) when available.
         // This avoids guessing HP from combat level.
-        this.loadNpcCombatStats();
-        const stats = this.npcCombatStats?.[String(npcType.id)];
+        const stats = getNpcCombatStats(npcType.id);
         const statsHp = stats?.hitpoints;
         if (statsHp !== undefined && Number.isFinite(statsHp) && statsHp > 0) {
             return statsHp;
@@ -367,19 +364,6 @@ export class NpcManager {
             return Math.max(1, Math.round(combat * 3));
         }
         return 10;
-    }
-
-    private loadNpcCombatStats(): void {
-        if (this.npcCombatStats) return;
-        try {
-            const filePath = path.resolve(__dirname, "../../../data/npc-combat-stats.json");
-            const json = fs.readFileSync(filePath, "utf8");
-            const data = JSON.parse(json);
-            this.npcCombatStats = data?.npcs ?? {};
-        } catch (err) {
-            logger.warn("[NpcManager] failed to load npc-combat-stats.json", err);
-            this.npcCombatStats = {};
-        }
     }
 
     /**
