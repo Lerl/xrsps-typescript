@@ -269,9 +269,9 @@ export class LeagueTaskManager {
                 this.services.queueVarbit(playerId, v.id, v.value);
             }
 
-            // Queue notification
-            if (result.notification) {
-                this.services.queueNotification(playerId, result.notification);
+            const notifications = result.notifications ?? (result.notification ? [result.notification] : []);
+            for (const notification of notifications) {
+                this.services.queueNotification(playerId, notification);
             }
 
             logger.info(
@@ -308,8 +308,9 @@ export class LeagueTaskManager {
                 this.services.queueVarbit(playerId, v.id, v.value);
             }
 
-            if (result.notification) {
-                this.services.queueNotification(playerId, result.notification);
+            const notifications = result.notifications ?? (result.notification ? [result.notification] : []);
+            for (const notification of notifications) {
+                this.services.queueNotification(playerId, notification);
             }
 
             logger.info(

@@ -597,7 +597,12 @@ export class ServerBinaryEncoder {
         return this.buffer.toPacket(ServerPacketId.WIDGET_SET_FLAGS_RANGE);
     }
 
-    encodeWidgetRunScript(scriptId: number, args: (number | string)[]): Uint8Array {
+    encodeWidgetRunScript(
+        scriptId: number,
+        args: (number | string)[],
+        varps?: Record<number, number>,
+        varbits?: Record<number, number>,
+    ): Uint8Array {
         this.buffer.reset();
         this.buffer.writeInt(scriptId);
         this.buffer.writeByte(args.length);
@@ -610,6 +615,16 @@ export class ServerBinaryEncoder {
                 this.buffer.writeString((arg as string) ?? "");
             }
         }
+        const writeVars = (vars?: Record<number, number>) => {
+            const entries = vars ? Object.entries(vars) : [];
+            this.buffer.writeShort(entries.length);
+            for (const [id, value] of entries) {
+                this.buffer.writeInt(Number(id) | 0);
+                this.buffer.writeInt(Number(value) | 0);
+            }
+        };
+        writeVars(varps);
+        writeVars(varbits);
         return this.buffer.toPacket(ServerPacketId.WIDGET_RUN_SCRIPT);
     }
 

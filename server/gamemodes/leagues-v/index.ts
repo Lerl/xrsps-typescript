@@ -49,6 +49,7 @@ import { getLeagueSkillXpMultiplier } from "./leagueXp";
 import { getActiveLeagueType, getTutorialCompleteStep, isLeagueWorld } from "./playerWorldRules";
 import { registerLeagueTutorHandlers } from "./scripts/leagueTutor";
 import { registerLeagueWidgetHandlers } from "./scripts/leagueWidgets";
+import { handleLeagueTutorialHintResume } from "./scripts/leagueTutorialHints";
 import { registerLeagueTutorialWidgetHandlers } from "./scripts/leagueTutorialWidgets";
 
 const TUTORIAL_SPAWN = { x: 3094, y: 3107, level: 0 };
@@ -284,8 +285,10 @@ export class LeaguesVGamemode extends VanillaGamemode {
                     for (const v of result.varbitUpdates) {
                         this.initBridge.queueVarbit(player.id, v.id, v.value);
                     }
-                    if (result.notification) {
-                        this.initBridge.queueNotification(player.id, result.notification);
+                    const notifications =
+                        result.notifications ?? (result.notification ? [result.notification] : []);
+                    for (const notification of notifications) {
+                        this.initBridge.queueNotification(player.id, notification);
                     }
                 }
             } catch {}
@@ -319,6 +322,19 @@ export class LeaguesVGamemode extends VanillaGamemode {
         if (groupId === LEAGUE_SUMMARY_GROUP_ID) {
             this.leagueSummary?.syncPlayer(player, Date.now(), true);
         }
+    }
+
+    override onResumePauseButton(player: PlayerState, widgetId: number, childIndex: number): boolean {
+        void childIndex;
+        if (!this.uiBridge) return false;
+        return handleLeagueTutorialHintResume(
+            player,
+            {
+                queueWidgetEvent: (playerId, action) =>
+                    this.uiBridge?.queueWidgetEvent(playerId, action as any),
+            },
+            widgetId,
+        );
     }
 
     // === Display ===

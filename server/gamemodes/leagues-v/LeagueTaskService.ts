@@ -1,6 +1,12 @@
 import { LEAGUE_TASK_COMPLETION_VARPS } from "./data/leagueTaskVarps";
 import { getLeagueTaskByTaskId } from "./data/leagueTaskLookup";
 import {
+    VARBIT_LEAGUE_AREA_SELECTION_0,
+    VARBIT_LEAGUE_AREA_SELECTION_1,
+    VARBIT_LEAGUE_AREA_SELECTION_2,
+    VARBIT_LEAGUE_AREA_SELECTION_3,
+    VARBIT_LEAGUE_AREA_SELECTION_4,
+    VARBIT_LEAGUE_AREA_SELECTION_5,
     VARBIT_LEAGUE_TOTAL_TASKS_COMPLETED,
     VARP_LEAGUE_POINTS_CLAIMED,
     VARP_LEAGUE_POINTS_COMPLETED,
@@ -14,6 +20,16 @@ import {
  * (for client synchronization) since the client expects varbit data packed in varps.
  */
 const VARP_LEAGUE_TASK_COUNT = 2612;
+// Cache enum_5677 -> structs 5971..5975 param_1010 in osrs-237.
+const LEAGUE_AREA_UNLOCK_TASK_REQUIREMENTS = [0, 1, 90, 200, 400] as const;
+const LEAGUE_AREA_SELECTION_VARBITS = [
+    VARBIT_LEAGUE_AREA_SELECTION_0,
+    VARBIT_LEAGUE_AREA_SELECTION_1,
+    VARBIT_LEAGUE_AREA_SELECTION_2,
+    VARBIT_LEAGUE_AREA_SELECTION_3,
+    VARBIT_LEAGUE_AREA_SELECTION_4,
+    VARBIT_LEAGUE_AREA_SELECTION_5,
+] as const;
 
 export type LeagueTaskNotification = {
     kind: "league_task";
@@ -27,6 +43,7 @@ export type LeagueTaskAwardResult = {
     varpUpdates: Array<{ id: number; value: number }>;
     varbitUpdates: Array<{ id: number; value: number }>;
     notification?: LeagueTaskNotification;
+    notifications?: LeagueTaskNotification[];
 };
 
 export type LeagueTaskPlayer = {
@@ -84,6 +101,28 @@ export function setChallengeProgress(player: LeagueTaskPlayer, customIndex: numb
     } else {
         map.delete(key);
     }
+}
+
+function getNewAreaAvailableNotification(
+    player: LeagueTaskPlayer,
+    previousTaskCount: number,
+    nextTaskCount: number,
+): LeagueTaskNotification | undefined {
+    for (let stage = 1; stage < LEAGUE_AREA_UNLOCK_TASK_REQUIREMENTS.length; stage++) {
+        const tasksRequired = LEAGUE_AREA_UNLOCK_TASK_REQUIREMENTS[stage];
+        if (previousTaskCount >= tasksRequired || nextTaskCount < tasksRequired) continue;
+
+        const slotVarbitId = LEAGUE_AREA_SELECTION_VARBITS[stage];
+        if ((player.varps.getVarbitValue(slotVarbitId) ?? 0) !== 0) continue;
+
+        return {
+            kind: "league_task",
+            title: "New Area Available!",
+            message: "You have a new area available for selection!",
+            durationMs: 3000,
+        };
+    }
+    return undefined;
 }
 
 function getLeagueTaskBitfield(taskId: number): { varpId: number; mask: number } {
@@ -175,7 +214,16 @@ export class LeagueTaskService {
             message: `${name}<br><br><col=ffffff>+${points} League Points</col>`,
             durationMs: 3000,
         };
+        const notifications = [notification];
+        const areaNotification = getNewAreaAvailableNotification(
+            player,
+            prevTotalTasks,
+            nextTotalTasks,
+        );
+        if (areaNotification) {
+            notifications.push(areaNotification);
+        }
 
-        return { changed: true, varpUpdates, varbitUpdates, notification };
+        return { changed: true, varpUpdates, varbitUpdates, notification, notifications };
     }
 }

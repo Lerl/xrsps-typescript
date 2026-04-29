@@ -2563,6 +2563,16 @@ export class OsrsClient {
                 const scriptId = Number(payload.scriptId) | 0;
                 const args = payload.args;
                 if (scriptId > 0 && this.cs2Vm && Array.isArray(args)) {
+                    if (
+                        (scriptId === 2463 || scriptId === 2465) &&
+                        this.widgetManager?.meslayerContinueWidget
+                    ) {
+                        this.widgetManager.invalidateWidgetRender(
+                            this.widgetManager.meslayerContinueWidget,
+                            "tutorial-highlight-resume",
+                        );
+                        this.widgetManager.meslayerContinueWidget = null;
+                    }
                     console.log(`[OsrsClient] run_script: scriptId=${scriptId}, args=`, args);
                     // Apply varps/varbits BEFORE running the script so it can read them
                     if (this.varManager) {
@@ -4447,6 +4457,14 @@ export class OsrsClient {
             meslayerBeforeAction === null &&
             (this.widgetManager?.meslayerContinueWidget ?? null) !== null;
         if (resumePauseTriggeredByHandler) {
+            return;
+        }
+
+        if ((event.widget?.uid | 0) === ((664 << 16) | 32)) {
+            const pkt = createPacket(ClientPacketId.RESUME_PAUSEBUTTON);
+            pkt.packetBuffer.writeShortAddLE(-1);
+            pkt.packetBuffer.writeInt((664 << 16) | 32);
+            queuePacket(pkt);
             return;
         }
 

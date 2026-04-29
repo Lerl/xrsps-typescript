@@ -883,12 +883,26 @@ export function decodeServerPacket(data: Uint8Array | ArrayBuffer): DecodedServe
                     args.push(reader.readInt());
                 }
             }
+            const readVars = (): Record<number, number> | undefined => {
+                if (reader.remaining < 2) return undefined;
+                const count = reader.readShort();
+                if (count <= 0) return undefined;
+                const vars: Record<number, number> = {};
+                for (let i = 0; i < count && reader.remaining >= 8; i++) {
+                    vars[reader.readInt()] = reader.readInt();
+                }
+                return vars;
+            };
+            const varps = readVars();
+            const varbits = readVars();
             return {
                 type: "widget",
                 payload: {
                     action: "run_script",
                     scriptId,
                     args,
+                    varps,
+                    varbits,
                 },
             };
         }

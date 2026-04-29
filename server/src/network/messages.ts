@@ -1028,7 +1028,12 @@ function encodeWidgetToBinary(payload: WidgetServerPayload): Uint8Array {
                 payload.flags,
             );
         case "run_script":
-            return serverEncoder.encodeWidgetRunScript(payload.scriptId, payload.args ?? []);
+            return serverEncoder.encodeWidgetRunScript(
+                payload.scriptId,
+                payload.args ?? [],
+                payload.varps,
+                payload.varbits,
+            );
         case "set_flags":
             return serverEncoder.encodeWidgetSetFlags(payload.uid, payload.flags);
         case "set_animation":

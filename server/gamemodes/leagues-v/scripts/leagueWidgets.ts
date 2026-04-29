@@ -63,6 +63,11 @@ import {
     closeLeagueTutorialOverlay,
     LEAGUE_TUTORIAL_MAIN_GROUP_ID,
 } from "./leagueTutorialOverlay";
+import {
+    closeLeagueTutorialHints,
+    registerLeagueTutorialHintWidgetHandlers,
+    startLeagueTutorialHints,
+} from "./leagueTutorialHints";
 
 export type LeagueWsUiPlayer = {
     id: number;
@@ -268,7 +273,6 @@ const UI_HIGHLIGHT_ID_KARAMJA_SHIELD = 2;
 const UI_HIGHLIGHT_ID_UNLOCK_BUTTON = 3;
 const UI_HIGHLIGHT_ID_RELICS_BUTTON = 4;
 const UI_HIGHLIGHT_ID_RELICS_CLOSE_BUTTON = 5;
-const UI_HIGHLIGHT_ID_TASKS_CLOSE_BUTTON = 6;
 // Tier 0 relics highlight IDs (one per relic in the first column, typically 3)
 const UI_HIGHLIGHT_ID_TIER0_RELIC_BASE = 7; // IDs 7, 8, 9, ... for each tier 0 relic
 const UI_HIGHLIGHT_ID_AREAS_CLOSE_BUTTON = 17;
@@ -1260,6 +1264,7 @@ function ensureLeagueAreaSelectionsInitialized(player: PlayerState, services: Sc
 
 export function registerLeagueWidgetHandlers(registry: IScriptRegistry, services: ScriptServices): void {
     console.log("[leagueWidgets] Registering league widget handlers (pure CS2 approach)");
+    registerLeagueTutorialHintWidgetHandlers(registry, services);
 
     // ========== League 5 Side Panel (656) ==========
 
@@ -1345,26 +1350,13 @@ export function registerLeagueWidgetHandlers(registry: IScriptRegistry, services
             ((LEAGUE_TASKS_GROUP_ID & 0xffff) << 16) | (COMP_TASKS_CLOSE_BUTTON & 0xffff),
         );
 
-        // Clear Tasks button highlight and add close button highlight (progression happens on close)
+        // Clear the side-panel Tasks button highlight; the screenhighlight flow handles in-window hints.
         if (tutorial === 5) {
+            startLeagueTutorialHints(player, services, "tasks");
             services.dialog.queueWidgetEvent(player.id, {
                 action: "run_script",
                 scriptId: SCRIPT_UI_HIGHLIGHT_CLEAR,
                 args: [UI_HIGHLIGHT_KIND_LEAGUE_TUTORIAL, UI_HIGHLIGHT_ID_TASKS_BUTTON],
-            });
-            const tasksCloseButtonUid =
-                ((LEAGUE_TASKS_GROUP_ID & 0xffff) << 16) | (COMP_TASKS_CLOSE_BUTTON & 0xffff);
-            services.dialog.queueWidgetEvent(player.id, {
-                action: "run_script",
-                scriptId: SCRIPT_UI_HIGHLIGHT,
-                args: [
-                    UI_HIGHLIGHT_KIND_LEAGUE_TUTORIAL,
-                    UI_HIGHLIGHT_ID_TASKS_CLOSE_BUTTON,
-                    tasksCloseButtonUid,
-                    -1,
-                    UI_HIGHLIGHT_STYLE_DEFAULT,
-                    0,
-                ],
             });
         }
     });
@@ -1377,15 +1369,7 @@ export function registerLeagueWidgetHandlers(registry: IScriptRegistry, services
             const leagueType = player.varps.getVarbitValue?.(VARBIT_LEAGUE_TYPE) ?? 0;
 
             if (tutorial === 5) {
-                // Clear the tasks close button highlight
-                services.dialog.queueWidgetEvent(player.id, {
-                    action: "run_script",
-                    scriptId: SCRIPT_UI_HIGHLIGHT_CLEAR,
-                    args: [
-                        UI_HIGHLIGHT_KIND_LEAGUE_TUTORIAL,
-                        UI_HIGHLIGHT_ID_TASKS_CLOSE_BUTTON,
-                    ],
-                });
+                closeLeagueTutorialHints(player, services);
 
                 if (leagueType === 3) {
                     // L3 tutorial: Tasks (5) -> Unlocks (8)
@@ -1456,6 +1440,7 @@ export function registerLeagueWidgetHandlers(registry: IScriptRegistry, services
         });
 
         interfaceService.onInterfaceClose(LEAGUE_AREAS_GROUP_ID, (player) => {
+            closeLeagueTutorialHints(player, services);
             handleLeagueAreasTutorialCloseViaWidgetClose(
                 player as unknown as LeagueWsUiPlayer,
                 getLeagueWidgetUiBridge(player, services),
@@ -1468,6 +1453,7 @@ export function registerLeagueWidgetHandlers(registry: IScriptRegistry, services
 
             // Tutorial step 9 -> 11 when closing relics
             if (tutorial === 9) {
+                closeLeagueTutorialHints(player, services);
                 player.varps.setVarbitValue(VARBIT_LEAGUE_TUTORIAL_COMPLETED, 11);
                 syncLeagueGeneralVarpAndQueue(player, services);
                 services.variables.queueVarbit?.(player.id, VARBIT_LEAGUE_TUTORIAL_COMPLETED, 11);
@@ -1520,6 +1506,7 @@ export function registerLeagueWidgetHandlers(registry: IScriptRegistry, services
             // Close the tutorial modal while Relics is open
             // It will reopen when Relics closes (via close button handler or onInterfaceClose hook)
             closeLeagueTutorialOverlay(player, services);
+            startLeagueTutorialHints(player, services, "relics");
 
             // Clear the relics button highlight when opening
             services.dialog.queueWidgetEvent(player.id, {
@@ -1628,6 +1615,7 @@ export function registerLeagueWidgetHandlers(registry: IScriptRegistry, services
         // Karamja selection/close-gate steps. The modal will reopen when Areas closes.
         if (needsKaramjaHighlight || needsAreasCloseHighlight) {
             closeLeagueTutorialOverlay(player, services);
+            startLeagueTutorialHints(player, services, "areas");
         }
 
         // Open interface with varbits - CS2 onload handles the rest.
@@ -2888,26 +2876,12 @@ export function registerLeagueWidgetHandlers(registry: IScriptRegistry, services
             ((LEAGUE_TASKS_GROUP_ID & 0xffff) << 16) | (COMP_TASKS_CLOSE_BUTTON & 0xffff),
         );
 
-        // Clear Tasks button highlight and add close button highlight (progression happens on close via onInterfaceClose hook)
+        // Clear the side-panel Tasks button highlight; do not add a separate close-button ui_highlight.
         if (tutorial === 5) {
             services.dialog.queueWidgetEvent(player.id, {
                 action: "run_script",
                 scriptId: SCRIPT_UI_HIGHLIGHT_CLEAR,
                 args: [UI_HIGHLIGHT_KIND_LEAGUE_TUTORIAL, UI_HIGHLIGHT_ID_TASKS_BUTTON],
-            });
-            const tasksCloseButtonUid =
-                ((LEAGUE_TASKS_GROUP_ID & 0xffff) << 16) | (COMP_TASKS_CLOSE_BUTTON & 0xffff);
-            services.dialog.queueWidgetEvent(player.id, {
-                action: "run_script",
-                scriptId: SCRIPT_UI_HIGHLIGHT,
-                args: [
-                    UI_HIGHLIGHT_KIND_LEAGUE_TUTORIAL,
-                    UI_HIGHLIGHT_ID_TASKS_CLOSE_BUTTON,
-                    tasksCloseButtonUid,
-                    -1,
-                    UI_HIGHLIGHT_STYLE_DEFAULT,
-                    0,
-                ],
             });
         }
     });
