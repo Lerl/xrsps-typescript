@@ -50,7 +50,7 @@ export type WidgetAction =
       }
     | { action: "close_sub"; targetUid: number }
     | { action: "set_text"; uid: number; text: string }
-    | { action: "set_hidden"; uid: number; hidden: boolean }
+    | { action: "set_hidden"; uid: number; hidden: boolean; phase?: "close" }
     | { action: "set_item"; uid: number; itemId: number; quantity?: number }
     | { action: "set_npc_head"; uid: number; npcId: number }
     | { action: "set_flags"; uid: number; flags: number }
@@ -104,7 +104,7 @@ export function getDefaultInterfaces(
     options?: DesktopInterfaceOptions,
 ): InterfaceMount[] {
     if (displayMode === DisplayMode.MOBILE) {
-        return getMobileInterfaces();
+        return getMobileInterfaces(options);
     }
     return getDesktopInterfaces(displayMode, options);
 }
@@ -396,9 +396,14 @@ export class PlayerWidgetManager {
         return this.closeKeys(keysToClose, opts);
     }
 
-    closeModalInterfaces(opts: { silent?: boolean } = {}): WidgetEntry[] {
+    closeModalInterfaces(opts: { silent?: boolean; exceptGroupId?: number } = {}): WidgetEntry[] {
         const keys = Array.from(this.entries.values())
-            .filter((entry) => entry.modal)
+            .filter(
+                (entry) =>
+                    entry.modal &&
+                    (opts.exceptGroupId === undefined ||
+                        entry.groupId !== Math.trunc(opts.exceptGroupId)),
+            )
             .map((entry) => entry.key);
         if (keys.length === 0) return [];
         return this.closeKeys(keys, opts);

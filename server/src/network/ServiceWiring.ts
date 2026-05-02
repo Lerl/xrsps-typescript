@@ -134,10 +134,21 @@ export function registerMessageHandlers(svc: ServerServices, router: MessageRout
             svc.cs2ModalManager!.openIndexedMenu(player, request),
         openSubInterface: (player, targetUid, groupId, type = 0, opts) => {
             if (type === 0 || type === 1) {
+                const modal = opts?.modal ?? type === 0;
+                if (modal) {
+                    svc.interfaceService?.closeModalInterfaces(player, {
+                        exceptGroupId: groupId,
+                    });
+                }
                 player.widgets.open(groupId, {
                     targetUid,
                     type,
-                    modal: opts?.modal !== false,
+                    modal,
+                    varps: opts?.varps,
+                    varbits: opts?.varbits,
+                    hiddenUids: opts?.hiddenUids,
+                    preScripts: opts?.preScripts,
+                    postScripts: opts?.postScripts,
                 });
                 return;
             }
@@ -146,6 +157,11 @@ export function registerMessageHandlers(svc: ServerServices, router: MessageRout
                 targetUid,
                 groupId,
                 type,
+                varps: opts?.varps,
+                varbits: opts?.varbits,
+                hiddenUids: opts?.hiddenUids,
+                preScripts: opts?.preScripts,
+                postScripts: opts?.postScripts,
             });
         },
         openDialog: (player, request) =>
@@ -273,5 +289,4 @@ export function registerMessageHandlers(svc: ServerServices, router: MessageRout
 
     // More handlers will be added incrementally...
 }
-
 

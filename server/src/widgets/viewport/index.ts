@@ -1,4 +1,13 @@
 import { SIDE_JOURNAL_GROUP_ID } from "../../../../src/shared/ui/sideJournal";
+import {
+    getDesktopInterfaces,
+    getRemainingTabInterfaces as getDesktopRemainingTabInterfaces,
+} from "./desktop";
+import {
+    getMobileInterfaces,
+    getMobileQuestTabUid,
+    getMobileRemainingTabInterfaces,
+} from "./mobile";
 import type { ViewportEnumService } from "./ViewportEnumService";
 import { BaseComponentUids } from "./ViewportEnumService";
 
@@ -306,6 +315,22 @@ export function getInventoryTabUid(displayMode: DisplayMode): number {
 }
 
 /**
+ * Get the quest/side-journal tab container UID.
+ * Uses enum 1745 for mobile mapping when ViewportEnumService is available.
+ * @param displayMode The player's display mode
+ * @returns The widget UID to use as targetUid for IF_OPENSUB
+ */
+export function getQuestTabUid(displayMode: DisplayMode): number {
+    const rootId = getRootInterfaceId(displayMode);
+
+    if (displayMode === DisplayMode.MOBILE) {
+        return getMobileQuestTabUid();
+    }
+
+    return (rootId << 16) | getChildId(InterfaceDestination.QUEST, displayMode);
+}
+
+/**
  * Get the prayer tab container UID.
  * Uses enum 1745 for mobile mapping when ViewportEnumService is available.
  * @param displayMode The player's display mode
@@ -352,11 +377,24 @@ export function getSidemodalUid(displayMode: DisplayMode): number {
     return (rootId << 16) | ContainerChildIds.RESIZABLE.SIDEMODAL;
 }
 
+export function getRemainingTabInterfaces(displayMode: DisplayMode): InterfaceMount[] {
+    if (displayMode === DisplayMode.MOBILE) {
+        return getMobileRemainingTabInterfaces();
+    }
+    return getDesktopRemainingTabInterfaces(displayMode);
+}
+
 export {
     getDesktopInterfaces,
-    getRemainingTabInterfaces,
     TAB_INTERFACE_MAPPINGS,
     QUEST_TAB_INDEX,
     type DesktopInterfaceOptions,
 } from "./desktop";
-export { getMobileInterfaces, MobileVarbits, MobileContainers, MobileInterfaces } from "./mobile";
+export {
+    getMobileInterfaces,
+    getMobileRemainingTabInterfaces,
+    MobileVarbits,
+    MobileContainers,
+    MobileInterfaces,
+    type MobileInterfaceOptions,
+} from "./mobile";

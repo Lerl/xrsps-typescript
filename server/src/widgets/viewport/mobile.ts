@@ -1,7 +1,6 @@
 import { BaseComponentUids } from "./ViewportEnumService";
 import {
     DisplayMode,
-    InterfaceDestination,
     InterfaceMount,
     getBuffBarInitPostScripts,
     getRootInterfaceId,
@@ -92,6 +91,101 @@ export const HotkeyTabIndex = {
     MUSIC: 13,
 } as const;
 
+export interface MobileInterfaceOptions {
+    /**
+     * If true, only include the Quest tab (for gamemode tutorial mode).
+     * When tutorial completes, call openRemainingTabs() to show all tabs.
+     */
+    tutorialMode?: boolean;
+}
+
+const mobileTabMappings = [
+    {
+        groupId: 593,
+        baseUid: BaseComponentUids.TAB_COMBAT,
+        fallback: MobileContainers.TAB_COMBAT,
+        tabIndex: HotkeyTabIndex.COMBAT,
+    },
+    {
+        groupId: 320,
+        baseUid: BaseComponentUids.TAB_SKILLS,
+        fallback: MobileContainers.TAB_SKILLS,
+        tabIndex: HotkeyTabIndex.SKILLS,
+    },
+    {
+        groupId: 629,
+        baseUid: BaseComponentUids.TAB_QUEST,
+        fallback: MobileContainers.TAB_QUEST,
+        tabIndex: HotkeyTabIndex.QUEST,
+    },
+    {
+        groupId: 149,
+        baseUid: BaseComponentUids.TAB_INVENTORY,
+        fallback: MobileContainers.TAB_INVENTORY,
+        tabIndex: HotkeyTabIndex.INVENTORY,
+    },
+    {
+        groupId: 387,
+        baseUid: BaseComponentUids.TAB_EQUIPMENT,
+        fallback: MobileContainers.TAB_EQUIPMENT,
+        tabIndex: HotkeyTabIndex.EQUIPMENT,
+    },
+    {
+        groupId: 541,
+        baseUid: BaseComponentUids.TAB_PRAYER,
+        fallback: MobileContainers.TAB_PRAYER,
+        tabIndex: HotkeyTabIndex.PRAYER,
+    },
+    {
+        groupId: 218,
+        baseUid: BaseComponentUids.TAB_MAGIC,
+        fallback: MobileContainers.TAB_MAGIC,
+        tabIndex: HotkeyTabIndex.MAGIC,
+    },
+    {
+        groupId: 7,
+        baseUid: BaseComponentUids.TAB_CLAN,
+        fallback: MobileContainers.TAB_CLAN,
+        tabIndex: HotkeyTabIndex.CLAN,
+    },
+    {
+        groupId: 109,
+        baseUid: BaseComponentUids.TAB_ACCOUNT,
+        fallback: MobileContainers.TAB_ACCOUNT,
+        tabIndex: HotkeyTabIndex.ACCOUNT,
+    },
+    {
+        groupId: 429,
+        baseUid: BaseComponentUids.TAB_SOCIAL,
+        fallback: MobileContainers.TAB_SOCIAL,
+        tabIndex: HotkeyTabIndex.SOCIAL,
+    },
+    {
+        groupId: 182,
+        baseUid: BaseComponentUids.TAB_LOGOUT,
+        fallback: MobileContainers.TAB_LOGOUT,
+        tabIndex: HotkeyTabIndex.LOGOUT,
+    },
+    {
+        groupId: 116,
+        baseUid: BaseComponentUids.TAB_SETTINGS,
+        fallback: MobileContainers.TAB_SETTINGS,
+        tabIndex: HotkeyTabIndex.SETTINGS,
+    },
+    {
+        groupId: 216,
+        baseUid: BaseComponentUids.TAB_EMOTES,
+        fallback: MobileContainers.TAB_EMOTES,
+        tabIndex: HotkeyTabIndex.EMOTES,
+    },
+    {
+        groupId: 239,
+        baseUid: BaseComponentUids.TAB_MUSIC,
+        fallback: MobileContainers.TAB_MUSIC,
+        tabIndex: HotkeyTabIndex.MUSIC,
+    },
+] as const;
+
 /**
  * Get the mobile child ID for a base component, using enum service if available.
  * Falls back to hardcoded MobileContainers values when service is unavailable.
@@ -108,87 +202,14 @@ function getMobileChildId(baseUid: number, fallback: number): number {
  * Get default interfaces for mobile display mode (601 = toplevel_osm)
  * Uses enum 1745 for dynamic component lookups when ViewportEnumService is available.
  */
-export function getMobileInterfaces(): InterfaceMount[] {
+export function getMobileInterfaces(options?: MobileInterfaceOptions): InterfaceMount[] {
     const rootId = getRootInterfaceId(DisplayMode.MOBILE); // 601
     const interfaces: InterfaceMount[] = [];
 
-    // Mobile tab container mappings: base UIDs from 161, fallback child IDs from MobileContainers
-    // Enum 1745 maps 161:76-89 -> 601:116-129
-    const mobileTabMappings = [
-        {
-            groupId: InterfaceDestination.ATTACK.interfaceId,
-            baseUid: BaseComponentUids.TAB_COMBAT,
-            fallback: MobileContainers.TAB_COMBAT,
-        },
-        {
-            groupId: InterfaceDestination.SKILLS.interfaceId,
-            baseUid: BaseComponentUids.TAB_SKILLS,
-            fallback: MobileContainers.TAB_SKILLS,
-        },
-        {
-            groupId: InterfaceDestination.QUEST.interfaceId,
-            baseUid: BaseComponentUids.TAB_QUEST,
-            fallback: MobileContainers.TAB_QUEST,
-        },
-        {
-            groupId: InterfaceDestination.INVENTORY.interfaceId,
-            baseUid: BaseComponentUids.TAB_INVENTORY,
-            fallback: MobileContainers.TAB_INVENTORY,
-        },
-        {
-            groupId: InterfaceDestination.EQUIPMENT.interfaceId,
-            baseUid: BaseComponentUids.TAB_EQUIPMENT,
-            fallback: MobileContainers.TAB_EQUIPMENT,
-        },
-        {
-            groupId: InterfaceDestination.PRAYER.interfaceId,
-            baseUid: BaseComponentUids.TAB_PRAYER,
-            fallback: MobileContainers.TAB_PRAYER,
-        },
-        {
-            groupId: InterfaceDestination.MAGIC.interfaceId,
-            baseUid: BaseComponentUids.TAB_MAGIC,
-            fallback: MobileContainers.TAB_MAGIC,
-        },
-        {
-            groupId: InterfaceDestination.CLAN_CHAT.interfaceId,
-            baseUid: BaseComponentUids.TAB_CLAN,
-            fallback: MobileContainers.TAB_CLAN,
-        },
-        {
-            groupId: InterfaceDestination.ACCOUNT_MANAGEMENT.interfaceId,
-            baseUid: BaseComponentUids.TAB_ACCOUNT,
-            fallback: MobileContainers.TAB_ACCOUNT,
-        },
-        {
-            groupId: InterfaceDestination.SOCIAL.interfaceId,
-            baseUid: BaseComponentUids.TAB_SOCIAL,
-            fallback: MobileContainers.TAB_SOCIAL,
-        },
-        {
-            groupId: InterfaceDestination.LOG_OUT.interfaceId,
-            baseUid: BaseComponentUids.TAB_LOGOUT,
-            fallback: MobileContainers.TAB_LOGOUT,
-        },
-        {
-            groupId: InterfaceDestination.SETTINGS.interfaceId,
-            baseUid: BaseComponentUids.TAB_SETTINGS,
-            fallback: MobileContainers.TAB_SETTINGS,
-        },
-        {
-            groupId: InterfaceDestination.EMOTES.interfaceId,
-            baseUid: BaseComponentUids.TAB_EMOTES,
-            fallback: MobileContainers.TAB_EMOTES,
-        },
-        {
-            groupId: InterfaceDestination.MUSIC.interfaceId,
-            baseUid: BaseComponentUids.TAB_MUSIC,
-            fallback: MobileContainers.TAB_MUSIC,
-        },
-    ];
-
     for (const mapping of mobileTabMappings) {
-        if (mapping.groupId === -1) continue;
+        if (options?.tutorialMode && mapping.tabIndex !== HotkeyTabIndex.QUEST) {
+            continue;
+        }
         const childId = getMobileChildId(mapping.baseUid, mapping.fallback);
         interfaces.push({
             targetUid: (rootId << 16) | childId,
@@ -201,7 +222,7 @@ export function getMobileInterfaces(): InterfaceMount[] {
     interfaces.push({
         targetUid:
             (rootId << 16) | getMobileChildId(BaseComponentUids.CHATBOX, MobileContainers.CHATBOX),
-        groupId: InterfaceDestination.CHAT_BOX.interfaceId,
+        groupId: 162,
         type: 1,
     });
 
@@ -210,7 +231,7 @@ export function getMobileInterfaces(): InterfaceMount[] {
         targetUid:
             (rootId << 16) |
             getMobileChildId(BaseComponentUids.USERNAME, MobileContainers.USERNAME),
-        groupId: InterfaceDestination.USERNAME.interfaceId,
+        groupId: 163,
         type: 1,
     });
 
@@ -219,7 +240,7 @@ export function getMobileInterfaces(): InterfaceMount[] {
         targetUid:
             (rootId << 16) |
             getMobileChildId(BaseComponentUids.XP_DROPS, MobileContainers.XP_COUNTER),
-        groupId: InterfaceDestination.XP_COUNTER.interfaceId,
+        groupId: 122,
         type: 1,
     });
 
@@ -238,7 +259,7 @@ export function getMobileInterfaces(): InterfaceMount[] {
         targetUid:
             (rootId << 16) |
             getMobileChildId(BaseComponentUids.MINIMAP_ORBS, MobileContainers.MINIMAP_ORBS),
-        groupId: InterfaceDestination.MINI_MAP.interfaceId,
+        groupId: 160,
         type: 1,
     });
 
@@ -272,6 +293,31 @@ export function getMobileInterfaces(): InterfaceMount[] {
             [MobileVarbits.POPOUT_MOBILE_ENABLED]: 1,
         },
     });
+
+    return interfaces;
+}
+
+export function getMobileQuestTabUid(): number {
+    const rootId = getRootInterfaceId(DisplayMode.MOBILE);
+    return (
+        (rootId << 16) |
+        getMobileChildId(BaseComponentUids.TAB_QUEST, MobileContainers.TAB_QUEST)
+    );
+}
+
+export function getMobileRemainingTabInterfaces(): InterfaceMount[] {
+    const rootId = getRootInterfaceId(DisplayMode.MOBILE);
+    const interfaces: InterfaceMount[] = [];
+
+    for (const mapping of mobileTabMappings) {
+        if (mapping.tabIndex === HotkeyTabIndex.QUEST) continue;
+        const childId = getMobileChildId(mapping.baseUid, mapping.fallback);
+        interfaces.push({
+            targetUid: (rootId << 16) | childId,
+            groupId: mapping.groupId,
+            type: 1,
+        });
+    }
 
     return interfaces;
 }

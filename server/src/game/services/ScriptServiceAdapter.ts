@@ -336,9 +336,15 @@ export function buildScriptServices(deps: ScriptServiceAdapterDeps): ScriptServi
             closeInterruptibleInterfaces: (player) => deps.closeInterruptibleInterfaces(player),
             openSubInterface: (player, targetUid, groupId, type = 0, opts) => {
                 if (type === 0 || type === 1) {
+                    const modal = opts?.modal ?? type === 0;
+                    if (modal) {
+                        deps.interfaceService.closeModalInterfaces(player, {
+                            exceptGroupId: groupId,
+                        });
+                    }
                     player.widgets.open(groupId, {
                         targetUid, type,
-                        modal: opts?.modal !== false,
+                        modal,
                         varps: opts?.varps, varbits: opts?.varbits,
                         preScripts: opts?.preScripts, postScripts: opts?.postScripts,
                         hiddenUids: opts?.hiddenUids,

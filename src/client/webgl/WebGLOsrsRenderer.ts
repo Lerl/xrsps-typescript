@@ -3226,9 +3226,12 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
 
                                 // Skip empty layer roots from rendering
                                 const childCount = getChildCount(viewportRoot);
+                                const hasMountedInterface =
+                                    manager?.interfaceParents.has(viewportRoot.uid) === true;
                                 const hasVisualContent =
                                     viewportRoot.type !== 0 ||
                                     childCount > 0 ||
+                                    hasMountedInterface ||
                                     (typeof viewportRoot.spriteId === "number" &&
                                         viewportRoot.spriteId >= 0) ||
                                     (typeof viewportRoot.spriteId2 === "number" &&

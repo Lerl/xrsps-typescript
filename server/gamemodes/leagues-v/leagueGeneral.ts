@@ -24,10 +24,15 @@ function writeBits(base: number, startBit: number, endBitExclusive: number, valu
     return (base & ~mask) | ((normalized << startBit) & mask);
 }
 
-export function computeLeagueGeneralVarpFromPlayer(player: {
-    getVarpValue: (id: number) => number;
-    getVarbitValue: (id: number) => number;
-}): number {
+type LeagueGeneralVarpPlayer = {
+    varps: {
+        getVarpValue: (id: number) => number;
+        setVarpValue?: (id: number, value: number) => void;
+        getVarbitValue: (id: number) => number;
+    };
+};
+
+export function computeLeagueGeneralVarpFromPlayer(player: LeagueGeneralVarpPlayer): number {
     let v = player.varps.getVarpValue(VARP_LEAGUE_GENERAL);
     const leagueType = player.varps.getVarbitValue(VARBIT_LEAGUE_TYPE);
     const tutorial = player.varps.getVarbitValue(VARBIT_LEAGUE_TUTORIAL_COMPLETED);
@@ -41,15 +46,12 @@ export function computeLeagueGeneralVarpFromPlayer(player: {
     return v;
 }
 
-export function syncLeagueGeneralVarp(player: {
+export function syncLeagueGeneralVarp(player: LeagueGeneralVarpPlayer & {
     id: number;
-    getVarpValue: (id: number) => number;
-    setVarpValue: (id: number, value: number) => void;
-    getVarbitValue: (id: number) => number;
 }): { changed: boolean; value: number } {
     const next = computeLeagueGeneralVarpFromPlayer(player);
     const prev = player.varps.getVarpValue(VARP_LEAGUE_GENERAL);
     if (next === prev) return { changed: false, value: prev };
-    player.varps.setVarpValue(VARP_LEAGUE_GENERAL, next);
+    player.varps.setVarpValue?.(VARP_LEAGUE_GENERAL, next);
     return { changed: true, value: next };
 }

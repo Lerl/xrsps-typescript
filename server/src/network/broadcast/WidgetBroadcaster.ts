@@ -7,6 +7,14 @@ export interface WidgetBroadcasterServices {
     syncPostWidgetOpenState(playerId: number, action: WidgetAction): void;
 }
 
+function isClosePhaseWidgetAction(action: WidgetAction | undefined): boolean {
+    return (
+        action?.action === "close_sub" ||
+        action?.action === "close" ||
+        (action?.action === "set_hidden" && action.hidden === true && action.phase === "close")
+    );
+}
+
 /**
  * Broadcasts widget open/close events to players.
  *
@@ -31,8 +39,7 @@ export class WidgetBroadcaster implements BroadcastDomain {
         if (!frame.widgetEvents || frame.widgetEvents.length === 0) return;
 
         const closeEvents = frame.widgetEvents.filter(
-            (evt: { action?: WidgetAction }) =>
-                evt.action?.action === "close_sub" || evt.action?.action === "close",
+            (evt: { action?: WidgetAction }) => isClosePhaseWidgetAction(evt.action),
         );
         for (const evt of closeEvents) {
             const sock = ctx.getSocketByPlayerId(evt.playerId);
@@ -48,8 +55,7 @@ export class WidgetBroadcaster implements BroadcastDomain {
         if (!frame.widgetEvents || frame.widgetEvents.length === 0) return;
 
         const nonCloseEvents = frame.widgetEvents.filter(
-            (evt: { action?: WidgetAction }) =>
-                evt.action?.action !== "close_sub" && evt.action?.action !== "close",
+            (evt: { action?: WidgetAction }) => !isClosePhaseWidgetAction(evt.action),
         );
         for (const evt of nonCloseEvents) {
             const sock = ctx.getSocketByPlayerId(evt.playerId);

@@ -340,13 +340,11 @@ function getCurrentWidgetGroupId(ctx: HandlerContext): number {
     const eventCom = (ctx.eventContext?.componentId ?? -1) | 0;
     if (eventCom !== -1) return (eventCom >>> 16) & 0xffff;
 
-    return (
-        ctx.activeWidget?.groupId ??
-        (ctx.cs2Vm?.activeWidget as any)?.groupId ??
-        ctx.dotWidget?.groupId ??
-        (ctx.cs2Vm?.dotWidget as any)?.groupId ??
-        -1
-    );
+    // Top-level RUNCLIENTSCRIPT calls do not have an event component. During scripts like
+    // highlight_screen_component, cc_find can change the active widget to the target
+    // dynamic child; that must not become the script origin or mounted-parent walking
+    // will incorrectly switch to local interface coordinates.
+    return -1;
 }
 
 export function registerWidgetOps(handlers: HandlerMap): void {

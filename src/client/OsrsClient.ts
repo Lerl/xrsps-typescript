@@ -143,12 +143,6 @@ import { markWidgetInteractionDirty } from "../ui/widgets/WidgetInteraction";
 import {
     TRANSMIT_VARPS,
     VARBIT_COMBATLEVEL_TRANSMIT,
-    VARBIT_LEAGUE_AREA_SELECTION_0,
-    VARBIT_LEAGUE_AREA_SELECTION_1,
-    VARBIT_LEAGUE_AREA_SELECTION_2,
-    VARBIT_LEAGUE_AREA_SELECTION_3,
-    VARBIT_LEAGUE_AREA_SELECTION_4,
-    VARBIT_LEAGUE_AREA_SELECTION_5,
     VARBIT_LEAGUE_MAGIC_MASTERY,
     VARBIT_LEAGUE_MELEE_MASTERY,
     VARBIT_LEAGUE_RANGED_MASTERY,
@@ -160,8 +154,6 @@ import {
     VARBIT_LEAGUE_RELIC_6,
     VARBIT_LEAGUE_RELIC_7,
     VARBIT_LEAGUE_RELIC_8,
-    VARBIT_LEAGUE_TUTORIAL_COMPLETED,
-    VARBIT_LEAGUE_TYPE,
     VARBIT_STAMINA_ACTIVE,
     VARC_COMBAT_LEVEL,
     VARP_AREA_SOUNDS_VOLUME,
@@ -352,22 +344,9 @@ const VARBIT_ACCOUNT_TYPE = 1777;
 const VARBIT_POPOUT_OPEN = 13090;
 const VARBIT_POPOUT_PANEL_DESKTOP_DISABLED = 13982;
 const ACCOUNT_TYPE_MAIN = 0;
+const SCRIPT_HIGHLIGHT_SCREEN_COMPONENT = 2463;
+const SCRIPT_HIGHLIGHT_TEXTBOX_DEFAULT = 2465;
 
-// League areas/tutorial cache constants (group 512, scripts 8478/8484).
-const LEAGUE_AREAS_GROUP_ID = 512;
-const LEAGUE_AREAS_KARAMJA_REGION_ID = 2;
-const LEAGUE_AREAS_CHILD_KARAMJA_SHIELD = 46;
-const LEAGUE_AREAS_CHILD_CANCEL_BUTTON = 60;
-const LEAGUE_AREAS_CHILD_CONFIRM_BUTTON = 61;
-const LEAGUE_AREAS_CHILD_SELECT_BUTTON = 82;
-const LEAGUE_AREAS_CHILD_SELECT_BACK = 83;
-
-const SCRIPT_UI_HIGHLIGHT = 8478;
-const SCRIPT_UI_HIGHLIGHT_CLEAR = 8484;
-const UI_HIGHLIGHT_KIND_LEAGUE_TUTORIAL = 10;
-const UI_HIGHLIGHT_STYLE_DEFAULT = 7034;
-const UI_HIGHLIGHT_ID_KARAMJA_SHIELD = 2;
-const UI_HIGHLIGHT_ID_UNLOCK_BUTTON = 3;
 const ITEM_SPAWNER_SCROLLBAR_INIT_SCRIPT_ID = 31;
 const ITEM_SPAWNER_SCROLLBAR_RESIZE_SCRIPT_ID = 72;
 const ITEM_SPAWNER_SLOT_PITCH_Y = 44;
@@ -1763,15 +1742,6 @@ export class OsrsClient {
             // Callback for cc_resume_pausebutton / if_resume_pausebutton
             // Sends RESUME_PAUSEBUTTON packet to server for dialog continuation
             sendResumePauseButton: (widgetUid: number, childIndex: number) => {
-                // Only send if not already waiting for response
-                if (self.widgetManager?.meslayerContinueWidget !== null) {
-                    return;
-                }
-                const pkt = createPacket(ClientPacketId.RESUME_PAUSEBUTTON);
-                pkt.packetBuffer.writeShortAddLE(childIndex); // childIndex
-                pkt.packetBuffer.writeInt(widgetUid); // widgetId
-                queuePacket(pkt);
-                // Set meslayerContinueWidget to show "Please wait..."
                 let w = self.widgetManager?.getWidgetByUid(widgetUid);
                 if (
                     w &&
@@ -1781,6 +1751,18 @@ export class OsrsClient {
                 ) {
                     w = (w as any).children[childIndex] as any;
                 }
+                if (
+                    self.widgetManager &&
+                    !self.widgetManager.canSendResumePauseButton(w ?? null)
+                ) {
+                    return;
+                }
+
+                const pkt = createPacket(ClientPacketId.RESUME_PAUSEBUTTON);
+                pkt.packetBuffer.writeShortAddLE(childIndex); // childIndex
+                pkt.packetBuffer.writeInt(widgetUid); // widgetId
+                queuePacket(pkt);
+                // Set meslayerContinueWidget to show "Please wait..."
                 if (w && self.widgetManager) {
                     self.widgetManager.meslayerContinueWidget = w;
                     self.widgetManager.invalidateWidgetRender(w);
@@ -1905,46 +1887,63 @@ export class OsrsClient {
                     /*console.log(
                         `[runWidgetScript] Script ${scriptId} loaded`,
                     );*/
+                    const prevActiveWidget = this.cs2Vm.activeWidget;
+                    const prevDotWidget = this.cs2Vm.dotWidget;
+                    const prevComponentId = this.cs2Vm.eventContext.componentId;
+                    const prevComponentIndex = this.cs2Vm.eventContext.componentIndex;
                     this.cs2Vm.activeWidget = widget;
-                    const rawIntArgs: number[] = [];
-                    const stringArgs: string[] = [];
-                    for (let i = 1; i < triggerArgs.length; i++) {
-                        const arg = triggerArgs[i];
-                        if (typeof arg === "number") {
-                            rawIntArgs.push(arg);
-                        } else if (typeof arg === "string") {
-                            stringArgs.push(arg);
+                    this.cs2Vm.dotWidget = widget;
+                    this.cs2Vm.eventContext.componentId =
+                        widget?.fileId === -1 && typeof widget?.parentUid === "number"
+                            ? widget.parentUid
+                            : widget?.uid ?? -1;
+                    this.cs2Vm.eventContext.componentIndex = widget?.childIndex ?? -1;
+                    try {
+                        const rawIntArgs: number[] = [];
+                        const stringArgs: string[] = [];
+                        for (let i = 1; i < triggerArgs.length; i++) {
+                            const arg = triggerArgs[i];
+                            if (typeof arg === "number") {
+                                rawIntArgs.push(arg);
+                            } else if (typeof arg === "string") {
+                                stringArgs.push(arg);
+                            }
                         }
-                    }
-                    // Substitute magic args (like WIDGET_ID) with actual values
-                    const intArgs = substituteMagicArgs(rawIntArgs, widget);
-                    // Log tab-related scripts
-                    if (
-                        scriptId === 901 ||
-                        scriptId === 915 ||
-                        scriptId === 916 ||
-                        scriptId === 903 ||
-                        scriptId === 908 ||
-                        scriptId === 250 // music_init
-                    ) {
-                        console.log(
-                            `[runWidgetScript] TAB SCRIPT ${scriptId} widget=${widget.groupId}:${widget.fileId} intArgs=`,
-                            intArgs,
-                        );
-                    }
-                    // Debug music_init
-                    if (scriptId === 250) {
-                        console.log(
-                            `[MUSIC] dbRepository:`,
-                            !!(this.cs2Vm as any).context?.dbRepository,
-                        );
-                    }
-                    this.cs2Vm.run(script, intArgs, stringArgs);
-                    if (scriptId === 250) {
-                        console.log(
-                            `[MUSIC] After run, dbRowQuery.length:`,
-                            (this.cs2Vm as any).dbRowQuery?.length,
-                        );
+                        // Substitute magic args (like WIDGET_ID) with actual values
+                        const intArgs = substituteMagicArgs(rawIntArgs, widget);
+                        // Log tab-related scripts
+                        if (
+                            scriptId === 901 ||
+                            scriptId === 915 ||
+                            scriptId === 916 ||
+                            scriptId === 903 ||
+                            scriptId === 908 ||
+                            scriptId === 250 // music_init
+                        ) {
+                            console.log(
+                                `[runWidgetScript] TAB SCRIPT ${scriptId} widget=${widget.groupId}:${widget.fileId} intArgs=`,
+                                intArgs,
+                            );
+                        }
+                        // Debug music_init
+                        if (scriptId === 250) {
+                            console.log(
+                                `[MUSIC] dbRepository:`,
+                                !!(this.cs2Vm as any).context?.dbRepository,
+                            );
+                        }
+                        this.cs2Vm.run(script, intArgs, stringArgs);
+                        if (scriptId === 250) {
+                            console.log(
+                                `[MUSIC] After run, dbRowQuery.length:`,
+                                (this.cs2Vm as any).dbRowQuery?.length,
+                            );
+                        }
+                    } finally {
+                        this.cs2Vm.activeWidget = prevActiveWidget;
+                        this.cs2Vm.dotWidget = prevDotWidget;
+                        this.cs2Vm.eventContext.componentId = prevComponentId;
+                        this.cs2Vm.eventContext.componentIndex = prevComponentIndex;
                     }
                 } else {
                     console.warn(`[runWidgetScript] Script ${scriptId} not found in cache`);
@@ -2564,7 +2563,8 @@ export class OsrsClient {
                 const args = payload.args;
                 if (scriptId > 0 && this.cs2Vm && Array.isArray(args)) {
                     if (
-                        (scriptId === 2463 || scriptId === 2465) &&
+                        (scriptId === SCRIPT_HIGHLIGHT_SCREEN_COMPONENT ||
+                            scriptId === SCRIPT_HIGHLIGHT_TEXTBOX_DEFAULT) &&
                         this.widgetManager?.meslayerContinueWidget
                     ) {
                         this.widgetManager.invalidateWidgetRender(
@@ -2629,7 +2629,17 @@ export class OsrsClient {
                                 traceCfg.maxLines = traceCfg.maxLines ?? 2000;
                                 (globalThis as any).__cs2Trace = traceCfg;
                             }
-                            this.cs2Vm.run(script, intArgs, stringArgs);
+                            // RUNCLIENTSCRIPT has no event component context. Do not inherit
+                            // active/dot widgets left by previous UI event scripts; mounted
+                            // interface coordinate helpers depend on the current script group.
+                            this.cs2Vm.activeWidget = null;
+                            this.cs2Vm.dotWidget = null;
+                            try {
+                                this.cs2Vm.run(script, intArgs, stringArgs);
+                            } finally {
+                                this.cs2Vm.activeWidget = null;
+                                this.cs2Vm.dotWidget = null;
+                            }
                             if (shouldTrace && traceCfg) {
                                 traceCfg.enabled = prevTraceEnabled;
                                 traceCfg.scripts = prevTraceScripts;
@@ -4336,7 +4346,7 @@ export class OsrsClient {
 
             if (isPauseButtonWidget) {
                 // Only send if not already waiting for response
-                if (this.widgetManager?.meslayerContinueWidget === null) {
+                if (this.widgetManager?.canSendResumePauseButton(event.widget) ?? true) {
                     const widgetUid =
                         (typeof (event.widget as any).id === "number"
                             ? (event.widget as any).id
@@ -4458,20 +4468,6 @@ export class OsrsClient {
             (this.widgetManager?.meslayerContinueWidget ?? null) !== null;
         if (resumePauseTriggeredByHandler) {
             return;
-        }
-
-        if ((event.widget?.uid | 0) === ((664 << 16) | 32)) {
-            const pkt = createPacket(ClientPacketId.RESUME_PAUSEBUTTON);
-            pkt.packetBuffer.writeShortAddLE(-1);
-            pkt.packetBuffer.writeInt((664 << 16) | 32);
-            queuePacket(pkt);
-            return;
-        }
-
-        // widget onOp visuals happen client-side before packet handling.
-        // Keep the league tutorial area highlights in sync on the same click frame.
-        if (event.widget) {
-            this.applyLeagueAreaTutorialHighlightPrediction(event.widget);
         }
 
         // Withdraw-X and Deposit-X need to prompt for quantity
@@ -4598,13 +4594,25 @@ export class OsrsClient {
         }
 
         const prevActiveWidget = this.cs2Vm.activeWidget;
+        const prevDotWidget = this.cs2Vm.dotWidget;
+        const prevComponentId = this.cs2Vm.eventContext.componentId;
+        const prevComponentIndex = this.cs2Vm.eventContext.componentIndex;
         const widget = this.widgetManager.getWidgetByUid(widgetUid | 0) ?? null;
         this.cs2Vm.activeWidget = widget;
+        this.cs2Vm.dotWidget = widget;
+        this.cs2Vm.eventContext.componentId =
+            widget?.fileId === -1 && typeof widget?.parentUid === "number"
+                ? widget.parentUid
+                : widget?.uid ?? -1;
+        this.cs2Vm.eventContext.componentIndex = widget?.childIndex ?? -1;
         try {
             console.log(`[${phase}_script] Running script ${scriptId} on widget ${widgetUid}`);
             this.cs2Vm.run(script, this.substituteWidgetScriptMagicArgs(intArgs, widget), strArgs);
         } finally {
             this.cs2Vm.activeWidget = prevActiveWidget;
+            this.cs2Vm.dotWidget = prevDotWidget;
+            this.cs2Vm.eventContext.componentId = prevComponentId;
+            this.cs2Vm.eventContext.componentIndex = prevComponentIndex;
         }
     }
 
@@ -5019,95 +5027,6 @@ export class OsrsClient {
         return true;
     }
 
-    private isLeagueKaramjaUnlockedLocally(): boolean {
-        if (!this.varManager) return false;
-        const varbits = [
-            VARBIT_LEAGUE_AREA_SELECTION_0,
-            VARBIT_LEAGUE_AREA_SELECTION_1,
-            VARBIT_LEAGUE_AREA_SELECTION_2,
-            VARBIT_LEAGUE_AREA_SELECTION_3,
-            VARBIT_LEAGUE_AREA_SELECTION_4,
-            VARBIT_LEAGUE_AREA_SELECTION_5,
-        ];
-        for (const varbitId of varbits) {
-            const value = (this.varManager.getVarbit(varbitId) ?? 0) | 0;
-            if (value === LEAGUE_AREAS_KARAMJA_REGION_ID) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private applyLeagueAreaTutorialHighlightPrediction(widget: any): void {
-        if (!widget || !this.varManager || !this.cs2Vm) return;
-        const groupId = (widget.groupId ?? widget.uid >>> 16) | 0;
-        if ((groupId & 0xffff) !== LEAGUE_AREAS_GROUP_ID) return;
-
-        const childIdRaw =
-            typeof widget.fileId === "number" && (widget.fileId | 0) >= 0
-                ? widget.fileId | 0
-                : (widget.uid | 0) & 0xffff;
-        const childId = childIdRaw & 0xffff;
-        if (
-            childId !== LEAGUE_AREAS_CHILD_SELECT_BUTTON &&
-            childId !== LEAGUE_AREAS_CHILD_SELECT_BACK &&
-            childId !== LEAGUE_AREAS_CHILD_CANCEL_BUTTON
-        ) {
-            return;
-        }
-
-        const tutorialStep = (this.varManager.getVarbit(VARBIT_LEAGUE_TUTORIAL_COMPLETED) ?? 0) | 0;
-        if (tutorialStep !== 7) return;
-        if (this.isLeagueKaramjaUnlockedLocally()) return;
-
-        const uidForAreasChild = (componentId: number) =>
-            ((LEAGUE_AREAS_GROUP_ID & 0xffff) << 16) | (componentId & 0xffff);
-
-        const clearHighlight = (highlightId: number) => {
-            this.runClientScriptWithInts(SCRIPT_UI_HIGHLIGHT_CLEAR, [
-                UI_HIGHLIGHT_KIND_LEAGUE_TUTORIAL,
-                highlightId | 0,
-            ]);
-        };
-
-        const addHighlight = (highlightId: number, targetUid: number) => {
-            this.runClientScriptWithInts(SCRIPT_UI_HIGHLIGHT, [
-                UI_HIGHLIGHT_KIND_LEAGUE_TUTORIAL,
-                highlightId | 0,
-                targetUid | 0,
-                -1,
-                UI_HIGHLIGHT_STYLE_DEFAULT,
-                0,
-            ]);
-        };
-
-        if (childId === LEAGUE_AREAS_CHILD_SELECT_BUTTON) {
-            clearHighlight(UI_HIGHLIGHT_ID_KARAMJA_SHIELD);
-            addHighlight(
-                UI_HIGHLIGHT_ID_UNLOCK_BUTTON,
-                uidForAreasChild(LEAGUE_AREAS_CHILD_CONFIRM_BUTTON),
-            );
-            return;
-        }
-
-        if (childId === LEAGUE_AREAS_CHILD_CANCEL_BUTTON) {
-            clearHighlight(UI_HIGHLIGHT_ID_KARAMJA_SHIELD);
-            addHighlight(
-                UI_HIGHLIGHT_ID_UNLOCK_BUTTON,
-                uidForAreasChild(LEAGUE_AREAS_CHILD_SELECT_BUTTON),
-            );
-            return;
-        }
-
-        if (childId === LEAGUE_AREAS_CHILD_SELECT_BACK) {
-            clearHighlight(UI_HIGHLIGHT_ID_UNLOCK_BUTTON);
-            addHighlight(
-                UI_HIGHLIGHT_ID_KARAMJA_SHIELD,
-                uidForAreasChild(LEAGUE_AREAS_CHILD_KARAMJA_SHIELD),
-            );
-        }
-    }
-
     updateWidgets() {
         const widgetManager = this.widgetManager;
         if (!widgetManager) {
@@ -5195,6 +5114,7 @@ export class OsrsClient {
                         widget: node,
                         args: node.onTimer,
                     });
+                    (event as any).timerArgsSnapshot = node.onTimer;
                     this.queueScriptEvent(event, 1); // 1 = low priority (timer)
                 } else {
                     // Fallback to structured handler data (ints then strings).
@@ -5207,6 +5127,7 @@ export class OsrsClient {
                             widget: node,
                             args: [handler.scriptId, ...handler.intArgs, ...handlerObjectArgs],
                         });
+                        (event as any).timerArgsSnapshot = node.onTimer;
                         this.queueScriptEvent(event, 1); // 1 = low priority (timer)
                     }
                 }
@@ -5217,6 +5138,7 @@ export class OsrsClient {
                     widget: node,
                     args: node.onTimer,
                 });
+                (event as any).timerArgsSnapshot = node.onTimer;
                 this.queueScriptEvent(event, 1); // 1 = low priority (timer)
             }
 
@@ -6515,7 +6437,7 @@ export class OsrsClient {
                         // Pause button widgets send RESUME_PAUSEBUTTON - menu shows "Continue" with empty target
                         if (isPauseButtonWidget) {
                             // Only send if not already waiting for response
-                            if (!this.widgetManager?.meslayerContinueWidget) {
+                            if (this.widgetManager?.canSendResumePauseButton(w) ?? true) {
                                 const widgetUid =
                                     (typeof (w as any).id === "number"
                                         ? (w as any).id
@@ -6631,9 +6553,6 @@ export class OsrsClient {
                         if (handled) {
                             this.clickedWidgetHandled = true;
                         }
-
-                        // keep league tutorial area highlight transitions client-side on click.
-                        this.applyLeagueAreaTutorialHighlightPrediction(w);
 
                         // Only transmit widget ops to the server when the transmit flag is set
                         // for the action (IF_SETEVENTS / Client.widgetFlags).
@@ -7386,22 +7305,27 @@ export class OsrsClient {
      * Called once per game tick/frame
      */
     processScriptEvents() {
-        // Process in priority order: scriptEvents2 (timer/low), scriptEvents3 (release/medium), scriptEvents (normal)
-        // OSRS processes them in this order within the main loop
-
-        // PERF: Use for-loop + length reset instead of shift() which is O(n) per call
-        // Process normal priority events first
-        let events = this.scriptEvents;
+        // OSRS drains timerScriptEvents first, then deferredScriptEvents, then scriptEvents.
+        // Screenhighlight depends on this ordering: its timer pass keeps the target cutout
+        // and textbox in sync before later queued widget scripts run.
+        let events = this.scriptEvents2;
         for (let i = 0, len = events.length; i < len; i++) {
             const event = events[i];
-            // Check if widget is still valid before running
+            const timerArgsSnapshot = (event as any).timerArgsSnapshot;
+            if (
+                timerArgsSnapshot &&
+                event.widget &&
+                (event.widget as any).onTimer !== timerArgsSnapshot
+            ) {
+                continue;
+            }
             if (event.widget && this.isWidgetValid(event.widget)) {
                 this.cs2Vm.runScriptEvent(event);
             }
         }
-        this.scriptEvents = [];
+        this.scriptEvents2 = [];
 
-        // Process medium priority events (onRelease, onMouseLeave)
+        // Process medium priority events (onRelease, onMouseLeave).
         events = this.scriptEvents3;
         for (let i = 0, len = events.length; i < len; i++) {
             const event = events[i];
@@ -7411,15 +7335,15 @@ export class OsrsClient {
         }
         this.scriptEvents3 = [];
 
-        // Process low priority events (onTimer) last
-        events = this.scriptEvents2;
+        // Process normal priority events last.
+        events = this.scriptEvents;
         for (let i = 0, len = events.length; i < len; i++) {
             const event = events[i];
             if (event.widget && this.isWidgetValid(event.widget)) {
                 this.cs2Vm.runScriptEvent(event);
             }
         }
-        this.scriptEvents2 = [];
+        this.scriptEvents = [];
     }
 
     /**

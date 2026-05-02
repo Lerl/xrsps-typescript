@@ -6,7 +6,10 @@ import {
 import { type IScriptRegistry, type NpcInteractionEvent, type ScriptServices } from "../../../src/game/scripts/types";
 import { OwnedItemLocation } from "../../../src/game/items/playerItemOwnership";
 import type { PlayerState } from "../../../src/game/player";
-import { queueLeagueTutorialOverlayUi } from "./leagueWidgets";
+import {
+    createLeagueTutorialScriptBridge,
+    queueLeagueTutorialOverlayAndState,
+} from "./leagueTutorialUiState";
 
 const LEAGUE_TUTOR_NPC_ID = 315;
 const LEAGUE_TUTOR_NAME = "League Tutor";
@@ -16,7 +19,20 @@ const PARAM_LEAGUE_RELICS_ENUM = 878;
 const PARAM_LEAGUE_RELIC_REWARD_OBJ = 2049;
 const ECHO_TOOL_ITEM_IDS = new Set([25110, 25112, 25114, 25115, 25367, 25368, 25373, 25374]);
 
-function getTutorialCompleteStep(player: { getVarbitValue?: (id: number) => number }): number {
+type LeagueCacheEnumType = { keys?: number[]; intValues?: number[] };
+type LeagueCacheStructType = { params?: { get?: (paramId: number) => unknown } };
+
+function asLeagueCacheEnumType(value: unknown): LeagueCacheEnumType | undefined {
+    return value as LeagueCacheEnumType | undefined;
+}
+
+function asLeagueCacheStructType(value: unknown): LeagueCacheStructType | undefined {
+    return value as LeagueCacheStructType | undefined;
+}
+
+function getTutorialCompleteStep(player: {
+    varps: { getVarbitValue?: (id: number) => number };
+}): number {
     const leagueType = player.varps.getVarbitValue?.(VARBIT_LEAGUE_TYPE) ?? 0;
     return leagueType === 3 ? 14 : 12;
 }
@@ -83,30 +99,30 @@ function resolveTierOneRelicRewardItemId(player: PlayerState, services: ScriptSe
     const structLoader = services.data.getStructTypeLoader();
     if (!enumLoader?.load || !structLoader?.load) return undefined;
 
-    const leagueTypeEnum = enumLoader.load(ENUM_LEAGUE_TYPE_STRUCT);
+    const leagueTypeEnum = asLeagueCacheEnumType(enumLoader.load(ENUM_LEAGUE_TYPE_STRUCT));
     const leagueStructId = findEnumIntValue(leagueTypeEnum, leagueType);
     if (!(leagueStructId && leagueStructId > 0)) return undefined;
 
-    const leagueStruct = structLoader.load(leagueStructId);
-    const tierEnumId = leagueStruct?.params?.get(PARAM_LEAGUE_RELIC_TIER_ENUM) as
+    const leagueStruct = asLeagueCacheStructType(structLoader.load(leagueStructId));
+    const tierEnumId = leagueStruct?.params?.get?.(PARAM_LEAGUE_RELIC_TIER_ENUM) as
         | number
         | undefined;
     if (!(tierEnumId && tierEnumId > 0)) return undefined;
 
-    const tierEnum = enumLoader.load(tierEnumId);
+    const tierEnum = asLeagueCacheEnumType(enumLoader.load(tierEnumId));
     const tierOneStructId = findEnumIntValue(tierEnum, 0);
     if (!(tierOneStructId && tierOneStructId > 0)) return undefined;
 
-    const tierOneStruct = structLoader.load(tierOneStructId);
-    const relicEnumId = tierOneStruct?.params?.get(PARAM_LEAGUE_RELICS_ENUM) as number | undefined;
+    const tierOneStruct = asLeagueCacheStructType(structLoader.load(tierOneStructId));
+    const relicEnumId = tierOneStruct?.params?.get?.(PARAM_LEAGUE_RELICS_ENUM) as number | undefined;
     if (!(relicEnumId && relicEnumId > 0)) return undefined;
 
-    const relicEnum = enumLoader.load(relicEnumId);
+    const relicEnum = asLeagueCacheEnumType(enumLoader.load(relicEnumId));
     const relicStructId = findEnumIntValue(relicEnum, selectedRelicKey);
     if (!(relicStructId && relicStructId > 0)) return undefined;
 
-    const relicStruct = structLoader.load(relicStructId);
-    const rewardItemId = relicStruct?.params?.get(PARAM_LEAGUE_RELIC_REWARD_OBJ) as
+    const relicStruct = asLeagueCacheStructType(structLoader.load(relicStructId));
+    const rewardItemId = relicStruct?.params?.get?.(PARAM_LEAGUE_RELIC_REWARD_OBJ) as
         | number
         | undefined;
     if (!(rewardItemId && rewardItemId > 0)) return undefined;
@@ -239,27 +255,13 @@ export function registerLeagueTutorHandlers(registry: IScriptRegistry, services:
                             return;
                         }
 
-                        const canQueueOverlay =
-                            services.variables.queueVarp &&
-                            services.variables.queueVarbit;
-                        if (!canQueueOverlay) {
-                            openNpcDialog(`${convoId}_overlay_unavailable`, [
-                                "I can't reopen that interface right now.",
-                                "Try relogging if the tutorial panel is missing.",
-                            ]);
-                            return;
-                        }
-
-                        queueLeagueTutorialOverlayUi(
+                        queueLeagueTutorialOverlayAndState(
                             player,
+                            createLeagueTutorialScriptBridge(player, services),
                             {
-                                queueWidgetEvent: services.dialog.queueWidgetEvent,
-                                queueVarp: services.variables.queueVarp!,
-                                queueVarbit: services.variables.queueVarbit!,
-                                isWidgetGroupOpenInLedger: () => false,
+                                tutorialStep,
+                                queueFlashsideVarbitOnStep3: true,
                             },
-                            tutorialStep,
-                            { queueFlashsideVarbitOnStep3: true },
                         );
                         openNpcDialog(`${convoId}_overlay_done`, [
                             "I've reopened the tutorial panel for you.",

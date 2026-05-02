@@ -27,6 +27,15 @@ import type { GamemodeDefinition, GamemodeUiController } from "../game/gamemodes
 // Payload Interfaces
 // ============================================================================
 
+type OpenSubInterfaceOptions = {
+    modal?: boolean;
+    varps?: Record<number, number>;
+    varbits?: Record<number, number>;
+    preScripts?: Array<{ scriptId: number; args: (number | string)[] }>;
+    postScripts?: Array<{ scriptId: number; args: (number | string)[] }>;
+    hiddenUids?: number[];
+};
+
 interface TeleportActionRequest {
     x: number;
     y: number;
@@ -218,7 +227,7 @@ export interface MessageHandlerServices {
         targetUid: number,
         groupId: number,
         type?: number,
-        opts?: { modal?: boolean },
+        opts?: OpenSubInterfaceOptions,
     ) => void;
     openDialog?: (player: PlayerState, request: ScriptDialogRequest) => void;
     queueWidgetEvent: (playerId: number, event: WidgetAction) => void;

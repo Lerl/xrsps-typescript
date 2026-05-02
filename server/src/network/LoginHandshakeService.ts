@@ -483,7 +483,11 @@ export class LoginHandshakeService {
                             this.svc.gamemodeUi.applySideJournalUi(p);
                         }
                     }
-                    if (tutorialMode && !preStartMode) {
+                    if (
+                        tutorialMode &&
+                        !preStartMode &&
+                        this.svc.gamemodeUi.shouldActivateQuestTabOnLogin(p)
+                    ) {
                         this.svc.gamemodeUi.activateQuestTab(p.id);
                     }
                     if (p.account.accountStage >= 1 && this.svc.gamemode.isTutorialActive(p)) {

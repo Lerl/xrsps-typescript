@@ -46,14 +46,18 @@ export type LeagueTaskAwardResult = {
     notifications?: LeagueTaskNotification[];
 };
 
-export type LeagueTaskPlayer = {
+type LeagueTaskVarpState = {
     getVarpValue: (id: number) => number;
     setVarpValue: (id: number, value: number) => void;
     getVarbitValue: (id: number) => number;
     setVarbitValue: (id: number, value: number) => void;
+};
+
+export type LeagueTaskPlayer = {
+    varps: LeagueTaskVarpState;
     gamemodeState: Map<string, unknown>;
-    getChallengeProgress: (customIndex: number) => number;
-    setChallengeProgress: (customIndex: number, value: number) => void;
+    getChallengeProgress?: (customIndex: number) => number;
+    setChallengeProgress?: (customIndex: number, value: number) => void;
 };
 
 export function getTaskProgress(player: LeagueTaskPlayer, taskId: number): number {

@@ -223,6 +223,18 @@ export class InterfaceService {
         return this.getCurrentModal(player) === interfaceId;
     }
 
+    /**
+     * Close modal-style interfaces, including unscoped floater modals such as the skill guide.
+     */
+    closeModalInterfaces(
+        player: PlayerState,
+        options: { silent?: boolean; exceptGroupId?: number } = {},
+    ): WidgetEntry[] {
+        const closedEntries = player.widgets.closeModalInterfaces(options);
+        this.triggerCloseHooksForEntries(player, closedEntries);
+        return closedEntries;
+    }
+
     // =============== MODAL MANAGEMENT ===============
 
     /**
@@ -240,13 +252,7 @@ export class InterfaceService {
         data?: unknown,
         options?: { varps?: Record<number, number>; varbits?: Record<number, number> },
     ): void {
-        // Close existing modal if different
-        if (
-            this.getCurrentModal(player) !== undefined &&
-            this.getCurrentModal(player) !== interfaceId
-        ) {
-            this.closeModal(player);
-        }
+        this.closeModalInterfaces(player, { exceptGroupId: interfaceId });
 
         const mainmodalUid = getMainmodalUid(player.displayMode);
         player.widgets.open(interfaceId, {
@@ -716,6 +722,6 @@ export class InterfaceService {
         player.widgets.closeByScope("chatbox_modal", { silent: true });
         player.widgets.closeByScope("side_panel", { silent: true });
         player.widgets.closeByScope("sidemodal", { silent: true });
-        player.widgets.closeByScope("modal", { silent: true });
+        player.widgets.closeModalInterfaces({ silent: true });
     }
 }

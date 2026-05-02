@@ -28,9 +28,11 @@ type LeaguePackedVarpDef = {
 };
 
 export type LeaguePackedVarpPlayer = {
-    getVarbitValue: (id: number) => number;
-    getVarpValue: (id: number) => number;
-    setVarpValue: (id: number, value: number) => void;
+    varps: {
+        getVarbitValue: (id: number) => number;
+        getVarpValue: (id: number) => number;
+        setVarpValue: (id: number, value: number) => void;
+    };
 };
 
 // Cache-verified base varps for leagues state (rev 235).
@@ -94,7 +96,7 @@ function writeBits(base: number, startBit: number, endBit: number, value: number
 }
 
 function computePackedVarpValue(
-    player: Pick<LeaguePackedVarpPlayer, "getVarbitValue" | "getVarpValue">,
+    player: Pick<LeaguePackedVarpPlayer, "varps">,
     def: LeaguePackedVarpDef,
 ): number {
     let value = player.varps.getVarpValue(def.varpId);
@@ -110,7 +112,7 @@ function computePackedVarpValue(
 }
 
 export function getLeaguePackedVarpsForPlayer(
-    player: Pick<LeaguePackedVarpPlayer, "getVarbitValue" | "getVarpValue">,
+    player: Pick<LeaguePackedVarpPlayer, "varps">,
 ): Record<number, number> {
     const varps: Record<number, number> = {};
     for (const def of LEAGUE_PACKED_VARPS) {

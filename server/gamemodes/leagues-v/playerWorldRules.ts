@@ -7,8 +7,10 @@ import {
 } from "../../../src/shared/vars";
 
 export interface PlayerWorldRulesState {
-    getVarpValue: (id: number) => number;
-    getVarbitValue?: (id: number) => number;
+    varps: {
+        getVarpValue: (id: number) => number;
+        getVarbitValue?: (id: number) => number;
+    };
 }
 
 export function getActiveLeagueType(player: PlayerWorldRulesState | undefined): number {

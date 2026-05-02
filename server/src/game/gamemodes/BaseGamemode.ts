@@ -37,6 +37,10 @@ export class DefaultUiController implements GamemodeUiController {
 
     activateQuestTab(_playerId: number): void {}
 
+    shouldActivateQuestTabOnLogin(_player: PlayerState): boolean {
+        return true;
+    }
+
     getSideJournalBootstrapState(_player: PlayerState): {
         varps: Record<number, number>;
         varbits: Record<number, number>;

@@ -859,6 +859,44 @@ export class WidgetManager {
         return this.widgetByUid.get(uid);
     }
 
+    /**
+     * Return whether a RESUME_PAUSEBUTTON click should be sent now.
+     *
+     * meslayerContinueWidget is a one-click wait marker. It must only suppress
+     * duplicate clicks while the same visible widget is still waiting on a server
+     * response; stale references should not make later Continue buttons inert.
+     */
+    canSendResumePauseButton(widget?: WidgetNode | null): boolean {
+        const pending = this.meslayerContinueWidget;
+        if (!pending) return true;
+
+        if (widget && pending !== widget) {
+            this.invalidateWidgetRender(pending, "meslayer-stale-clear");
+            this.meslayerContinueWidget = null;
+            return true;
+        }
+
+        const pendingUid = pending.uid | 0;
+        const registered = this.widgetByUid.get(pendingUid);
+        if (registered !== pending || this.isEffectivelyHidden(pendingUid)) {
+            this.invalidateWidgetRender(pending, "meslayer-stale-clear");
+            this.meslayerContinueWidget = null;
+            return true;
+        }
+
+        const groupId = (pendingUid >>> 16) & 0xffff;
+        const mounted =
+            groupId === (this.rootInterface | 0) ||
+            this.groupToContainerUid.get(groupId) !== undefined;
+        if (!mounted) {
+            this.invalidateWidgetRender(pending, "meslayer-stale-clear");
+            this.meslayerContinueWidget = null;
+            return true;
+        }
+
+        return false;
+    }
+
     private isRuntimeChildNode(parentUid: number, child: WidgetNode | null | undefined): child is WidgetNode {
         if (!child || typeof child !== "object") {
             return false;

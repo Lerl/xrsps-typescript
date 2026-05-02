@@ -8,7 +8,8 @@ import { type IScriptRegistry, type ScriptServices, BaseComponentUids } from "..
  * Skill guide widget handlers - opens skill guide overlay when skill tab is clicked.
  *
  * Interface 320 = skills tab, Interface 214 = skill guide overlay.
- * Mounted on toplevel_osrs_stretch:floater (161:18) as type=overlay.
+ * Mounted on toplevel_osrs_stretch:floater (161:18) as type=overlay,
+ * but tracked as modal so it cannot stack with other interruptible interfaces.
  * Script 9340 populates titles/categories/detail list.
  */
 
@@ -70,6 +71,7 @@ export function registerSkillGuideWidgetHandlers(registry: IScriptRegistry, serv
             const floaterUid = BaseComponentUids.FLOATER_OVERLAY;
 
             services.dialog.openSubInterface(player, floaterUid, SKILL_GUIDE_GROUP_ID, 1, {
+                modal: true,
                 varbits: {
                     [VARBIT_SKILL_GUIDE_SUBSECTION]: 0,
                     [VARBIT_SKILL_GUIDE_SKILL]: skillVarbitValue,

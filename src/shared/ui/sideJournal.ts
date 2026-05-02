@@ -25,14 +25,15 @@ export const SIDE_JOURNAL_TAB_CONTAINER_UID = packWidgetUid(
 );
 
 export const SIDE_JOURNAL_LEAGUES_TAB = 4;
+export const SIDE_JOURNAL_QUEST_TAB = 1;
 
 // Side journal tab list widgets.
 export const SIDE_JOURNAL_SUMMARY_LIST_CHILD_ID = 2;
 export const SIDE_JOURNAL_QUEST_LIST_CHILD_ID = 10;
 export const SIDE_JOURNAL_TASK_LIST_CHILD_ID = 18;
 export const SIDE_JOURNAL_ADVENTURE_PATH_LIST_CHILD_ID = 26;
-// Side journal league tab widgets (used for league tutorial flashing behaviour).
-// These IDs come from cache component mappings.
+// Side journal league tab widgets.
+// `league_list` is the tab click/timer host; `tab_icon_5` is the visible icon.
 export const SIDE_JOURNAL_LEAGUE_LIST_CHILD_ID = 34; // side_journal:league_list
 export const SIDE_JOURNAL_LEAGUE_TAB_ICON_CHILD_ID = 42; // side_journal:tab_icon_5
 export const SIDE_JOURNAL_LEAGUE_LIST_UID = packWidgetUid(

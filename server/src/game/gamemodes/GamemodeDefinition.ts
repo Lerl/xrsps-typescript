@@ -23,6 +23,8 @@ export interface GamemodeUiController {
 
     activateQuestTab(playerId: number): void;
 
+    shouldActivateQuestTabOnLogin(player: PlayerState): boolean;
+
     getSideJournalBootstrapState(player: PlayerState): {
         varps: Record<number, number>;
         varbits: Record<number, number>;

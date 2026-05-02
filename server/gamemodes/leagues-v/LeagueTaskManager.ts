@@ -14,7 +14,15 @@ import {
 import { logger } from "../../src/utils/logger";
 import { LeagueTaskIndex, type ParsedChallenge, type ParsedTask } from "./LeagueTaskIndex";
 import { TriggerType } from "./triggers/TriggerTypes";
-import { type LeagueTaskPlayer, LeagueTaskService, clearTaskProgress, getTaskProgress, setTaskProgress } from "./LeagueTaskService";
+import {
+    type LeagueTaskPlayer,
+    LeagueTaskService,
+    clearTaskProgress,
+    getChallengeProgress,
+    getTaskProgress,
+    setChallengeProgress,
+    setTaskProgress,
+} from "./LeagueTaskService";
 import { syncLeaguePackedVarps } from "./leaguePackedVarps";
 
 export interface TaskManagerServices {
@@ -395,13 +403,13 @@ export class LeagueTaskManager {
             // Progress is stored in player.challengeProgress (persisted), NOT in the
             // completion varbit. The CS2 script treats varbit > 0 as "complete", so we must
             // keep the varbit at 0 until the full count is reached.
-            const currentProgress = player.getChallengeProgress(challenge.customIndex);
+            const currentProgress = getChallengeProgress(player, challenge.customIndex);
             if (currentProgress >= requiredCount) {
                 return;
             }
 
             const newProgress = currentProgress + 1;
-            player.setChallengeProgress(challenge.customIndex, newProgress);
+            setChallengeProgress(player, challenge.customIndex, newProgress);
 
             if (newProgress >= requiredCount) {
                 player.varps.setVarbitValue(varbitId, 1);

@@ -13,7 +13,6 @@ import { PlayerType } from "../../../src/rs/chat/PlayerType";
 import {
     FEATURE_FLAG_LEAGUES,
     MAP_FLAGS_LEAGUE_WORLD,
-    VARBIT_FLASHSIDE,
     VARBIT_LEAGUE_AREA_LAST_VIEWED,
     VARBIT_LEAGUE_AREA_SELECTION_0,
     VARBIT_LEAGUE_AREA_SELECTION_1,
@@ -51,6 +50,11 @@ import { registerLeagueTutorHandlers } from "./scripts/leagueTutor";
 import { registerLeagueWidgetHandlers } from "./scripts/leagueWidgets";
 import { handleLeagueTutorialHintResume } from "./scripts/leagueTutorialHints";
 import { registerLeagueTutorialWidgetHandlers } from "./scripts/leagueTutorialWidgets";
+import {
+    advanceLeagueTutorialToLeaguesPanel,
+    LEAGUE_TUTORIAL_STEP_WELCOME,
+    syncLeagueTutorialHandshakeState,
+} from "./scripts/leagueTutorialUiState";
 
 const TUTORIAL_SPAWN = { x: 3094, y: 3107, level: 0 };
 const VARP_LEAGUE_TASK_COUNT = 2612;
@@ -191,7 +195,7 @@ export class LeaguesVGamemode extends VanillaGamemode {
 
     isTutorialPreStart(player: PlayerState): boolean {
         const tutorialStep = player.varps.getVarbitValue?.(VARBIT_LEAGUE_TUTORIAL_COMPLETED) ?? 0;
-        return tutorialStep === 0;
+        return tutorialStep === LEAGUE_TUTORIAL_STEP_WELCOME;
     }
 
     override getSpawnLocation(_player: PlayerState): { x: number; y: number; level: number } {
@@ -216,12 +220,7 @@ export class LeaguesVGamemode extends VanillaGamemode {
         bridge.sendVarp(VARP_LEAGUE_GENERAL, leagueGeneral);
         bridge.sendVarbit(VARBIT_LEAGUE_TYPE, leagueType);
 
-        // Flash quest tab during tutorial step 3
-        const tutorial = player.varps.getVarbitValue(VARBIT_LEAGUE_TUTORIAL_COMPLETED);
-        if (tutorial === 3 && player.varps.getVarbitValue(VARBIT_FLASHSIDE) === 0) {
-            player.varps.setVarbitValue(VARBIT_FLASHSIDE, 3);
-            bridge.sendVarbit(VARBIT_FLASHSIDE, 3);
-        }
+        syncLeagueTutorialHandshakeState(player, bridge);
 
         // Send league points varps from saved state
         bridge.sendVarp(VARP_LEAGUE_POINTS_CLAIMED, player.varps.getVarpValue(VARP_LEAGUE_POINTS_CLAIMED));
@@ -297,12 +296,15 @@ export class LeaguesVGamemode extends VanillaGamemode {
         // Tutorial progression: opening Leagues tab advances step 3/4 → 5
         const tutorial = player.varps.getVarbitValue(VARBIT_LEAGUE_TUTORIAL_COMPLETED);
         if (currentTab === 4 && (tutorial === 3 || tutorial === 4)) {
-            player.varps.setVarbitValue(VARBIT_LEAGUE_TUTORIAL_COMPLETED, 5);
-            this.initBridge?.queueVarbit(player.id, VARBIT_LEAGUE_TUTORIAL_COMPLETED, 5);
-            syncLeagueGeneralVarp(player);
-            if (player.varps.getVarbitValue(VARBIT_FLASHSIDE) !== 0) {
-                player.varps.setVarbitValue(VARBIT_FLASHSIDE, 0);
-                this.initBridge?.queueVarbit(player.id, VARBIT_FLASHSIDE, 0);
+            if (this.uiBridge) {
+                advanceLeagueTutorialToLeaguesPanel(player, this.uiBridge);
+            } else {
+                player.varps.setVarbitValue(VARBIT_LEAGUE_TUTORIAL_COMPLETED, 5);
+                this.initBridge?.queueVarbit(player.id, VARBIT_LEAGUE_TUTORIAL_COMPLETED, 5);
+                const res = syncLeagueGeneralVarp(player);
+                if (res.changed) {
+                    this.initBridge?.queueVarp(player.id, VARP_LEAGUE_GENERAL, res.value);
+                }
             }
         }
     }
