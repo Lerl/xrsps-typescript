@@ -5,7 +5,8 @@ import type {
     ProjectileLaunch,
 } from "../../../shared/projectiles/ProjectileLaunch";
 import { IProjectileManager } from "../../interfaces/IProjectileManager";
-import { BridgePlaneStrategy, sampleBridgeHeightForWorldTile } from "../../roof/RoofVisibility";
+import { sampleBridgeHeightForWorldTile } from "../../scene/BridgeHeightSampler";
+import { BridgePlaneStrategy } from "../../scene/PlaneResolver";
 import type { WebGLOsrsRenderer } from "../WebGLOsrsRenderer";
 import { Projectile, ProjectileConfig } from "./Projectile";
 

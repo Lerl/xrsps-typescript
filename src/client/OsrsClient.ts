@@ -270,7 +270,7 @@ import { createBrowserNotesPluginPersistence } from "./plugins/notes/BrowserNote
 import { NotesPlugin } from "./plugins/notes/NotesPlugin";
 import { createBrowserTileMarkersPluginPersistence } from "./plugins/tilemarkers/BrowserTileMarkersPluginPersistence";
 import { TileMarkersPlugin } from "./plugins/tilemarkers/TileMarkersPlugin";
-import { ResolveTilePlaneFn, clampPlane } from "./roof/RoofVisibility";
+import { ResolveTilePlaneFn } from "./scene/PlaneResolver";
 import {
     createSelectedSpellOnGroundItemPacket,
     createSelectedSpellOnLocPacket,
@@ -295,6 +295,7 @@ import { initPlayerSyncHuffman } from "./sync/HuffmanProvider";
 import { NpcUpdateDecoder } from "./sync/NpcUpdateDecoder";
 import { PlayerSyncManager } from "./sync/PlayerSyncManager";
 import type { PlayerSpotAnimationEvent } from "./sync/PlayerSyncTypes";
+import { clampPlane } from "./utils/PlaneUtil";
 import { WebGLMapSquare } from "./webgl/WebGLMapSquare";
 import type { NpcInstance } from "./webgl/npc/NpcRenderTemplate";
 import { RenderDataWorkerPool } from "./worker/RenderDataWorkerPool";
@@ -856,32 +857,19 @@ export class OsrsClient {
     // OSRS `camFollowHeight` (world units): height offset from tile height for camera focal Y.
     // Set via CAM_SETFOLLOWHEIGHT/CAM_GETFOLLOWHEIGHT opcodes.
     camFollowHeight: number = 50;
-    // Roof removal toggle: when true, enable OSRS-style roof removal logic.
-    removeRoofsAll: boolean = true;
-    // When true, force roofs hidden everywhere (toggleroof equivalent).
-    roofsAlwaysHidden: boolean = false;
-    // Removed custom pitch intensity to mirror vanilla OSRS camera distance mapping.
+    // Hide-roofs toggle: when true, every plane above the player's plane is hidden.
+    // When false, roofs are only removed while the player/camera is inside a building.
+    roofsHidden: boolean = false;
 
-    /**
-     * Set the hide roofs setting (from settings toggle)
-     * @param hideRoofs - true to hide roofs, false to show them normally
-     */
-    setHideRoofs(hideRoofs: boolean): void {
-        if (this.removeRoofsAll !== !hideRoofs) {
-            console.log(
-                `[OsrsClient] Hide roofs setting changed: ${hideRoofs} (removeRoofsAll=${this.removeRoofsAll})`,
-            );
+    setRoofsHidden(roofsHidden: boolean): void {
+        if (this.roofsHidden === roofsHidden) {
+            return;
         }
+        this.roofsHidden = roofsHidden;
+        console.log(`[OsrsClient] Roofs hidden: ${roofsHidden}`);
 
-        // When hideRoofs is true, we want removeRoofsAll to be false
-        // (because removeRoofsAll=true means "remove roofs" is OFF)
-        this.removeRoofsAll = !hideRoofs;
-
-        // Force a roof state recalculation
         if (this.renderer) {
-            // Invalidate the cached roof state so it recomputes next frame
-            (this.renderer as any).roofState = undefined;
-            // Force a re-render
+            this.renderer.invalidateRoofState();
             this.widgetManager?.invalidateAll();
         }
     }
@@ -9835,14 +9823,12 @@ export class OsrsClient {
                 } else if (varpId === VARP_OPTION_ATTACK_PRIORITY_NPC) {
                     ClientState.npcAttackOption = clamp(newValue | 0, 0, 3);
                 }
-                // Check for roof varbit changes
-                // Varbit 12378 is stored in varp 12378's bits
-                // Since varbit changes trigger the underlying varp, we need to check the varbit value
+                // Varbit changes arrive through their underlying varp, so re-read the
+                // roof varbit on every varp update.
                 try {
                     const varbitValue = this.varManager.getVarbit(VARBIT_ROOF_REMOVAL);
                     if (varbitValue !== undefined) {
-                        // When varbit is 1, hide roofs; when 0, show roofs normally
-                        this.setHideRoofs(varbitValue === 1);
+                        this.setRoofsHidden(varbitValue === 1);
                     }
                 } catch {}
             };
@@ -9850,10 +9836,7 @@ export class OsrsClient {
             try {
                 const initialRoofVarbit = this.varManager.getVarbit(VARBIT_ROOF_REMOVAL);
                 if (initialRoofVarbit !== undefined) {
-                    this.setHideRoofs(initialRoofVarbit === 1);
-                    console.log(
-                        `[OsrsClient] Initial roof state: hideRoofs=${initialRoofVarbit === 1}`,
-                    );
+                    this.setRoofsHidden(initialRoofVarbit === 1);
                 }
             } catch (err) {
                 console.warn("[OsrsClient] Failed to init roof state", err);

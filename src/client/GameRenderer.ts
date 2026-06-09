@@ -32,6 +32,9 @@ export abstract class GameRenderer<T extends MapSquare = MapSquare> extends Rend
     mapManager: MapManager<T>;
     uiHidden: boolean = false;
 
+    /** Drops any cached roof visibility state so the next frame recomputes it. */
+    invalidateRoofState(): void {}
+
     constructor(public osrsClient: OsrsClient) {
         super();
         // Keep the number of queued map loads low to cap memory spikes

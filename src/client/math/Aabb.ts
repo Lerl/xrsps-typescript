@@ -1,4 +1,5 @@
-import { BridgePlaneStrategy, sampleBridgeHeightForWorldTile } from "../roof/RoofVisibility";
+import { sampleBridgeHeightForWorldTile } from "../scene/BridgeHeightSampler";
+import { BridgePlaneStrategy } from "../scene/PlaneResolver";
 
 export interface Aabb {
     minX: number;

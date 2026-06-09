@@ -2,61 +2,35 @@ import { getMapIndexFromTile } from "../../rs/map/MapFileIndex";
 import { Scene } from "../../rs/scene/Scene";
 import type { MapManager, MapSquare } from "../MapManager";
 import { clampPlane } from "../utils/PlaneUtil";
+import {
+    TILE_FLAG_BRIDGE,
+    TileFlagMapSquare,
+    getTileRenderFlagAt,
+    hasBridgeColumnLocal,
+    isBridgeSurfaceLocal,
+} from "./TileRenderFlags";
 
-export interface PlaneResolveMapSquare extends MapSquare {
-    getTileRenderFlag(level: number, tileX: number, tileY: number): number;
-    isBridgeSurface?: (level: number, tileX: number, tileY: number) => boolean;
-}
+export type ResolveTilePlaneFn = (tileX: number, tileY: number, plane: number) => number;
 
-function getTileRenderFlagSafe(
-    map: PlaneResolveMapSquare | undefined,
-    level: number,
-    tileX: number,
-    tileY: number,
-): number {
-    if (!map || typeof map.getTileRenderFlag !== "function") return 0;
-    try {
-        return map.getTileRenderFlag(level | 0, tileX | 0, tileY | 0) | 0;
-    } catch {
-        return 0;
-    }
-}
-
-function isBridgeSurfaceSafe(
-    map: PlaneResolveMapSquare | undefined,
-    level: number,
-    tileX: number,
-    tileY: number,
-): boolean {
-    if (!map || typeof map.isBridgeSurface !== "function") return false;
-    try {
-        return !!map.isBridgeSurface(level | 0, tileX | 0, tileY | 0);
-    } catch {
-        return false;
-    }
-}
-
-function hasBridgeColumnSafe(
-    map: PlaneResolveMapSquare | undefined,
-    tileX: number,
-    tileY: number,
-): boolean {
-    return (getTileRenderFlagSafe(map, 1, tileX, tileY) & 0x2) === 0x2;
+export enum BridgePlaneStrategy {
+    RENDER = "render",
+    OCCUPANCY = "occupancy",
+    EFFECTIVE = "effective",
 }
 
 /**
- * Which plane to use for height sampling, matching the repo’s current bridge-aware RENDER behavior.
+ * Which plane to use for height sampling.
  * This is intentionally not named "effective plane": it is for height selection.
  */
 export function resolveHeightSamplePlaneForLocal(
-    map: PlaneResolveMapSquare | undefined,
+    map: TileFlagMapSquare | undefined,
     basePlane: number,
     localTileX: number,
     localTileY: number,
 ): number {
     let plane = clampPlane(basePlane);
-    const isSurface = isBridgeSurfaceSafe(map, plane, localTileX, localTileY);
-    const hasBridgeColumn = hasBridgeColumnSafe(map, localTileX, localTileY);
+    const isSurface = isBridgeSurfaceLocal(map, plane, localTileX, localTileY);
+    const hasBridgeColumn = hasBridgeColumnLocal(map, localTileX, localTileY);
     if (isSurface || hasBridgeColumn) {
         plane = clampPlane(plane + 1);
     }
@@ -64,17 +38,17 @@ export function resolveHeightSamplePlaneForLocal(
 }
 
 /**
- * Which plane to use for collision sampling (movement/pathing), matching the repo’s current OCCUPANCY behavior.
+ * Which plane to use for collision sampling (movement/pathing).
  */
 export function resolveCollisionSamplePlaneForLocal(
-    map: PlaneResolveMapSquare | undefined,
+    map: TileFlagMapSquare | undefined,
     basePlane: number,
     localTileX: number,
     localTileY: number,
 ): number {
     let plane = clampPlane(basePlane);
-    const isSurface = isBridgeSurfaceSafe(map, plane, localTileX, localTileY);
-    const hasBridgeColumn = hasBridgeColumnSafe(map, localTileX, localTileY);
+    const isSurface = isBridgeSurfaceLocal(map, plane, localTileX, localTileY);
+    const hasBridgeColumn = hasBridgeColumnLocal(map, localTileX, localTileY);
     if (!isSurface && hasBridgeColumn) {
         plane = clampPlane(plane + 1);
     }
@@ -82,18 +56,17 @@ export function resolveCollisionSamplePlaneForLocal(
 }
 
 /**
- * Which plane to use for interaction semantics (tile selection / “where is the tile effectively”),
- * matching the repo’s current EFFECTIVE behavior.
+ * Which plane to use for interaction semantics (tile selection / "where is the tile effectively").
  */
 export function resolveInteractionPlaneForLocal(
-    map: PlaneResolveMapSquare | undefined,
+    map: TileFlagMapSquare | undefined,
     basePlane: number,
     localTileX: number,
     localTileY: number,
 ): number {
     const plane = clampPlane(basePlane);
-    const isSurface = isBridgeSurfaceSafe(map, plane, localTileX, localTileY);
-    const hasBridgeColumn = hasBridgeColumnSafe(map, localTileX, localTileY);
+    const isSurface = isBridgeSurfaceLocal(map, plane, localTileX, localTileY);
+    const hasBridgeColumn = hasBridgeColumnLocal(map, localTileX, localTileY);
     if (isSurface) {
         return plane;
     }
@@ -103,33 +76,73 @@ export function resolveInteractionPlaneForLocal(
     return plane;
 }
 
+export function resolveBridgePlaneForLocal(
+    map: TileFlagMapSquare | undefined,
+    basePlane: number,
+    localTileX: number,
+    localTileY: number,
+    strategy: BridgePlaneStrategy = BridgePlaneStrategy.RENDER,
+): number {
+    switch (strategy) {
+        case BridgePlaneStrategy.RENDER:
+            return resolveHeightSamplePlaneForLocal(map, basePlane, localTileX, localTileY);
+        case BridgePlaneStrategy.OCCUPANCY:
+            return resolveCollisionSamplePlaneForLocal(map, basePlane, localTileX, localTileY);
+        case BridgePlaneStrategy.EFFECTIVE:
+            return resolveInteractionPlaneForLocal(map, basePlane, localTileX, localTileY);
+        default:
+            return clampPlane(basePlane);
+    }
+}
+
+/**
+ * Promotes a plane upwards while the level above carries the bridge flag, so
+ * entities standing on a bridge surface resolve to the bridge's render plane.
+ */
+export function resolveBridgePromotedPlane<T extends MapSquare>(
+    mapManager: MapManager<T>,
+    rawPlane: number,
+    tile: { x: number; y: number } | undefined,
+): number {
+    if (!tile) {
+        return clampPlane(rawPlane);
+    }
+
+    let plane = clampPlane(rawPlane);
+    for (let i = 0; i < 2 && plane < 3; i++) {
+        const flagsAbove = getTileRenderFlagAt(mapManager, plane + 1, tile.x, tile.y);
+        if ((flagsAbove & TILE_FLAG_BRIDGE) === 0) {
+            break;
+        }
+        plane++;
+    }
+    return plane;
+}
+
 /**
  * Which plane ground-item stacks are indexed on.
  *
- * OSRS keeps ground piles on the raw client plane and only applies bridge promotion when
- * sampling world height for rendering/click volumes. Reference flow:
- * - `PathStep.addTileItem(...)` stores into `worldView.groundItems[plane][x][y]`
- * - `Message.addSceneMenuOptions(...)` reads piles back from `worldView.groundItems[var22][x][y]`
- * - `NpcComposition.getTileHeight(...)` is what promotes bridge height at render time
+ * Ground piles stay on the raw client plane; bridge promotion only applies when
+ * sampling world height for rendering/click volumes.
  */
 export function resolveGroundItemStackPlane(basePlane: number): number {
     return clampPlane(basePlane);
 }
 
-function resolveForWorldTile<T extends PlaneResolveMapSquare>(
+function resolveForWorldTile<T extends MapSquare>(
     mapManager: MapManager<T>,
     basePlane: number,
     tileX: number,
     tileY: number,
     localResolver: (
-        map: PlaneResolveMapSquare | undefined,
+        map: TileFlagMapSquare | undefined,
         basePlane: number,
         localTileX: number,
         localTileY: number,
     ) => number,
 ): number {
     const map = mapManager.getMap(getMapIndexFromTile(tileX), getMapIndexFromTile(tileY)) as
-        | T
+        | (T & TileFlagMapSquare)
         | undefined;
     if (!map) {
         return clampPlane(basePlane);
@@ -139,7 +152,7 @@ function resolveForWorldTile<T extends PlaneResolveMapSquare>(
     return localResolver(map, basePlane, localX, localY);
 }
 
-export function resolveCollisionSamplePlaneForWorldTile<T extends PlaneResolveMapSquare>(
+export function resolveCollisionSamplePlaneForWorldTile<T extends MapSquare>(
     mapManager: MapManager<T>,
     basePlane: number,
     tileX: number,
@@ -154,7 +167,7 @@ export function resolveCollisionSamplePlaneForWorldTile<T extends PlaneResolveMa
     );
 }
 
-export function resolveInteractionPlaneForWorldTile<T extends PlaneResolveMapSquare>(
+export function resolveInteractionPlaneForWorldTile<T extends MapSquare>(
     mapManager: MapManager<T>,
     basePlane: number,
     tileX: number,

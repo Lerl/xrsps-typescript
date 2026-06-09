@@ -9,11 +9,8 @@ import { SceneTile } from "../../../rs/scene/SceneTile";
 import { getIdFromTag } from "../../../rs/scene/entity/EntityTag";
 import { LocEntity } from "../../../rs/scene/entity/LocEntity";
 import { INVALID_HSL_COLOR } from "../../../rs/util/ColorUtil";
-import {
-    clampPlane,
-    getBridgeAdjustedPlane,
-    getBridgeLinkedBelow,
-} from "../../roof/RoofVisibility";
+import { getBridgeAdjustedPlane, getBridgeLinkedBelow } from "../../scene/BridgeTiles";
+import { clampPlane } from "../../utils/PlaneUtil";
 import { InteractType } from "../../webgl/InteractType";
 import { ContourGroundType, SceneModel } from "../buffer/SceneBuffer";
 import { SceneLocEntity } from "./SceneLocEntity";
@@ -43,8 +40,8 @@ function getLocPlaneCullLevel(
     const clampedOriginal = clampPlane(originalLevel);
     const clampedRender = clampPlane(renderLevel);
 
-    // Roofs demoted to ground/first floor should sit one plane higher for culling,
-    // matching OSRS behaviour where the roof plane is hidden when the player is below it.
+    // Roofs demoted to ground/first floor cull one plane higher so they still
+    // hide when the player is below them.
     const baseTarget = clampedRender <= 1 ? Math.min(3, clampedRender + 1) : clampedRender;
 
     const desiredPlane = Math.max(baseTarget, clampedOriginal);

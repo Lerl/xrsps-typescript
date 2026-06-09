@@ -976,7 +976,8 @@ export class WebGLMapSquare {
     }
 
     getTileRenderFlag(level: number, tileX: number, tileY: number): number {
-        return this.tileRenderFlags[level][tileX + this.borderSize][tileY + this.borderSize];
+        const row = this.tileRenderFlags[level]?.[tileX + this.borderSize];
+        return row ? row[tileY + this.borderSize] | 0 : 0;
     }
 
     isBridgeSurface(level: number, tileX: number, tileY: number): boolean {

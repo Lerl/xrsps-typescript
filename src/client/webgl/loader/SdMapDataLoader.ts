@@ -20,7 +20,7 @@ import { getIdFromTag } from "../../../rs/scene/entity/EntityTag";
 import { LocEntity } from "../../../rs/scene/entity/LocEntity";
 import { TextureLoader } from "../../../rs/texture/TextureLoader";
 import { ObjSpawn, getMapObjSpawns } from "../../data/obj/ObjSpawn";
-import { getBridgeLinkedBelow, isBridgeSurfaceTile } from "../../roof/RoofVisibility";
+import { getBridgeLinkedBelow, isBridgeSurfaceTile } from "../../scene/BridgeTiles";
 import { loadMinimapBlob } from "../../worker/MinimapData";
 import { RenderDataLoader, RenderDataResult } from "../../worker/RenderDataLoader";
 import { WorkerState } from "../../worker/RenderDataWorker";

@@ -123,15 +123,11 @@ import {
     parseInteractionTarget,
 } from "../movement/NpcClientTick";
 import type { TileMarkersPluginConfig } from "../plugins/tilemarkers/types";
+import { computeRoofPlaneLimit } from "../roof/RoofVisibility";
+import { sampleBridgeHeightForWorldTile } from "../scene/BridgeHeightSampler";
 import {
     BridgePlaneStrategy,
-    RoofState,
-    computeRoofState,
-    getTileRenderFlagAt as lookupTileRenderFlagAt,
     resolveBridgePromotedPlane,
-    sampleBridgeHeightForWorldTile,
-} from "../roof/RoofVisibility";
-import {
     resolveCollisionSamplePlaneForLocal,
     resolveCollisionSamplePlaneForWorldTile,
     resolveGroundItemStackPlane,
@@ -139,6 +135,10 @@ import {
     resolveInteractionPlaneForLocal,
     resolveInteractionPlaneForWorldTile,
 } from "../scene/PlaneResolver";
+import {
+    TILE_FLAG_BRIDGE,
+    getTileRenderFlagAt as lookupTileRenderFlagAt,
+} from "../scene/TileRenderFlags";
 import { SceneRaycastHit, SceneRaycaster } from "../scene/SceneRaycaster";
 import { LoadingRequirement } from "../state/LoadingTracker";
 import type { PlayerSpotAnimationEvent } from "../sync/PlayerSyncTypes";
@@ -436,7 +436,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
     // Hover devoverlay program
     hoverLineProgram?: Program;
 
-    private roofState?: RoofState;
+    private roofPlaneLimit?: number;
 
     // Uniforms
     sceneUniformBuffer?: UniformBuffer;
@@ -685,7 +685,6 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
     private lastLodVisibleMapCount: number = 0;
     private lastFullDetailVisibleMapCount: number = 0;
     private lastLodThreshold: number = 0;
-    private lastRoofPlaneLimit: number = 3;
     private lastDistanceCulledVisibleMapCount: number = 0;
     private effectiveRenderDistanceTiles: number = 0;
     private effectiveRenderDistanceFrame: number = -1;
@@ -752,8 +751,6 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
     private dynamicNpcUploadedGeometryKey: string | undefined;
     private readonly dynamicNpcSingleDrawRange: DrawRange = newDrawRange(0, 0, 1);
     private readonly dynamicNpcSingleDrawRanges: DrawRange[] = [this.dynamicNpcSingleDrawRange];
-
-    private orbFocalTile?: { x: number; y: number };
 
     // Smoothed follow-cam focal point (OSRS: oculusOrbFocalPointX/Y). Stored in world sub-units (1 tile = 128).
     private followCamFocalXSub: number = 0;
@@ -6634,8 +6631,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         const playerDataTexture = npcDataTexture;
 
         profiler.startPhase("roof");
-        this.roofState = this.computeRoofState();
-        this.lastRoofPlaneLimit = this.roofState.roofPlaneLimit | 0;
+        this.roofPlaneLimit = this.computeFrameRoofPlaneLimit();
         profiler.endPhase();
 
         let opaqueIndices = 0;
@@ -7643,7 +7639,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         profiler.recordGauge("renderDistanceTiles", this.getFrameRenderDistanceTiles() | 0);
         profiler.recordGauge("renderDistanceBaseTiles", this.osrsClient.renderDistance | 0);
         profiler.recordGauge("lodThreshold", this.lastLodThreshold | 0);
-        profiler.recordGauge("roofPlaneLimit", this.lastRoofPlaneLimit | 0);
+        profiler.recordGauge("roofPlaneLimit", this.getRoofPlaneLimit() | 0);
         profiler.recordGauge("roofFilteredRanges", this.frameRoofFilteredRangeCount | 0);
         profiler.recordGauge("roofTotalRanges", this.frameRoofTotalRangeCount | 0);
         profiler.recordGauge(
@@ -7698,8 +7694,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
             rawPlane = this.osrsClient.playerEcs.getLevel(idx) | 0;
         }
 
-        // OSRS-accurate: Promote plane based on bridge flags
-        // If plane above has bridge flag (0x2), player renders at that plane
+        // If the plane above has the bridge flag, the player renders at that plane.
         const playerTile = this.getPlayerTileXY();
         if (!playerTile) {
             return rawPlane; // Can't check for bridges if we don't know the player's tile
@@ -7757,9 +7752,8 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         };
     }
 
-    private getRenderCullTile(_roofState?: RoofState): { x: number; y: number } {
-        // OSRS scene draw-distance is camera-anchored (Scene_viewport tile), then clamped
-        // to the current scene min/max bounds.
+    private getRenderCullTile(): { x: number; y: number } {
+        // Scene draw-distance is camera-anchored, then clamped to the loaded grid bounds.
         return this.clampCullTileToGridBounds(this.getCameraTileXY());
     }
 
@@ -7767,43 +7761,40 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         playerTile: { x: number; y: number },
         cameraTile: { x: number; y: number },
     ): { x: number; y: number } {
-        if (this.osrsClient.followPlayerCamera) {
-            // OSRS follow mode (oculusOrbState == 0): roof trace target is the immediate focal point,
-            // which tracks the player tile, not the smoothed focal accumulator.
-            this.orbFocalTile = { ...playerTile };
-            return this.orbFocalTile;
-        }
-
-        // Free-camera mode fallback: no explicit orb focal state in this client path, so use camera tile.
-        this.orbFocalTile = { ...cameraTile };
-        return this.orbFocalTile;
+        // In follow mode the camera focal point tracks the player tile. In free-camera
+        // mode there is no focal state, so the camera tile stands in for it.
+        return this.osrsClient.followPlayerCamera ? playerTile : cameraTile;
     }
 
-    private computeRoofState(): RoofState {
+    /** Camera pitch in RS units (128 = lowest, 383 = highest). */
+    private getCameraPitchRs(): number {
+        const pitch = clamp(this.osrsClient.camera.pitch | 0, 0, 512);
+        return 128 + Math.floor((pitch * 255) / 512);
+    }
+
+    private computeFrameRoofPlaneLimit(): number {
         const cameraTile = this.getCameraTileXY();
         const playerTile = this.getPlayerTileXY();
-        const targetTile = this.getRoofTargetTile(playerTile, cameraTile);
 
-        return computeRoofState(
-            {
-                mapManager: this.mapManager,
-                osrsClient: this.osrsClient,
-                maxLevel: this.maxLevel,
-            },
-            {
-                playerRawPlane: this.getPlayerBasePlane() | 0,
-                cameraTile,
-                playerTile,
-                targetTile,
-            },
-        );
+        return computeRoofPlaneLimit(this.mapManager, this.maxLevel, {
+            playerRawPlane: this.getPlayerBasePlane() | 0,
+            cameraPitch: this.getCameraPitchRs(),
+            roofsHidden: this.osrsClient.roofsHidden,
+            cameraTile,
+            playerTile,
+            targetTile: this.getRoofTargetTile(playerTile, cameraTile),
+        });
     }
 
-    private getRoofState(): RoofState {
-        if (!this.roofState) {
-            this.roofState = this.computeRoofState();
+    private getRoofPlaneLimit(): number {
+        if (this.roofPlaneLimit === undefined) {
+            this.roofPlaneLimit = this.computeFrameRoofPlaneLimit();
         }
-        return this.roofState;
+        return this.roofPlaneLimit;
+    }
+
+    override invalidateRoofState(): void {
+        this.roofPlaneLimit = undefined;
     }
 
     private ensureOverlayUpdateArgs(scenePass: boolean): OverlayUpdateArgs {
@@ -8028,7 +8019,9 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                 let samplePlane = Math.max(0, Math.min(3, basePlane | 0));
                 if (
                     samplePlane < 3 &&
-                    (lookupTileRenderFlagAt(this.mapManager, 1, tileX, tileY) & 0x2) === 0x2
+                    (lookupTileRenderFlagAt(this.mapManager, 1, tileX, tileY) &
+                        TILE_FLAG_BRIDGE) !==
+                        0
                 ) {
                     samplePlane++;
                 }
@@ -8636,7 +8629,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         let bestTileY = -1;
         let bestPlane = this.getPlayerTilePickPlane() | 0;
         const playerPickPlane = bestPlane;
-        const roofPlaneLimit = Math.floor(this.getRoofState().roofPlaneLimit + 0.5);
+        const roofPlaneLimit = this.getRoofPlaneLimit() | 0;
 
         const visibleCount = this.mapManager.visibleMapCount | 0;
         const visibleMaps = this.mapManager.visibleMaps;
@@ -11706,7 +11699,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
             return;
         }
 
-        const cullLimit = Math.floor(roofPlaneLimit + 0.5);
+        const cullLimit = roofPlaneLimit | 0;
         const filtered = this.roofFilteredDrawIndices;
         filtered.length = 0;
 
@@ -11913,9 +11906,8 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
     }
 
     private renderGeometryPass(transparent: boolean): void {
-        const roofState = this.getRoofState();
-        const { roofPlaneLimit } = roofState;
-        const cullTile = this.getRenderCullTile(roofState);
+        const roofPlaneLimit = this.getRoofPlaneLimit();
+        const cullTile = this.getRenderCullTile();
 
         const count = this.mapManager.visibleMapCount;
         if (count === 0) {

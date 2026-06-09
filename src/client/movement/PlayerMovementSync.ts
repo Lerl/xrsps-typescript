@@ -10,7 +10,7 @@ import {
 import { PlayerAnimController } from "../PlayerAnimController";
 import type { NpcEcs } from "../ecs/NpcEcs";
 import { PlayerEcs } from "../ecs/PlayerEcs";
-import type { ResolveTilePlaneFn } from "../roof/RoofVisibility";
+import type { ResolveTilePlaneFn } from "../scene/PlaneResolver";
 import type { MovementStep } from "./MovementPath";
 import { MovementPath } from "./MovementPath";
 import { MovementState, MovementStateInit } from "./MovementState";

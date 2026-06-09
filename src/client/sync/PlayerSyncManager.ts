@@ -11,7 +11,7 @@ import type { NpcEcs } from "../ecs/NpcEcs";
 import { PlayerEcs } from "../ecs/PlayerEcs";
 import type { MovementUpdate } from "../movement/MovementSyncTypes";
 import { PlayerMovementSync } from "../movement/PlayerMovementSync";
-import type { ResolveTilePlaneFn } from "../roof/RoofVisibility";
+import type { ResolveTilePlaneFn } from "../scene/PlaneResolver";
 import { decodeAppearanceBinary } from "./AppearanceDecoder";
 import { frameToActions } from "./PlayerSyncActions";
 import type {
