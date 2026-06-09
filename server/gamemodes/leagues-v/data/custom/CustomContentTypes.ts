@@ -6,7 +6,6 @@
  * - Dedicated varp ranges for completion tracking
  * - Enum IDs that need overrides
  */
-
 import type { TaskTrigger } from "../../triggers/TriggerTypes";
 
 // =============================================================================

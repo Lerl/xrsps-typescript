@@ -99,7 +99,10 @@ function exploreStructsForMasteries(enumTypeLoader: any, structTypeLoader: any):
                                         console.log(`      Struct ${subStructId} params:`);
                                         for (const [pId, pVal] of subStruct.params.entries()) {
                                             console.log(
-                                                `        param_${pId} = ${formatParamValue(pVal, 50)}`,
+                                                `        param_${pId} = ${formatParamValue(
+                                                    pVal,
+                                                    50,
+                                                )}`,
                                             );
                                         }
                                     }

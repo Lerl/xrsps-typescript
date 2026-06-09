@@ -1,8 +1,12 @@
 import fs from "fs";
 import path from "path";
 
-import { type ItemDefinition, type WeaponInterface, loadItemDefinitions } from "../../../src/game/scripts/types";
 import type { WeaponDataProvider } from "../../../src/game/combat/WeaponDataProvider";
+import {
+    type ItemDefinition,
+    type WeaponInterface,
+    loadItemDefinitions,
+} from "../../../src/game/scripts/types";
 // ====================================================================================
 // POWERED STAFF SPELL DATA (Re-export from spells.ts for convenience)
 // ====================================================================================
@@ -4295,7 +4299,7 @@ export const weaponDataEntries: WeaponDataEntry[] = [
         hitSounds: dartHitSounds,
     },
 
-    // Knives - Attack Speed: 3 ticks (2 on rapid) - 
+    // Knives - Attack Speed: 3 ticks (2 on rapid) -
     {
         itemId: 864,
         name: "Bronze knife",

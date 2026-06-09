@@ -9,11 +9,11 @@
  *
  * Uses dependency injection via services interface to avoid tight coupling.
  */
-import { logger } from "../../utils/logger";
-import { NO_INTERACTION } from "../../game/interactionIndex";
 import type { ServerServices } from "../../game/ServerServices";
+import { NO_INTERACTION } from "../../game/interactionIndex";
 import type { NpcState, NpcUpdateDelta } from "../../game/npc";
 import type { PlayerState } from "../../game/player";
+import { logger } from "../../utils/logger";
 
 // ============================================================================
 // Types
@@ -105,7 +105,6 @@ const DEBUG_NPC_STREAM =
 // Services Interface
 // ============================================================================
 
-
 // ============================================================================
 // NpcSyncManager
 // ============================================================================
@@ -139,10 +138,7 @@ export class NpcSyncManager {
      * Queue an NPC snapshot for a player.
      */
     queueNpcSnapshot(playerId: number, snapshot: NpcViewSnapshot): void {
-        const buffer = this.getOrCreateNpcPacketBuffer(
-            this.svc.pendingNpcPackets,
-            playerId,
-        );
+        const buffer = this.getOrCreateNpcPacketBuffer(this.svc.pendingNpcPackets, playerId);
         buffer.snapshots.push(snapshot);
     }
 
@@ -150,10 +146,7 @@ export class NpcSyncManager {
      * Queue an NPC update for a player.
      */
     queueNpcUpdate(playerId: number, update: NpcUpdatePayload): void {
-        const buffer = this.getOrCreateNpcPacketBuffer(
-            this.svc.pendingNpcPackets,
-            playerId,
-        );
+        const buffer = this.getOrCreateNpcPacketBuffer(this.svc.pendingNpcPackets, playerId);
         buffer.updates.push(update);
     }
 
@@ -161,10 +154,7 @@ export class NpcSyncManager {
      * Queue an NPC despawn for a player.
      */
     queueNpcDespawn(playerId: number, npcId: number): void {
-        const buffer = this.getOrCreateNpcPacketBuffer(
-            this.svc.pendingNpcPackets,
-            playerId,
-        );
+        const buffer = this.getOrCreateNpcPacketBuffer(this.svc.pendingNpcPackets, playerId);
         buffer.despawns.push(npcId);
     }
 
@@ -200,10 +190,7 @@ export class NpcSyncManager {
 
         const updates = frame.npcUpdates;
         const npcViews = frame.npcViews;
-        const packetBuffer = this.getOrCreateNpcPacketBuffer(
-            this.svc.pendingNpcPackets,
-            player.id,
-        );
+        const packetBuffer = this.getOrCreateNpcPacketBuffer(this.svc.pendingNpcPackets, player.id);
         const serverCycle = frame.tick;
 
         // Health bars: drive from authoritative NPC hitpoints state
@@ -302,7 +289,9 @@ export class NpcSyncManager {
                             },
                         ];
                     }
-                } catch (err) { logger.warn("[npc-sync] failed to build initial health bar", err); }
+                } catch (err) {
+                    logger.warn("[npc-sync] failed to build initial health bar", err);
+                }
 
                 snapshots.push(snap);
                 npcViews.set(npc.id, {
@@ -387,7 +376,9 @@ export class NpcSyncManager {
                                 cycleOffset: 0,
                             });
                         }
-                    } catch (err) { logger.warn("[npc-sync] failed to update health bar", err); }
+                    } catch (err) {
+                        logger.warn("[npc-sync] failed to update health bar", err);
+                    }
                 }
 
                 npcViews.set(id, {

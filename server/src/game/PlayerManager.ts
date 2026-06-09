@@ -1,9 +1,11 @@
 import type { WebSocket } from "ws";
+
 import type { LocTypeLoader } from "../../../src/rs/config/loctype/LocTypeLoader";
 import { PathService } from "../pathfinding/PathService";
 import { logger } from "../utils/logger";
 import { DoorStateManager } from "../world/DoorStateManager";
 import { DEBUG_PLAYER_IDS, Tile } from "./actor";
+import type { GamemodeDefinition } from "./gamemodes/GamemodeDefinition";
 import { PlayerInteractionSystem, PlayerRepository } from "./interactions/PlayerInteractionSystem";
 import {
     FollowInteractionKind,
@@ -11,7 +13,6 @@ import {
     PlayerInteractionState,
 } from "./interactions/types";
 import { NpcState } from "./npc";
-import type { GamemodeDefinition } from "./gamemodes/GamemodeDefinition";
 import { PlayerState } from "./player";
 import type { ScriptRuntime } from "./scripts/ScriptRuntime";
 import { normalizePlayerAccountName } from "./state/PlayerSessionKeys";
@@ -521,7 +522,9 @@ export class PlayerManager implements PlayerRepository {
                     size: 1,
                 });
                 if (wp.ok && wp.waypoints) debugWaypoints = wp.waypoints;
-            } catch (err) { logger.warn("[player] failed to compute debug waypoints", err); }
+            } catch (err) {
+                logger.warn("[player] failed to compute debug waypoints", err);
+            }
         }
 
         if (DEBUG_PLAYER_IDS.has(p.id)) {
@@ -535,7 +538,9 @@ export class PlayerManager implements PlayerRepository {
                 logger.info(
                     `pathfind route: ${dt}ms ${p.tileX},${p.tileY} -> ${to.x},${to.y} waypoints=[${waypointStr}] tiles=[${tileStr}]`,
                 );
-            } catch (err) { logger.warn("[player] failed to log debug pathfind route", err); }
+            } catch (err) {
+                logger.warn("[player] failed to log debug pathfind route", err);
+            }
         }
 
         let destinationCorrection: Tile | undefined;

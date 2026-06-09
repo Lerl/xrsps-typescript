@@ -1,3 +1,4 @@
+import { logger } from "../../utils/logger";
 import {
     ANY_ITEM_ID,
     ANY_LOC_ID,
@@ -15,7 +16,6 @@ import {
     type TickHandler,
     type WidgetActionHandler,
 } from "./types";
-import { logger } from "../../utils/logger";
 
 type RegistryKey = string;
 
@@ -331,10 +331,7 @@ export class ScriptRegistry implements IScriptRegistry {
         return this.clientMessageHandlers.get(messageType.trim().toLowerCase());
     }
 
-    registerActionHandler(
-        kind: string,
-        handler: ScriptActionHandler,
-    ): ScriptRegistrationResult {
+    registerActionHandler(kind: string, handler: ScriptActionHandler): ScriptRegistrationResult {
         warnOverwrite(this.actionHandlers, kind, "action");
         this.actionHandlers.set(kind, handler);
         return {

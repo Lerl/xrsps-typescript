@@ -663,7 +663,11 @@ export type ClientToServer =
           type: "debug";
           payload:
               | { kind: "projectiles_request"; requestId?: number }
-              | { kind: "projectiles_snapshot"; requestId: number; snapshot: Record<string, unknown> }
+              | {
+                    kind: "projectiles_snapshot";
+                    requestId: number;
+                    snapshot: Record<string, unknown>;
+                }
               | { kind: "anim_request"; requestId?: number }
               | { kind: "anim_snapshot"; requestId: number; snapshot: Record<string, unknown> }
               | { kind: "set_var"; value?: number; varbit?: number; varp?: number }
@@ -1017,7 +1021,11 @@ function encodeWidgetToBinary(payload: WidgetServerPayload): Uint8Array {
         case "set_hidden":
             return serverEncoder.encodeWidgetSetHidden(payload.uid, !!payload.hidden);
         case "set_item":
-            return serverEncoder.encodeWidgetSetItem(payload.uid, payload.itemId, payload.quantity ?? 0);
+            return serverEncoder.encodeWidgetSetItem(
+                payload.uid,
+                payload.itemId,
+                payload.quantity ?? 0,
+            );
         case "set_npc_head":
             return serverEncoder.encodeWidgetSetNpcHead(payload.uid, payload.npcId);
         case "set_flags_range":
@@ -1087,7 +1095,10 @@ function encodeSmithingToBinary(payload: SmithingServerPayload): Uint8Array {
                 payload.customQuantity ?? 0,
             );
         case "mode":
-            return serverEncoder.encodeSmithingMode(payload.quantityMode, payload.customQuantity ?? 0);
+            return serverEncoder.encodeSmithingMode(
+                payload.quantityMode,
+                payload.customQuantity ?? 0,
+            );
         case "close":
             return serverEncoder.encodeSmithingClose();
         default:

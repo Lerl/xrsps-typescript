@@ -1,15 +1,6 @@
-import type { EventSubscription } from "../../src/game/events";
-import type {
-    GamemodeBridge,
-    GamemodeInitContext,
-    GamemodeUiBridge,
-    GamemodeUiController,
-    HandshakeBridge,
-} from "../../src/game/gamemodes/GamemodeDefinition";
-import type { PlayerState } from "../../src/game/player";
-import type { IScriptRegistry, ScriptServices } from "../../src/game/scripts/types";
 import { PlayerType } from "../../../src/rs/chat/PlayerType";
-
+import { LEAGUE_SUMMARY_GROUP_ID } from "../../../src/shared/ui/leagueSummary";
+import { decodeSideJournalTabFromStateVarp } from "../../../src/shared/ui/sideJournal";
 import {
     FEATURE_FLAG_LEAGUES,
     MAP_FLAGS_LEAGUE_WORLD,
@@ -30,31 +21,46 @@ import {
     VARP_MAP_FLAGS_CACHED,
     VARP_SIDE_JOURNAL_STATE,
 } from "../../../src/shared/vars";
-import { decodeSideJournalTabFromStateVarp } from "../../../src/shared/ui/sideJournal";
-import { LEAGUE_SUMMARY_GROUP_ID } from "../../../src/shared/ui/leagueSummary";
-
+import type { EventSubscription } from "../../src/game/events";
+import type {
+    GamemodeBridge,
+    GamemodeInitContext,
+    GamemodeUiBridge,
+    GamemodeUiController,
+    HandshakeBridge,
+} from "../../src/game/gamemodes/GamemodeDefinition";
+import type { PlayerState } from "../../src/game/player";
+import type { IScriptRegistry, ScriptServices } from "../../src/game/scripts/types";
 import { VanillaGamemode } from "../vanilla/index";
-
 import { LeagueContentProvider } from "./LeagueContentProvider";
 import { LeagueTaskManager } from "./LeagueTaskManager";
-import { LeagueTaskService, setTaskProgress, setChallengeProgress, getChallengeProgress } from "./LeagueTaskService";
+import {
+    LeagueTaskService,
+    getChallengeProgress,
+    setChallengeProgress,
+    setTaskProgress,
+} from "./LeagueTaskService";
 import { LeaguesVUiController } from "./LeaguesVUiController";
-import { LeagueSummaryTracker } from "./leagueSummary";
 import { LEAGUE_TASK_COMPLETION_VARPS } from "./data/leagueTaskVarps";
-import { getLeagueVDropRateMultiplier, getLeagueVReplacementItemId, isLeagueVWorldPlayer } from "./leagueDrops";
+import {
+    getLeagueVDropRateMultiplier,
+    getLeagueVReplacementItemId,
+    isLeagueVWorldPlayer,
+} from "./leagueDrops";
 import { syncLeagueGeneralVarp } from "./leagueGeneral";
 import { getLeaguePackedVarpsForPlayer } from "./leaguePackedVarps";
+import { LeagueSummaryTracker } from "./leagueSummary";
 import { getLeagueSkillXpMultiplier } from "./leagueXp";
 import { getActiveLeagueType, getTutorialCompleteStep, isLeagueWorld } from "./playerWorldRules";
 import { registerLeagueTutorHandlers } from "./scripts/leagueTutor";
-import { registerLeagueWidgetHandlers } from "./scripts/leagueWidgets";
 import { handleLeagueTutorialHintResume } from "./scripts/leagueTutorialHints";
-import { registerLeagueTutorialWidgetHandlers } from "./scripts/leagueTutorialWidgets";
 import {
-    advanceLeagueTutorialToLeaguesPanel,
     LEAGUE_TUTORIAL_STEP_WELCOME,
+    advanceLeagueTutorialToLeaguesPanel,
     syncLeagueTutorialHandshakeState,
 } from "./scripts/leagueTutorialUiState";
+import { registerLeagueTutorialWidgetHandlers } from "./scripts/leagueTutorialWidgets";
+import { registerLeagueWidgetHandlers } from "./scripts/leagueWidgets";
 
 const TUTORIAL_SPAWN = { x: 3094, y: 3107, level: 0 };
 const VARP_LEAGUE_TASK_COUNT = 2612;
@@ -85,7 +91,11 @@ export class LeaguesVGamemode extends VanillaGamemode {
         return getLeagueVDropRateMultiplier(player);
     }
 
-    override transformDropItemId(npcTypeId: number, itemId: number, player: PlayerState | undefined): number {
+    override transformDropItemId(
+        npcTypeId: number,
+        itemId: number,
+        player: PlayerState | undefined,
+    ): number {
         return getLeagueVReplacementItemId(npcTypeId, itemId, isLeagueVWorldPlayer(player));
     }
 
@@ -99,8 +109,7 @@ export class LeaguesVGamemode extends VanillaGamemode {
     canInteractWithNpc(player: PlayerState, npcTypeId: number, option: string): boolean {
         if (this.canInteract(player)) return true;
         const LEAGUE_TUTOR_NPC_TYPE_ID = 315;
-        return npcTypeId === LEAGUE_TUTOR_NPC_TYPE_ID &&
-            (option === "" || option === "talk-to");
+        return npcTypeId === LEAGUE_TUTOR_NPC_TYPE_ID && (option === "" || option === "talk-to");
     }
 
     // === Player Lifecycle ===
@@ -144,20 +153,25 @@ export class LeaguesVGamemode extends VanillaGamemode {
             if (Object.keys(progress).length > 0) result.progress = progress;
         }
 
-        const challengeMap = player.gamemodeState.get("challengeProgress") as Map<number, number> | undefined;
+        const challengeMap = player.gamemodeState.get("challengeProgress") as
+            | Map<number, number>
+            | undefined;
         if (challengeMap && challengeMap.size > 0) {
             const challengeProgress: Record<number, number> = {};
             for (const [idx, value] of challengeMap.entries()) {
                 if (value > 0) challengeProgress[idx] = value;
             }
-            if (Object.keys(challengeProgress).length > 0) result.challengeProgress = challengeProgress;
+            if (Object.keys(challengeProgress).length > 0)
+                result.challengeProgress = challengeProgress;
         }
 
         return Object.keys(result).length > 0 ? result : undefined;
     }
 
     override deserializePlayerState(player: PlayerState, data: Record<string, unknown>): void {
-        const raw = (data.progress ?? data.leagueTaskProgress) as Record<string, number> | undefined;
+        const raw = (data.progress ?? data.leagueTaskProgress) as
+            | Record<string, number>
+            | undefined;
         if (raw) {
             for (const [key, value] of Object.entries(raw)) {
                 const taskId = parseInt(key, 10);
@@ -223,9 +237,18 @@ export class LeaguesVGamemode extends VanillaGamemode {
         syncLeagueTutorialHandshakeState(player, bridge);
 
         // Send league points varps from saved state
-        bridge.sendVarp(VARP_LEAGUE_POINTS_CLAIMED, player.varps.getVarpValue(VARP_LEAGUE_POINTS_CLAIMED));
-        bridge.sendVarp(VARP_LEAGUE_POINTS_COMPLETED, player.varps.getVarpValue(VARP_LEAGUE_POINTS_COMPLETED));
-        bridge.sendVarp(VARP_LEAGUE_POINTS_CURRENCY, player.varps.getVarpValue(VARP_LEAGUE_POINTS_CURRENCY));
+        bridge.sendVarp(
+            VARP_LEAGUE_POINTS_CLAIMED,
+            player.varps.getVarpValue(VARP_LEAGUE_POINTS_CLAIMED),
+        );
+        bridge.sendVarp(
+            VARP_LEAGUE_POINTS_COMPLETED,
+            player.varps.getVarpValue(VARP_LEAGUE_POINTS_COMPLETED),
+        );
+        bridge.sendVarp(
+            VARP_LEAGUE_POINTS_CURRENCY,
+            player.varps.getVarpValue(VARP_LEAGUE_POINTS_CURRENCY),
+        );
 
         // Send packed league varps (relic/mastery varbits)
         for (const [rawVarpId, rawValue] of Object.entries(getLeaguePackedVarpsForPlayer(player))) {
@@ -264,7 +287,12 @@ export class LeaguesVGamemode extends VanillaGamemode {
 
     // === Varp / Widget Events ===
 
-    onVarpTransmit(player: PlayerState, varpId: number, value: number, previousValue: number): void {
+    onVarpTransmit(
+        player: PlayerState,
+        varpId: number,
+        value: number,
+        previousValue: number,
+    ): void {
         if (varpId !== VARP_SIDE_JOURNAL_STATE) return;
 
         const previousTab = decodeSideJournalTabFromStateVarp(previousValue);
@@ -326,7 +354,11 @@ export class LeaguesVGamemode extends VanillaGamemode {
         }
     }
 
-    override onResumePauseButton(player: PlayerState, widgetId: number, childIndex: number): boolean {
+    override onResumePauseButton(
+        player: PlayerState,
+        widgetId: number,
+        childIndex: number,
+    ): boolean {
         void childIndex;
         if (!this.uiBridge) return false;
         return handleLeagueTutorialHintResume(
@@ -358,8 +390,7 @@ export class LeaguesVGamemode extends VanillaGamemode {
             ...super.getGamemodeServices(),
             completeLeagueTask: (player: PlayerState, taskId: number) =>
                 LeagueTaskService.completeTask(player, taskId),
-            syncLeagueGeneralVarp: (player: PlayerState) =>
-                syncLeagueGeneralVarp(player),
+            syncLeagueGeneralVarp: (player: PlayerState) => syncLeagueGeneralVarp(player),
             getLeaguePackedVarpsForPlayer: (player: PlayerState) =>
                 getLeaguePackedVarpsForPlayer(player),
             getTaskCompletionVarps: () => LEAGUE_TASK_COMPLETION_VARPS,
@@ -405,7 +436,8 @@ export class LeaguesVGamemode extends VanillaGamemode {
                         if (!p) return undefined;
                         return Object.assign(p, {
                             getChallengeProgress: (idx: number) => getChallengeProgress(p, idx),
-                            setChallengeProgress: (idx: number, val: number) => setChallengeProgress(p, idx, val),
+                            setChallengeProgress: (idx: number, val: number) =>
+                                setChallengeProgress(p, idx, val),
                         });
                     },
                     queueVarp: (playerId, varpId, value) =>

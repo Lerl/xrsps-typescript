@@ -7,10 +7,7 @@
 
 export * from "./constants";
 export * from "./types";
-export {
-    NpcPacketEncoder,
-    type NpcTickFrameData,
-} from "./NpcPacketEncoder";
+export { NpcPacketEncoder, type NpcTickFrameData } from "./NpcPacketEncoder";
 export {
     PlayerPacketEncoder,
     type PlayerTickFrameData,

@@ -1,17 +1,17 @@
 import type { WebSocket } from "ws";
 
+import type { TypeLoader } from "../../../../src/rs/config/TypeLoader";
+import type { LocType } from "../../../../src/rs/config/loctype/LocType";
+import type { NpcType } from "../../../../src/rs/config/npctype/NpcType";
+import type { ObjType } from "../../../../src/rs/config/objtype/ObjType";
 import {
     resolveLocExamineText,
     resolveNpcExamineText,
     resolveObjExamineText,
 } from "../../game/interactions/ExamineText";
-import { loadVisibleLocTypeForPlayer } from "../../world/LocTransforms";
-import type { PlayerState } from "../../game/player";
-import type { LocType } from "../../../../src/rs/config/loctype/LocType";
-import type { NpcType } from "../../../../src/rs/config/npctype/NpcType";
-import type { ObjType } from "../../../../src/rs/config/objtype/ObjType";
-import type { TypeLoader } from "../../../../src/rs/config/TypeLoader";
 import type { NpcState } from "../../game/npc";
+import type { PlayerState } from "../../game/player";
+import { loadVisibleLocTypeForPlayer } from "../../world/LocTransforms";
 
 export interface ExamineHandlerDeps {
     getPlayer: (ws: WebSocket) => PlayerState | undefined;

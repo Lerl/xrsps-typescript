@@ -9,30 +9,43 @@
  * - executeCombatNpcRetaliateAction (NPC retaliation)
  * - executeCombatCompanionHitAction (owned follower damage on NPCs)
  */
-import { logger } from "../../../utils/logger";
-import { NpcHitHandler } from "./NpcHitHandler";
-import { PvpCombatHandler } from "./PvpCombatHandler";
-import { NpcRetaliationHandler } from "./NpcRetaliationHandler";
-import { CompanionHitHandler } from "./CompanionHitHandler";
-import { handleRangedAmmoConsumption, handleAutocastRuneConsumption } from "./CombatHandlerUtils";
+import { WebSocket } from "ws";
+
 import type { ProjectileLaunch } from "../../../../../src/shared/projectiles/ProjectileLaunch";
-import type { SpellDataEntry } from "../../spells/SpellDataProvider";
+import { encodeMessage } from "../../../network/messages";
 import type { PathService } from "../../../pathfinding/PathService";
+import { logger } from "../../../utils/logger";
+import type { ServerServices } from "../../ServerServices";
+import { calculateAmmoConsumption } from "../../combat/AmmoSystem";
 import { AttackType, normalizeAttackType } from "../../combat/AttackType";
 import {
-    hasProjectileLineOfSightToNpc,
-    hasDirectMeleeReach,
     hasDirectMeleePath,
+    hasDirectMeleeReach,
+    hasProjectileLineOfSightToNpc,
     isWithinAttackRange,
 } from "../../combat/CombatAction";
+import { combatEffectApplicator } from "../../combat/CombatEffectApplicator";
 import { resolvePlayerAttackType } from "../../combat/CombatRules";
 import type { DropEligibility } from "../../combat/DamageTracker";
 import { HITMARK_BLOCK, HITMARK_DAMAGE } from "../../combat/HitEffects";
+import { isInWilderness } from "../../combat/MultiCombatZones";
+import { getSpecialAttack } from "../../combat/SpecialAttackProvider";
+import { pickSpecialAttackVisualOverride } from "../../combat/SpecialAttackVisualProvider";
+import { getSpellBaseXp } from "../../combat/SpellXpProvider";
+import { getRangedImpactSound } from "../../combat/WeaponDataProvider";
+import { getProjectileParams } from "../../data/ProjectileParamsProvider";
+import { consumeEquippedAmmoApply, ensureEquipQtyArrayOn } from "../../equipment";
 import type { NpcState } from "../../npc";
 import type { PendingNpcDrop } from "../../npcManager";
 import type { PlayerAppearance, PlayerState, SkillSyncUpdate } from "../../player";
 import type { SpellCastContext, SpellCastOutcome } from "../../spells/SpellCaster";
 import { SpellCaster } from "../../spells/SpellCaster";
+import type { SpellDataEntry } from "../../spells/SpellDataProvider";
+import {
+    canWeaponAutocastSpell,
+    getAutocastCompatibilityMessage,
+    getSpellData,
+} from "../../spells/SpellDataProvider";
 import type {
     CombatAttackActionData,
     CombatAutocastActionData,
@@ -42,20 +55,12 @@ import type {
     CombatPlayerHitActionData,
 } from "../actionPayloads";
 import type { ActionEffect, ActionExecutionResult, ActionRequest, ScheduledAction } from "../types";
+import { handleAutocastRuneConsumption, handleRangedAmmoConsumption } from "./CombatHandlerUtils";
+import { CompanionHitHandler } from "./CompanionHitHandler";
+import { NpcHitHandler } from "./NpcHitHandler";
+import { NpcRetaliationHandler } from "./NpcRetaliationHandler";
+import { PvpCombatHandler } from "./PvpCombatHandler";
 import type { SpellResultPayload } from "./SpellActionHandler";
-import type { ServerServices } from "../../ServerServices";
-import { getSpecialAttack } from "../../combat/SpecialAttackProvider";
-import { pickSpecialAttackVisualOverride } from "../../combat/SpecialAttackVisualProvider";
-import { getSpellData, canWeaponAutocastSpell, getAutocastCompatibilityMessage } from "../../spells/SpellDataProvider";
-import { getSpellBaseXp } from "../../combat/SpellXpProvider";
-import { getProjectileParams } from "../../data/ProjectileParamsProvider";
-import { isInWilderness } from "../../combat/MultiCombatZones";
-import { combatEffectApplicator } from "../../combat/CombatEffectApplicator";
-import { calculateAmmoConsumption } from "../../combat/AmmoSystem";
-import { ensureEquipQtyArrayOn, consumeEquippedAmmoApply } from "../../equipment";
-import { getRangedImpactSound } from "../../combat/WeaponDataProvider";
-import { encodeMessage } from "../../../network/messages";
-import { WebSocket } from "ws";
 
 // ============================================================================
 // Types
@@ -587,14 +592,12 @@ export class CombatActionHandler {
         const subServices = this.buildSubHandlerServices();
         this.subServices = subServices;
         this.pvpHandler = new PvpCombatHandler(subServices);
-        this.npcHitHandler = new NpcHitHandler(
-            subServices,
-            (player, data, tick) => this.pvpHandler.executePlayerVsPlayerHit(player, data, tick),
+        this.npcHitHandler = new NpcHitHandler(subServices, (player, data, tick) =>
+            this.pvpHandler.executePlayerVsPlayerHit(player, data, tick),
         );
         this.retaliationHandler = new NpcRetaliationHandler(subServices);
-        this.companionHandler = new CompanionHitHandler(
-            subServices,
-            (player, npc, tick, effects) => this.npcHitHandler.handleNpcDeath(player, npc, tick, effects),
+        this.companionHandler = new CompanionHitHandler(subServices, (player, npc, tick, effects) =>
+            this.npcHitHandler.handleNpcDeath(player, npc, tick, effects),
         );
     }
 
@@ -626,7 +629,8 @@ export class CombatActionHandler {
             pickHitDelay: (player) => svc.playerCombatService!.pickHitDelay(player),
             getPlayerAttackReach: (player) => svc.playerCombatService!.getPlayerAttackReach(player),
             pickNpcFaceTile: (player, npc) => svc.playerCombatService!.pickNpcFaceTile(player, npc),
-            pickCombatSound: (player, isHit) => svc.playerCombatService!.pickCombatSound(player, isHit),
+            pickCombatSound: (player, isHit) =>
+                svc.playerCombatService!.pickCombatSound(player, isHit),
             getRangedImpactSound: (player) => {
                 const equip = svc.equipmentService.ensureEquipArray(player);
                 const weaponId = equip[EquipmentSlot.WEAPON];
@@ -635,20 +639,37 @@ export class CombatActionHandler {
             deriveAttackTypeFromStyle: (style, player) =>
                 svc.playerCombatService!.deriveAttackTypeFromStyle(style, player),
             pickBlockSequence: (player) =>
-                svc.playerCombatManager?.pickBlockSequence(player, svc.appearanceService.getWeaponAnimOverrides()) ?? -1,
+                svc.playerCombatManager?.pickBlockSequence(
+                    player,
+                    svc.appearanceService.getWeaponAnimOverrides(),
+                ) ?? -1,
 
             getNpcCombatSequences: (typeId) => svc.combatDataService.getNpcCombatSequences(typeId),
-            getNpcHitSoundId: (typeId) => svc.combatDataService.getNpcHitSoundId({ typeId } as unknown as NpcState),
-            getNpcDefendSoundId: (typeId) => svc.combatDataService.getNpcDefendSoundId({ typeId } as unknown as NpcState),
-            getNpcDeathSoundId: (typeId) => svc.combatDataService.getNpcDeathSoundId({ typeId } as unknown as NpcState),
-            getNpcAttackSoundId: (typeId) => svc.combatDataService.getNpcAttackSoundId({ typeId } as unknown as NpcState),
-            resolveNpcAttackType: (npc, hint) => svc.combatEffectService.resolveNpcAttackType(npc, hint),
-            resolveNpcAttackRange: (npc, attackType) => svc.combatEffectService.resolveNpcAttackRange(npc, attackType),
-            broadcastNpcSequence: (npc, seqId) => svc.combatEffectService.broadcastNpcSequence(npc, seqId),
+            getNpcHitSoundId: (typeId) =>
+                svc.combatDataService.getNpcHitSoundId({ typeId } as unknown as NpcState),
+            getNpcDefendSoundId: (typeId) =>
+                svc.combatDataService.getNpcDefendSoundId({ typeId } as unknown as NpcState),
+            getNpcDeathSoundId: (typeId) =>
+                svc.combatDataService.getNpcDeathSoundId({ typeId } as unknown as NpcState),
+            getNpcAttackSoundId: (typeId) =>
+                svc.combatDataService.getNpcAttackSoundId({ typeId } as unknown as NpcState),
+            resolveNpcAttackType: (npc, hint) =>
+                svc.combatEffectService.resolveNpcAttackType(npc, hint),
+            resolveNpcAttackRange: (npc, attackType) =>
+                svc.combatEffectService.resolveNpcAttackRange(npc, attackType),
+            broadcastNpcSequence: (npc, seqId) =>
+                svc.combatEffectService.broadcastNpcSequence(npc, seqId),
             estimateNpcDespawnDelayTicksFromSeq: (seqId) =>
                 svc.combatEffectService.estimateNpcDespawnDelayTicksFromSeq(seqId),
 
-            estimateProjectileTiming: (params) => svc.projectileTimingService!.estimateProjectileTiming(params as unknown as { player: PlayerState; targetX?: number; targetY?: number }),
+            estimateProjectileTiming: (params) =>
+                svc.projectileTimingService!.estimateProjectileTiming(
+                    params as unknown as {
+                        player: PlayerState;
+                        targetX?: number;
+                        targetY?: number;
+                    },
+                ),
             buildPlayerRangedProjectileLaunch: (params) =>
                 svc.projectileTimingService!.buildPlayerRangedProjectileLaunch(params),
 
@@ -658,8 +679,10 @@ export class CombatActionHandler {
                     request as unknown as import("./SpellActionHandler").SpellCastRequest,
                     svc.ticker.currentTick(),
                 ),
-            queueSpellResult: (playerId, result) => svc.broadcastService.queueSpellResult(playerId, result),
-            pickSpellSound: (spellId, stage) => svc.playerCombatService!.pickSpellSound(spellId, stage),
+            queueSpellResult: (playerId, result) =>
+                svc.broadcastService.queueSpellResult(playerId, result),
+            pickSpellSound: (spellId, stage) =>
+                svc.playerCombatService!.pickSpellSound(spellId, stage),
             resetAutocast: (player) => svc.equipmentService.resetAutocast(player),
 
             broadcastSound: (request, tag) => svc.broadcastService.broadcastSound(request, tag),
@@ -672,7 +695,8 @@ export class CombatActionHandler {
             dispatchActionEffects: (effects) =>
                 svc.effectDispatcher!.dispatchActionEffects(effects),
             broadcast: (data, tag) => svc.broadcastService.broadcast(data, tag),
-            encodeMessage: (msg) => encodeMessage(msg as unknown as import("../../../network/messages").ServerToClient),
+            encodeMessage: (msg) =>
+                encodeMessage(msg as unknown as import("../../../network/messages").ServerToClient),
 
             scheduleAction: (playerId, request, tick) =>
                 svc.actionScheduler.requestAction(playerId, request, tick),
@@ -714,7 +738,8 @@ export class CombatActionHandler {
             rollRetaliateDamage: (npc, player) =>
                 svc.playerCombatManager?.rollRetaliateDamage(npc, player) ?? 0,
             getDropEligibility: (npc) => svc.playerCombatManager?.getDropEligibility?.(npc),
-            rollNpcDrops: (npc, eligibility) => svc.combatEffectService.rollNpcDrops(npc, eligibility),
+            rollNpcDrops: (npc, eligibility) =>
+                svc.combatEffectService.rollNpcDrops(npc, eligibility),
             cleanupNpc: (npc) => svc.playerCombatManager?.cleanupNpc?.(npc),
 
             spawnGroundItem: (itemId, quantity, location, tick, options) =>
@@ -724,14 +749,35 @@ export class CombatActionHandler {
                 svc.npcManager?.queueDeath?.(npcId, despawnTick, respawnTick, drops) ?? false,
 
             applyProtectionPrayers: (target, damage, attackType, sourceType) =>
-                svc.combatEffectService.applyProtectionPrayers(target, damage, attackType, sourceType),
-            applySmite: (attacker, target, damage) => svc.combatEffectService.applySmite(attacker, target, damage),
-            tryActivateRedemption: (player) => svc.combatEffectService.tryActivateRedemption(player),
-            closeInterruptibleInterfaces: (player) => svc.interfaceManager.closeInterruptibleInterfaces(player),
-            applyMultiTargetSpellDamage: (params) => svc.combatEffectService.applyMultiTargetSpellDamage(params),
+                svc.combatEffectService.applyProtectionPrayers(
+                    target,
+                    damage,
+                    attackType,
+                    sourceType,
+                ),
+            applySmite: (attacker, target, damage) =>
+                svc.combatEffectService.applySmite(attacker, target, damage),
+            tryActivateRedemption: (player) =>
+                svc.combatEffectService.tryActivateRedemption(player),
+            closeInterruptibleInterfaces: (player) =>
+                svc.interfaceManager.closeInterruptibleInterfaces(player),
+            applyMultiTargetSpellDamage: (params) =>
+                svc.combatEffectService.applyMultiTargetSpellDamage(params),
 
             awardCombatXp: (player, damage, hitData, effects) =>
-                svc.skillService.awardCombatXp(player, damage, hitData as { attackType?: string; attackStyleMode?: string; spellId?: number; spellBaseXpAtCast?: boolean } | undefined, effects),
+                svc.skillService.awardCombatXp(
+                    player,
+                    damage,
+                    hitData as
+                        | {
+                              attackType?: string;
+                              attackStyleMode?: string;
+                              spellId?: number;
+                              spellBaseXpAtCast?: boolean;
+                          }
+                        | undefined,
+                    effects,
+                ),
             getSkillXpMultiplier: (player) => svc.gamemode.getSkillXpMultiplier(player),
 
             getSpecialAttack: (weaponId) => getSpecialAttack(weaponId),
@@ -740,15 +786,30 @@ export class CombatActionHandler {
 
             consumeEquippedAmmoApply: (params) => consumeEquippedAmmoApply(params),
             calculateAmmoConsumption: (
-                weaponId, ammoId, ammoQty, capeId, targetX, targetY, randFn,
-            ) => calculateAmmoConsumption(
-                weaponId, ammoId, ammoQty, capeId, targetX, targetY, randFn,
-            ),
+                weaponId,
+                ammoId,
+                ammoQty,
+                capeId,
+                targetX,
+                targetY,
+                randFn,
+            ) =>
+                calculateAmmoConsumption(
+                    weaponId,
+                    ammoId,
+                    ammoQty,
+                    capeId,
+                    targetX,
+                    targetY,
+                    randFn,
+                ),
 
             canWeaponAutocastSpell: (weaponId, spellId) =>
                 canWeaponAutocastSpell(weaponId, spellId),
             getAutocastCompatibilityMessage: (reason) =>
-                getAutocastCompatibilityMessage(reason as import("../../spells/SpellDataProvider").AutocastCompatibilityResult["reason"]),
+                getAutocastCompatibilityMessage(
+                    reason as import("../../spells/SpellDataProvider").AutocastCompatibilityResult["reason"],
+                ),
 
             validateSpellCast: (context) => SpellCaster.validate(context),
             executeSpellCast: (context, validation) => SpellCaster.execute(context, validation),
@@ -779,7 +840,9 @@ export class CombatActionHandler {
                     if (level === "warn") logger.warn(message);
                     else if (level === "error") logger.error(message);
                     else logger.info(message);
-                } catch (err) { logger.warn("Failed to log combat message", err); }
+                } catch (err) {
+                    logger.warn("Failed to log combat message", err);
+                }
             },
 
             getNpcName: (typeId) => {
@@ -910,8 +973,17 @@ export class CombatActionHandler {
 
         // Magic autocast rune consumption
         // Skip if onMagicAttack already handled runes at schedule time (prevents double consumption)
-        if (plannedAttackType === AttackType.Magic && player.combat.autocastEnabled && !data.magicAutocastHandled) {
-            const result = handleAutocastRuneConsumption(this.subServices, player, npc, weaponItemId);
+        if (
+            plannedAttackType === AttackType.Magic &&
+            player.combat.autocastEnabled &&
+            !data.magicAutocastHandled
+        ) {
+            const result = handleAutocastRuneConsumption(
+                this.subServices,
+                player,
+                npc,
+                weaponItemId,
+            );
             if (!result.ok) {
                 return result;
             }
@@ -956,7 +1028,8 @@ export class CombatActionHandler {
             const specialVisual = specialActivated
                 ? pickSpecialAttackVisualOverride(weaponItemId)
                 : undefined;
-            attackSeq = specialVisual?.seqId ?? this.svc.playerCombatService!.pickAttackSequence(player);
+            attackSeq =
+                specialVisual?.seqId ?? this.svc.playerCombatService!.pickAttackSequence(player);
             if (Number.isFinite(attackSeq) && attackSeq >= 0) {
                 player.queueOneShotSeq(attackSeq, 0);
             }
@@ -1142,13 +1215,23 @@ export class CombatActionHandler {
                 continue;
             }
 
-            const resolvedAttackType =
-                normalizeAttackType(entryAttackType) ?? plannedAttackType;
+            const resolvedAttackType = normalizeAttackType(entryAttackType) ?? plannedAttackType;
             const shouldGrantXpOnAttack =
-                resolvedAttackType !== AttackType.Magic && this.resolveHitLanded(landed, style, damage);
+                resolvedAttackType !== AttackType.Magic &&
+                this.resolveHitLanded(landed, style, damage);
             if (shouldGrantXpOnAttack && damage > 0) {
                 hitData.xpGrantedOnAttack = true;
-                this.svc.skillService.awardCombatXp(player, damage, hitData as { attackType?: string; attackStyleMode?: string; spellId?: number; spellBaseXpAtCast?: boolean }, effects);
+                this.svc.skillService.awardCombatXp(
+                    player,
+                    damage,
+                    hitData as {
+                        attackType?: string;
+                        attackStyleMode?: string;
+                        spellId?: number;
+                        spellBaseXpAtCast?: boolean;
+                    },
+                    effects,
+                );
             }
         }
 
@@ -1179,13 +1262,15 @@ export class CombatActionHandler {
                 player,
                 targetX: npc.tileX,
                 targetY: npc.tileY,
-                projectileDefaults: projectileToSpawn as import("../../data/ProjectileParamsProvider").ProjectileParams,
+                projectileDefaults:
+                    projectileToSpawn as import("../../data/ProjectileParamsProvider").ProjectileParams,
                 pathService,
             });
             const launch = this.svc.projectileTimingService!.buildPlayerRangedProjectileLaunch({
                 player,
                 npc,
-                projectile: projectileToSpawn as import("../../data/ProjectileParamsProvider").ProjectileParams,
+                projectile:
+                    projectileToSpawn as import("../../data/ProjectileParamsProvider").ProjectileParams,
                 timing,
             });
             if (launch) {
@@ -1283,7 +1368,8 @@ export class CombatActionHandler {
                 player,
                 targetX: npc.tileX,
                 targetY: npc.tileY,
-                projectileDefaults: projectileSpec as import("../../data/ProjectileParamsProvider").ProjectileParams,
+                projectileDefaults:
+                    projectileSpec as import("../../data/ProjectileParamsProvider").ProjectileParams,
                 pathService,
             });
             if (timing) {
@@ -1383,14 +1469,15 @@ export class CombatActionHandler {
     private disableAutocast(player: PlayerState, sock: unknown | undefined): void {
         try {
             this.svc.equipmentService.resetAutocast(player);
-        } catch (err) { logger.warn("[combat] failed to reset autocast", err); }
+        } catch (err) {
+            logger.warn("[combat] failed to reset autocast", err);
+        }
         try {
             if (sock) this.svc.players?.stopPlayerCombat(sock as WebSocket);
-        } catch (err) { logger.warn("[combat] failed to stop combat after autocast disable", err); }
+        } catch (err) {
+            logger.warn("[combat] failed to stop combat after autocast disable", err);
+        }
     }
-
-
-
 
     executeCombatCompanionHitAction(
         player: PlayerState,
@@ -1399,5 +1486,4 @@ export class CombatActionHandler {
     ): ActionExecutionResult {
         return this.companionHandler.executeCombatCompanionHitAction(player, data, tick);
     }
-
 }

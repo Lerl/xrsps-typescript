@@ -1,4 +1,6 @@
 import { SIDE_JOURNAL_GROUP_ID } from "../../../../src/shared/ui/sideJournal";
+import type { ViewportEnumService } from "./ViewportEnumService";
+import { BaseComponentUids } from "./ViewportEnumService";
 import {
     getDesktopInterfaces,
     getRemainingTabInterfaces as getDesktopRemainingTabInterfaces,
@@ -8,8 +10,6 @@ import {
     getMobileQuestTabUid,
     getMobileRemainingTabInterfaces,
 } from "./mobile";
-import type { ViewportEnumService } from "./ViewportEnumService";
-import { BaseComponentUids } from "./ViewportEnumService";
 
 // Module-level service instance (initialized via setViewportEnumService)
 let viewportEnumService: ViewportEnumService | null = null;
@@ -149,10 +149,7 @@ export function getRootInterfaceId(displayMode: DisplayMode): number {
 /**
  * Get the child ID for an interface destination based on display mode
  */
-export function getChildId(
-    dest: InterfaceDestinationEntry,
-    displayMode: DisplayMode,
-): number {
+export function getChildId(dest: InterfaceDestinationEntry, displayMode: DisplayMode): number {
     switch (displayMode) {
         case DisplayMode.FIXED:
             return dest.fixedChildId;

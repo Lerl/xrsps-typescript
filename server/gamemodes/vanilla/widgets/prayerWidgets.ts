@@ -11,9 +11,13 @@ import {
     VARBIT_PRAYER_FILTER_BLOCK_LOCKED,
     VARBIT_PRAYER_FILTER_BLOCK_LOW_TIER,
 } from "../../../../src/shared/vars";
-import { GameframeTab } from "../../../src/widgets/InterfaceService";
-import { type IScriptRegistry, type ScriptServices, DisplayMode } from "../../../src/game/scripts/types";
 import type { PlayerState } from "../../../src/game/player";
+import {
+    DisplayMode,
+    type IScriptRegistry,
+    type ScriptServices,
+} from "../../../src/game/scripts/types";
+import { GameframeTab } from "../../../src/widgets/InterfaceService";
 
 /**
  * Prayer widget handlers for interface 541 (prayer tab) and 160 (minimap prayer orb).
@@ -107,7 +111,10 @@ const DEFAULT_QUICK_PRAYER_SETUP_SLOTS = Array.from(PRAYER_BY_QUICK_SLOT.keys())
     (a, b) => a - b,
 );
 
-export function registerPrayerWidgetHandlers(registry: IScriptRegistry, services: ScriptServices): void {
+export function registerPrayerWidgetHandlers(
+    registry: IScriptRegistry,
+    services: ScriptServices,
+): void {
     const quickPrayerSetupSlotToPrayer = buildQuickPrayerSetupSlotMap(services);
     const quickPrayerSetupSlots = Array.from(
         new Set<number>([
@@ -219,8 +226,7 @@ export function registerPrayerWidgetHandlers(registry: IScriptRegistry, services
             if (lastQuickPrayerToggleTickByPlayerSlot.get(key) === tick) return;
             lastQuickPrayerToggleTickByPlayerSlot.set(key, tick);
 
-            const prayer =
-                quickPrayerSetupSlotToPrayer.get(slot) ?? PRAYER_BY_QUICK_SLOT.get(slot);
+            const prayer = quickPrayerSetupSlotToPrayer.get(slot) ?? PRAYER_BY_QUICK_SLOT.get(slot);
             if (!prayer) return;
 
             const next = new Set<PrayerName>(player.prayer.getQuickPrayers());
@@ -236,19 +242,15 @@ export function registerPrayerWidgetHandlers(registry: IScriptRegistry, services
     );
 
     // 77:5 is the "Done" button in quick prayer setup.
-    registry.onButton(
-        QUICK_PRAYER_SETUP_GROUP_ID,
-        QUICK_PRAYER_SETUP_DONE_COMPONENT,
-        (event) => {
-            const player = event.player;
-            const pid = player.id;
-            const tick = event.tick;
-            if (lastQuickPrayerDoneTickByPlayerId.get(pid) === tick) return;
-            lastQuickPrayerDoneTickByPlayerId.set(pid, tick);
+    registry.onButton(QUICK_PRAYER_SETUP_GROUP_ID, QUICK_PRAYER_SETUP_DONE_COMPONENT, (event) => {
+        const player = event.player;
+        const pid = player.id;
+        const tick = event.tick;
+        if (lastQuickPrayerDoneTickByPlayerId.get(pid) === tick) return;
+        lastQuickPrayerDoneTickByPlayerId.set(pid, tick);
 
-            openQuickPrayerSetupTab(false, player, services);
-        },
-    );
+        openQuickPrayerSetupTab(false, player, services);
+    });
 
     // ============ PRAYER ORB (160:20) ============
     // Minimap prayer orb supports:
@@ -277,9 +279,7 @@ export function registerPrayerWidgetHandlers(registry: IScriptRegistry, services
     });
 }
 
-function buildQuickPrayerSetupSlotMap(
-    services: ScriptServices,
-): Map<number, PrayerName> {
+function buildQuickPrayerSetupSlotMap(services: ScriptServices): Map<number, PrayerName> {
     const slotToPrayer = new Map<number, PrayerName>();
     const enumLoader = services.data.getEnumTypeLoader() ?? services.enumTypeLoader;
     const getObjType = services.data.getObjType;
@@ -306,11 +306,7 @@ function buildQuickPrayerSetupSlotMap(
             const obj = getObjType(objId) as { params?: Map<number, number> } | undefined;
             const params = obj?.params;
             const componentUid = params?.get(PRAYER_OBJ_PARAM_COMPONENT);
-            if (
-                componentUid === undefined ||
-                !Number.isFinite(componentUid) ||
-                componentUid <= 0
-            ) {
+            if (componentUid === undefined || !Number.isFinite(componentUid) || componentUid <= 0) {
                 continue;
             }
 
@@ -351,11 +347,7 @@ function openQuickPrayerSetupTab(
     }
 }
 
-function handlePrayerOrbClick(
-    option: string,
-    player: PlayerState,
-    services: ScriptServices,
-): void {
+function handlePrayerOrbClick(option: string, player: PlayerState, services: ScriptServices): void {
     const quick = Array.from(player.prayer.getQuickPrayers() as Iterable<PrayerName>);
 
     if (option === "activate") {

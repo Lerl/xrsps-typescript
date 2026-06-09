@@ -262,7 +262,8 @@ export class HitsplatOverlay implements Overlay {
                     // Total width = left + middle*n + right
                     const middleWidth =
                         ((primaryBaseWidth - primaryBgParts.left.w - primaryBgParts.right.w) *
-                            resolvedScale) | 0;
+                            resolvedScale) |
+                        0;
                     const totalWidth = lw + middleWidth + rw;
                     const lx = cx - (totalWidth >> 1);
                     const ly = topY;
@@ -291,7 +292,8 @@ export class HitsplatOverlay implements Overlay {
 
                     const mw =
                         ((primaryBaseWidth - primaryBgParts.left.w - primaryBgParts.right.w) *
-                            resolvedScale) | 0;
+                            resolvedScale) |
+                        0;
                     const mh = (primaryBgParts.mid.h * resolvedScale) | 0;
                     const mx0 = lx + lw;
                     for (let px = 0; px < mw; px += primaryBgParts.mid.w * resolvedScale) {
@@ -534,8 +536,7 @@ export class HitsplatOverlay implements Overlay {
                             const sec2TextOffsetY = (type2Def.textOffsetY ?? 0) | 0;
                             const stx = slx + (sec2TotalWidth >> 1) - (stw >> 1);
                             const sty =
-                                topY +
-                                (15 + sec2TextOffsetY - sec2TextInfo.ascent) * resolvedScale;
+                                topY + (15 + sec2TextOffsetY - sec2TextInfo.ascent) * resolvedScale;
                             quadVerts[0] = stx;
                             quadVerts[1] = sty;
                             quadVerts[2] = stx;
@@ -609,9 +610,7 @@ export class HitsplatOverlay implements Overlay {
         }
     }
 
-    private getDefinitionBackgroundParts(
-        def?: HitSplatType,
-    ):
+    private getDefinitionBackgroundParts(def?: HitSplatType):
         | {
               left: { tex: Texture; w: number; h: number };
               mid: { tex: Texture; w: number; h: number };

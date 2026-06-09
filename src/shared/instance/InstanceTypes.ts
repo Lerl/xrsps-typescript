@@ -36,7 +36,12 @@ export function packTemplateChunk(
     chunkY: number,
     rotation: number,
 ): number {
-    return ((plane & 3) << 24) | ((chunkX & 0x3ff) << 14) | ((chunkY & 0x7ff) << 3) | ((rotation & 3) << 1);
+    return (
+        ((plane & 3) << 24) |
+        ((chunkX & 0x3ff) << 14) |
+        ((chunkY & 0x7ff) << 3) |
+        ((rotation & 3) << 1)
+    );
 }
 
 export interface UnpackedTemplateChunk {

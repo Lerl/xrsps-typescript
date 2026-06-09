@@ -1,5 +1,5 @@
-import type { WidgetAction } from "../../widgets/WidgetManager";
 import type { TickFrame } from "../../game/tick/TickPhaseOrchestrator";
+import type { WidgetAction } from "../../widgets/WidgetManager";
 import { encodeMessage } from "../messages";
 import type { BroadcastContext, BroadcastDomain } from "./BroadcastDomain";
 
@@ -38,8 +38,8 @@ export class WidgetBroadcaster implements BroadcastDomain {
     flushCloseEvents(frame: TickFrame, ctx: BroadcastContext): void {
         if (!frame.widgetEvents || frame.widgetEvents.length === 0) return;
 
-        const closeEvents = frame.widgetEvents.filter(
-            (evt: { action?: WidgetAction }) => isClosePhaseWidgetAction(evt.action),
+        const closeEvents = frame.widgetEvents.filter((evt: { action?: WidgetAction }) =>
+            isClosePhaseWidgetAction(evt.action),
         );
         for (const evt of closeEvents) {
             const sock = ctx.getSocketByPlayerId(evt.playerId);

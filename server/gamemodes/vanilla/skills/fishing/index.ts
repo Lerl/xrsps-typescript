@@ -2,6 +2,12 @@ import { SkillId } from "../../../../../src/rs/skill/skills";
 import type { ActionEffect, ActionExecutionResult } from "../../../../src/game/actions/types";
 import type { PlayerState } from "../../../../src/game/player";
 import {
+    type IScriptRegistry,
+    type NpcInteractionEvent,
+    type ScriptActionHandlerContext,
+    type ScriptServices,
+} from "../../../../src/game/scripts/types";
+import {
     type FishingToolDefinition,
     type FishingToolId,
     buildFishingSpotMap,
@@ -12,7 +18,6 @@ import {
     pickFishingCatch,
     selectFishingTool,
 } from "./fishingData";
-import { type IScriptRegistry, type NpcInteractionEvent, type ScriptActionHandlerContext, type ScriptServices } from "../../../../src/game/scripts/types";
 
 const FISHING_ACTIONS = [
     "small net",
@@ -62,7 +67,11 @@ function hasAnyCarriedItem(carriedItemIds: number[], candidateItemIds: number[])
     return candidateItemIds.some((id) => carried.has(id));
 }
 
-function rollFishingSuccess(level: number, catchLevel: number, tool: FishingToolDefinition): boolean {
+function rollFishingSuccess(
+    level: number,
+    catchLevel: number,
+    tool: FishingToolDefinition,
+): boolean {
     const effective = Math.max(1, level);
     const difficulty = Math.max(1, catchLevel);
     const ratio = effective / difficulty;
@@ -101,8 +110,9 @@ function executeFishAction(ctx: ScriptActionHandlerContext): ActionExecutionResu
         return failFishingPrecheck(player, services, "The fishing spot drifts out of reach.");
     }
 
-    const spot = (priorSpotId ? getFishingSpotById(priorSpotId) : undefined) ??
-        (services.getFishingSpot?.(npc.typeId));
+    const spot =
+        (priorSpotId ? getFishingSpotById(priorSpotId) : undefined) ??
+        services.getFishingSpot?.(npc.typeId);
     if (!spot) {
         return failFishingPrecheck(player, services, "You can't fish here.");
     }
@@ -132,19 +142,29 @@ function executeFishAction(ctx: ScriptActionHandlerContext): ActionExecutionResu
             (min, entry) => Math.min(min, entry.level),
             Number.MAX_SAFE_INTEGER,
         );
-        return failFishingPrecheck(player, services, `You need Fishing level ${minLevel} to fish here.`);
+        return failFishingPrecheck(
+            player,
+            services,
+            `You need Fishing level ${minLevel} to fish here.`,
+        );
     }
 
     const carriedIds = services.inventory.collectCarriedItemIds(player) ?? [];
     const hasEchoHarpoonPerk = hasAnyCarriedItem(carriedIds, ECHO_HARPOON_ITEM_IDS);
-    const methodToolId = String(method.toolId ?? "").trim().toLowerCase();
+    const methodToolId = String(method.toolId ?? "")
+        .trim()
+        .toLowerCase();
     let tool = selectFishingTool(method.toolId, carriedIds);
     if (!tool && hasEchoHarpoonPerk && ECHO_HARPOON_SUBSTITUTABLE_TOOL_IDS.has(methodToolId)) {
         tool = getFishingToolDefinition("harpoon" as FishingToolId);
     }
     if (!tool) {
         const requiredTool = getFishingToolDefinition(method.toolId);
-        return failFishingPrecheck(player, services, `You need a ${requiredTool?.name ?? "fishing tool"} to fish here.`);
+        return failFishingPrecheck(
+            player,
+            services,
+            `You need a ${requiredTool?.name ?? "fishing tool"} to fish here.`,
+        );
     }
 
     let baitSlot: number | undefined;
@@ -164,7 +184,11 @@ function executeFishAction(ctx: ScriptActionHandlerContext): ActionExecutionResu
 
     const catchItemId = catchDef.itemId;
     if (!hasEchoHarpoonPerk && !services.inventory.canStoreItem(player, catchItemId)) {
-        return failFishingPrecheck(player, services, "Your inventory is too full to hold any more fish.");
+        return failFishingPrecheck(
+            player,
+            services,
+            "Your inventory is too full to hold any more fish.",
+        );
     }
 
     const effects: ActionEffect[] = [];
@@ -199,13 +223,21 @@ function executeFishAction(ctx: ScriptActionHandlerContext): ActionExecutionResu
         if (hasEchoHarpoonPerk) {
             const banked = services.banking?.addItemToBank?.(player, rewardItemId, quantity);
             if (!banked) {
-                return failFishingPrecheck(player, services, "Your bank is too full to hold any more fish.");
+                return failFishingPrecheck(
+                    player,
+                    services,
+                    "Your bank is too full to hold any more fish.",
+                );
             }
             bankSnapshot = true;
         } else {
             const result = services.inventory.addItemToInventory(player, rewardItemId, quantity);
             if (result.added <= 0) {
-                return failFishingPrecheck(player, services, "Your inventory is too full to hold any more fish.");
+                return failFishingPrecheck(
+                    player,
+                    services,
+                    "Your inventory is too full to hold any more fish.",
+                );
             }
             inventorySnapshot = true;
         }
@@ -221,13 +253,22 @@ function executeFishAction(ctx: ScriptActionHandlerContext): ActionExecutionResu
         );
         if (hasEchoHarpoonPerk) {
             const capitalizedFishName = fishName.charAt(0).toUpperCase() + fishName.slice(1);
-            effects.push(buildMessageEffect(player, `${quantity}x ${capitalizedFishName} were sent straight to your bank.`));
+            effects.push(
+                buildMessageEffect(
+                    player,
+                    `${quantity}x ${capitalizedFishName} were sent straight to your bank.`,
+                ),
+            );
         }
         services.skills.addSkillXp(player, SkillId.Fishing, catchDef.xp);
 
         if (baitSlot !== undefined && Array.isArray(method.baitItemIds)) {
             if (!services.inventory.consumeItem(player, baitSlot)) {
-                return failFishingPrecheck(player, services, "You fumble your bait and stop fishing.");
+                return failFishingPrecheck(
+                    player,
+                    services,
+                    "You fumble your bait and stop fishing.",
+                );
             }
             inventorySnapshot = true;
         }
@@ -245,7 +286,9 @@ function executeFishAction(ctx: ScriptActionHandlerContext): ActionExecutionResu
     let continueFishing = true;
     if (!hasEchoHarpoonPerk && !services.inventory.canStoreItem(player, catchItemId)) {
         continueFishing = false;
-        effects.push(buildMessageEffect(player, "Your inventory is too full to hold any more fish."));
+        effects.push(
+            buildMessageEffect(player, "Your inventory is too full to hold any more fish."),
+        );
     }
 
     if (continueFishing && Array.isArray(method.baitItemIds) && method.baitItemIds.length > 0) {
@@ -260,7 +303,8 @@ function executeFishAction(ctx: ScriptActionHandlerContext): ActionExecutionResu
     }
 
     const baseSwingTicks = method.swingTicks;
-    const swingTicks = hasEchoHarpoonPerk && baseSwingTicks > 1 ? baseSwingTicks - 1 : baseSwingTicks;
+    const swingTicks =
+        hasEchoHarpoonPerk && baseSwingTicks > 1 ? baseSwingTicks - 1 : baseSwingTicks;
     if (continueFishing) {
         const npcSize = npc.size;
         const reschedule = services.combat.scheduleAction(

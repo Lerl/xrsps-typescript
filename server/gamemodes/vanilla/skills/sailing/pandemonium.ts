@@ -1,7 +1,11 @@
 import type { PlayerState } from "../../../../src/game/player";
 import {
     BaseComponentUids,
-    buildSailingOverlayTemplates,
+    type IScriptRegistry,
+    type NpcInteractionEvent,
+    PORT_SARIM_RETURN_LEVEL,
+    PORT_SARIM_RETURN_X,
+    PORT_SARIM_RETURN_Y,
     SAILING_DOCKED_NPC_SPAWNS,
     SAILING_DOCKED_PLAYER_LEVEL,
     SAILING_DOCKED_PLAYER_X,
@@ -12,13 +16,9 @@ import {
     SAILING_WORLD_ENTITY_INDEX,
     SAILING_WORLD_ENTITY_SIZE_X,
     SAILING_WORLD_ENTITY_SIZE_Z,
-    PORT_SARIM_RETURN_LEVEL,
-    PORT_SARIM_RETURN_X,
-    PORT_SARIM_RETURN_Y,
-    type IScriptRegistry,
-    type NpcInteractionEvent,
     type ScriptDialogRequest,
     type ScriptServices,
+    buildSailingOverlayTemplates,
 } from "../../../../src/game/scripts/types";
 
 // ============================================================================
@@ -152,12 +152,7 @@ export function register(registry: IScriptRegistry, services: ScriptServices): v
             WILL_SHORE_NPC_ID,
             "Will",
         );
-        const openPlayerDialog = createPlayerDialogFn(
-            player,
-            services,
-            onClose,
-            playerName,
-        );
+        const openPlayerDialog = createPlayerDialogFn(player, services, onClose, playerName);
 
         if (state === 0) {
             playIntroDialogue(
@@ -218,9 +213,7 @@ export function register(registry: IScriptRegistry, services: ScriptServices): v
             playerName,
             openAnneDialog,
             openWillDialog,
-            npc.typeId === ANNE_DOCKED_NPC_ID || npc.typeId === ANNE_BOAT_NPC_ID
-                ? "anne"
-                : "will",
+            npc.typeId === ANNE_DOCKED_NPC_ID || npc.typeId === ANNE_BOAT_NPC_ID ? "anne" : "will",
             dockedVariant ? "docked" : "at_sea",
         );
     }
@@ -265,11 +258,15 @@ export function register(registry: IScriptRegistry, services: ScriptServices): v
         });
     }
 
-    registry.registerLocInteraction(LOC_GANGPLANK, (event) => {
-        const { player } = event;
-        if (!isPlayerOnDockedSailingBoat(player)) return;
-        executeDisembarkSequence(player, services);
-    }, "disembark");
+    registry.registerLocInteraction(
+        LOC_GANGPLANK,
+        (event) => {
+            const { player } = event;
+            if (!isPlayerOnDockedSailingBoat(player)) return;
+            executeDisembarkSequence(player, services);
+        },
+        "disembark",
+    );
 
     registry.registerActionHandler("sailing.board_tick1", (ctx) => {
         const data = ctx.data as { playerName: string };
@@ -355,11 +352,7 @@ type PandemoniumDockedSailingServices = Pick<
     | "dialog"
 >;
 
-type PandemoniumSailingStateServices = Pick<
-    ScriptServices,
-    | "variables"
-    | "dialog"
->;
+type PandemoniumSailingStateServices = Pick<ScriptServices, "variables" | "dialog">;
 
 function playIntroDialogue(
     convoId: string,
@@ -614,10 +607,7 @@ function playInterviewPart3(
 
                             openAnneDialog(
                                 `${convoId}_i18`,
-                                [
-                                    "Just let us know when you're ready, and we'll hop",
-                                    "aboard!",
-                                ],
+                                ["Just let us know when you're ready, and we'll hop", "aboard!"],
                                 ANIM_CHATHAP2,
                                 () => {
                                     services.dialog.closeDialog(player, `${convoId}_i18`);
@@ -749,21 +739,29 @@ function executeBoardingSequence(
     services.variables.sendVarbit?.(player, VARBIT_MINIMAP_STATE, 2);
 
     // --- Tick 1: Teleport + set sailing state ---
-    services.combat.requestAction(player, {
-        kind: "sailing.board_tick1",
-        data: { playerName },
-        delayTicks: 1,
-        groups: ["sailing.boarding"],
-        cooldownTicks: 2,
-    }, currentTick);
+    services.combat.requestAction(
+        player,
+        {
+            kind: "sailing.board_tick1",
+            data: { playerName },
+            delayTicks: 1,
+            groups: ["sailing.boarding"],
+            cooldownTicks: 2,
+        },
+        currentTick,
+    );
 
     // --- Tick 2: Fade back in, boat stats, dialogue ---
-    services.combat.requestAction(player, {
-        kind: "sailing.board_tick2",
-        data: {},
-        delayTicks: 2,
-        groups: ["sailing.boarding_fade"],
-    }, currentTick);
+    services.combat.requestAction(
+        player,
+        {
+            kind: "sailing.board_tick2",
+            data: {},
+            delayTicks: 2,
+            groups: ["sailing.boarding_fade"],
+        },
+        currentTick,
+    );
 }
 
 function sendDockedBoatArrival(
@@ -839,18 +837,17 @@ export function resetSailingState(
     setPlayerVarbitAndSend(player, services, VARBIT_SAILING_BOARDED_BOAT_WORLD, 0);
     setPlayerVarbitAndSend(player, services, VARBIT_SAILING_PLAYER_IS_ON_PLAYER_BOAT, 0);
     setPlayerVarbitAndSend(player, services, VARBIT_SAILING_SIDEPANEL_VISIBLE, 0);
-    setPlayerVarbitAndSend(
-        player,
-        services,
-        VARBIT_SAILING_SIDEPANEL_VISIBLE_FROM_COMBAT_TAB,
-        0,
-    );
+    setPlayerVarbitAndSend(player, services, VARBIT_SAILING_SIDEPANEL_VISIBLE_FROM_COMBAT_TAB, 0);
     setPlayerVarbitAndSend(player, services, VARBIT_SAILING_SIDEPANEL_HELM_STATUS, 0);
     setPlayerVarbitAndSend(player, services, VARBIT_SAILING_SIDEPANEL_BOAT_MOVE_MODE, 0);
     setPlayerVarbitAndSend(player, services, VARBIT_SAILING_PRELOADED_ANIMS, 0);
 
     // Close sailing interfaces via widget tracker (proper close hooks)
-    services.dialog.closeSubInterface(player, BaseComponentUids.TAB_COMBAT, SAILING_SIDEPANEL_GROUP);
+    services.dialog.closeSubInterface(
+        player,
+        BaseComponentUids.TAB_COMBAT,
+        SAILING_SIDEPANEL_GROUP,
+    );
     services.dialog.closeSubInterface(
         player,
         BaseComponentUids.HUD_CONTAINER_FRONT,
@@ -884,34 +881,14 @@ function syncSailingBootstrapState(
     setPlayerVarbitAndSend(player, services, VARBIT_SAILING_SIDEPANEL_PLAYER_ROLE, 10);
     setPlayerVarpAndSend(player, services, VARP_SAILING_SIDEPANEL_BOAT_TYPE, 8113);
     setPlayerVarbitAndSend(player, services, VARBIT_SAILING_SIDEPANEL_BOAT_MOVE_MODE, 4);
-    setPlayerVarbitAndSend(
-        player,
-        services,
-        VARBIT_SAILING_SIDEPANEL_PLAYERS_ON_BOARD_TOTAL,
-        1,
-    );
+    setPlayerVarbitAndSend(player, services, VARBIT_SAILING_SIDEPANEL_PLAYERS_ON_BOARD_TOTAL, 1);
     setPlayerVarbitAndSend(player, services, VARBIT_SAILING_SIDEPANEL_BOAT_HP_MAX, 170);
     setPlayerVarbitAndSend(player, services, VARBIT_SAILING_SIDEPANEL_BOAT_HP, 170);
     setPlayerVarbitAndSend(player, services, VARBIT_SAILING_SIDEPANEL_HELM_STATUS, 1);
-    setPlayerVarbitAndSend(
-        player,
-        services,
-        VARBIT_SAILING_SIDEPANEL_VISIBLE_FROM_COMBAT_TAB,
-        1,
-    );
+    setPlayerVarbitAndSend(player, services, VARBIT_SAILING_SIDEPANEL_VISIBLE_FROM_COMBAT_TAB, 1);
     setPlayerVarbitAndSend(player, services, VARBIT_SAILING_SIDEPANEL_VISIBLE, 1);
-    setPlayerVarbitAndSend(
-        player,
-        services,
-        VARBIT_SAILING_SIDEPANEL_AMMO_NEEDS_UPDATE,
-        1,
-    );
-    setPlayerVarbitAndSend(
-        player,
-        services,
-        VARBIT_SAILING_SIDEPANEL_BOAT_STATS_NEEDS_UPDATE,
-        1,
-    );
+    setPlayerVarbitAndSend(player, services, VARBIT_SAILING_SIDEPANEL_AMMO_NEEDS_UPDATE, 1);
+    setPlayerVarbitAndSend(player, services, VARBIT_SAILING_SIDEPANEL_BOAT_STATS_NEEDS_UPDATE, 1);
     setPlayerVarbitAndSend(player, services, VARBIT_SAILING_PRELOADED_ANIMS, 1);
 }
 
@@ -920,22 +897,12 @@ function syncSailingBoatStats(
     services: Pick<ScriptServices, "variables">,
 ): void {
     setPlayerVarbitAndSend(player, services, VARBIT_SAILING_SIDEPANEL_AMMO_NEEDS_UPDATE, 0);
-    setPlayerVarbitAndSend(
-        player,
-        services,
-        VARBIT_SAILING_SIDEPANEL_BOAT_STATS_NEEDS_UPDATE,
-        0,
-    );
+    setPlayerVarbitAndSend(player, services, VARBIT_SAILING_SIDEPANEL_BOAT_STATS_NEEDS_UPDATE, 0);
     setPlayerVarpAndSend(player, services, VARP_SAILING_SIDEPANEL_BOAT_DEFENCE, 10);
     setPlayerVarpAndSend(player, services, VARP_SAILING_SIDEPANEL_BOATSTAT_TOTAL_STABDEF, 26);
     setPlayerVarpAndSend(player, services, VARP_SAILING_SIDEPANEL_BOATSTAT_TOTAL_SLASHDEF, 19);
     setPlayerVarpAndSend(player, services, VARP_SAILING_SIDEPANEL_BOATSTAT_TOTAL_CRUSHDEF, 13);
-    setPlayerVarpAndSend(
-        player,
-        services,
-        VARP_SAILING_SIDEPANEL_BOATSTAT_TOTAL_HEAVYRANGEDDEF,
-        8,
-    );
+    setPlayerVarpAndSend(player, services, VARP_SAILING_SIDEPANEL_BOATSTAT_TOTAL_HEAVYRANGEDDEF, 8);
     setPlayerVarpAndSend(
         player,
         services,
@@ -952,19 +919,11 @@ function syncSailingBoatStats(
     setPlayerVarpAndSend(player, services, VARP_SAILING_SIDEPANEL_BOAT_ARMOUR, 100);
     setPlayerVarbitAndSend(player, services, VARBIT_SAILING_SIDEPANEL_BOAT_BASESPEED, 192);
     setPlayerVarbitAndSend(player, services, VARBIT_SAILING_SIDEPANEL_BOAT_SPEEDCAP, 384);
-    setPlayerVarbitAndSend(
-        player,
-        services,
-        VARBIT_SAILING_SIDEPANEL_BOAT_SPEEDBOOST_DURATION,
-        20,
-    );
+    setPlayerVarbitAndSend(player, services, VARBIT_SAILING_SIDEPANEL_BOAT_SPEEDBOOST_DURATION, 20);
     setPlayerVarbitAndSend(player, services, VARBIT_SAILING_SIDEPANEL_BOAT_ACCELERATION, 64);
 }
 
-function openSailingUi(
-    player: PlayerState,
-    services: Pick<ScriptServices, "dialog">,
-): void {
+function openSailingUi(player: PlayerState, services: Pick<ScriptServices, "dialog">): void {
     const pid = player.id;
     const playerName = player.name ?? "You";
 
@@ -976,20 +935,32 @@ function openSailingUi(
     // `script8727` sees %sailing_player_is_on_player_boat == 0 and early-returns
     // without creating the scrollbar or facility content.
     const sidepanelVarbits: Record<number, number> = {
-        [VARBIT_SAILING_PLAYER_IS_ON_PLAYER_BOAT]: player.varps.getVarbitValue(VARBIT_SAILING_PLAYER_IS_ON_PLAYER_BOAT) || 1,
-        [VARBIT_SAILING_BOARDED_BOAT]: player.varps.getVarbitValue(VARBIT_SAILING_BOARDED_BOAT) || 1,
-        [VARBIT_SAILING_BOARDED_BOAT_TYPE]: player.varps.getVarbitValue(VARBIT_SAILING_BOARDED_BOAT_TYPE) || 3,
-        [VARBIT_SAILING_SIDEPANEL_VISIBLE]: player.varps.getVarbitValue(VARBIT_SAILING_SIDEPANEL_VISIBLE) || 1,
-        [VARBIT_SAILING_SIDEPANEL_VISIBLE_FROM_COMBAT_TAB]: player.varps.getVarbitValue(VARBIT_SAILING_SIDEPANEL_VISIBLE_FROM_COMBAT_TAB) || 1,
-        [VARBIT_SAILING_SIDEPANEL_PLAYER_ROLE]: player.varps.getVarbitValue(VARBIT_SAILING_SIDEPANEL_PLAYER_ROLE) || 10,
-        [VARBIT_SAILING_SIDEPANEL_BOAT_MOVE_MODE]: player.varps.getVarbitValue(VARBIT_SAILING_SIDEPANEL_BOAT_MOVE_MODE) || 4,
-        [VARBIT_SAILING_SIDEPANEL_PLAYERS_ON_BOARD_TOTAL]: player.varps.getVarbitValue(VARBIT_SAILING_SIDEPANEL_PLAYERS_ON_BOARD_TOTAL) || 1,
-        [VARBIT_SAILING_SIDEPANEL_BOAT_HP_MAX]: player.varps.getVarbitValue(VARBIT_SAILING_SIDEPANEL_BOAT_HP_MAX) || 170,
-        [VARBIT_SAILING_SIDEPANEL_BOAT_HP]: player.varps.getVarbitValue(VARBIT_SAILING_SIDEPANEL_BOAT_HP) || 170,
-        [VARBIT_SAILING_SIDEPANEL_HELM_STATUS]: player.varps.getVarbitValue(VARBIT_SAILING_SIDEPANEL_HELM_STATUS) || 1,
+        [VARBIT_SAILING_PLAYER_IS_ON_PLAYER_BOAT]:
+            player.varps.getVarbitValue(VARBIT_SAILING_PLAYER_IS_ON_PLAYER_BOAT) || 1,
+        [VARBIT_SAILING_BOARDED_BOAT]:
+            player.varps.getVarbitValue(VARBIT_SAILING_BOARDED_BOAT) || 1,
+        [VARBIT_SAILING_BOARDED_BOAT_TYPE]:
+            player.varps.getVarbitValue(VARBIT_SAILING_BOARDED_BOAT_TYPE) || 3,
+        [VARBIT_SAILING_SIDEPANEL_VISIBLE]:
+            player.varps.getVarbitValue(VARBIT_SAILING_SIDEPANEL_VISIBLE) || 1,
+        [VARBIT_SAILING_SIDEPANEL_VISIBLE_FROM_COMBAT_TAB]:
+            player.varps.getVarbitValue(VARBIT_SAILING_SIDEPANEL_VISIBLE_FROM_COMBAT_TAB) || 1,
+        [VARBIT_SAILING_SIDEPANEL_PLAYER_ROLE]:
+            player.varps.getVarbitValue(VARBIT_SAILING_SIDEPANEL_PLAYER_ROLE) || 10,
+        [VARBIT_SAILING_SIDEPANEL_BOAT_MOVE_MODE]:
+            player.varps.getVarbitValue(VARBIT_SAILING_SIDEPANEL_BOAT_MOVE_MODE) || 4,
+        [VARBIT_SAILING_SIDEPANEL_PLAYERS_ON_BOARD_TOTAL]:
+            player.varps.getVarbitValue(VARBIT_SAILING_SIDEPANEL_PLAYERS_ON_BOARD_TOTAL) || 1,
+        [VARBIT_SAILING_SIDEPANEL_BOAT_HP_MAX]:
+            player.varps.getVarbitValue(VARBIT_SAILING_SIDEPANEL_BOAT_HP_MAX) || 170,
+        [VARBIT_SAILING_SIDEPANEL_BOAT_HP]:
+            player.varps.getVarbitValue(VARBIT_SAILING_SIDEPANEL_BOAT_HP) || 170,
+        [VARBIT_SAILING_SIDEPANEL_HELM_STATUS]:
+            player.varps.getVarbitValue(VARBIT_SAILING_SIDEPANEL_HELM_STATUS) || 1,
     };
     const sidepanelVarps: Record<number, number> = {
-        [VARP_SAILING_SIDEPANEL_BOAT_TYPE]: player.varps.getVarpValue?.(VARP_SAILING_SIDEPANEL_BOAT_TYPE) ?? 8113,
+        [VARP_SAILING_SIDEPANEL_BOAT_TYPE]:
+            player.varps.getVarpValue?.(VARP_SAILING_SIDEPANEL_BOAT_TYPE) ?? 8113,
     };
 
     services.dialog.openSubInterface(
@@ -1006,7 +977,11 @@ function openSailingUi(
         1,
         { modal: false },
     );
-    services.dialog.queueClientScript(pid, SCRIPT_COMBAT_LEVEL, player.skillSystem.combatLevel ?? 3);
+    services.dialog.queueClientScript(
+        pid,
+        SCRIPT_COMBAT_LEVEL,
+        player.skillSystem.combatLevel ?? 3,
+    );
     services.dialog.queueClientScript(pid, SCRIPT_CAMERA_BOUNDS, -100, 896, -100, 896);
 }
 
@@ -1090,10 +1065,7 @@ export function handleBoardingTick2(
 // Disembark — reset sailing state and return to Port Sarim
 // ============================================================================
 
-export function executeDisembarkSequence(
-    player: PlayerState,
-    services: ScriptServices,
-): void {
+export function executeDisembarkSequence(player: PlayerState, services: ScriptServices): void {
     const pid = player.id;
     const overlayAtmosphereUid = BaseComponentUids.OVERLAY_ATMOSPHERE;
     const fadeMessageUid = (FADE_OVERLAY_GROUP << 16) | FADE_OVERLAY_MESSAGE_CHILD;
@@ -1106,19 +1078,20 @@ export function executeDisembarkSequence(
     services.variables.sendVarbit?.(player, VARBIT_MINIMAP_STATE, 2);
 
     // Tick 1: Teleport back, reset state
-    services.combat.requestAction(player, {
-        kind: "sailing.disembark",
-        data: {},
-        delayTicks: 1,
-        groups: ["sailing.boarding"],
-        cooldownTicks: 2,
-    }, currentTick);
+    services.combat.requestAction(
+        player,
+        {
+            kind: "sailing.disembark",
+            data: {},
+            delayTicks: 1,
+            groups: ["sailing.boarding"],
+            cooldownTicks: 2,
+        },
+        currentTick,
+    );
 }
 
-export function handleDisembarkTick(
-    player: PlayerState,
-    services: ScriptServices,
-): void {
+export function handleDisembarkTick(player: PlayerState, services: ScriptServices): void {
     const pid = player.id;
     const overlayAtmosphereUid = BaseComponentUids.OVERLAY_ATMOSPHERE;
     const fadeMessageUid = (FADE_OVERLAY_GROUP << 16) | FADE_OVERLAY_MESSAGE_CHILD;
@@ -1153,19 +1126,13 @@ export function handleDisembarkTick(
 // Sailing UI Restoration (re-login while on boat)
 // ============================================================================
 
-export function restoreSailingInstanceUi(
-    player: PlayerState,
-    services: ScriptServices,
-): void {
+export function restoreSailingInstanceUi(player: PlayerState, services: ScriptServices): void {
     syncSailingBootstrapState(player, services);
     syncSailingBoatStats(player, services);
     openSailingUi(player, services);
 }
 
-export function handleSailingPlayerRestore(
-    player: PlayerState,
-    services: ScriptServices,
-): void {
+export function handleSailingPlayerRestore(player: PlayerState, services: ScriptServices): void {
     if (isPlayerOnDockedSailingBoat(player)) {
         restoreDockedSailingState(player, services);
     } else if (services.sailing?.isInSailingInstanceRegion(player)) {

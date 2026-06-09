@@ -31,7 +31,13 @@ function signedAngleDelta(target: number, current: number): number {
 }
 
 /** OSRS orientation angle from (fromX, fromY) toward (toX, toY). */
-function orientTo(fromX: number, fromY: number, toX: number, toY: number, fallback: number): number {
+function orientTo(
+    fromX: number,
+    fromY: number,
+    toX: number,
+    toY: number,
+    fallback: number,
+): number {
     if (fromX < toX) {
         if (fromY < toY) return 1280;
         if (fromY > toY) return 1792;
@@ -49,10 +55,7 @@ function orientTo(fromX: number, fromY: number, toX: number, toY: number, fallba
 
 /** Encode a tile delta as a 3-bit direction code (MovementDirection). */
 function encodeStepDirection(dx: number, dy: number): number | undefined {
-    return deltaToDirection(
-        dx > 0 ? 1 : dx < 0 ? -1 : 0,
-        dy > 0 ? 1 : dy < 0 ? -1 : 0,
-    );
+    return deltaToDirection(dx > 0 ? 1 : dx < 0 ? -1 : 0, dy > 0 ? 1 : dy < 0 ? -1 : 0);
 }
 
 /**
@@ -111,7 +114,7 @@ export abstract class Actor {
     followZ: number;
 
     // Path queue sized to hold full routes returned by the server pathfinder.
-    // Reference: player-movement.md 
+    // Reference: player-movement.md
     // The buffer stores steps in reverse order:
     // - Index 0: Most recently added step (newest)
     // - Index pathLength-1: Next step to consume (oldest)
@@ -554,7 +557,13 @@ export abstract class Actor {
         // anticipates the movement direction.
         if (this.pathLength > 0) {
             const idx = this.pathLength - 1;
-            const preOr = orientTo(this.tileX, this.tileY, this.pathX[idx], this.pathY[idx], this.orientation);
+            const preOr = orientTo(
+                this.tileX,
+                this.tileY,
+                this.pathX[idx],
+                this.pathY[idx],
+                this.orientation,
+            );
             if (!this.movedLastTick) {
                 if (Math.abs(signedAngleDelta(preOr, this.rot & 2047)) > 256 + this.turnSpeed) {
                     this.orientation = preOr;
@@ -611,9 +620,7 @@ export abstract class Actor {
             this.y = this.tileY * 128 + this.size * 64;
 
             const stepOr = orientTo(ox, oy, this.tileX, this.tileY, this.orientation);
-            this.orientation = this.forcedOrientation >= 0
-                ? this.forcedOrientation & 2047
-                : stepOr;
+            this.orientation = this.forcedOrientation >= 0 ? this.forcedOrientation & 2047 : stepOr;
 
             // Resolve traversal type for this step
             let willRun = wantsRun && this.singleStepRoutePending <= 0;
@@ -622,9 +629,11 @@ export abstract class Actor {
 
             const queuedTraversal = this.pathTraversed[nextIndex] ?? TraversalType.WALK;
             const traversal: TraversalType =
-                queuedTraversal === TraversalType.SLOW ? TraversalType.SLOW
-                : willRun ? TraversalType.RUN
-                : TraversalType.WALK;
+                queuedTraversal === TraversalType.SLOW
+                    ? TraversalType.SLOW
+                    : willRun
+                    ? TraversalType.RUN
+                    : TraversalType.WALK;
 
             this.stepPositions.push({
                 x: this.x,

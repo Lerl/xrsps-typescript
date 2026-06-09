@@ -570,7 +570,8 @@ function buildCollectionOverviewRecentItemVarps(
     const latestUnlocks = player.collectionLog
         .getItemUnlocks()
         .filter(
-            (entry) => player.collectionLog.hasItem(entry.itemId) && isCollectionLogItem(entry.itemId),
+            (entry) =>
+                player.collectionLog.hasItem(entry.itemId) && isCollectionLogItem(entry.itemId),
         )
         .sort(
             (left, right) =>

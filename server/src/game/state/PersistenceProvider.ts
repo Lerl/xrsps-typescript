@@ -11,8 +11,7 @@
  * The default implementation is {@link PlayerPersistence} which uses a single
  * aggregate JSON file per gamemode.
  */
-
-import type { PlayerState, PlayerPersistentVars } from "../player";
+import type { PlayerPersistentVars, PlayerState } from "../player";
 
 export interface PersistenceProvider {
     /** Apply persisted state onto a player (merge defaults + player-specific data). */

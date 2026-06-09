@@ -1,5 +1,5 @@
-import { type IScriptRegistry, type ScriptServices } from "../../../src/game/scripts";
 import type { PlayerState } from "../../../src/game/player";
+import { type IScriptRegistry, type ScriptServices } from "../../../src/game/scripts";
 
 const DFS_ITEM_IDS = [11283, 11284];
 
@@ -87,7 +87,9 @@ const getDragonfireCharges = (player: PlayerState & Record<symbol, unknown>): nu
 
 const getDayKey = (): number => Math.floor(Date.now() / MS_PER_DAY);
 
-const getExplorerRingState = (player: PlayerState & Record<symbol, unknown>): { dayKey: number; used: number } => {
+const getExplorerRingState = (
+    player: PlayerState & Record<symbol, unknown>,
+): { dayKey: number; used: number } => {
     let state = player?.[explorerRingStateKey];
     const today = getDayKey();
     if (!state) {
@@ -99,7 +101,10 @@ const getExplorerRingState = (player: PlayerState & Record<symbol, unknown>): { 
     return state;
 };
 
-export function registerEquipmentHandlers(registry: IScriptRegistry, services: ScriptServices): void {
+export function registerEquipmentHandlers(
+    registry: IScriptRegistry,
+    services: ScriptServices,
+): void {
     for (const itemId of DFS_ITEM_IDS) {
         registry.registerEquipmentAction(
             itemId,
@@ -157,9 +162,9 @@ export function registerEquipmentHandlers(registry: IScriptRegistry, services: S
                 const remaining = Math.max(0, ring.chargesPerDay - state.used);
                 services.messaging.sendGameMessage(
                     player,
-                    `You recharge some run energy (${
-                        ring.restorePercent
-                    }%). ${remaining} charge${remaining === 1 ? "" : "s"} remaining today.`,
+                    `You recharge some run energy (${ring.restorePercent}%). ${remaining} charge${
+                        remaining === 1 ? "" : "s"
+                    } remaining today.`,
                 );
             },
             "operate",
@@ -185,9 +190,7 @@ export function registerEquipmentHandlers(registry: IScriptRegistry, services: S
             ({ player }) => {
                 services.messaging.sendGameMessage(
                     player,
-                    `You check the ${entry.name.toLowerCase()}. ${
-                        entry.deity
-                    } watches over you.`,
+                    `You check the ${entry.name.toLowerCase()}. ${entry.deity} watches over you.`,
                 );
             },
             "check",

@@ -1,8 +1,11 @@
+import { logger } from "../../utils/logger";
 import type { MessageHandlerServices } from "../MessageHandlers";
 import type { MessageRouter } from "../MessageRouter";
-import { logger } from "../../utils/logger";
 
-export function registerSpellHandlers(router: MessageRouter, services: MessageHandlerServices): void {
+export function registerSpellHandlers(
+    router: MessageRouter,
+    services: MessageHandlerServices,
+): void {
     router.register("spell_cast_npc", (ctx) => {
         try {
             if (ctx.player) {

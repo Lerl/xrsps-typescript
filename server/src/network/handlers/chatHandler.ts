@@ -1,15 +1,15 @@
 import { MAX_REAL_LEVEL, SkillId, getXpForLevel } from "../../../../src/rs/skill/skills";
 import { VARBIT_ACTIVE_SPELLBOOK } from "../../../../src/shared/vars";
-import { SpellbookName } from "../../data/spellWidgetLoader";
 import { getItemDefinition } from "../../data/items";
-import { ALL_RUNE_ITEM_IDS, RUNE_IDS } from "../../game/data/RuneDataProvider";
-import { getSpellData } from "../../game/spells/SpellDataProvider";
+import { SpellbookName } from "../../data/spellWidgetLoader";
 import { getCollectionLogItems } from "../../game/collectionlog";
 import { clearAutocastState } from "../../game/combat/AutocastState";
+import { ALL_RUNE_ITEM_IDS, RUNE_IDS } from "../../game/data/RuneDataProvider";
 import type { PlayerState } from "../../game/player";
+import { getSpellData } from "../../game/spells/SpellDataProvider";
+import { logger } from "../../utils/logger";
 import type { MessageHandlerServices } from "../MessageHandlers";
 import type { MessageHandler, MessageRouter } from "../MessageRouter";
-import { logger } from "../../utils/logger";
 
 const DEBUG_SCROLL_TITLE = "Clue Compass";
 const DEBUG_SCROLL_OPTIONS = [
@@ -206,12 +206,20 @@ function handleQuestCommand(
     }
 
     // Join args and normalize for matching
-    const search = args.join("").toLowerCase().replace(/[^a-z0-9]/g, "");
+    const search = args
+        .join("")
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, "");
 
     // Try alias match first, then fuzzy name match
     const quest =
         QUEST_DATA.find((q) => q.aliases.includes(search)) ??
-        QUEST_DATA.find((q) => q.name.toLowerCase().replace(/[^a-z0-9]/g, "").includes(search));
+        QUEST_DATA.find((q) =>
+            q.name
+                .toLowerCase()
+                .replace(/[^a-z0-9]/g, "")
+                .includes(search),
+        );
 
     if (!quest) {
         reply(`Unknown quest "${args.join(" ")}". Use ::quest list to see available quests.`);
@@ -261,7 +269,9 @@ function createChatHandler(services: MessageHandlerServices): MessageHandler<"ch
                 if (root === "clear") {
                     try {
                         services.clearActionsInGroup(sender.id, "inventory");
-                    } catch (err) { logger.warn("Failed to clear inventory actions on ::clear command", err); }
+                    } catch (err) {
+                        logger.warn("Failed to clear inventory actions on ::clear command", err);
+                    }
 
                     sender.items.clearInventory();
                     services.queueChatMessage({
@@ -290,12 +300,16 @@ function createChatHandler(services: MessageHandlerServices): MessageHandler<"ch
 
                     try {
                         services.clearActionsInGroup(sender.id, "inventory");
-                    } catch (err) { logger.warn("Failed to clear inventory actions on ::allrunes command", err); }
+                    } catch (err) {
+                        logger.warn("Failed to clear inventory actions on ::allrunes command", err);
+                    }
 
-                    const runeLoadout: InventoryLoadoutEntry[] = ALL_RUNE_ITEM_IDS.map((itemId) => ({
-                        itemId,
-                        quantity,
-                    }));
+                    const runeLoadout: InventoryLoadoutEntry[] = ALL_RUNE_ITEM_IDS.map(
+                        (itemId) => ({
+                            itemId,
+                            quantity,
+                        }),
+                    );
                     if (!replaceInventoryContents(sender, runeLoadout)) {
                         services.queueChatMessage({
                             messageType: "game",
@@ -327,7 +341,9 @@ function createChatHandler(services: MessageHandlerServices): MessageHandler<"ch
                         return;
                     }
 
-                    const addResult = sender.items.addItem(itemId, 1, { assureFullInsertion: true });
+                    const addResult = sender.items.addItem(itemId, 1, {
+                        assureFullInsertion: true,
+                    });
                     if (addResult.completed !== 1) {
                         services.queueChatMessage({
                             messageType: "game",
@@ -568,9 +584,19 @@ function createChatHandler(services: MessageHandlerServices): MessageHandler<"ch
                     // passing the varbit inline so the script sees it immediately
                     const SCRIPT_MAGIC_SPELLBOOK_REDRAW = 2610;
                     const SPELLBOOK_REDRAW_ARGS: (number | string)[] = [
-                        14286851, 14287045, 14287054, 14286849, 14287051,
-                        14287052, 14287053, 14286850, 14287047, 14287050,
-                        0, "Info", "Filters",
+                        14286851,
+                        14287045,
+                        14287054,
+                        14286849,
+                        14287051,
+                        14287052,
+                        14287053,
+                        14286850,
+                        14287047,
+                        14287050,
+                        0,
+                        "Info",
+                        "Filters",
                     ];
                     services.queueWidgetEvent(sender.id, {
                         action: "run_script",
@@ -625,9 +651,7 @@ function createChatHandler(services: MessageHandlerServices): MessageHandler<"ch
                     ? colorIdRaw & 0xff
                     : 0;
             let effectId =
-                typeof effectIdRaw === "number" &&
-                Number.isFinite(effectIdRaw) &&
-                effectIdRaw >= 0
+                typeof effectIdRaw === "number" && Number.isFinite(effectIdRaw) && effectIdRaw >= 0
                     ? effectIdRaw & 0xff
                     : 0;
             if (effectId > 5) effectId = 0;

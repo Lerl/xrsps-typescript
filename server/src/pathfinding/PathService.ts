@@ -76,7 +76,11 @@ export class PathService {
     }
 
     /** Clamp a destination tile to the bounds of a WorldView (no-op when not in one). */
-    clampToWorldView(worldViewId: number | undefined, x: number, y: number): { x: number; y: number } {
+    clampToWorldView(
+        worldViewId: number | undefined,
+        x: number,
+        y: number,
+    ): { x: number; y: number } {
         if (worldViewId === undefined || worldViewId < 0) return { x, y };
         const wv = this.worldViewCollision.get(worldViewId);
         if (!wv) return { x, y };
@@ -415,15 +419,21 @@ export class PathService {
         }
     }
 
-    private fillFlagsAcrossMaps(srcTileX: number, srcTileY: number, plane: number, worldViewId?: number): void {
+    private fillFlagsAcrossMaps(
+        srcTileX: number,
+        srcTileY: number,
+        plane: number,
+        worldViewId?: number,
+    ): void {
         const pf = this.pf;
         const graphBaseX = srcTileX - (pf.graphSize >> 1);
         const graphBaseY = srcTileY - (pf.graphSize >> 1);
 
         // If player is in a WorldView, use that view's collision
-        const wvCollision = worldViewId !== undefined && worldViewId >= 0
-            ? this.worldViewCollision.get(worldViewId)
-            : undefined;
+        const wvCollision =
+            worldViewId !== undefined && worldViewId >= 0
+                ? this.worldViewCollision.get(worldViewId)
+                : undefined;
 
         // Initialize to -1 (treated as blocked)
         for (let i = 0; i < pf.graphSize; i++) pf.flags[i].fill(-1);

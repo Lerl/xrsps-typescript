@@ -64,7 +64,6 @@ export const VARBIT_DIALOG_MODE = 5983;
 
 // =============== IF_SETEVENTS FLAGS ===============
 
-
 /**
  * Flags for normal inventory widget (149:0)
  * Enables: ops 1-7, op 9, drag/drop
@@ -99,7 +98,6 @@ export enum GameframeTab {
 export const SCRIPT_FOCUS_TAB = 915;
 
 // =============== SCRIPT IDS ===============
-
 
 /** inventory_init - initializes normal inventory with drag/drop */
 export const SCRIPT_INVENTORY_INIT = 6007;

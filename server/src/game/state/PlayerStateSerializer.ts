@@ -2,15 +2,11 @@
  * Serializes and deserializes PlayerState to/from persistent storage format.
  * Extracted from PlayerState to separate persistence concerns from entity logic.
  */
-
 import { EquipmentSlot } from "../../../../src/rs/config/player/Equipment";
-import { DEFAULT_EQUIP_SLOT_COUNT } from "../equipment";
-import type {
-    PlayerPersistentVars,
-    PlayerState,
-} from "../player";
-import { restoreAutocastState } from "../combat/AutocastState";
 import type { PrayerName } from "../../../../src/rs/prayer/prayers";
+import { restoreAutocastState } from "../combat/AutocastState";
+import { DEFAULT_EQUIP_SLOT_COUNT } from "../equipment";
+import type { PlayerPersistentVars, PlayerState } from "../player";
 import { DEFAULT_BANK_CAPACITY } from "./PlayerBankSystem";
 
 export function exportPersistentVars(player: PlayerState): PlayerPersistentVars {

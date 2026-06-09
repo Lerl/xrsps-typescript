@@ -10,8 +10,8 @@ import {
     getCustomEnumCountOverride,
     getCustomEnumValueOverride,
     getCustomStructParam,
-    getRelicOrMasteryStructParam,
     getLeagueTaskStructParam,
+    getRelicOrMasteryStructParam,
     getReplacedChallengeStructIds,
 } from "../../../shared/gamemode/GamemodeContentStore";
 import { Opcodes } from "../Opcodes";

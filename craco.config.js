@@ -36,8 +36,8 @@ module.exports = {
                     rule.exclude = Array.isArray(existingExclude)
                         ? [...existingExclude, jsXxhashPath]
                         : existingExclude
-                          ? [existingExclude, jsXxhashPath]
-                          : [jsXxhashPath];
+                        ? [existingExclude, jsXxhashPath]
+                        : [jsXxhashPath];
                 }
                 if (rule.oneOf) {
                     rule.oneOf.unshift(glslLoader);
@@ -69,7 +69,9 @@ module.exports = {
                     typeof warning?.message === "string" &&
                     warning.message.includes("Failed to parse source map") &&
                     typeof warning?.module?.resource === "string" &&
-                    warning.module.resource.includes(`${path.sep}node_modules${path.sep}js-xxhash${path.sep}`),
+                    warning.module.resource.includes(
+                        `${path.sep}node_modules${path.sep}js-xxhash${path.sep}`,
+                    ),
             ];
 
             return webpackConfig;

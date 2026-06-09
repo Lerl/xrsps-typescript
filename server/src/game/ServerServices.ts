@@ -11,22 +11,61 @@
  * (during tick processing), so populating fields incrementally with
  * `{} as ServerServices` is safe.
  */
-
 // ── Cache / shared types ────────────────────────────────────────────────────
+// ── Network types ───────────────────────────────────────────────────────────
+import type { WebSocket } from "ws";
+
 import type { Huffman } from "../../../src/rs/chat/Huffman";
+import type { BasType } from "../../../src/rs/config/bastype/BasType";
 import type { DbRepository } from "../../../src/rs/config/db/DbRepository";
+import type { IdkType } from "../../../src/rs/config/idktype/IdkType";
 import type { LocTypeLoader } from "../../../src/rs/config/loctype/LocTypeLoader";
 import type { NpcTypeLoader } from "../../../src/rs/config/npctype/NpcTypeLoader";
 import type { ObjTypeLoader } from "../../../src/rs/config/objtype/ObjTypeLoader";
-import type { BasType } from "../../../src/rs/config/bastype/BasType";
-import type { IdkType } from "../../../src/rs/config/idktype/IdkType";
-
 // ── Audio ───────────────────────────────────────────────────────────────────
 import type { MusicCatalogService } from "../audio/MusicCatalogService";
 import type { MusicRegionService } from "../audio/MusicRegionService";
 import type { MusicUnlockService } from "../audio/MusicUnlockService";
 import type { NpcSoundLookup } from "../audio/NpcSoundLookup";
-
+import type { AuthenticationService } from "../network/AuthenticationService";
+import type { BroadcastService } from "../network/BroadcastService";
+import type { LoginHandshakeService } from "../network/LoginHandshakeService";
+import type { MessageRouter } from "../network/MessageRouter";
+import type { NpcSyncSession } from "../network/NpcSyncSession";
+import type { PlayerNetworkLayer } from "../network/PlayerNetworkLayer";
+import type { PlayerSyncSession } from "../network/PlayerSyncSession";
+// ── Network ─────────────────────────────────────────────────────────────────
+import type { AccountSummaryTracker } from "../network/accountSummary";
+import type {
+    ActorSyncBroadcaster,
+    ChatBroadcaster,
+    CombatBroadcaster,
+    InventoryBroadcaster,
+    MiscBroadcaster,
+    SkillBroadcaster,
+    VarBroadcaster,
+    WidgetBroadcaster,
+} from "../network/broadcast";
+import type { NpcPacketEncoder, PlayerPacketEncoder } from "../network/encoding";
+import type { WorldEntityInfoEncoder } from "../network/encoding/WorldEntityInfoEncoder";
+import type {
+    Cs2ModalManager,
+    GroundItemHandler,
+    NpcSyncManager,
+    PlayerAppearanceManager,
+    SoundManager,
+} from "../network/managers";
+import type { ReportGameTimeTracker } from "../network/reportGameTime";
+// ── Pathfinding ─────────────────────────────────────────────────────────────
+import type { PathService } from "../pathfinding/PathService";
+// ── Widgets ─────────────────────────────────────────────────────────────────
+import type { InterfaceService } from "../widgets/InterfaceService";
+import type { WidgetAction } from "../widgets/WidgetManager";
+// ── World ───────────────────────────────────────────────────────────────────
+import type { CacheEnv } from "../world/CacheEnv";
+import type { DoorStateManager } from "../world/DoorStateManager";
+import type { DynamicLocStateStore } from "../world/DynamicLocStateStore";
+import type { MapCollisionService } from "../world/MapCollisionService";
 // ── Game – actions ──────────────────────────────────────────────────────────
 import type { ActionScheduler } from "./actions/ActionScheduler";
 import type { CombatActionHandler } from "./actions/handlers/CombatActionHandler";
@@ -34,40 +73,32 @@ import type { EffectDispatcher } from "./actions/handlers/EffectDispatcher";
 import type { InventoryActionHandler } from "./actions/handlers/InventoryActionHandler";
 import type { SpellActionHandler } from "./actions/handlers/SpellActionHandler";
 import type { WidgetDialogHandler } from "./actions/handlers/WidgetDialogHandler";
-
 // ── Game – combat ───────────────────────────────────────────────────────────
 import type { PlayerCombatManager } from "./combat";
 import type { CombatCategoryData } from "./combat/CombatCategoryData";
-
 // ── Game – death ────────────────────────────────────────────────────────────
 import type { PlayerDeathService } from "./death/PlayerDeathService";
-
 // ── Game – events ───────────────────────────────────────────────────────────
 import type { GameEventBus } from "./events/GameEventBus";
-
 // ── Game – followers ────────────────────────────────────────────────────────
 import type { FollowerCombatManager } from "./followers/FollowerCombatManager";
 import type { FollowerManager } from "./followers/FollowerManager";
-
 // ── Game – gamemodes ────────────────────────────────────────────────────────
 import type { GamemodeDefinition, GamemodeUiController } from "./gamemodes/GamemodeDefinition";
-
 // ── Game – items ────────────────────────────────────────────────────────────
 import type { GroundItemManager } from "./items/GroundItemManager";
-
 // ── Game – core ─────────────────────────────────────────────────────────────
 import type { NpcManager } from "./npcManager";
 import type { PlayerManager, PlayerState } from "./player";
 import type { PrayerSystem } from "./prayer/PrayerSystem";
 import type { SailingInstanceManager } from "./sailing/SailingInstanceManager";
 import type { ScriptRegistry, ScriptRuntime } from "./scripts";
-
 // ── Game – services ─────────────────────────────────────────────────────────
 import type { ActionDispatchService } from "./services/ActionDispatchService";
 import type { AppearanceService } from "./services/AppearanceService";
+import type { CollectionLogService } from "./services/CollectionLogService";
 import type { CombatDataService } from "./services/CombatDataService";
 import type { CombatEffectService } from "./services/CombatEffectService";
-import type { CollectionLogService } from "./services/CollectionLogService";
 import type { DataLoaderService } from "./services/DataLoaderService";
 import type { EquipmentService } from "./services/EquipmentService";
 import type { EquipmentStatsUiService } from "./services/EquipmentStatsUiService";
@@ -87,10 +118,8 @@ import type { TickPhaseService } from "./services/TickPhaseService";
 import type { VariableService } from "./services/VariableService";
 import type { VarpSyncService } from "./services/VarpSyncService";
 import type { WorldEntityService } from "./services/WorldEntityService";
-
 // ── Game – state ────────────────────────────────────────────────────────────
 import type { PersistenceProvider } from "./state/PersistenceProvider";
-
 // ── Game – systems ──────────────────────────────────────────────────────────
 import type {
     BroadcastScheduler,
@@ -102,59 +131,11 @@ import type {
     ScriptScheduler,
     StatusEffectSystem,
 } from "./systems";
-
+import type { TickFrame, TickPhaseOrchestrator } from "./tick";
 // ── Game – tick ─────────────────────────────────────────────────────────────
 import type { GameTicker } from "./ticker";
-import type { TickPhaseOrchestrator, TickFrame } from "./tick";
-
 // ── Game – trade ────────────────────────────────────────────────────────────
 import type { TradeManager } from "./trade/TradeManager";
-
-// ── Network ─────────────────────────────────────────────────────────────────
-import type { AccountSummaryTracker } from "../network/accountSummary";
-import type { AuthenticationService } from "../network/AuthenticationService";
-import type { BroadcastService } from "../network/BroadcastService";
-import type {
-    ChatBroadcaster,
-    ActorSyncBroadcaster,
-    SkillBroadcaster,
-    VarBroadcaster,
-    InventoryBroadcaster,
-    WidgetBroadcaster,
-    CombatBroadcaster,
-    MiscBroadcaster,
-} from "../network/broadcast";
-import type { NpcPacketEncoder, PlayerPacketEncoder } from "../network/encoding";
-import type { WorldEntityInfoEncoder } from "../network/encoding/WorldEntityInfoEncoder";
-import type { LoginHandshakeService } from "../network/LoginHandshakeService";
-import type {
-    Cs2ModalManager,
-    GroundItemHandler,
-    NpcSyncManager,
-    PlayerAppearanceManager,
-    SoundManager,
-} from "../network/managers";
-import type { MessageRouter } from "../network/MessageRouter";
-import type { PlayerNetworkLayer } from "../network/PlayerNetworkLayer";
-import type { ReportGameTimeTracker } from "../network/reportGameTime";
-
-// ── Pathfinding ─────────────────────────────────────────────────────────────
-import type { PathService } from "../pathfinding/PathService";
-
-// ── Widgets ─────────────────────────────────────────────────────────────────
-import type { InterfaceService } from "../widgets/InterfaceService";
-import type { WidgetAction } from "../widgets/WidgetManager";
-
-// ── World ───────────────────────────────────────────────────────────────────
-import type { CacheEnv } from "../world/CacheEnv";
-import type { DoorStateManager } from "../world/DoorStateManager";
-import type { DynamicLocStateStore } from "../world/DynamicLocStateStore";
-import type { MapCollisionService } from "../world/MapCollisionService";
-
-// ── Network types ───────────────────────────────────────────────────────────
-import type { WebSocket } from "ws";
-import type { NpcSyncSession } from "../network/NpcSyncSession";
-import type { PlayerSyncSession } from "../network/PlayerSyncSession";
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -296,7 +277,11 @@ export interface ServerServices {
     readonly playerDynamicLocSceneKeys: Map<number, string>;
     readonly pendingNpcPackets: Map<
         number,
-        { snapshots: import("../network/managers/NpcSyncManager").NpcViewSnapshot[]; updates: import("../network/managers/NpcSyncManager").NpcUpdatePayload[]; despawns: number[] }
+        {
+            snapshots: import("../network/managers/NpcSyncManager").NpcViewSnapshot[];
+            updates: import("../network/managers/NpcSyncManager").NpcUpdatePayload[];
+            despawns: number[];
+        }
     >;
     readonly playerGroundSerial: Map<number, number>;
     readonly playerGroundChunk: Map<number, number>;

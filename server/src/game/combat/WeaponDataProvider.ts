@@ -97,7 +97,12 @@ export interface WeaponDataProvider {
     isPoweredStaff(itemId: number): boolean;
     isMeleeWeapon(itemId: number): boolean;
     getHitDelay(itemId: number): number;
-    getDefaultAttackSequences(combatCategory: number): { 0: number; 1: number; 2: number; 3: number };
+    getDefaultAttackSequences(combatCategory: number): {
+        0: number;
+        1: number;
+        2: number;
+        3: number;
+    };
     getAttackAnimation(itemId: number, styleIndex?: number): number;
     getAttackSequences(itemId: number): { 0: number; 1: number; 2: number; 3: number };
     getDefaultCombatStyles(combatCategory: number): Record<number, CombatStyleData>;
@@ -184,7 +189,9 @@ export function getWeaponDataProvider(): WeaponDataProvider | undefined {
 function ensureProvider(): WeaponDataProvider {
     const p = getProviderRegistry().weaponData;
     if (!p) {
-        throw new Error("[weapons] WeaponDataProvider not registered. Ensure the gamemode has initialized.");
+        throw new Error(
+            "[weapons] WeaponDataProvider not registered. Ensure the gamemode has initialized.",
+        );
     }
     return p;
 }

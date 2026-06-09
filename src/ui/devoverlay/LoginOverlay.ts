@@ -384,13 +384,17 @@ export class LoginOverlay implements Overlay {
             loginState.password.length
         }|${loginState.otp.length}|${loginState.currentLoginField}|${loginState.onMobile}|${
             loginState.virtualKeyboardVisible
-        }|${loginState.serverListOpen}|${loginState.serverName}|${loginRenderer.probing}|${loginRenderer.probed}|${loginRenderer.serverList.map(s => s.playerCount).join(",")}|${loginState.worldSelectOpen}|${loginState.worldSelectPage}|${
-            loginState.loadingPercent
-        }|${loginState.rememberUsername}|${loginState.isUsernameHidden}|${
-            loginState.trustComputer
-        }|${loginState.titleMusicDisabled}|${
-            loginState.worldId
-        }|${width}|${height}|${layoutWidth}|${layoutHeight}|${loginState.downloadCurrent}|${
+        }|${loginState.serverListOpen}|${loginState.serverName}|${loginRenderer.probing}|${
+            loginRenderer.probed
+        }|${loginRenderer.serverList.map((s) => s.playerCount).join(",")}|${
+            loginState.worldSelectOpen
+        }|${loginState.worldSelectPage}|${loginState.loadingPercent}|${
+            loginState.rememberUsername
+        }|${loginState.isUsernameHidden}|${loginState.trustComputer}|${
+            loginState.titleMusicDisabled
+        }|${loginState.worldId}|${width}|${height}|${layoutWidth}|${layoutHeight}|${
+            loginState.downloadCurrent
+        }|${
             loginState.downloadTotal
         }|${loginRenderer.getViewportTransformStateHash()}|${loginRenderer.getTitleAssetStateHash()}`;
     }

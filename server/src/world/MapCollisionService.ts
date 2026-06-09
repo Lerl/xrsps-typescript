@@ -10,6 +10,7 @@ import { LocLoadType, SceneBuilder } from "../../../src/rs/scene/SceneBuilder";
 import { bitsetGet } from "../utils/bitset";
 import { logger } from "../utils/logger";
 import { CacheEnv } from "./CacheEnv";
+import { encodeCollisionSquare } from "./CollisionSquareEncoder";
 
 export type ServerMapSquare = {
     mapX: number;
@@ -319,6 +320,30 @@ export class MapCollisionService {
             return built;
         }
         return undefined;
+    }
+
+    /**
+     * Build a map square and encode it into a Buffer without retaining the
+     * intermediate `ServerMapSquare` / `Scene` in the service cache.
+     *
+     * Use this for batch operations (e.g. the collision cache build script)
+     * where retaining every square would exhaust the V8 heap. The returned
+     * Buffer is the only persistent reference; once the caller discards it,
+     * the underlying typed arrays are eligible for GC.
+     */
+    buildCollisionBuffer(mapX: number, mapY: number): Buffer | undefined {
+        const square = this.buildSceneSquare(mapX, mapY);
+        if (!square) return undefined;
+        return encodeCollisionSquare(square);
+    }
+
+    /**
+     * Drop all cached map squares. Call this between large batch operations
+     * if you must use the caching `getMapSquare` path (e.g. pathfinding over
+     * many world positions) to keep the heap under control.
+     */
+    clearCache(): void {
+        this.cache.clear();
     }
 
     /**

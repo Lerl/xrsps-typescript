@@ -6,7 +6,12 @@ import {
     buildAccountSummarySetTimeScriptArgs,
 } from "../../../../src/shared/ui/accountSummary";
 import { VARBIT_ACCOUNT_SUMMARY_DISPLAY_PLAYTIME } from "../../../../src/shared/vars";
-import { getAccountSummaryTimeMinutes, type IScriptRegistry, type ScriptServices, type WidgetActionEvent } from "../../../src/game/scripts/types";
+import {
+    type IScriptRegistry,
+    type ScriptServices,
+    type WidgetActionEvent,
+    getAccountSummaryTimeMinutes,
+} from "../../../src/game/scripts/types";
 
 function resolveAccountSummaryEntryIndex(event: WidgetActionEvent): number {
     const slotVal = event.slot ?? -1;
@@ -16,14 +21,15 @@ function resolveAccountSummaryEntryIndex(event: WidgetActionEvent): number {
     return event.childId ?? -1;
 }
 
-export function registerAccountSummaryWidgetHandlers(registry: IScriptRegistry, services: ScriptServices): void {
+export function registerAccountSummaryWidgetHandlers(
+    registry: IScriptRegistry,
+    services: ScriptServices,
+): void {
     registry.registerWidgetAction({
         widgetId: ACCOUNT_SUMMARY_ENTRY_LIST_UID,
         handler: (event: WidgetActionEvent) => {
             if (event.groupId !== ACCOUNT_SUMMARY_GROUP_ID) return;
-            if (
-                resolveAccountSummaryEntryIndex(event) !== ACCOUNT_SUMMARY_PLAYTIME_CHILD_INDEX
-            ) {
+            if (resolveAccountSummaryEntryIndex(event) !== ACCOUNT_SUMMARY_PLAYTIME_CHILD_INDEX) {
                 return;
             }
 
@@ -40,9 +46,7 @@ export function registerAccountSummaryWidgetHandlers(registry: IScriptRegistry, 
             services.dialog.queueWidgetEvent(player.id, {
                 action: "run_script",
                 scriptId: SCRIPT_ACCOUNT_SUMMARY_SET_TIME_ID,
-                args: buildAccountSummarySetTimeScriptArgs(
-                    getAccountSummaryTimeMinutes(player),
-                ),
+                args: buildAccountSummarySetTimeScriptArgs(getAccountSummaryTimeMinutes(player)),
             });
         },
     });

@@ -5,7 +5,6 @@
  * NPC movement, chase, retreat, and retaliation authority remain in NpcManager.
  */
 import { SkillId } from "../../../../src/rs/skill/skills";
-import { getPoweredStaffSpellData, getSpellData } from "../spells/SpellDataProvider";
 import type { PathService } from "../../pathfinding/PathService";
 import {
     CardinalAdjacentRouteStrategy,
@@ -20,10 +19,8 @@ import type { CombatAttackActionData } from "../actions/actionPayloads";
 import type { ActionEffect } from "../actions/types";
 import { NpcState } from "../npc";
 import { type PlayerManager, PlayerState } from "../player";
-import {
-    CombatEngine,
-    type PlayerAttackPlan,
-} from "../systems/combat/CombatEngine";
+import { getPoweredStaffSpellData, getSpellData } from "../spells/SpellDataProvider";
+import { CombatEngine, type PlayerAttackPlan } from "../systems/combat/CombatEngine";
 import { AttackType, normalizeAttackType } from "./AttackType";
 import {
     hasDirectMeleePath,
@@ -881,7 +878,8 @@ export class PlayerCombatManager {
             }
 
             const npcMoved =
-                state.engagement.lastNpcTileX !== npc.tileX || state.engagement.lastNpcTileY !== npc.tileY;
+                state.engagement.lastNpcTileX !== npc.tileX ||
+                state.engagement.lastNpcTileY !== npc.tileY;
             if (npcMoved) {
                 state.engagement.lastNpcTileX = npc.tileX;
                 state.engagement.lastNpcTileY = npc.tileY;
@@ -1300,7 +1298,9 @@ export class PlayerCombatManager {
         // Include attackStyleMode for combat XP calculation.
         const combatSpellId = player.combat.spellId;
         const spellId =
-            basePlan.attackStyle.kind === AttackType.Magic && combatSpellId > 0 ? combatSpellId : undefined;
+            basePlan.attackStyle.kind === AttackType.Magic && combatSpellId > 0
+                ? combatSpellId
+                : undefined;
         const spellDataForXp = spellId ? getSpellData(spellId) : undefined;
         const spellBaseXpAtCast =
             basePlan.attackStyle.kind === AttackType.Magic &&
@@ -1416,9 +1416,11 @@ export class PlayerCombatManager {
 
     private resolveCombatRunMode(player: PlayerState, playerId: number, npcId: number): boolean {
         const sock = this.playerManager?.getSocketByPlayerId(playerId);
-        const interaction = sock ? this.playerManager?.getInteractionState(
-            sock,
-        ) as { kind?: string; npcId?: number; modifierFlags?: number } | undefined : undefined;
+        const interaction = sock
+            ? (this.playerManager?.getInteractionState(sock) as
+                  | { kind?: string; npcId?: number; modifierFlags?: number }
+                  | undefined)
+            : undefined;
         const modifierFlags =
             interaction?.kind === "npcCombat" && interaction.npcId === npcId
                 ? interaction.modifierFlags ?? 0
@@ -1433,7 +1435,11 @@ export class PlayerCombatManager {
         return player.energy.resolveRequestedRun(run);
     }
 
-    private applyPathSteps(player: PlayerState, steps: { x: number; y: number }[], run: boolean): boolean {
+    private applyPathSteps(
+        player: PlayerState,
+        steps: { x: number; y: number }[],
+        run: boolean,
+    ): boolean {
         const normalizedSteps = Array.isArray(steps) ? steps.map((s) => ({ x: s.x, y: s.y })) : [];
         let prevX = player.tileX;
         let prevY = player.tileY;
@@ -1649,22 +1655,25 @@ export class PlayerCombatManager {
                       Math.max(1, npc.size),
                   )
                 : attackType !== AttackType.Melee
-                  ? new RectWithinRangeLineOfSightRouteStrategy(
-                        npc.tileX,
-                        npc.tileY,
-                        Math.max(1, npc.size),
-                        Math.max(1, npc.size),
-                        normalizedReach,
-                    )
-                  : new RectWithinRangeRouteStrategy(
-                        npc.tileX,
-                        npc.tileY,
-                        Math.max(1, npc.size),
-                        Math.max(1, npc.size),
-                        normalizedReach,
-                    );
+                ? new RectWithinRangeLineOfSightRouteStrategy(
+                      npc.tileX,
+                      npc.tileY,
+                      Math.max(1, npc.size),
+                      Math.max(1, npc.size),
+                      normalizedReach,
+                  )
+                : new RectWithinRangeRouteStrategy(
+                      npc.tileX,
+                      npc.tileY,
+                      Math.max(1, npc.size),
+                      Math.max(1, npc.size),
+                      normalizedReach,
+                  );
         if (strategy instanceof CardinalAdjacentRouteStrategy) {
-            strategy.setCollisionGetter((x, y, p) => pathService.getCollisionFlagAt(x, y, p), player.level);
+            strategy.setCollisionGetter(
+                (x, y, p) => pathService.getCollisionFlagAt(x, y, p),
+                player.level,
+            );
         } else if (strategy instanceof RectWithinRangeLineOfSightRouteStrategy) {
             strategy.setProjectileRaycast((from, to) => pathService.projectileRaycast(from, to));
         }
@@ -1698,11 +1707,18 @@ export class PlayerCombatManager {
             return hasDirectMeleeReach(player, npc, pathService);
         }
         const resolvedAttackType =
-            normalizeAttackType(player.getCurrentAttackType?.()) ?? resolvePlayerAttackType(player.combat);
+            normalizeAttackType(player.getCurrentAttackType?.()) ??
+            resolvePlayerAttackType(player.combat);
         if (resolvedAttackType === AttackType.Melee) {
             return hasDirectMeleePath(player, npc, pathService);
         }
-        return hasProjectileLineOfSightToNpc(player.tileX, player.tileY, player.level, npc, pathService);
+        return hasProjectileLineOfSightToNpc(
+            player.tileX,
+            player.tileY,
+            player.level,
+            npc,
+            pathService,
+        );
     }
 
     /**

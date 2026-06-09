@@ -701,10 +701,7 @@ export const MANUAL_NPC_DROP_OVERRIDES: ManualNpcDropOverride[] = [
                 {
                     kind: "weighted",
                     category: "coins",
-                    entries: [
-                        drop("Coins", 66, "15/128"),
-                        drop("Coins", 690, "1/128"),
-                    ],
+                    entries: [drop("Coins", 66, "15/128"), drop("Coins", 690, "1/128")],
                 },
                 {
                     kind: "weighted",

@@ -6,15 +6,15 @@ Gamemodes live in `server/gamemodes/{id}/` and export a `createGamemode()` funct
 
 ## What a gamemode controls
 
-- XP multipliers and drop rates
-- Spawn location and tutorial flow
-- Player initialization and state serialization
-- Login handshake (varps, varbits, feature flags)
-- Per-tick hooks and interaction restrictions
-- Handler registration (banking, shops, equipment, UI widgets, content interactions)
-- Display name formatting and chat player types
-- Custom content data packets
-- Service providers exposed to script handlers
+-   XP multipliers and drop rates
+-   Spawn location and tutorial flow
+-   Player initialization and state serialization
+-   Login handshake (varps, varbits, feature flags)
+-   Per-tick hooks and interaction restrictions
+-   Handler registration (banking, shops, equipment, UI widgets, content interactions)
+-   Display name formatting and chat player types
+-   Custom content data packets
+-   Service providers exposed to script handlers
 
 ## Inheritance Chain
 
@@ -27,17 +27,17 @@ BaseGamemode (abstract — sensible OSRS defaults, no content)
 
 There are two paths for creating a gamemode:
 
-| Base class | When to use |
-|-----------|-------------|
-| `BaseGamemode` | Building from scratch. You get valid defaults but no content — no banking, no shops, no skills. Suitable for minigame servers or highly custom experiences. |
-| `VanillaGamemode` | Most common. You inherit the full OSRS experience and override what you need. This is what Leagues V does. |
+| Base class        | When to use                                                                                                                                                 |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BaseGamemode`    | Building from scratch. You get valid defaults but no content — no banking, no shops, no skills. Suitable for minigame servers or highly custom experiences. |
+| `VanillaGamemode` | Most common. You inherit the full OSRS experience and override what you need. This is what Leagues V does.                                                  |
 
 ## Bundled Gamemodes
 
-| Gamemode | Base | Description |
-|----------|------|-------------|
-| `vanilla` | `BaseGamemode` | Baseline OSRS — banking, shops, equipment, combat, all skills, all UI widgets, core content interactions |
-| `leagues-v` | `VanillaGamemode` | Raging Echoes — area unlocks, relics, masteries, tasks, league tutorial, custom XP/drop rates |
+| Gamemode    | Base              | Description                                                                                              |
+| ----------- | ----------------- | -------------------------------------------------------------------------------------------------------- |
+| `vanilla`   | `BaseGamemode`    | Baseline OSRS — banking, shops, equipment, combat, all skills, all UI widgets, core content interactions |
+| `leagues-v` | `VanillaGamemode` | Raging Echoes — area unlocks, relics, masteries, tasks, league tutorial, custom XP/drop rates            |
 
 ## Creating a Gamemode
 
@@ -56,10 +56,12 @@ The `GamemodeRegistry` discovers gamemodes by scanning `server/gamemodes/` for d
 
 ```typescript
 // server/gamemodes/my-gamemode/index.ts
-import type { GamemodeDefinition, GamemodeInitContext } from "../../src/game/gamemodes/GamemodeDefinition";
+import type {
+    GamemodeDefinition,
+    GamemodeInitContext,
+} from "../../src/game/gamemodes/GamemodeDefinition";
 import type { PlayerState } from "../../src/game/player";
 import type { IScriptRegistry, ScriptServices } from "../../src/game/scripts/types";
-
 import { VanillaGamemode } from "../vanilla/index";
 
 class MyGamemode extends VanillaGamemode {
@@ -100,9 +102,8 @@ This gives you the full vanilla experience (banking, shops, equipment, skills, c
 
 ```typescript
 // server/gamemodes/my-gamemode/index.ts
-import type { GamemodeDefinition } from "../../src/game/gamemodes/GamemodeDefinition";
-
 import { BaseGamemode } from "../../src/game/gamemodes/BaseGamemode";
+import type { GamemodeDefinition } from "../../src/game/gamemodes/GamemodeDefinition";
 
 class MyGamemode extends BaseGamemode {
     readonly id = "my-gamemode";
@@ -124,20 +125,20 @@ This gives you a working gamemode with 5x XP and all other OSRS defaults (Lumbri
 
 Set the gamemode ID in your server configuration:
 
-- **config.json:** `{ "gamemode": "my-gamemode" }`
-- **Environment variable:** `GAMEMODE=my-gamemode`
+-   **config.json:** `{ "gamemode": "my-gamemode" }`
+-   **Environment variable:** `GAMEMODE=my-gamemode`
 
 The default gamemode is `vanilla`.
 
 ## Where Logic Should Live
 
-| Logic type | Location | Example |
-|-----------|----------|---------|
-| Engine systems (ticks, networking, player sync) | `server/src/` | Collision, pathfinding, packet routing |
-| Pluggable data providers (combat formulas, spells) | `server/src/game/providers/` interfaces, `vanilla/combat/` implementations | CombatFormulaProvider, SpellDataProvider |
-| Reusable services (shop orchestration, banking) | Service classes in the gamemode (`vanilla/shops/ShopService.ts`) | ShopService wraps ShopManager + server integration |
-| Gamemode-specific rules (XP rates, tutorials, relics) | `server/gamemodes/{id}/index.ts` overrides | LeaguesV XP multiplier, tutorial flow |
-| Universal tools (debug commands, admin) | `server/extrascripts/{id}/` | item-spawner |
+| Logic type                                            | Location                                                                   | Example                                            |
+| ----------------------------------------------------- | -------------------------------------------------------------------------- | -------------------------------------------------- |
+| Engine systems (ticks, networking, player sync)       | `server/src/`                                                              | Collision, pathfinding, packet routing             |
+| Pluggable data providers (combat formulas, spells)    | `server/src/game/providers/` interfaces, `vanilla/combat/` implementations | CombatFormulaProvider, SpellDataProvider           |
+| Reusable services (shop orchestration, banking)       | Service classes in the gamemode (`vanilla/shops/ShopService.ts`)           | ShopService wraps ShopManager + server integration |
+| Gamemode-specific rules (XP rates, tutorials, relics) | `server/gamemodes/{id}/index.ts` overrides                                 | LeaguesV XP multiplier, tutorial flow              |
+| Universal tools (debug commands, admin)               | `server/extrascripts/{id}/`                                                | item-spawner                                       |
 
 Keep gamemode `index.ts` files thin — they should wire systems together, not implement them. Extract complex logic into dedicated service classes (like `ShopService`) so the gamemode just instantiates and connects them.
 
@@ -208,21 +209,21 @@ Handlers then access these via `services.banking.openBank(player)` without knowi
 
 VanillaGamemode registers 13 global data providers during `initialize()` that power the core combat and spell systems. Each provider is a singleton registered to the `ProviderRegistry` — the last call wins, so you can replace any provider after `super.initialize()`.
 
-| Provider | Create function | Source file |
-|----------|----------------|-------------|
-| `CombatFormulaProvider` | `createCombatFormulaProvider()` | `vanilla/combat/CombatFormulas.ts` |
-| `WeaponDataProvider` | `createWeaponDataProvider()` | `vanilla/data/weapons.ts` |
-| `SpecialAttackProvider` | `createSpecialAttackProvider()` | `vanilla/combat/SpecialAttackRegistry.ts` |
-| `EquipmentBonusProvider` | `createEquipmentBonusProvider()` | `vanilla/combat/EquipmentBonuses.ts` |
-| `SpellDataProvider` | `createSpellDataProvider()` | `vanilla/data/spells.ts` |
-| `SpellXpProvider` | `createSpellXpProvider()` | `vanilla/combat/SpellXpData.ts` |
-| `RuneDataProvider` | `createRuneDataProvider()` | `vanilla/data/runes.ts` |
-| `ProjectileParamsProvider` | `createProjectileParamsProvider()` | `vanilla/data/projectileParams.ts` |
-| `SkillConfigurationProvider` | `createSkillConfiguration()` | `vanilla/combat/SkillConfiguration.ts` |
-| `CombatStyleSequenceProvider` | `createCombatStyleSequenceProvider()` | `vanilla/combat/CombatStyleSequences.ts` |
-| `SpecialAttackVisualProvider` | `createSpecialAttackVisualProvider()` | `vanilla/combat/SpecialAttackVisuals.ts` |
-| `InstantUtilitySpecialProvider` | `createInstantUtilitySpecialProvider()` | `vanilla/combat/RockKnockerSpecial.ts` |
-| `AmmoDataProvider` | `createDefaultAmmoDataProvider()` | `server/src/game/combat/AmmoSystem.ts` |
+| Provider                        | Create function                         | Source file                               |
+| ------------------------------- | --------------------------------------- | ----------------------------------------- |
+| `CombatFormulaProvider`         | `createCombatFormulaProvider()`         | `vanilla/combat/CombatFormulas.ts`        |
+| `WeaponDataProvider`            | `createWeaponDataProvider()`            | `vanilla/data/weapons.ts`                 |
+| `SpecialAttackProvider`         | `createSpecialAttackProvider()`         | `vanilla/combat/SpecialAttackRegistry.ts` |
+| `EquipmentBonusProvider`        | `createEquipmentBonusProvider()`        | `vanilla/combat/EquipmentBonuses.ts`      |
+| `SpellDataProvider`             | `createSpellDataProvider()`             | `vanilla/data/spells.ts`                  |
+| `SpellXpProvider`               | `createSpellXpProvider()`               | `vanilla/combat/SpellXpData.ts`           |
+| `RuneDataProvider`              | `createRuneDataProvider()`              | `vanilla/data/runes.ts`                   |
+| `ProjectileParamsProvider`      | `createProjectileParamsProvider()`      | `vanilla/data/projectileParams.ts`        |
+| `SkillConfigurationProvider`    | `createSkillConfiguration()`            | `vanilla/combat/SkillConfiguration.ts`    |
+| `CombatStyleSequenceProvider`   | `createCombatStyleSequenceProvider()`   | `vanilla/combat/CombatStyleSequences.ts`  |
+| `SpecialAttackVisualProvider`   | `createSpecialAttackVisualProvider()`   | `vanilla/combat/SpecialAttackVisuals.ts`  |
+| `InstantUtilitySpecialProvider` | `createInstantUtilitySpecialProvider()` | `vanilla/combat/RockKnockerSpecial.ts`    |
+| `AmmoDataProvider`              | `createDefaultAmmoDataProvider()`       | `server/src/game/combat/AmmoSystem.ts`    |
 
 Gamemodes extending VanillaGamemode inherit all of these via `super.initialize()`. Gamemodes extending BaseGamemode directly must register their own providers if they need combat.
 
@@ -303,23 +304,23 @@ override dispose(): void {
 
 The full interface is defined in `server/src/game/gamemodes/GamemodeDefinition.ts`. Required methods that BaseGamemode provides defaults for:
 
-| Method | Default |
-|--------|---------|
-| `getSkillXpMultiplier()` | `1` |
-| `getDropRateMultiplier()` | `1` |
-| `transformDropItemId()` | passthrough |
-| `canInteract()` | `true` |
-| `initializePlayer()` | no-op |
-| `serializePlayerState()` | `undefined` |
-| `deserializePlayerState()` | no-op |
-| `onNpcKill()` | no-op |
-| `isTutorialActive()` | `false` |
-| `getSpawnLocation()` | Lumbridge (3222, 3218, 0) |
-| `onPlayerHandshake()` | no-op |
-| `onPlayerLogin()` | no-op |
-| `getPlayerTypes()` | `[PlayerType.Normal]` |
-| `registerHandlers()` | no-op |
-| `initialize()` | no-op |
+| Method                     | Default                   |
+| -------------------------- | ------------------------- |
+| `getSkillXpMultiplier()`   | `1`                       |
+| `getDropRateMultiplier()`  | `1`                       |
+| `transformDropItemId()`    | passthrough               |
+| `canInteract()`            | `true`                    |
+| `initializePlayer()`       | no-op                     |
+| `serializePlayerState()`   | `undefined`               |
+| `deserializePlayerState()` | no-op                     |
+| `onNpcKill()`              | no-op                     |
+| `isTutorialActive()`       | `false`                   |
+| `getSpawnLocation()`       | Lumbridge (3222, 3218, 0) |
+| `onPlayerHandshake()`      | no-op                     |
+| `onPlayerLogin()`          | no-op                     |
+| `getPlayerTypes()`         | `[PlayerType.Normal]`     |
+| `registerHandlers()`       | no-op                     |
+| `initialize()`             | no-op                     |
 
 Optional hooks (not required, return `undefined` if absent):
 

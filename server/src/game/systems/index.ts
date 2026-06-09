@@ -19,7 +19,4 @@ export {
     type PlayerAnimSet,
 } from "./BroadcastScheduler";
 export { GatheringSystemManager, type GatheringSystemServices } from "./GatheringSystemManager";
-export {
-    EquipmentHandler,
-    type EquipResult,
-} from "./EquipmentHandler";
+export { EquipmentHandler, type EquipResult } from "./EquipmentHandler";

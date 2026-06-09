@@ -7,20 +7,20 @@
  *
  * This gives O(1) lookup + O(m) checks where m is typically 1-5 tasks.
  */
+import type { LeagueTaskRow } from "../../../src/shared/gamemode/GamemodeDataTypes";
 import {
     type RegisteredCustomChallenge,
     type RegisteredCustomTask,
     getAllCustomChallenges,
     getAllCustomTasks,
 } from "./data/custom";
-import { TriggerType } from "./triggers/TriggerTypes";
 import { LEAGUE_TASKS } from "./data/leagueTasks.data";
-import type { LeagueTaskRow } from "../../../src/shared/gamemode/GamemodeDataTypes";
 import {
     type TriggerParserLoaders,
     buildNameLookups,
     parseTaskTrigger,
 } from "./triggers/TriggerParser";
+import { TriggerType } from "./triggers/TriggerTypes";
 import type { TaskTrigger } from "./triggers/TriggerTypes";
 
 export interface ParsedTask {
@@ -89,7 +89,9 @@ export class LeagueTaskIndex {
 
     private indexTask(task: LeagueTaskRow, loaders: TriggerParserLoaders): void {
         // Check if task has a manual trigger override
-        const manualTrigger = (task as unknown as Record<string, unknown>).trigger as TaskTrigger | undefined;
+        const manualTrigger = (task as unknown as Record<string, unknown>).trigger as
+            | TaskTrigger
+            | undefined;
 
         // Parse trigger from task name, or use manual override
         const trigger =

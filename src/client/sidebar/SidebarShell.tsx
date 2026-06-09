@@ -95,9 +95,7 @@ function GroundItemsPanel({ osrsClient }: { osrsClient: OsrsClient }): JSX.Eleme
                 RuneLite-style filtering, highlighting, and value coloring for item labels.
             </p>
             {!config.enabled && (
-                <p className="rl-sidebar-panel-copy">
-                    Plugin is currently disabled in xRSPS.
-                </p>
+                <p className="rl-sidebar-panel-copy">Plugin is currently disabled in xRSPS.</p>
             )}
 
             <label className="rl-sidebar-check">
@@ -444,9 +442,7 @@ function InteractHighlightPanel({ osrsClient }: { osrsClient: OsrsClient }): JSX
                 RuneLite-style object highlight. Hover is blue and active interaction is red.
             </p>
             {!config.enabled && (
-                <p className="rl-sidebar-panel-copy">
-                    Plugin is currently disabled in xRSPS.
-                </p>
+                <p className="rl-sidebar-panel-copy">Plugin is currently disabled in xRSPS.</p>
             )}
             <label className="rl-sidebar-check">
                 <input
@@ -520,9 +516,7 @@ function TileMarkersPanel({ osrsClient }: { osrsClient: OsrsClient }): JSX.Eleme
                 RuneLite-style destination and true tile indicators for your player.
             </p>
             {!config.enabled && (
-                <p className="rl-sidebar-panel-copy">
-                    Plugin is currently disabled in xRSPS.
-                </p>
+                <p className="rl-sidebar-panel-copy">Plugin is currently disabled in xRSPS.</p>
             )}
             <label className="rl-sidebar-check">
                 <input

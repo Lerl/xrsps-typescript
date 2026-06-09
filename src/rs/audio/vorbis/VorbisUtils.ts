@@ -43,7 +43,7 @@ export function iLog(value: number): number {
 
 /**
  * Reverse bits in an integer
- * Port of 
+ * Port of
  */
 export function bitReverse(value: number, bits: number): number {
     let result = 0;

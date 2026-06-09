@@ -1,6 +1,6 @@
 import type { PendingNpcDrop } from "../npcManager";
-import { resolveDropTable } from "./helpers";
 import { NpcDropRegistry } from "./NpcDropRegistry";
+import { resolveDropTable } from "./helpers";
 import type {
     DropConditionDefinition,
     DropContext,
@@ -19,7 +19,11 @@ function rollQuantity(entry: NpcDropEntry): number {
     return min + Math.floor(Math.random() * (max - min + 1));
 }
 
-function applyDropRateMultiplier(probability: number, multiplier: number, eligible: boolean): number {
+function applyDropRateMultiplier(
+    probability: number,
+    multiplier: number,
+    eligible: boolean,
+): number {
     if (!eligible || multiplier <= 1) return probability;
     return Math.max(0, Math.min(1, probability * multiplier));
 }
@@ -140,14 +144,13 @@ export class DropRollService {
     constructor(private readonly registry: NpcDropRegistry) {}
 
     roll(context: DropContext): PendingNpcDrop[] {
-        const table = (context.tableOverride ? resolveDropTable(context.tableOverride) : undefined)
-            ?? this.registry.get(context.npcTypeId);
+        const table =
+            (context.tableOverride ? resolveDropTable(context.tableOverride) : undefined) ??
+            this.registry.get(context.npcTypeId);
         if (!table) return [];
         const out: PendingNpcDrop[] = [];
         const recipients =
-            context.recipients.length > 0
-                ? context.recipients
-                : [{ dropRateMultiplier: 1 }];
+            context.recipients.length > 0 ? context.recipients : [{ dropRateMultiplier: 1 }];
         for (const recipient of recipients) {
             this.rollForRecipient(table, context, recipient, out);
         }

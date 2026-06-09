@@ -1,6 +1,6 @@
 import type { SkillId } from "../../../../src/rs/skill/skills";
-import type { PlayerState } from "../player";
 import type { NpcState } from "../npc";
+import type { PlayerState } from "../player";
 
 /**
  * Map of all game event names to their payload types.

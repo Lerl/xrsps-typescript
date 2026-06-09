@@ -1,6 +1,7 @@
+import type { WebSocket } from "ws";
+
 import type { LocTypeLoader } from "../../../../src/rs/config/loctype/LocTypeLoader";
 import { faceAngleRs } from "../../../../src/rs/utils/rotation";
-import type { WebSocket } from "ws";
 import {
     MODIFIER_FLAG_CTRL,
     MODIFIER_FLAG_CTRL_SHIFT,
@@ -158,7 +159,8 @@ export class PlayerInteractionSystem {
             this.interactions,
             (id) => this.onStopAutoAttack?.(id),
             (id) => this.onInterruptSkillActions?.(id),
-            (attacker, npc, tick) => this.canStartNpcCombat?.(attacker, npc, tick) ?? { allowed: true },
+            (attacker, npc, tick) =>
+                this.canStartNpcCombat?.(attacker, npc, tick) ?? { allowed: true },
             (raw) => this.normalizeModifierFlags(raw),
             (player, flags) => this.resolveRunMode(player, flags),
             (ws, player) => this.replaceInteractionState(ws, player),
@@ -166,8 +168,7 @@ export class PlayerInteractionSystem {
             (player, tile) => this.findPlayerPathToTile(player, tile),
             (player, steps, run) => this.applyPathSteps(player, steps, run),
             (actor, res, strategy) => this.extractValidatedStrategyPathSteps(actor, res, strategy),
-            (from, to, sizeX, sizeY, level) =>
-                this.hasDirectReach(from, to, sizeX, sizeY, level),
+            (from, to, sizeX, sizeY, level) => this.hasDirectReach(from, to, sizeX, sizeY, level),
             (cb) => this.forEachInteraction(cb),
         );
     }
@@ -274,7 +275,11 @@ export class PlayerInteractionSystem {
         if (!interaction) return undefined;
         const state = this.interactions.get(ws);
         let mode: FollowInteractionKind | "combat" = "combat";
-        if (state && (state.kind === FollowInteractionKind.Follow || state.kind === FollowInteractionKind.Trade)) {
+        if (
+            state &&
+            (state.kind === FollowInteractionKind.Follow ||
+                state.kind === FollowInteractionKind.Trade)
+        ) {
             mode = state.kind;
         }
         return { targetId: interaction.id, mode };
@@ -337,10 +342,14 @@ export class PlayerInteractionSystem {
     private replaceInteractionState(ws: WebSocket, player: PlayerState): void {
         try {
             player.interruptQueues();
-        } catch (err) { logger.warn("[interaction] failed to interrupt queues", err); }
+        } catch (err) {
+            logger.warn("[interaction] failed to interrupt queues", err);
+        }
         try {
             player.resetInteractions();
-        } catch (err) { logger.warn("[interaction] failed to reset interactions", err); }
+        } catch (err) {
+            logger.warn("[interaction] failed to reset interactions", err);
+        }
         this.clearAllInteractions(ws);
     }
 
@@ -394,10 +403,11 @@ export class PlayerInteractionSystem {
 
         // Block interactions during tutorial (gamemode can override per NPC)
         if (!me.canInteract()) {
-            const normalizedOption = String(option ?? "").trim().toLowerCase();
-            const allowed = me.gamemode.canInteractWithNpc?.(
-                me, npc.typeId, normalizedOption,
-            ) ?? false;
+            const normalizedOption = String(option ?? "")
+                .trim()
+                .toLowerCase();
+            const allowed =
+                me.gamemode.canInteractWithNpc?.(me, npc.typeId, normalizedOption) ?? false;
             if (!allowed) {
                 return { ok: false, message: "interaction_blocked" };
             }
@@ -419,7 +429,10 @@ export class PlayerInteractionSystem {
         if (existing) {
             if (existing.kind === "npcCombat") {
                 this.stopNpcAttack(ws);
-            } else if (existing.kind === FollowInteractionKind.Follow || existing.kind === FollowInteractionKind.Trade) {
+            } else if (
+                existing.kind === FollowInteractionKind.Follow ||
+                existing.kind === FollowInteractionKind.Trade
+            ) {
                 this.stopFollowing(ws);
             } else if (existing.kind === "npcInteract") {
                 this.interactions.delete(ws);
@@ -541,7 +554,8 @@ export class PlayerInteractionSystem {
 
         const pendingLoc = this.pendingLocInteractions.get(ws);
         const preservePendingLoc =
-            !!pendingLoc && this.locHandler.shouldPreservePendingLocInteraction(pendingLoc, destination, me);
+            !!pendingLoc &&
+            this.locHandler.shouldPreservePendingLocInteraction(pendingLoc, destination, me);
         logger.info(
             "[manualMove]",
             JSON.stringify({
@@ -576,7 +590,13 @@ export class PlayerInteractionSystem {
         _attackDelay: number = 4,
         modifierFlags?: number,
     ): { ok: boolean; message?: string; chatMessage?: string } {
-        return this.npcCombatHandler.startNpcAttack(ws, npc, currentTick, _attackDelay, modifierFlags);
+        return this.npcCombatHandler.startNpcAttack(
+            ws,
+            npc,
+            currentTick,
+            _attackDelay,
+            modifierFlags,
+        );
     }
 
     stopNpcAttack(ws: WebSocket): void {
@@ -735,7 +755,9 @@ export class PlayerInteractionSystem {
                 forced = this.computeOrientationWorld(player.x, player.y, temp.x, temp.y);
                 player._pendingFace = undefined; // consume
             }
-        } catch (err) { logger.warn("[interaction] failed to compute pending face", err); }
+        } catch (err) {
+            logger.warn("[interaction] failed to compute pending face", err);
+        }
 
         if (forced !== undefined) {
             player.setForcedOrientation(forced & 2047);
@@ -765,7 +787,9 @@ export class PlayerInteractionSystem {
         });
         try {
             me.setInteraction("player", targetPlayerId);
-        } catch (err) { logger.warn("[interaction] failed to set player interaction", err); }
+        } catch (err) {
+            logger.warn("[interaction] failed to set player interaction", err);
+        }
         const target = this.players.getById(targetPlayerId);
         me.combat.setCombatTarget(target ?? null);
         me.combat.setInteractingPlayer(target ?? null);
@@ -987,7 +1011,16 @@ export class PlayerInteractionSystem {
             seen.add(key);
             const flag = this.pathService.getCollisionFlagAt(cand.tile.x, cand.tile.y, level);
             if (flag === undefined || (flag & blockMask) !== 0) continue;
-            if (this.pathService.edgeHasWallBetween(cand.tile.x, cand.tile.y, cand.target.x, cand.target.y, level)) continue;
+            if (
+                this.pathService.edgeHasWallBetween(
+                    cand.tile.x,
+                    cand.tile.y,
+                    cand.target.x,
+                    cand.target.y,
+                    level,
+                )
+            )
+                continue;
             const dist = Math.abs(cand.tile.x - from.x) + Math.abs(cand.tile.y - from.y);
             if (dist < bestDist) {
                 bestDist = dist;

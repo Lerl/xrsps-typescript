@@ -1,4 +1,12 @@
-import { App as PicoApp, DrawCall, PicoGL, Program, UniformBuffer, VertexArray, VertexBuffer } from "picogl";
+import {
+    DrawCall,
+    App as PicoApp,
+    PicoGL,
+    Program,
+    UniformBuffer,
+    VertexArray,
+    VertexBuffer,
+} from "picogl";
 
 import type { Aabb } from "../../client/math/Aabb";
 import { Overlay, OverlayInitArgs, OverlayUpdateArgs, RenderPhase } from "./Overlay";
@@ -28,9 +36,18 @@ export class ObjectBoundsOverlay implements Overlay {
     private emptyVerts = new Float32Array(0);
     // PERF: Static edge indices for AABB wireframe - hoisted out of draw loop
     private static readonly EDGES = [
-        [0, 1], [1, 2], [2, 3], [3, 0], // bottom face
-        [4, 5], [5, 6], [6, 7], [7, 4], // top face
-        [0, 4], [1, 5], [2, 6], [3, 7], // vertical edges
+        [0, 1],
+        [1, 2],
+        [2, 3],
+        [3, 0], // bottom face
+        [4, 5],
+        [5, 6],
+        [6, 7],
+        [7, 4], // top face
+        [0, 4],
+        [1, 5],
+        [2, 6],
+        [3, 7], // vertical edges
     ] as const;
 
     enabled: boolean = true;
@@ -97,13 +114,13 @@ export class ObjectBoundsOverlay implements Overlay {
             for (let ei = 0; ei < edges.length; ei++) {
                 const [a, b] = edges[ei];
                 // Inline corner lookup for vertex a
-                const ax = (a & 1) ? maxX : minX;
-                const ay = (a & 2) ? maxY : minY;
-                const az = (a & 4) ? maxZ : minZ;
+                const ax = a & 1 ? maxX : minX;
+                const ay = a & 2 ? maxY : minY;
+                const az = a & 4 ? maxZ : minZ;
                 // Inline corner lookup for vertex b
-                const bx = (b & 1) ? maxX : minX;
-                const by = (b & 2) ? maxY : minY;
-                const bz = (b & 4) ? maxZ : minZ;
+                const bx = b & 1 ? maxX : minX;
+                const by = b & 2 ? maxY : minY;
+                const bz = b & 4 ? maxZ : minZ;
                 verts[vi++] = ax;
                 verts[vi++] = ay;
                 verts[vi++] = az;

@@ -1,7 +1,7 @@
-import type { ChatMessageSnapshot, ForcedChatBroadcast } from "../systems/BroadcastScheduler";
+import type { ServerServices } from "../ServerServices";
 import { createLootPickupNotification } from "../notifications/LootPickupNotification";
 import type { PlayerState } from "../player";
-import type { ServerServices } from "../ServerServices";
+import type { ChatMessageSnapshot, ForcedChatBroadcast } from "../systems/BroadcastScheduler";
 
 export type { ChatMessageSnapshot, ForcedChatBroadcast };
 
@@ -75,9 +75,6 @@ export class MessagingService {
     sendLootNotification(player: PlayerState, itemId: number, quantity: number): void {
         const objType = this.services.dataLoaderService.getObjType(itemId);
         const itemName = objType?.name ?? `Item ${itemId}`;
-        this.queueNotification(
-            player.id,
-            createLootPickupNotification(itemId, itemName, quantity),
-        );
+        this.queueNotification(player.id, createLootPickupNotification(itemId, itemName, quantity));
     }
 }

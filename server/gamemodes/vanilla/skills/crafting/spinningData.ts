@@ -1,4 +1,3 @@
-
 export interface SpinningRecipe {
     id: string;
     inputItemId: number;

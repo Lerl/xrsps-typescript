@@ -121,7 +121,8 @@ export function createInstantUtilitySpecialProvider(): InstantUtilitySpecialProv
     return {
         getInstantUtilitySpecial(weaponId) {
             const rkSeq = getRockKnockerSpecialSequence(weaponId);
-            if (rkSeq !== undefined) return { kind: "rock_knocker", seqId: rkSeq, soundId: ROCK_KNOCKER_SOUND_ID };
+            if (rkSeq !== undefined)
+                return { kind: "rock_knocker", seqId: rkSeq, soundId: ROCK_KNOCKER_SOUND_ID };
             const fsSeq = getFishstabberSpecialSequence(weaponId);
             if (fsSeq !== undefined) return { kind: "fishstabber", seqId: fsSeq };
             const luSeq = getLumberUpSpecialSequence(weaponId);

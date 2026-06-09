@@ -959,7 +959,14 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
                 const level = parseInt(parts[2]);
                 const sceneX = worldX - baseX;
                 const sceneY = worldY - baseY;
-                state.sceneBuilder.setLocSpawn(sceneX, sceneY, level, spawnValue.id | 0, spawnValue.type as LocModelType, spawnValue.rotation & 0x3);
+                state.sceneBuilder.setLocSpawn(
+                    sceneX,
+                    sceneY,
+                    level,
+                    spawnValue.id | 0,
+                    spawnValue.type as LocModelType,
+                    spawnValue.rotation & 0x3,
+                );
             }
         } else {
             state.sceneBuilder.clearLocSpawns();
@@ -978,13 +985,7 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
                 LocLoadType.MODELS,
             );
         } else {
-            scene = state.sceneBuilder.buildScene(
-                baseX,
-                baseY,
-                mapSize,
-                mapSize,
-                smoothTerrain,
-            );
+            scene = state.sceneBuilder.buildScene(baseX, baseY, mapSize, mapSize, smoothTerrain);
         }
         // Inject extra locs (from LOC_ADD_CHANGE) into the built scene
         if (extraLocsInput && extraLocsInput.length > 0) {
@@ -1018,7 +1019,14 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
         const coreSize = isInstance ? INSTANCE_SIZE : Scene.MAP_SQUARE_SIZE;
         sceneBuf.addTerrain(scene, usedBorderSize, maxLevel, coreSize, usedBorderSize);
 
-        const sceneLocs = getSceneLocs(locTypeLoader, scene, usedBorderSize, maxLevel, coreSize, usedBorderSize);
+        const sceneLocs = getSceneLocs(
+            locTypeLoader,
+            scene,
+            usedBorderSize,
+            maxLevel,
+            coreSize,
+            usedBorderSize,
+        );
         const sceneModels: SceneModel[] = [];
         const doorSceneModels: SceneModel[] = [];
         for (const locModel of sceneLocs.locs) {

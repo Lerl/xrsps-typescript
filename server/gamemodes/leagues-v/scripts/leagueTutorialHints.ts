@@ -1,6 +1,10 @@
-import { getPopoutUid } from "../../../src/widgets/viewport";
 import type { PlayerState } from "../../../src/game/player";
-import type { IScriptRegistry, ScriptServices, WidgetActionEvent } from "../../../src/game/scripts/types";
+import type {
+    IScriptRegistry,
+    ScriptServices,
+    WidgetActionEvent,
+} from "../../../src/game/scripts/types";
+import { getPopoutUid } from "../../../src/widgets/viewport";
 
 const SCREENHIGHLIGHT_GROUP_ID = 664;
 const SCREENHIGHLIGHT_ROOT_UID = (SCREENHIGHLIGHT_GROUP_ID << 16) | 0;
@@ -249,14 +253,7 @@ function renderHint(player: PlayerState, bridge: HintBridge, state: LeagueTutori
     bridge.queueWidgetEvent(player.id, {
         action: "run_script",
         scriptId: SCRIPT_HIGHLIGHT_TEXTBOX_DEFAULT,
-        args: [
-            HINT_TEXT_COLOUR,
-            1,
-            0,
-            SCREENHIGHLIGHT_ROOT_UID,
-            HINT_POSITION_BOTTOM,
-            step.text,
-        ],
+        args: [HINT_TEXT_COLOUR, 1, 0, SCREENHIGHLIGHT_ROOT_UID, HINT_POSITION_BOTTOM, step.text],
         varbits: {
             [VARBIT_HINT_STEP]: index,
             [VARBIT_HINT_MAX_STEP]: steps.length,

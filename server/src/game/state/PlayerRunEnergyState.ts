@@ -29,9 +29,7 @@ export class PlayerRunEnergyState {
     private remainder: number = 0;
     private _drainEnabled: boolean = true;
 
-    constructor(
-        private readonly owner: RunEnergyOwner,
-    ) {}
+    constructor(private readonly owner: RunEnergyOwner) {}
 
     // ------------------------------------------------------------------
     // Unit-based accessors (internal 0..10000 scale)
@@ -68,10 +66,7 @@ export class PlayerRunEnergyState {
             total = RUN_ENERGY_MAX;
         }
         this.remainder = total - next;
-        if (
-            (next === 0 && this.remainder < 0) ||
-            (next === RUN_ENERGY_MAX && this.remainder > 0)
-        ) {
+        if ((next === 0 && this.remainder < 0) || (next === RUN_ENERGY_MAX && this.remainder > 0)) {
             this.remainder = 0;
         }
         if (current !== next) {

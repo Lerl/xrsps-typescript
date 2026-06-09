@@ -36,7 +36,11 @@ export function buildMessageEffect(player: PlayerState, message: string): Action
     return { type: "message", playerId: player.id, message };
 }
 
-export function buildSkillFailure(player: PlayerState, message: string, reason: string): ActionExecutionResult {
+export function buildSkillFailure(
+    player: PlayerState,
+    message: string,
+    reason: string,
+): ActionExecutionResult {
     return { ok: false, reason, effects: [buildMessageEffect(player, message)] };
 }
 
@@ -50,7 +54,11 @@ export const countItem = (entries: InventoryEntry[], itemId: number): number => 
     return total;
 };
 
-export const hasItem = (entries: InventoryEntry[], itemId: number, quantity: number = 1): boolean => {
+export const hasItem = (
+    entries: InventoryEntry[],
+    itemId: number,
+    quantity: number = 1,
+): boolean => {
     if (!(itemId > 0)) return false;
     let remaining = quantity;
     for (const entry of entries) {
@@ -65,7 +73,10 @@ export const hasItem = (entries: InventoryEntry[], itemId: number, quantity: num
 export const getInventory = (services: ScriptServices, player: PlayerState): InventoryEntry[] =>
     services.inventory.getInventoryItems(player);
 
-export const resolveCookingHeatSource = (services: ScriptServices, locId?: number): CookingHeatSource => {
+export const resolveCookingHeatSource = (
+    services: ScriptServices,
+    locId?: number,
+): CookingHeatSource => {
     if (locId === undefined || !(locId > 0)) return "range";
     const definition = services.data.getLocDefinition(locId);
     const supportItems = definition?.supportItems ?? 1;

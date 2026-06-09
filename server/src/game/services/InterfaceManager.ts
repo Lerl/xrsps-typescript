@@ -1,6 +1,6 @@
-import type { PlayerState } from "../player";
-import type { ServerServices } from "../ServerServices";
 import { logger } from "../../utils/logger";
+import type { ServerServices } from "../ServerServices";
+import type { PlayerState } from "../player";
 
 export interface PlayerWidgetOpenLedger {
     byTargetUid: Map<number, number>;
@@ -40,7 +40,11 @@ export class InterfaceManager {
         return ledger;
     }
 
-    addOpenTargetToLedger(ledger: PlayerWidgetOpenLedger, targetUid: number, groupId: number): void {
+    addOpenTargetToLedger(
+        ledger: PlayerWidgetOpenLedger,
+        targetUid: number,
+        groupId: number,
+    ): void {
         const prevGroupId = ledger.byTargetUid.get(targetUid);
         if (prevGroupId !== undefined) {
             const prevSet = ledger.targetUidsByGroup.get(prevGroupId);
@@ -84,7 +88,11 @@ export class InterfaceManager {
         const ledger = this.getOrCreateWidgetLedger(playerId);
         switch (action.action) {
             case "open_sub":
-                this.addOpenTargetToLedger(ledger, action.targetUid as number, action.groupId as number);
+                this.addOpenTargetToLedger(
+                    ledger,
+                    action.targetUid as number,
+                    action.groupId as number,
+                );
                 break;
             case "close_sub":
                 this.removeOpenTargetFromLedger(ledger, action.targetUid as number);
@@ -150,7 +158,11 @@ export class InterfaceManager {
     // --- Client Script Queuing ---
 
     queueClientScript(playerId: number, scriptId: number, ...args: (number | string)[]): void {
-        logger.info?.(`[clientScript] queue player=${playerId} script=${scriptId} args=${JSON.stringify(args)}`);
+        logger.info?.(
+            `[clientScript] queue player=${playerId} script=${scriptId} args=${JSON.stringify(
+                args,
+            )}`,
+        );
         this.svc.broadcastScheduler.queueClientScript(playerId, scriptId, args);
     }
 

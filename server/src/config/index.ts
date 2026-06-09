@@ -24,7 +24,9 @@ try {
     if (typeof parsed.serverName === "string") serverName = parsed.serverName;
     if (typeof parsed.maxPlayers === "number") maxPlayers = parsed.maxPlayers;
     if (typeof parsed.gamemode === "string") gamemode = parsed.gamemode;
-} catch (err) { logger.info("[config] failed to load config.json", err); }
+} catch (err) {
+    logger.info("[config] failed to load config.json", err);
+}
 
 export const config: ServerConfig = {
     // Bind all interfaces by default so LAN/mobile clients can reach the WS server.

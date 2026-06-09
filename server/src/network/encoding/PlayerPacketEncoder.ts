@@ -12,15 +12,15 @@ import {
     deltaToRunDirection,
     directionToDelta,
 } from "../../../../src/shared/Direction";
+import type { ServerServices } from "../../game/ServerServices";
 import {
-    resolveHitsplatTypeForObserver,
     type HitsplatSourceType,
+    resolveHitsplatTypeForObserver,
 } from "../../game/combat/OsrsHitsplatIds";
 import type { PlayerAppearance, PlayerState } from "../../game/player";
-import type { ServerServices } from "../../game/ServerServices";
-import { encodeAppearanceBinary } from "./AppearanceEncoder";
 import { BitWriter } from "../BitWriter";
 import { PlayerSyncSession } from "../PlayerSyncSession";
+import { encodeAppearanceBinary } from "./AppearanceEncoder";
 import { encodeCp1252Bytes } from "./Cp1252";
 import {
     CHUNK_DIRECTION_DELTAS,
@@ -149,8 +149,12 @@ export class PlayerPacketEncoder {
     private getLivePlayers(): Map<number, PlayerState> {
         const liveById = new Map<number, PlayerState>();
         if (this.svc.players) {
-            this.svc.players.forEach((_, p) => { liveById.set(p.id, p); });
-            this.svc.players.forEachBot((p) => { liveById.set(p.id, p); });
+            this.svc.players.forEach((_, p) => {
+                liveById.set(p.id, p);
+            });
+            this.svc.players.forEachBot((p) => {
+                liveById.set(p.id, p);
+            });
         }
         return liveById;
     }

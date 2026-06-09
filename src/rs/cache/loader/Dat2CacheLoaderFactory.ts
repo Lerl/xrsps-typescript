@@ -63,16 +63,16 @@ import {
     IndexVarBitTypeLoader,
     VarBitTypeLoader,
 } from "../../config/vartype/bit/VarBitTypeLoader";
+import {
+    ArchiveWorldEntityTypeLoader,
+    WorldEntityTypeLoader,
+} from "../../config/worldentitytype/WorldEntityTypeLoader";
 import { Dat2MapIndex, MapFileIndex } from "../../map/MapFileIndex";
 import { MapFileLoader } from "../../map/MapFileLoader";
 import { IndexModelLoader, ModelLoader } from "../../model/ModelLoader";
 import { IndexSeqBaseLoader, SeqBaseLoader } from "../../model/seq/SeqBaseLoader";
 import { Dat2SeqFrameLoader, SeqFrameLoader } from "../../model/seq/SeqFrameLoader";
 import { IndexSkeletalSeqLoader, SkeletalSeqLoader } from "../../model/skeletal/SkeletalSeqLoader";
-import {
-    ArchiveWorldEntityTypeLoader,
-    WorldEntityTypeLoader,
-} from "../../config/worldentitytype/WorldEntityTypeLoader";
 import { IndexedSprite } from "../../sprite/IndexedSprite";
 import { SpriteLoader } from "../../sprite/SpriteLoader";
 import { OldProceduralTextureLoader } from "../../texture/OldProceduralTextureLoader";

@@ -5,7 +5,6 @@
  *
  * Run with:  npx tsx tests/instance-parity.test.ts
  */
-
 import {
     CHUNK_SIZE,
     INSTANCE_CHUNK_COUNT,
@@ -21,7 +20,7 @@ import {
     rotateObjectChunkY,
     unpackTemplateChunk,
 } from "../src/shared/instance/InstanceTypes";
-import { ServerPacketId, SERVER_PACKET_LENGTHS } from "../src/shared/packets/ServerPacketId";
+import { SERVER_PACKET_LENGTHS, ServerPacketId } from "../src/shared/packets/ServerPacketId";
 
 // ============================================================================
 // Minimal test harness
@@ -187,7 +186,8 @@ describe("4 successive 90° rotations return to origin", () => {
     it("tile rotation round-trip", () => {
         for (let x = 0; x < 8; x++) {
             for (let y = 0; y < 8; y++) {
-                let rx = x, ry = y;
+                let rx = x,
+                    ry = y;
                 for (let r = 0; r < 4; r++) {
                     const nx = rotateChunkX(rx, ry, 1);
                     const ny = rotateChunkY(rx, ry, 1);
@@ -203,7 +203,8 @@ describe("4 successive 90° rotations return to origin", () => {
     it("object rotation round-trip (1x1)", () => {
         for (let x = 0; x < 8; x++) {
             for (let y = 0; y < 8; y++) {
-                let rx = x, ry = y;
+                let rx = x,
+                    ry = y;
                 for (let r = 0; r < 4; r++) {
                     const nx = rotateObjectChunkX(rx, ry, 1, 1, 1, 0);
                     const ny = rotateObjectChunkY(rx, ry, 1, 1, 1, 0);
@@ -264,7 +265,11 @@ describe("createEmptyTemplateChunks", () => {
         for (let p = 0; p < PLANE_COUNT; p++) {
             assertEqual(chunks[p].length, INSTANCE_CHUNK_COUNT, `plane ${p} cx count`);
             for (let cx = 0; cx < INSTANCE_CHUNK_COUNT; cx++) {
-                assertEqual(chunks[p][cx].length, INSTANCE_CHUNK_COUNT, `plane ${p} cx ${cx} cy count`);
+                assertEqual(
+                    chunks[p][cx].length,
+                    INSTANCE_CHUNK_COUNT,
+                    `plane ${p} cx ${cx} cy count`,
+                );
                 for (let cy = 0; cy < INSTANCE_CHUNK_COUNT; cy++) {
                     assertEqual(chunks[p][cx][cy], -1, `[${p}][${cx}][${cy}] = -1`);
                 }
@@ -305,8 +310,8 @@ describe("deriveRegionsFromTemplates", () => {
 
     it("returns distinct regions from different map squares", () => {
         const chunks = createEmptyTemplateChunks();
-        chunks[0][0][0] = packTemplateChunk(0, 8, 16, 0);   // region (1, 2)
-        chunks[0][1][0] = packTemplateChunk(0, 16, 24, 0);  // region (2, 3)
+        chunks[0][0][0] = packTemplateChunk(0, 8, 16, 0); // region (1, 2)
+        chunks[0][1][0] = packTemplateChunk(0, 16, 24, 0); // region (2, 3)
         const regions = deriveRegionsFromTemplates(chunks);
         assertEqual(regions.length, 2, "two distinct regions");
     });
@@ -369,7 +374,11 @@ describe("REBUILD_NORMAL packet", () => {
     });
     it("REBUILD_REGION is still registered", () => {
         assertEqual(ServerPacketId.REBUILD_REGION, 140, "rebuild_region id");
-        assertEqual(SERVER_PACKET_LENGTHS[ServerPacketId.REBUILD_REGION], -2, "rebuild_region length");
+        assertEqual(
+            SERVER_PACKET_LENGTHS[ServerPacketId.REBUILD_REGION],
+            -2,
+            "rebuild_region length",
+        );
     });
 });
 
@@ -414,8 +423,10 @@ describe("Object orientation + chunk rotation", () => {
         for (let orient = 0; orient < 4; orient++) {
             for (let rot = 0; rot < 4; rot++) {
                 const combined = (orient + rot) & 3;
-                assert(combined >= 0 && combined < 4,
-                    `(${orient} + ${rot}) & 3 = ${combined} is valid`);
+                assert(
+                    combined >= 0 && combined < 4,
+                    `(${orient} + ${rot}) & 3 = ${combined} is valid`,
+                );
             }
         }
     });
@@ -511,10 +522,7 @@ describe("Overlay ID reading parity", () => {
         // Extract the call — should contain 'true' for the signed parameter
         const callEnd = source.indexOf(");", overlayAssign);
         const overlayCall = source.slice(overlayAssign, callEnd + 2);
-        assert(
-            overlayCall.includes("true"),
-            "overlay readTerrainValue passes signed=true",
-        );
+        assert(overlayCall.includes("true"), "overlay readTerrainValue passes signed=true");
     });
 });
 
@@ -559,10 +567,7 @@ describe("REBUILD_NORMAL client dispatch", () => {
             source.includes("subscribeRebuildNormal"),
             "OsrsClient imports subscribeRebuildNormal",
         );
-        assert(
-            source.includes("clearInstance"),
-            "OsrsClient calls clearInstance on renderer",
-        );
+        assert(source.includes("clearInstance"), "OsrsClient calls clearInstance on renderer");
     });
 
     it("WebGLOsrsRenderer has clearInstance method", () => {
@@ -572,10 +577,7 @@ describe("REBUILD_NORMAL client dispatch", () => {
             "utf-8",
         );
 
-        assert(
-            source.includes("clearInstance(): void"),
-            "clearInstance method exists",
-        );
+        assert(source.includes("clearInstance(): void"), "clearInstance method exists");
         assert(
             source.includes("this.instanceActive = false"),
             "clearInstance resets instanceActive",
@@ -598,14 +600,8 @@ describe("Server-side REBUILD_NORMAL", () => {
             "utf-8",
         );
 
-        assert(
-            source.includes("encodeRebuildNormal("),
-            "encodeRebuildNormal exists",
-        );
-        assert(
-            source.includes("ServerPacketId.REBUILD_NORMAL"),
-            "uses REBUILD_NORMAL packet ID",
-        );
+        assert(source.includes("encodeRebuildNormal("), "encodeRebuildNormal exists");
+        assert(source.includes("ServerPacketId.REBUILD_NORMAL"), "uses REBUILD_NORMAL packet ID");
     });
 
     it("messages.ts routes rebuild_normal", () => {
@@ -615,10 +611,7 @@ describe("Server-side REBUILD_NORMAL", () => {
             "utf-8",
         );
 
-        assert(
-            source.includes('"rebuild_normal"'),
-            "messages.ts handles rebuild_normal",
-        );
+        assert(source.includes('"rebuild_normal"'), "messages.ts handles rebuild_normal");
     });
 
     it("wsServer has sendRebuildNormal method", () => {
@@ -628,10 +621,7 @@ describe("Server-side REBUILD_NORMAL", () => {
             "utf-8",
         );
 
-        assert(
-            source.includes("sendRebuildNormal(player"),
-            "wsServer.sendRebuildNormal exists",
-        );
+        assert(source.includes("sendRebuildNormal(player"), "wsServer.sendRebuildNormal exists");
     });
 });
 
@@ -643,21 +633,12 @@ describe("ServerBinaryDecoder REBUILD_NORMAL", () => {
     it("decoder case exists", () => {
         const fs = require("fs");
         const source = fs.readFileSync(
-            require("path").resolve(
-                __dirname,
-                "../src/network/packet/ServerBinaryDecoder.ts",
-            ),
+            require("path").resolve(__dirname, "../src/network/packet/ServerBinaryDecoder.ts"),
             "utf-8",
         );
 
-        assert(
-            source.includes("ServerPacketId.REBUILD_NORMAL"),
-            "decoder handles REBUILD_NORMAL",
-        );
-        assert(
-            source.includes('"rebuild_normal"'),
-            "returns rebuild_normal message type",
-        );
+        assert(source.includes("ServerPacketId.REBUILD_NORMAL"), "decoder handles REBUILD_NORMAL");
+        assert(source.includes('"rebuild_normal"'), "returns rebuild_normal message type");
     });
 });
 

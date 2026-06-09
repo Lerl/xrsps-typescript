@@ -1,4 +1,8 @@
+import type { ProjectileLaunch } from "../../../src/shared/projectiles/ProjectileLaunch";
 import type { NpcUpdateDelta } from "../game/npc";
+import type { NpcStatusEvent } from "../game/npcManager";
+import type { PlayerAppearance as PlayerAppearanceState } from "../game/player";
+import type { SkillSyncUpdate } from "../game/player";
 import type {
     ChatMessageSnapshot,
     ForcedChatBroadcast,
@@ -9,10 +13,6 @@ import type {
 } from "../game/systems";
 import type { WidgetAction } from "../widgets/WidgetManager";
 import type { NotificationPayload, SpellResultPayload } from "./messages";
-import type { PlayerAppearance as PlayerAppearanceState } from "../game/player";
-import type { SkillSyncUpdate } from "../game/player";
-import type { NpcStatusEvent } from "../game/npcManager";
-import type { ProjectileLaunch } from "../../../src/shared/projectiles/ProjectileLaunch";
 
 export type StepRecord = {
     x: number;

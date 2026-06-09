@@ -52,7 +52,7 @@ export class Pathfinder {
         }
 
         // Mirrors client: queue size is nextPow2((graphSize*graphSize)/4)
-        // 
+        //
         const baseQueueSize = (graphSize * graphSize) / 4;
         this.queueSize = nextPow2(baseQueueSize);
 

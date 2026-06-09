@@ -13,8 +13,8 @@
 import { SkillId } from "../../../../src/rs/skill/skills";
 import type { NpcState } from "../npc";
 import type { PlayerState } from "../player";
-import type { HitsplatResult, SpecialAttackEffects } from "./CombatState";
 import { AttackType } from "./AttackType";
+import type { HitsplatResult, SpecialAttackEffects } from "./CombatState";
 import {
     type AttackType as CombatXpAttackType,
     type CombatXpAward,

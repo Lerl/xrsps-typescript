@@ -4,15 +4,15 @@
  */
 import type { WebSocket } from "ws";
 
-import { SkillId } from "../../../../src/rs/skill/skills";
 import { CustomItemRegistry } from "../../../../src/custom/items";
+import { SkillId } from "../../../../src/rs/skill/skills";
+import type { WidgetDialogHandler } from "../../game/actions";
 import type { PlayerState } from "../../game/player";
 import type { ScriptRegistry } from "../../game/scripts";
 import type { ScriptRuntime } from "../../game/scripts";
-import type { MessageRouter, MessageHandler } from "../MessageRouter";
 import type { MessageHandlerServices } from "../MessageHandlers";
+import type { MessageHandler, MessageRouter } from "../MessageRouter";
 import type { Cs2ModalManager } from "../managers";
-import type { WidgetDialogHandler } from "../../game/actions";
 import type { GroundItemActionPayload } from "../managers";
 
 export interface BinaryHandlerExtServices extends MessageHandlerServices {
@@ -58,7 +58,14 @@ function createWidgetActionHandler(services: BinaryHandlerExtServices): MessageH
     return (ctx) => {
         const player = services.getPlayer(ctx.ws);
         if (!player) return;
-        const payload = ctx.payload as unknown as { widgetId: number; groupId?: number; buttonNum?: number; slot?: number; option?: string; itemId?: number };
+        const payload = ctx.payload as unknown as {
+            widgetId: number;
+            groupId?: number;
+            buttonNum?: number;
+            slot?: number;
+            option?: string;
+            itemId?: number;
+        };
         const groupId = payload.groupId ?? (payload.widgetId >> 16) & 0xffff;
         const componentId = payload.widgetId & 0xffff;
         const opId = payload.buttonNum ?? 1;
@@ -72,15 +79,30 @@ function createWidgetActionHandler(services: BinaryHandlerExtServices): MessageH
         if (buttonHandler) {
             const tick = services.getCurrentTick();
             buttonHandler({
-                tick, services: scriptRuntime.getServices(), player,
-                widgetId: payload.widgetId, groupId, childId,
-                option: payload.option, opId, slot: slotVal, itemId: payload.itemId,
+                tick,
+                services: scriptRuntime.getServices(),
+                player,
+                widgetId: payload.widgetId,
+                groupId,
+                childId,
+                option: payload.option,
+                opId,
+                slot: slotVal,
+                itemId: payload.itemId,
             });
             return;
         }
 
         const cs2Modal = services.getCs2ModalManager();
-        if (cs2Modal.handleWidgetAction(player, groupId, componentId, payload.option, payload.itemId)) {
+        if (
+            cs2Modal.handleWidgetAction(
+                player,
+                groupId,
+                componentId,
+                payload.option,
+                payload.itemId,
+            )
+        ) {
             return;
         }
 
@@ -101,13 +123,32 @@ function createWidgetActionHandler(services: BinaryHandlerExtServices): MessageH
                     const resolved = actions[opId - 1];
                     if (resolved) {
                         const tick = services.getCurrentTick();
-                        if (scriptRuntime.queueItemAction({ tick, player, itemId: payload.itemId, slot: slotVal ?? 0, option: resolved.toLowerCase() })) return;
+                        if (
+                            scriptRuntime.queueItemAction({
+                                tick,
+                                player,
+                                itemId: payload.itemId,
+                                slot: slotVal ?? 0,
+                                option: resolved.toLowerCase(),
+                            })
+                        )
+                            return;
                     }
                 }
                 const tick = services.getCurrentTick();
-                if (scriptRuntime.queueItemAction({ tick, player, itemId: payload.itemId, slot: slotVal ?? 0 })) return;
+                if (
+                    scriptRuntime.queueItemAction({
+                        tick,
+                        player,
+                        itemId: payload.itemId,
+                        slot: slotVal ?? 0,
+                    })
+                )
+                    return;
             }
-            services.getWidgetDialogHandler().handleWidgetActionMessage(ctx.ws, { ...payload, groupId, opId, childId });
+            services
+                .getWidgetDialogHandler()
+                .handleWidgetActionMessage(ctx.ws, { ...payload, groupId, opId, childId });
         }
     };
 }
@@ -122,8 +163,11 @@ function createItemSpawnerSearchHandler(services: BinaryHandlerExtServices): Mes
             const tick = services.getCurrentTick();
             const scriptRuntime = services.getScriptRuntime();
             msgHandler({
-                tick, services: scriptRuntime.getServices(), player,
-                messageType: "item_spawner_search", payload: (ctx.payload ?? {}) as Record<string, unknown>,
+                tick,
+                services: scriptRuntime.getServices(),
+                player,
+                messageType: "item_spawner_search",
+                payload: (ctx.payload ?? {}) as Record<string, unknown>,
             });
         }
     };
@@ -133,15 +177,24 @@ function createIfTriggerOpLocalHandler(services: BinaryHandlerExtServices): Mess
     return (ctx) => {
         const player = services.getPlayer(ctx.ws);
         if (!player) return;
-        const { widgetUid, childIndex, itemId, opcodeParam } = ctx.payload as unknown as { widgetUid: number; childIndex: number; itemId?: number; opcodeParam: number };
+        const { widgetUid, childIndex, itemId, opcodeParam } = ctx.payload as unknown as {
+            widgetUid: number;
+            childIndex: number;
+            itemId?: number;
+            opcodeParam: number;
+        };
         if (opcodeParam >= 1 && opcodeParam <= 10) {
             const groupId = (widgetUid >>> 16) & 0xffff;
             const componentId = widgetUid & 0xffff;
             const hasChild = childIndex >= 0;
             const childId = hasChild ? childIndex : componentId;
             services.getWidgetDialogHandler().handleWidgetActionMessage(ctx.ws, {
-                widgetId: widgetUid, groupId, childId, opId: opcodeParam,
-                slot: hasChild ? childIndex : undefined, itemId,
+                widgetId: widgetUid,
+                groupId,
+                childId,
+                opId: opcodeParam,
+                slot: hasChild ? childIndex : undefined,
+                itemId,
             });
         }
     };
@@ -159,7 +212,10 @@ function createResumePauseButtonHandler(services: BinaryHandlerExtServices): Mes
     return (ctx) => {
         const player = services.getPlayer(ctx.ws);
         if (!player) return;
-        const { widgetId, childIndex } = ctx.payload as unknown as { widgetId: number; childIndex: number };
+        const { widgetId, childIndex } = ctx.payload as unknown as {
+            widgetId: number;
+            childIndex: number;
+        };
         const widgetGroup = (widgetId >> 16) & 0xffff;
 
         const gamemode = services.getGamemode();
@@ -169,12 +225,20 @@ function createResumePauseButtonHandler(services: BinaryHandlerExtServices): Mes
 
         if (widgetGroup === 270) {
             services.getWidgetDialogHandler().handleWidgetActionMessage(ctx.ws, {
-                widgetId, groupId: widgetGroup, childId: widgetId & 0xffff, opId: 1, slot: childIndex,
+                widgetId,
+                groupId: widgetGroup,
+                childId: widgetId & 0xffff,
+                opId: 1,
+                slot: childIndex,
             });
-        } else if (services.getCs2ModalManager().handleResumePauseButton(player, widgetId, childIndex)) {
+        } else if (
+            services.getCs2ModalManager().handleResumePauseButton(player, widgetId, childIndex)
+        ) {
             // handled
         } else {
-            services.getWidgetDialogHandler().handleResumePauseButton(ctx.ws, player.id, widgetId, childIndex);
+            services
+                .getWidgetDialogHandler()
+                .handleResumePauseButton(ctx.ws, player.id, widgetId, childIndex);
         }
     };
 }

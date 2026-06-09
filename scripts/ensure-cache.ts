@@ -1,9 +1,8 @@
+import AdmZip from "adm-zip";
 import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
 import readline from "readline";
-
-import AdmZip from "adm-zip";
 
 const OPENRS2_API = "https://archive.openrs2.org";
 const CACHES_DIR = "caches";
@@ -314,7 +313,7 @@ async function ensureCache(): Promise<void> {
                 generateMapImages();
             } else {
                 console.log(
-                    '[CacheDownloader] Skipped. You can generate them later with: npm run export-map-images',
+                    "[CacheDownloader] Skipped. You can generate them later with: npm run export-map-images",
                 );
             }
         }

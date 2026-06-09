@@ -1,5 +1,5 @@
-import type { MessageHandler } from "../MessageRouter";
 import type { MessageHandlerServices } from "../MessageHandlers";
+import type { MessageHandler } from "../MessageRouter";
 
 export function createIfCloseHandler(services: MessageHandlerServices): MessageHandler<"if_close"> {
     return (ctx) => {

@@ -5,14 +5,16 @@ import {
     VARP_AUTO_RETALIATE,
     VARP_SPECIAL_ATTACK,
 } from "../../../../src/shared/vars";
+import type { PlayerState } from "../../../src/game/player";
+import { DisplayMode } from "../../../src/game/scripts/types";
+import { applyAutocastState, clearAutocastState } from "../../../src/game/scripts/types";
+import { type IScriptRegistry, type ScriptServices } from "../../../src/game/scripts/types";
 import {
     buildVisibleAutocastIndices,
     canWeaponAutocastSpell,
     getAutocastCompatibilityMessage,
     getSpellIdFromAutocastIndex,
 } from "../../../src/game/spells/SpellDataProvider";
-import { DisplayMode } from "../../../src/game/scripts/types";
-import { applyAutocastState, clearAutocastState } from "../../../src/game/scripts/types";
 import {
     ROCK_KNOCKER_SOUND_ID,
     applyFishstabberFishingBoost,
@@ -24,8 +26,6 @@ import {
     markInstantUtilitySpecialHandledAtTick,
     wasInstantUtilitySpecialHandledAtTick,
 } from "../combat/RockKnockerSpecial";
-import { type IScriptRegistry, type ScriptServices } from "../../../src/game/scripts/types";
-import type { PlayerState } from "../../../src/game/player";
 
 /**
  * Combat widgets handlers for interface 593 (combat options tab) and 201 (autocast popup).
@@ -114,9 +114,7 @@ function getPlayerDisplayMode(player: PlayerState): DisplayMode {
 function getCombatTabUid(player: PlayerState, services: ScriptServices): number {
     const displayMode = getPlayerDisplayMode(player);
     const interfaces = services.viewport.getDefaultInterfaces(displayMode) ?? [];
-    const combat = interfaces.find(
-        (entry) => entry.groupId === COMBAT_WIDGET_GROUP_ID,
-    );
+    const combat = interfaces.find((entry) => entry.groupId === COMBAT_WIDGET_GROUP_ID);
     if (!combat) {
         // Fall back to resizable combat container (161:76) if mappings change unexpectedly.
         return (161 << 16) | 76;
@@ -189,7 +187,10 @@ function tryActivateInstantUtilitySpecial(
     return true;
 }
 
-export function registerCombatWidgetHandlers(registry: IScriptRegistry, services: ScriptServices): void {
+export function registerCombatWidgetHandlers(
+    registry: IScriptRegistry,
+    services: ScriptServices,
+): void {
     // ============ COMBAT STYLE BUTTONS (593:6, 593:10, 593:14, 593:18) ============
     // The CS2 script already sets varp 43 before dispatching the action,
     // so we just need to queue combat state update.
@@ -337,7 +338,11 @@ export function registerCombatWidgetHandlers(registry: IScriptRegistry, services
 /**
  * Open the autocast spell selection popup
  */
-function openAutocastPopup(player: PlayerState, isDefensive: boolean, services: ScriptServices): void {
+function openAutocastPopup(
+    player: PlayerState,
+    isDefensive: boolean,
+    services: ScriptServices,
+): void {
     const equip = player.appearance?.equip;
     const weaponObjId = Array.isArray(equip) ? equip[EquipmentSlot.WEAPON] : 0;
     const spellposSelector =
@@ -389,7 +394,11 @@ function openAutocastPopup(player: PlayerState, isDefensive: boolean, services: 
 /**
  * Handle spell selection in autocast popup
  */
-function handleAutocastSpellSelection(player: PlayerState, spellIndex: number, services: ScriptServices): void {
+function handleAutocastSpellSelection(
+    player: PlayerState,
+    spellIndex: number,
+    services: ScriptServices,
+): void {
     const isDefensive = player.combat.pendingAutocastDefensive ?? false;
 
     // Convert spell index to actual spell ID

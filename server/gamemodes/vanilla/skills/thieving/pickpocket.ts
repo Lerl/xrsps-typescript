@@ -1,6 +1,11 @@
 import type { ActionEffect, ActionExecutionResult } from "../../../../src/game/actions/types";
 import type { PlayerState } from "../../../../src/game/player";
-import type { IScriptRegistry, NpcInteractionEvent, ScriptActionHandlerContext, ScriptServices } from "../../../../src/game/scripts/types";
+import type {
+    IScriptRegistry,
+    NpcInteractionEvent,
+    ScriptActionHandlerContext,
+    ScriptServices,
+} from "../../../../src/game/scripts/types";
 
 // ---------------------------------------------------------------------------
 // Thieving System
@@ -169,8 +174,8 @@ const PICKPOCKET_NPCS: PickpocketNpcDef[] = [
     {
         npcIds: [
             // Man (r237 cache-verified)
-            3014, 3106, 3107, 3108, 3109, 3110, 3261, 3264, 3265, 3298, 3652, 6815, 6818,
-            6987, 6988, 6989, 11057, 11058, 14920,
+            3014, 3106, 3107, 3108, 3109, 3110, 3261, 3264, 3265, 3298, 3652, 6815, 6818, 6987,
+            6988, 6989, 11057, 11058, 14920,
             // Woman (r237 cache-verified)
             3015, 3111, 3112, 3113, 3268, 3299, 6990, 6991, 6992, 10728, 11053, 11054, 14921,
         ],
@@ -184,14 +189,13 @@ const PICKPOCKET_NPCS: PickpocketNpcDef[] = [
     },
     {
         // Farmer (r237 cache-verified)
-        npcIds: [3114, 3243, 3244, 11918, 11919, 11920, 11921, 13228, 13229, 13230, 13231,
-            13232, 13233, 13234, 13235, 14751, 14752, 14753, 14754, 14773],
+        npcIds: [
+            3114, 3243, 3244, 11918, 11919, 11920, 11921, 13228, 13229, 13230, 13231, 13232, 13233,
+            13234, 13235, 14751, 14752, 14753, 14754, 14773,
+        ],
         reqLevel: 10,
         xp: 14.5,
-        lootTable: [
-            loot(Items.COINS_995, 9, COMMON),
-            loot(Items.POTATO_SEED, 1, RARE),
-        ],
+        lootTable: [loot(Items.COINS_995, 9, COMMON), loot(Items.POTATO_SEED, 1, RARE)],
         coinPouchId: 22522,
         minDamage: 1,
         maxDamage: 1,
@@ -353,8 +357,10 @@ const PICKPOCKET_NPCS: PickpocketNpcDef[] = [
     },
     {
         // Master Farmer (r237 cache-verified)
-        npcIds: [5730, 5731, 5832, 11940, 11941, 13236, 13237, 13238, 13239, 13240, 13241,
-            13242, 13243, 14755, 14756, 14757, 14758],
+        npcIds: [
+            5730, 5731, 5832, 11940, 11941, 13236, 13237, 13238, 13239, 13240, 13241, 13242, 13243,
+            14755, 14756, 14757, 14758,
+        ],
         reqLevel: 38,
         xp: 43,
         lootTable: [
@@ -408,14 +414,16 @@ const PICKPOCKET_NPCS: PickpocketNpcDef[] = [
     },
     {
         // Guard (r237 cache-verified)
-        npcIds: [397, 398, 399, 400, 1546, 1547, 1548, 1549, 1550, 3010, 3011, 3254, 3269,
-            3270, 3271, 3272, 3273, 3274, 3283, 4522, 4523, 4524, 4525, 4526, 5418, 11092,
-            11094, 11096, 11098, 11100, 11102, 11104, 11106, 11911, 11912, 11913, 11914,
-            11915, 11916, 11917, 11922, 11923, 11924, 11937, 11938, 11939, 11942, 11943,
-            11944, 11945, 11946, 11947, 13100, 13101, 13102, 13103, 13104, 13105, 13106,
-            13107, 13108, 13109, 13986, 13987, 13988, 13989, 13990, 13991, 13992, 13993,
-            13994, 13995, 14663, 14664, 14665, 14666, 14667, 14668, 14669, 14670, 14716,
-            14717, 14718, 14719, 14720, 14721, 14722, 14723, 14887, 14888, 14889, 14890],
+        npcIds: [
+            397, 398, 399, 400, 1546, 1547, 1548, 1549, 1550, 3010, 3011, 3254, 3269, 3270, 3271,
+            3272, 3273, 3274, 3283, 4522, 4523, 4524, 4525, 4526, 5418, 11092, 11094, 11096, 11098,
+            11100, 11102, 11104, 11106, 11911, 11912, 11913, 11914, 11915, 11916, 11917, 11922,
+            11923, 11924, 11937, 11938, 11939, 11942, 11943, 11944, 11945, 11946, 11947, 13100,
+            13101, 13102, 13103, 13104, 13105, 13106, 13107, 13108, 13109, 13986, 13987, 13988,
+            13989, 13990, 13991, 13992, 13993, 13994, 13995, 14663, 14664, 14665, 14666, 14667,
+            14668, 14669, 14670, 14716, 14717, 14718, 14719, 14720, 14721, 14722, 14723, 14887,
+            14888, 14889, 14890,
+        ],
         reqLevel: 40,
         xp: 46.8,
         lootTable: [loot(Items.COINS_995, 30, ALWAYS)],
@@ -489,10 +497,7 @@ const PICKPOCKET_NPCS: PickpocketNpcDef[] = [
         npcIds: [5420],
         reqLevel: 65,
         xp: 137.5,
-        lootTable: [
-            loot(Items.COINS_995, 60, UNCOMMON),
-            loot(Items.BREAD, 1, COMMON),
-        ],
+        lootTable: [loot(Items.COINS_995, 60, UNCOMMON), loot(Items.BREAD, 1, COMMON)],
         coinPouchId: 22531,
         minDamage: 3,
         maxDamage: 3,
@@ -514,10 +519,7 @@ const PICKPOCKET_NPCS: PickpocketNpcDef[] = [
         npcIds: [3293, 3294, 8853, 11901, 11930, 11931, 11932, 11933],
         reqLevel: 70,
         xp: 151.75,
-        lootTable: [
-            loot(Items.COINS_995, 80, UNCOMMON),
-            loot(Items.CHAOS_RUNE, 2, COMMON),
-        ],
+        lootTable: [loot(Items.COINS_995, 80, UNCOMMON), loot(Items.CHAOS_RUNE, 2, COMMON)],
         coinPouchId: 22533,
         minDamage: 3,
         maxDamage: 3,
@@ -590,22 +592,22 @@ for (const def of PICKPOCKET_NPCS) {
 // -- Coin pouch definitions --
 // Maps pouch item ID -> [minCoins, maxCoins] per open.
 const COIN_POUCH_VALUES: Record<number, [number, number]> = {
-    22521: [3, 3],        // Man/Woman
-    22522: [9, 9],        // Farmer
-    22523: [18, 18],      // Al-Kharid Warrior
-    22524: [25, 120],     // Rogue
-    22525: [30, 30],      // Guard
-    22526: [40, 40],      // Fremennik
-    22527: [40, 40],      // Bearded Pollnivian Bandit
-    22528: [30, 30],      // Desert Bandit
-    22529: [50, 50],      // Knight of Ardougne
-    22530: [50, 50],      // Pollnivian Bandit
-    22531: [60, 60],      // Watchman
-    22532: [60, 60],      // Menaphite Thug
-    22533: [80, 80],      // Paladin
-    22534: [300, 300],    // Gnome
-    22535: [200, 300],    // Hero
-    22536: [3, 14],       // TzHaar-Hur (tokkul, not coins — uses item 6529)
+    22521: [3, 3], // Man/Woman
+    22522: [9, 9], // Farmer
+    22523: [18, 18], // Al-Kharid Warrior
+    22524: [25, 120], // Rogue
+    22525: [30, 30], // Guard
+    22526: [40, 40], // Fremennik
+    22527: [40, 40], // Bearded Pollnivian Bandit
+    22528: [30, 30], // Desert Bandit
+    22529: [50, 50], // Knight of Ardougne
+    22530: [50, 50], // Pollnivian Bandit
+    22531: [60, 60], // Watchman
+    22532: [60, 60], // Menaphite Thug
+    22533: [80, 80], // Paladin
+    22534: [300, 300], // Gnome
+    22535: [200, 300], // Hero
+    22536: [3, 14], // TzHaar-Hur (tokkul, not coins — uses item 6529)
 };
 
 const COIN_POUCH_IDS = new Set(Object.keys(COIN_POUCH_VALUES).map(Number));
@@ -738,11 +740,18 @@ function executePickpocketAction(ctx: ScriptActionHandlerContext): ActionExecuti
     // Phase 0: Attempt — prechecks + attempt message
     if (data.phase === 0) {
         const thievingSkill = services.skills.getSkill(player, THIEVING_SKILL_ID);
-        const thievingLevel = Math.max(1, (thievingSkill?.baseLevel ?? 1) + (thievingSkill?.boost ?? 0));
+        const thievingLevel = Math.max(
+            1,
+            (thievingSkill?.baseLevel ?? 1) + (thievingSkill?.boost ?? 0),
+        );
 
         if (thievingLevel < data.reqLevel) {
-            effects.push(buildMessageEffect(player,
-                `You need to be level ${data.reqLevel} to pickpocket the ${npcNameLower}.`));
+            effects.push(
+                buildMessageEffect(
+                    player,
+                    `You need to be level ${data.reqLevel} to pickpocket the ${npcNameLower}.`,
+                ),
+            );
             return { ok: true, effects };
         }
 
@@ -757,13 +766,15 @@ function executePickpocketAction(ctx: ScriptActionHandlerContext): ActionExecuti
         }
 
         if (!services.inventory.hasInventorySlot(player)) {
-            effects.push(buildMessageEffect(player,
-                "You don't have enough inventory space to do that."));
+            effects.push(
+                buildMessageEffect(player, "You don't have enough inventory space to do that."),
+            );
             return { ok: true, effects };
         }
 
-        effects.push(buildMessageEffect(player,
-            `You attempt to pick the ${npcNameLower}'s pocket.`));
+        effects.push(
+            buildMessageEffect(player, `You attempt to pick the ${npcNameLower}'s pocket.`),
+        );
         schedulePickpocket(services, player.id, { ...data, phase: 1 }, tick);
         return { ok: true, cooldownTicks: 1, effects };
     }
@@ -771,7 +782,10 @@ function executePickpocketAction(ctx: ScriptActionHandlerContext): ActionExecuti
     // Phase 1: Resolve success/fail
     if (data.phase === 1) {
         const thievingSkill = services.skills.getSkill(player, THIEVING_SKILL_ID);
-        const thievingLevel = Math.max(1, (thievingSkill?.baseLevel ?? 1) + (thievingSkill?.boost ?? 0));
+        const thievingLevel = Math.max(
+            1,
+            (thievingSkill?.baseLevel ?? 1) + (thievingSkill?.boost ?? 0),
+        );
         const equipArray = services.equipment.getEquipArray(player) ?? [];
         const success = rollPickpocketSuccess(thievingLevel, data.reqLevel, equipArray);
 
@@ -797,15 +811,13 @@ function executePickpocketAction(ctx: ScriptActionHandlerContext): ActionExecuti
             }
 
             services.skills.addSkillXp(player, THIEVING_SKILL_ID, data.xp);
-            effects.push(buildMessageEffect(player,
-                `You pick the ${npcNameLower}'s pocket.`));
+            effects.push(buildMessageEffect(player, `You pick the ${npcNameLower}'s pocket.`));
 
             return { ok: true, effects };
         }
 
         // Fail: message + NPC forced chat + set busy varbit
-        effects.push(buildMessageEffect(player,
-            `You fail to pick the ${npcNameLower}'s pocket.`));
+        effects.push(buildMessageEffect(player, `You fail to pick the ${npcNameLower}'s pocket.`));
         services.variables.sendVarbit?.(player, PICKPOCKET_BUSY_VARBIT, 1);
 
         if (npc) {
@@ -820,7 +832,11 @@ function executePickpocketAction(ctx: ScriptActionHandlerContext): ActionExecuti
     // Phase 2: Stun visual — player stun anim + GFX, NPC attack anim + face player
     if (data.phase === 2) {
         services.animation.playPlayerSeq(player, PICKPOCKET_STUN_ANIM);
-        services.animation.broadcastPlayerSpot(player, PICKPOCKET_STUN_GFX, PICKPOCKET_STUN_GFX_HEIGHT);
+        services.animation.broadcastPlayerSpot(
+            player,
+            PICKPOCKET_STUN_GFX,
+            PICKPOCKET_STUN_GFX_HEIGHT,
+        );
         services.sound.sendSound(player, PICKPOCKET_STUN_SOUND);
 
         if (npc) {
@@ -923,7 +939,10 @@ export function register(registry: IScriptRegistry, _services: ScriptServices): 
 
     // Coin pouch: "Open" and "Open-all" item actions
     for (const pouchId of COIN_POUCH_IDS) {
-        const openHandler = (event: import("../../../src/game/scripts/types").ItemOnItemEvent, openAll: boolean) => {
+        const openHandler = (
+            event: import("../../../src/game/scripts/types").ItemOnItemEvent,
+            openAll: boolean,
+        ) => {
             const { player, source, services } = event;
             const slot = source.slot;
             const inv = services.inventory.getInventoryItems(player);
@@ -940,9 +959,8 @@ export function register(registry: IScriptRegistry, _services: ScriptServices): 
             let totalCurrency = 0;
             for (let i = 0; i < count; i++) {
                 const [min, max] = range;
-                totalCurrency += min === max
-                    ? min
-                    : min + Math.floor(Math.random() * (max - min + 1));
+                totalCurrency +=
+                    min === max ? min : min + Math.floor(Math.random() * (max - min + 1));
             }
 
             const remaining = entry.quantity - count;

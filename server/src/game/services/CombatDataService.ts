@@ -2,9 +2,9 @@ import path from "path";
 
 import type { EnumTypeLoader } from "../../../../src/rs/config/enumtype/EnumTypeLoader";
 import type { NpcSoundType } from "../../audio/NpcSoundLookup";
-import type { NpcCombatProfile, NpcState } from "../npc";
-import type { ServerServices } from "../ServerServices";
 import { logger } from "../../utils/logger";
+import type { ServerServices } from "../ServerServices";
+import type { NpcCombatProfile, NpcState } from "../npc";
 
 /**
  * Loads and provides NPC combat definitions, stats, special attack data,
@@ -41,7 +41,10 @@ export class CombatDataService {
                     death: defaults.death ?? 836,
                 };
             }
-            const entries: Record<string, { attack?: number; block?: number; death?: number; deathSound?: number }> = {};
+            const entries: Record<
+                string,
+                { attack?: number; block?: number; death?: number; deathSound?: number }
+            > = {};
             const npcs = raw?.npcs;
             if (npcs && typeof npcs === "object") {
                 for (const [key, val] of Object.entries(npcs)) {

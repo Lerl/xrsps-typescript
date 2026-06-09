@@ -1,6 +1,12 @@
 import { SkillId } from "../../../../../src/rs/skill/skills";
 import type { ActionEffect, ActionExecutionResult } from "../../../../src/game/actions/types";
 import type { PlayerState } from "../../../../src/game/player";
+import type {
+    IScriptRegistry,
+    ScriptActionHandlerContext,
+    ScriptServices,
+} from "../../../../src/game/scripts/types";
+import { ResourceNodeTracker, buildTileKey } from "../../systems/ResourceNodeTracker";
 import {
     type HatchetDefinition,
     buildWoodcuttingLocMap,
@@ -8,8 +14,6 @@ import {
     getWoodcuttingTreeFromMap,
     selectHatchetByLevel,
 } from "./woodcuttingData";
-import type { IScriptRegistry, ScriptActionHandlerContext, ScriptServices } from "../../../../src/game/scripts/types";
-import { ResourceNodeTracker, buildTileKey } from "../../systems/ResourceNodeTracker";
 
 const WOODCUT_ACTIONS = ["chop down", "chop-down"];
 const WOODCUTTING_DEPLETE_SOUND = 2734;
@@ -36,7 +40,11 @@ function hasAnyCarriedItem(carriedItemIds: number[], candidateItemIds: number[])
     return candidateItemIds.some((id) => carried.has(id));
 }
 
-function rollWoodcuttingSuccess(level: number, treeLevel: number, hatchet: HatchetDefinition): boolean {
+function rollWoodcuttingSuccess(
+    level: number,
+    treeLevel: number,
+    hatchet: HatchetDefinition,
+): boolean {
     const effective = Math.max(1, level);
     const difficulty = Math.max(1, treeLevel);
     const ratio = effective / difficulty;
@@ -64,8 +72,9 @@ function executeWoodcutAction(ctx: ScriptActionHandlerContext): ActionExecutionR
 
     const locId = data.treeLocId;
     const treeId = data.treeId;
-    const tree = (treeId ? getWoodcuttingTreeById(treeId) : undefined) ??
-        (services.getWoodcuttingTree?.(locId));
+    const tree =
+        (treeId ? getWoodcuttingTreeById(treeId) : undefined) ??
+        services.getWoodcuttingTree?.(locId);
 
     if (!tree) {
         return failGatheringPrecheck(player, services, "You can't chop that tree.");
@@ -87,20 +96,32 @@ function executeWoodcutAction(ctx: ScriptActionHandlerContext): ActionExecutionR
     const effectiveLevel = Math.max(1, (skill?.baseLevel ?? 1) + (skill?.boost ?? 0));
 
     if (effectiveLevel < tree.level) {
-        return failGatheringPrecheck(player, services, `You need Woodcutting level ${tree.level} to chop this tree.`);
+        return failGatheringPrecheck(
+            player,
+            services,
+            `You need Woodcutting level ${tree.level} to chop this tree.`,
+        );
     }
 
     const hatchetIds = services.inventory.collectCarriedItemIds(player) ?? [];
     const hatchet = selectHatchetByLevel(hatchetIds, effectiveLevel);
     if (!hatchet) {
-        return failGatheringPrecheck(player, services, "You need an axe that you have the Woodcutting level to use.");
+        return failGatheringPrecheck(
+            player,
+            services,
+            "You need an axe that you have the Woodcutting level to use.",
+        );
     }
     const hasEchoAxePerk = hasAnyCarriedItem(hatchetIds, ECHO_AXE_ITEM_IDS);
 
     if (!hasEchoAxePerk && !services.inventory.hasInventorySlot(player)) {
         const logName = describeItem(services, tree.logItemId);
         services.sound.sendSound(player, WOODCUTTING_INVENTORY_FULL_SOUND);
-        return failGatheringPrecheck(player, services, `Your inventory is too full to hold any more ${logName}.`);
+        return failGatheringPrecheck(
+            player,
+            services,
+            `Your inventory is too full to hold any more ${logName}.`,
+        );
     }
 
     const stumpId = data.stumpId;
@@ -157,7 +178,11 @@ function executeWoodcutAction(ctx: ScriptActionHandlerContext): ActionExecutionR
             const banked = services.banking?.addItemToBank?.(player, tree.logItemId, 1);
             if (!banked) {
                 const logName = describeItem(services, tree.logItemId);
-                return failGatheringPrecheck(player, services, `Your bank is too full to hold any more ${logName}.`);
+                return failGatheringPrecheck(
+                    player,
+                    services,
+                    `Your bank is too full to hold any more ${logName}.`,
+                );
             }
             bankSnapshot = true;
         } else {
@@ -165,7 +190,11 @@ function executeWoodcutAction(ctx: ScriptActionHandlerContext): ActionExecutionR
             if (result.added <= 0) {
                 const logName = describeItem(services, tree.logItemId);
                 services.sound.sendSound(player, WOODCUTTING_INVENTORY_FULL_SOUND);
-                return failGatheringPrecheck(player, services, `Your inventory is too full to hold any more ${logName}.`);
+                return failGatheringPrecheck(
+                    player,
+                    services,
+                    `Your inventory is too full to hold any more ${logName}.`,
+                );
             }
             inventorySnapshot = true;
         }
@@ -174,7 +203,12 @@ function executeWoodcutAction(ctx: ScriptActionHandlerContext): ActionExecutionR
         effects.push(buildMessageEffect(player, `You get some ${logName}.`));
         if (hasEchoAxePerk) {
             const capitalizedLogName = logName.charAt(0).toUpperCase() + logName.slice(1);
-            effects.push(buildMessageEffect(player, `1x ${capitalizedLogName} were sent straight to your bank.`));
+            effects.push(
+                buildMessageEffect(
+                    player,
+                    `1x ${capitalizedLogName} were sent straight to your bank.`,
+                ),
+            );
         }
         services.skills.addSkillXp(player, SkillId.Woodcutting, tree.xp);
 
@@ -183,12 +217,20 @@ function executeWoodcutAction(ctx: ScriptActionHandlerContext): ActionExecutionR
         if (shouldDeplete) {
             treeDepleted = true;
             if (locId > 0) {
-                services.gathering?.getTracker<any>("woodcutting")?.addWithRandomDuration(
-                    nodeKey, tile, plane, tick, tree.respawnTicks,
-                    { locId, stumpId, treeId: tree.id },
-                );
+                services.gathering
+                    ?.getTracker<any>("woodcutting")
+                    ?.addWithRandomDuration(nodeKey, tile, plane, tick, tree.respawnTicks, {
+                        locId,
+                        stumpId,
+                        treeId: tree.id,
+                    });
                 services.location.emitLocChange(locId, stumpId, tile, plane);
-                services.sound.enqueueSoundBroadcast(WOODCUTTING_DEPLETE_SOUND, tile.x, tile.y, plane);
+                services.sound.enqueueSoundBroadcast(
+                    WOODCUTTING_DEPLETE_SOUND,
+                    tile.x,
+                    tile.y,
+                    plane,
+                );
                 services.stopGatheringInteraction?.(player);
             }
             effects.push(buildMessageEffect(player, "The tree has run out of logs."));
@@ -202,13 +244,19 @@ function executeWoodcutAction(ctx: ScriptActionHandlerContext): ActionExecutionR
         services.banking?.queueBankSnapshot?.(player);
     }
 
-    let continueChopping = !treeDepleted && !services.gathering?.getTracker("woodcutting")?.has(nodeKey);
+    let continueChopping =
+        !treeDepleted && !services.gathering?.getTracker("woodcutting")?.has(nodeKey);
     if (continueChopping) {
         if (!hasEchoAxePerk && !services.inventory.hasInventorySlot(player)) {
             continueChopping = false;
             const logName = describeItem(services, tree.logItemId);
             services.sound.sendSound(player, WOODCUTTING_INVENTORY_FULL_SOUND);
-            effects.push(buildMessageEffect(player, `Your inventory is too full to hold any more ${logName}.`));
+            effects.push(
+                buildMessageEffect(
+                    player,
+                    `Your inventory is too full to hold any more ${logName}.`,
+                ),
+            );
         } else if (!services.location.isAdjacentToLoc(player, locId, tile, plane)) {
             continueChopping = false;
         }
@@ -289,7 +337,10 @@ export function register(registry: IScriptRegistry, services: ScriptServices): v
                 event.tick,
             );
             if (!result.ok) {
-                services.messaging.sendGameMessage(event.player, "You're too busy to do that right now.");
+                services.messaging.sendGameMessage(
+                    event.player,
+                    "You're too busy to do that right now.",
+                );
             }
         });
     }

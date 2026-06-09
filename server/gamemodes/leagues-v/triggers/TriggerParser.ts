@@ -2,7 +2,7 @@
  * Parses task names to extract trigger criteria.
  * Uses pattern matching to identify trigger type and target.
  */
-import { TriggerType, type TaskTrigger } from "./TriggerTypes";
+import { type TaskTrigger, TriggerType } from "./TriggerTypes";
 
 export type NameToIdsLookup = (name: string) => number[];
 

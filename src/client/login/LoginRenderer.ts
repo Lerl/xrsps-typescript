@@ -143,7 +143,13 @@ export interface ServerListEntry {
 }
 
 const FALLBACK_SERVERS: ServerListEntry[] = [
-    { name: "Local Development", address: "localhost:43594", secure: false, playerCount: null, maxPlayers: 2047 },
+    {
+        name: "Local Development",
+        address: "localhost:43594",
+        secure: false,
+        playerCount: null,
+        maxPlayers: 2047,
+    },
 ];
 
 const SERVER_LIST_URL = "https://xrsps.com/servers.json";
@@ -326,12 +332,15 @@ export class LoginRenderer {
                 });
                 if (res.ok) {
                     const data = await res.json();
-                    server.playerCount = typeof data.playerCount === "number" ? data.playerCount : null;
+                    server.playerCount =
+                        typeof data.playerCount === "number" ? data.playerCount : null;
                     if (typeof data.maxPlayers === "number") server.maxPlayers = data.maxPlayers;
                     if (typeof data.serverName === "string") server.name = data.serverName;
                     httpOk = true;
                 }
-            } catch { /* fall through to ws probe */ }
+            } catch {
+                /* fall through to ws probe */
+            }
 
             if (!httpOk) {
                 const wsProto = server.secure ? "wss" : "ws";
@@ -351,13 +360,26 @@ export class LoginRenderer {
             let settled = false;
             const ws = new WebSocket(url);
             const timer = setTimeout(() => {
-                if (!settled) { settled = true; ws.close(); resolve(false); }
+                if (!settled) {
+                    settled = true;
+                    ws.close();
+                    resolve(false);
+                }
             }, timeoutMs);
             ws.addEventListener("open", () => {
-                if (!settled) { settled = true; clearTimeout(timer); ws.close(); resolve(true); }
+                if (!settled) {
+                    settled = true;
+                    clearTimeout(timer);
+                    ws.close();
+                    resolve(true);
+                }
             });
             ws.addEventListener("error", () => {
-                if (!settled) { settled = true; clearTimeout(timer); resolve(false); }
+                if (!settled) {
+                    settled = true;
+                    clearTimeout(timer);
+                    resolve(false);
+                }
             });
         });
     }
@@ -1107,10 +1129,7 @@ export class LoginRenderer {
         }
 
         // Server list button (bottom left, replaces world select button)
-        if (
-            gameState >= GameState.LOGIN_SCREEN &&
-            this.worldSelectButtonSprite
-        ) {
+        if (gameState >= GameState.LOGIN_SCREEN && this.worldSelectButtonSprite) {
             const buttonX = this.containerX + 5;
             const buttonY = 463;
             const buttonW = this.worldSelectButtonSprite.subWidth || 100;
@@ -1791,9 +1810,13 @@ export class LoginRenderer {
             state.password.length
         }|${state.otp.length}|${state.currentLoginField}|${state.onMobile}|${
             state.virtualKeyboardVisible
-        }|${state.serverListOpen}|${state.hoveredServerIndex}|${state.serverName}|${this.probing}|${this.probed}|${this.serverList.map(s => s.playerCount).join(",")}|${state.worldSelectOpen}|${state.worldSelectPage}|${state.loadingPercent}|${
-            state.rememberUsername
-        }|${state.isUsernameHidden}|${state.trustComputer}|${state.titleMusicDisabled}|${
+        }|${state.serverListOpen}|${state.hoveredServerIndex}|${state.serverName}|${this.probing}|${
+            this.probed
+        }|${this.serverList.map((s) => s.playerCount).join(",")}|${state.worldSelectOpen}|${
+            state.worldSelectPage
+        }|${state.loadingPercent}|${state.rememberUsername}|${state.isUsernameHidden}|${
+            state.trustComputer
+        }|${state.titleMusicDisabled}|${
             state.worldId
         }|${width}|${height}|${layoutWidth}|${layoutHeight}|${skipFire}|${this.worldSortOption}|${
             this.worldSortDirection
@@ -2676,7 +2699,15 @@ export class LoginRenderer {
         ctx.strokeRect(panelX + 1, panelY + 1, panelW - 2, panelH - 2);
 
         // Header background
-        this.drawGradientRect(ctx, panelX + 2, panelY + 2, panelW - 4, headerH - 2, 0x5c4a30, 0x3d2e1a);
+        this.drawGradientRect(
+            ctx,
+            panelX + 2,
+            panelY + 2,
+            panelW - 4,
+            headerH - 2,
+            0x5c4a30,
+            0x3d2e1a,
+        );
 
         // Column headers
         const col1X = panelX + 10;
@@ -2694,13 +2725,24 @@ export class LoginRenderer {
         if (!showRows) {
             // First probe not yet complete — show loading
             this.drawCenteredText(
-                ctx, this.fontPlain12, "Loading servers...",
-                panelX + panelW / 2, panelY + headerH + 18, 0xaaaaaa,
+                ctx,
+                this.fontPlain12,
+                "Loading servers...",
+                panelX + panelW / 2,
+                panelY + headerH + 18,
+                0xaaaaaa,
             );
         } else {
             // Refreshing indicator
             if (this.probing) {
-                this.drawText(ctx, this.fontPlain12, "Refreshing...", col3X - 30, panelY + panelH - 4, 0xffcc00);
+                this.drawText(
+                    ctx,
+                    this.fontPlain12,
+                    "Refreshing...",
+                    col3X - 30,
+                    panelY + panelH - 4,
+                    0xffcc00,
+                );
             }
 
             // Server rows
@@ -2724,8 +2766,22 @@ export class LoginRenderer {
                 const textY = ry + 16;
                 const nameMaxW = col2X - col1X - 4;
                 const addrMaxW = col3X - col2X - 4;
-                this.drawText(ctx, this.fontPlain12, this.ellipsis(server.name, nameMaxW), col1X, textY, 0xffffff);
-                this.drawText(ctx, this.fontPlain12, this.ellipsis(server.address, addrMaxW), col2X, textY, 0xaaaaaa);
+                this.drawText(
+                    ctx,
+                    this.fontPlain12,
+                    this.ellipsis(server.name, nameMaxW),
+                    col1X,
+                    textY,
+                    0xffffff,
+                );
+                this.drawText(
+                    ctx,
+                    this.fontPlain12,
+                    this.ellipsis(server.address, addrMaxW),
+                    col2X,
+                    textY,
+                    0xaaaaaa,
+                );
                 if (server.playerCount === null) {
                     this.drawText(ctx, this.fontPlain12, "Offline", col3X, textY, 0xff0000);
                 } else if (server.playerCount === -1) {
@@ -2741,8 +2797,12 @@ export class LoginRenderer {
 
         // Discord notice
         this.drawCenteredText(
-            ctx, this.fontPlain12!, "Get your server added through the Discord",
-            panelX + panelW / 2, panelY - 8, 0xaaaaaa,
+            ctx,
+            this.fontPlain12!,
+            "Get your server added through the Discord",
+            panelX + panelW / 2,
+            panelY - 8,
+            0xaaaaaa,
         );
 
         // Buttons below the panel

@@ -1,24 +1,19 @@
-import type { PlayerState } from "../../../src/game/player";
-import type { IScriptRegistry, ScriptServices } from "../../../src/game/scripts/types";
-
 import {
     VARBIT_FLASHSIDE,
     VARBIT_LEAGUE_TUTORIAL_COMPLETED,
     VARP_LEAGUE_GENERAL,
 } from "../../../../src/shared/vars";
-
-import { getTutorialCompleteStep } from "../playerWorldRules";
+import type { PlayerState } from "../../../src/game/player";
+import type { IScriptRegistry, ScriptServices } from "../../../src/game/scripts/types";
 import { LeagueTaskService } from "../LeagueTaskService";
 import { syncLeagueGeneralVarp } from "../leagueGeneral";
+import { getTutorialCompleteStep } from "../playerWorldRules";
+import { LEAGUE_TUTORIAL_MAIN_GROUP_ID, closeLeagueTutorialOverlay } from "./leagueTutorialOverlay";
 import {
-    closeLeagueTutorialOverlay,
-    LEAGUE_TUTORIAL_MAIN_GROUP_ID,
-} from "./leagueTutorialOverlay";
-import {
+    LEAGUE_TUTORIAL_STEP_WELCOME,
     advanceLeagueTutorialToLeaguesSubtabPrompt,
     createLeagueTutorialScriptBridge,
     isLeagueTutorialWaitingForQuestTab,
-    LEAGUE_TUTORIAL_STEP_WELCOME,
     startLeagueTutorialFromIntro,
 } from "./leagueTutorialUiState";
 
@@ -34,7 +29,10 @@ const TOPLEVEL_FIXED_GROUP_ID = 548;
 const RESIZABLE_QUESTS_TAB_COMPONENT = 61;
 const FIXED_QUESTS_TAB_COMPONENT = 66;
 
-export function registerLeagueTutorialWidgetHandlers(registry: IScriptRegistry, services: ScriptServices): void {
+export function registerLeagueTutorialWidgetHandlers(
+    registry: IScriptRegistry,
+    services: ScriptServices,
+): void {
     // "Exit Leagues" (left) / "Get Started" (right)
     registry.onButton(LEAGUE_TUTORIAL_MAIN_GROUP_ID, COMP_TUTORIAL_BUTTON_LEFT, (event) => {
         const player = event.player;
@@ -113,10 +111,7 @@ export function registerLeagueTutorialWidgetHandlers(registry: IScriptRegistry, 
             }
         } catch {}
 
-        startLeagueTutorialFromIntro(
-            player,
-            createLeagueTutorialScriptBridge(player, services),
-        );
+        startLeagueTutorialFromIntro(player, createLeagueTutorialScriptBridge(player, services));
     });
 
     // Quest tab icon (toplevel) click advances tutorial to the "open Leagues subtab" step.

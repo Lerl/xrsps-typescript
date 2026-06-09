@@ -6,19 +6,19 @@
  * The registry is reset on gamemode bootstrap so providers don't leak across
  * gamemode switches.
  */
-import type { WeaponDataProvider } from "../combat/WeaponDataProvider";
+import type { AmmoDataProvider } from "../combat/AmmoDataProvider";
 import type { CombatFormulaProvider } from "../combat/CombatFormulaProvider";
-import type { SpecialAttackProvider } from "../combat/SpecialAttackProvider";
 import type { CombatStyleSequenceProvider } from "../combat/CombatStyleSequenceProvider";
 import type { EquipmentBonusProvider } from "../combat/EquipmentBonusProvider";
-import type { SpellXpProvider } from "../combat/SpellXpProvider";
-import type { SpecialAttackVisualProvider } from "../combat/SpecialAttackVisualProvider";
 import type { InstantUtilitySpecialProvider } from "../combat/InstantUtilitySpecialProvider";
 import type { SkillConfiguration } from "../combat/SkillConfigurationProvider";
-import type { SpellDataProvider } from "../spells/SpellDataProvider";
-import type { RuneDataProvider } from "../data/RuneDataProvider";
+import type { SpecialAttackProvider } from "../combat/SpecialAttackProvider";
+import type { SpecialAttackVisualProvider } from "../combat/SpecialAttackVisualProvider";
+import type { SpellXpProvider } from "../combat/SpellXpProvider";
+import type { WeaponDataProvider } from "../combat/WeaponDataProvider";
 import type { ProjectileParamsProvider } from "../data/ProjectileParamsProvider";
-import type { AmmoDataProvider } from "../combat/AmmoDataProvider";
+import type { RuneDataProvider } from "../data/RuneDataProvider";
+import type { SpellDataProvider } from "../spells/SpellDataProvider";
 
 export interface ProviderRegistryState {
     weaponData?: WeaponDataProvider;

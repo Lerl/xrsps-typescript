@@ -1,18 +1,13 @@
-import {
-    EquipmentSlot,
-} from "../../../../src/rs/config/player/Equipment";
-import {
-    AttackStyle,
-    type WeaponDataEntry,
-} from "../combat/WeaponDataProvider";
-import { getAttackStyle, getHitSoundForStyle, getMissSound } from "../combat/WeaponDataProvider";
-import { AttackType } from "../combat/AttackType";
-import { getMeleeAttackSequenceForCategory } from "../combat/CombatStyleSequenceProvider";
-import { resolvePlayerAttackReach } from "../combat/CombatRules";
-import type { PlayerState } from "../player";
-import type { NpcState } from "../npc";
-import type { ServerServices } from "../ServerServices";
+import { EquipmentSlot } from "../../../../src/rs/config/player/Equipment";
 import { logger } from "../../utils/logger";
+import type { ServerServices } from "../ServerServices";
+import { AttackType } from "../combat/AttackType";
+import { resolvePlayerAttackReach } from "../combat/CombatRules";
+import { getMeleeAttackSequenceForCategory } from "../combat/CombatStyleSequenceProvider";
+import { AttackStyle, type WeaponDataEntry } from "../combat/WeaponDataProvider";
+import { getAttackStyle, getHitSoundForStyle, getMissSound } from "../combat/WeaponDataProvider";
+import type { NpcState } from "../npc";
+import type { PlayerState } from "../player";
 
 const DEFAULT_ATTACK_SEQ = 422;
 const DEFAULT_ATTACK_SPEED = 4;
@@ -27,7 +22,9 @@ const UNARMED_KICK_SOUND = 2568;
 const WEAPON_SPEED_PARAM = 771;
 
 const MAGIC_WEAPON_CATEGORY_IDS = new Set([18, 24, 29, 31]);
-const RANGED_WEAPON_CATEGORY_IDS = new Set([3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 19, 20, 22, 23, 26, 27, 30, 33]);
+const RANGED_WEAPON_CATEGORY_IDS = new Set([
+    3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 19, 20, 22, 23, 26, 27, 30, 33,
+]);
 
 const SPELL_CAST_SEQUENCE_OVERRIDES: Record<number, number> = {
     3274: 1163, // Confuse
@@ -117,7 +114,9 @@ export class PlayerCombatService {
             const styleSlot = player.combat.styleSlot ?? 0;
             const mapped = getMeleeAttackSequenceForCategory(weaponCategory, styleSlot);
             if (mapped !== undefined && mapped > 0) return mapped;
-        } catch (err) { logger.warn("[combat] failed to resolve attack sequence", err); }
+        } catch (err) {
+            logger.warn("[combat] failed to resolve attack sequence", err);
+        }
         return DEFAULT_ATTACK_SEQ;
     }
 
@@ -141,29 +140,86 @@ export class PlayerCombatService {
             } else {
                 return styleSlot === 1 ? UNARMED_KICK_SOUND : UNARMED_PUNCH_SOUND;
             }
-        } catch (err) { logger.warn("[combat] failed to resolve combat sound", err); }
+        } catch (err) {
+            logger.warn("[combat] failed to resolve combat sound", err);
+        }
         return isHit ? DEFAULT_HIT_SOUND : DEFAULT_MISS_SOUND;
     }
 
     pickSpellSound(spellId: number, stage: "cast" | "impact" | "splash"): number | undefined {
         const castMap: Record<number, number> = {
-            3273: 220, 3281: 218, 3294: 216, 3313: 222, 21876: 4028,
-            3275: 211, 3285: 209, 3297: 207, 3315: 213, 21877: 4030,
-            3277: 132, 3288: 130, 3302: 128, 3319: 134, 21878: 4025,
-            3279: 160, 3291: 157, 3307: 155, 3321: 162, 21879: 4032,
-            3274: 119, 3278: 3011, 3282: 127, 3324: 3009, 3325: 148, 3326: 3004,
-            3283: 101, 3300: 3003, 3322: 151,
-            3293: 122, 9075: 190, 9110: 98, 9111: 97, 9100: 3006,
-            9076: 116, 9077: 115, 9078: 117, 9079: 118, 9001: 114,
+            3273: 220,
+            3281: 218,
+            3294: 216,
+            3313: 222,
+            21876: 4028,
+            3275: 211,
+            3285: 209,
+            3297: 207,
+            3315: 213,
+            21877: 4030,
+            3277: 132,
+            3288: 130,
+            3302: 128,
+            3319: 134,
+            21878: 4025,
+            3279: 160,
+            3291: 157,
+            3307: 155,
+            3321: 162,
+            21879: 4032,
+            3274: 119,
+            3278: 3011,
+            3282: 127,
+            3324: 3009,
+            3325: 148,
+            3326: 3004,
+            3283: 101,
+            3300: 3003,
+            3322: 151,
+            3293: 122,
+            9075: 190,
+            9110: 98,
+            9111: 97,
+            9100: 3006,
+            9076: 116,
+            9077: 115,
+            9078: 117,
+            9079: 118,
+            9001: 114,
         };
         const impactMap: Record<number, number> = {
-            3273: 221, 3281: 219, 3294: 217, 3313: 223, 21876: 4027,
-            3275: 212, 3285: 210, 3297: 208, 3315: 214, 21877: 4029,
-            3277: 133, 3288: 131, 3302: 129, 3319: 135, 21878: 4026,
-            3279: 161, 3291: 158, 3307: 156, 3321: 163, 21879: 4031,
-            3274: 121, 3278: 3010, 3282: 126, 3324: 3008, 3325: 150, 3326: 3005,
-            3283: 99, 3300: 3002, 3322: 153,
-            3293: 124, 9100: 3007,
+            3273: 221,
+            3281: 219,
+            3294: 217,
+            3313: 223,
+            21876: 4027,
+            3275: 212,
+            3285: 210,
+            3297: 208,
+            3315: 214,
+            21877: 4029,
+            3277: 133,
+            3288: 131,
+            3302: 129,
+            3319: 135,
+            21878: 4026,
+            3279: 161,
+            3291: 158,
+            3307: 156,
+            3321: 163,
+            21879: 4031,
+            3274: 121,
+            3278: 3010,
+            3282: 126,
+            3324: 3008,
+            3325: 150,
+            3326: 3005,
+            3283: 99,
+            3300: 3002,
+            3322: 153,
+            3293: 124,
+            9100: 3007,
         };
         if (stage === "cast") return castMap[spellId];
         if (stage === "impact") return impactMap[spellId];
@@ -177,9 +233,12 @@ export class PlayerCombatService {
             const weaponId = equip[EquipmentSlot.WEAPON];
             if (weaponId > 0) {
                 const dataEntry = this.weaponData.get(weaponId);
-                if (dataEntry?.hitDelay !== undefined && dataEntry.hitDelay > 0) return dataEntry.hitDelay;
+                if (dataEntry?.hitDelay !== undefined && dataEntry.hitDelay > 0)
+                    return dataEntry.hitDelay;
             }
-        } catch (err) { logger.warn("[combat] failed to resolve hit delay", err); }
+        } catch (err) {
+            logger.warn("[combat] failed to resolve hit delay", err);
+        }
         return MELEE_HIT_DELAY_TICKS;
     }
 
@@ -196,7 +255,9 @@ export class PlayerCombatService {
                 const rawSpeed = obj.params?.get(WEAPON_SPEED_PARAM) as number | undefined;
                 if (rawSpeed !== undefined && rawSpeed > 0) return rawSpeed;
             }
-        } catch (err) { logger.warn("[combat] failed to resolve attack speed", err); }
+        } catch (err) {
+            logger.warn("[combat] failed to resolve attack speed", err);
+        }
         return DEFAULT_ATTACK_SPEED;
     }
 
@@ -223,15 +284,13 @@ export class PlayerCombatService {
                 const rawRange = obj?.params?.get(13) as number | undefined;
                 if (rawRange !== undefined && rawRange > 0) baseRange = rawRange;
             }
-        } catch (err) { logger.warn("[combat] failed to resolve attack range", err); }
+        } catch (err) {
+            logger.warn("[combat] failed to resolve attack range", err);
+        }
         return resolvePlayerAttackReach(player.combat, { baseRange });
     }
 
-    pickSpellCastSequence(
-        player: PlayerState,
-        spellId: number,
-        isAutocast: boolean,
-    ): number {
+    pickSpellCastSequence(player: PlayerState, spellId: number, isAutocast: boolean): number {
         const normalizedSpellId = spellId;
         const category = player.combat.weaponCategory ?? 0;
         const hasMagicWeapon = MAGIC_WEAPON_CATEGORY_IDS.has(category);

@@ -1,65 +1,75 @@
-import { logger } from "../../utils/logger";
-import { faceAngleRs } from "../../../../src/rs/utils/rotation";
-import type { SkillId } from "../../../../src/rs/skill/skills";
+import type { WebSocket } from "ws";
+
 import type { PrayerName } from "../../../../src/rs/prayer/prayers";
-import { STUN_TIMER } from "../model/timer/Timers";
+import type { SkillId } from "../../../../src/rs/skill/skills";
+import { faceAngleRs } from "../../../../src/rs/utils/rotation";
+import { SIDE_JOURNAL_GROUP_ID } from "../../../../src/shared/ui/sideJournal";
+import { VARBIT_XPDROPS_ENABLED } from "../../../../src/shared/vars";
+import type { MusicCatalogService } from "../../audio/MusicCatalogService";
+import { getItemDefinition, loadItemDefinitions } from "../../data/items";
+import type { WorldEntityInfoEncoder } from "../../network/encoding/WorldEntityInfoEncoder";
+import type { Cs2ModalManager } from "../../network/managers/Cs2ModalManager";
+import type { PathService } from "../../pathfinding/PathService";
+import { logger } from "../../utils/logger";
+import type { InterfaceService } from "../../widgets/InterfaceService";
+import { type WidgetAction, getDefaultInterfaces } from "../../widgets/WidgetManager";
+import {
+    getMainmodalUid,
+    getPrayerTabUid,
+    getSidemodalUid,
+    getViewportTrackerFrontUid,
+} from "../../widgets/viewport";
+import type { DoorStateManager } from "../../world/DoorStateManager";
 import { resolveLocTransformId } from "../../world/LocTransforms";
-import { triggerLocEffect } from "../scripts/utils/locEffects";
-import { RuneValidator } from "../spells/RuneValidator";
+import type { PlayerManager } from "../PlayerManager";
+import type { ActionScheduler } from "../actions";
+import type { EffectDispatcher } from "../actions/handlers/EffectDispatcher";
+import type { InventoryActionHandler } from "../actions/handlers/InventoryActionHandler";
+import type { WidgetDialogHandler } from "../actions/handlers/WidgetDialogHandler";
+import { applyAutocastState, clearAutocastState } from "../combat/AutocastState";
+import type { CombatEffectApplicator } from "../combat/CombatEffectApplicator";
+import type { DamageTracker } from "../combat/DamageTracker";
+import type { MultiCombatSystem } from "../combat/MultiCombatZones";
+import { getEmoteSeq } from "../emotes";
+import { getSkillcapeSeqId, getSkillcapeSpotId } from "../equipment";
+import type { GameEventBus } from "../events/GameEventBus";
+import type { FollowerCombatManager } from "../followers/FollowerCombatManager";
+import type { FollowerManager } from "../followers/FollowerManager";
 import {
     FOLLOWER_ITEM_DEFINITIONS,
     getFollowerDefinitionByItemId,
     getFollowerDefinitionByNpcTypeId,
 } from "../followers/followerDefinitions";
-import type { ScriptServices, ScriptDialogRequest, ScriptDialogOptionRequest, ProviderRegistrationFacade } from "../scripts/types";
-import { getProviderRegistry } from "../providers/ProviderRegistry";
-import { getMainmodalUid, getSidemodalUid, getPrayerTabUid, getViewportTrackerFrontUid } from "../../widgets/viewport";
-import { getDefaultInterfaces, type WidgetAction } from "../../widgets/WidgetManager";
-import { SIDE_JOURNAL_GROUP_ID } from "../../../../src/shared/ui/sideJournal";
-import { VARBIT_XPDROPS_ENABLED } from "../../../../src/shared/vars";
-import type { DataLoaderService } from "./DataLoaderService";
-import type { VariableService } from "./VariableService";
-import type { MessagingService } from "./MessagingService";
-import type { SkillService } from "./SkillService";
-import type { InventoryService } from "./InventoryService";
-import type { EquipmentService } from "./EquipmentService";
-import type { AppearanceService } from "./AppearanceService";
-import type { LocationService } from "./LocationService";
-import type { MovementService } from "./MovementService";
-import type { CollectionLogService } from "./CollectionLogService";
-import type { SoundService } from "./SoundService";
-import type { PlayerState } from "../player";
+import { STUN_TIMER } from "../model/timer/Timers";
 import type { NpcState } from "../npc";
-import type { ActionScheduler } from "../actions";
-import type { PathService } from "../../pathfinding/PathService";
-import type { DoorStateManager } from "../../world/DoorStateManager";
 import type { NpcManager } from "../npcManager";
-import type { InterfaceService } from "../../widgets/InterfaceService";
-import type { WidgetDialogHandler } from "../actions/handlers/WidgetDialogHandler";
+import type { PlayerState } from "../player";
 import type { PrayerSystem } from "../prayer/PrayerSystem";
-import type { GatheringSystemManager } from "../systems/GatheringSystemManager";
-import type { Cs2ModalManager } from "../../network/managers/Cs2ModalManager";
-import type { FollowerManager } from "../followers/FollowerManager";
-import type { FollowerCombatManager } from "../followers/FollowerCombatManager";
+import { getProviderRegistry } from "../providers/ProviderRegistry";
 import type { SailingInstanceManager } from "../sailing/SailingInstanceManager";
-import type { WorldEntityInfoEncoder } from "../../network/encoding/WorldEntityInfoEncoder";
+import type {
+    ProviderRegistrationFacade,
+    ScriptDialogOptionRequest,
+    ScriptDialogRequest,
+    ScriptServices,
+} from "../scripts/types";
+import { triggerLocEffect } from "../scripts/utils/locEffects";
+import { RuneValidator } from "../spells/RuneValidator";
 import type { PersistenceProvider } from "../state/PersistenceProvider";
-import type { MusicCatalogService } from "../../audio/MusicCatalogService";
-import type { InventoryActionHandler } from "../actions/handlers/InventoryActionHandler";
-import type { EffectDispatcher } from "../actions/handlers/EffectDispatcher";
-import type { CombatEffectApplicator } from "../combat/CombatEffectApplicator";
-import type { DamageTracker } from "../combat/DamageTracker";
-import type { MultiCombatSystem } from "../combat/MultiCombatZones";
-import { applyAutocastState, clearAutocastState } from "../combat/AutocastState";
-import { getEmoteSeq } from "../emotes";
-import { getSkillcapeSeqId, getSkillcapeSpotId } from "../equipment";
-import { getItemDefinition, loadItemDefinitions } from "../../data/items";
-import type { PlayerManager } from "../PlayerManager";
-import type { PendingSpotAnimation, ForcedMovementBroadcast } from "../systems/BroadcastScheduler";
+import type { ForcedMovementBroadcast, PendingSpotAnimation } from "../systems/BroadcastScheduler";
+import type { GatheringSystemManager } from "../systems/GatheringSystemManager";
 import type { TickFrame } from "../tick/TickPhaseOrchestrator";
-
-import type { GameEventBus } from "../events/GameEventBus";
-import type { WebSocket } from "ws";
+import type { AppearanceService } from "./AppearanceService";
+import type { CollectionLogService } from "./CollectionLogService";
+import type { DataLoaderService } from "./DataLoaderService";
+import type { EquipmentService } from "./EquipmentService";
+import type { InventoryService } from "./InventoryService";
+import type { LocationService } from "./LocationService";
+import type { MessagingService } from "./MessagingService";
+import type { MovementService } from "./MovementService";
+import type { SkillService } from "./SkillService";
+import type { SoundService } from "./SoundService";
+import type { VariableService } from "./VariableService";
 
 /**
  * Dependencies injected from WSServer that are not yet in extracted services.
@@ -104,12 +114,57 @@ export interface ScriptServiceAdapterDeps {
     enqueueForcedMovement: (data: ForcedMovementBroadcast) => void;
     enqueueSoundBroadcast: (soundId: number, x: number, y: number, level: number) => void;
     syncMusicInterface?: (player: PlayerState) => void;
-    queueCombatSnapshot: (playerId: number, weaponCategory: number, weaponItemId: number, autoRetaliate: boolean, activeStyle?: number, activePrayers?: string[], activeSpellId?: number) => void;
+    queueCombatSnapshot: (
+        playerId: number,
+        weaponCategory: number,
+        weaponItemId: number,
+        autoRetaliate: boolean,
+        activeStyle?: number,
+        activePrayers?: string[],
+        activeSpellId?: number,
+    ) => void;
     queueWidgetEvent: (playerId: number, event: WidgetAction) => void;
     queueSmithingInterfaceMessage: (playerId: number, payload: Record<string, unknown>) => void;
     queueExternalNpcTeleportSync: (npc: NpcState) => void;
-    teleportToWorldEntity: (player: PlayerState, x: number, y: number, level: number, entityIndex: number, configId: number, sizeX: number, sizeZ: number, templateChunks: number[][][], buildAreas: import("../../../../src/shared/worldentity/WorldEntityTypes").WorldEntityBuildArea[], extraLocs?: Array<{ id: number; x: number; y: number; level: number; shape: number; rotation: number }>) => void;
-    sendWorldEntity: (player: PlayerState, entityIndex: number, configId: number, sizeX: number, sizeZ: number, templateChunks: number[][][], buildAreas: import("../../../../src/shared/worldentity/WorldEntityTypes").WorldEntityBuildArea[], extraLocs?: Array<{ id: number; x: number; y: number; level: number; shape: number; rotation: number }>, extraNpcs?: Array<{ id: number; x: number; y: number; level: number }>, drawMode?: number) => void;
+    teleportToWorldEntity: (
+        player: PlayerState,
+        x: number,
+        y: number,
+        level: number,
+        entityIndex: number,
+        configId: number,
+        sizeX: number,
+        sizeZ: number,
+        templateChunks: number[][][],
+        buildAreas: import("../../../../src/shared/worldentity/WorldEntityTypes").WorldEntityBuildArea[],
+        extraLocs?: Array<{
+            id: number;
+            x: number;
+            y: number;
+            level: number;
+            shape: number;
+            rotation: number;
+        }>,
+    ) => void;
+    sendWorldEntity: (
+        player: PlayerState,
+        entityIndex: number,
+        configId: number,
+        sizeX: number,
+        sizeZ: number,
+        templateChunks: number[][][],
+        buildAreas: import("../../../../src/shared/worldentity/WorldEntityTypes").WorldEntityBuildArea[],
+        extraLocs?: Array<{
+            id: number;
+            x: number;
+            y: number;
+            level: number;
+            shape: number;
+            rotation: number;
+        }>,
+        extraNpcs?: Array<{ id: number; x: number; y: number; level: number }>,
+        drawMode?: number,
+    ) => void;
     completeLogout: (sock: WebSocket, player: PlayerState, reason?: string) => void;
     closeInterruptibleInterfaces: (player: PlayerState) => void;
     activeFrame: () => TickFrame | undefined;
@@ -120,19 +175,45 @@ export interface ScriptServiceAdapterDeps {
 function buildProviderRegistrationFacade(): ProviderRegistrationFacade {
     const reg = getProviderRegistry();
     return {
-        registerWeaponData: (p) => { reg.weaponData = p; },
-        registerCombatFormula: (p) => { reg.combatFormula = p; },
-        registerSpecialAttack: (p) => { reg.specialAttack = p; },
-        registerCombatStyleSequence: (p) => { reg.combatStyleSequence = p; },
-        registerEquipmentBonus: (p) => { reg.equipmentBonus = p; },
-        registerSpellXp: (p) => { reg.spellXp = p; },
-        registerSpecialAttackVisual: (p) => { reg.specialAttackVisual = p; },
-        registerInstantUtilitySpecial: (p) => { reg.instantUtilitySpecial = p; },
-        registerSkillConfiguration: (c) => { reg.skillConfiguration = c; },
-        registerSpellData: (p) => { reg.spellData = p; },
-        registerRuneData: (p) => { reg.runeData = p; },
-        registerProjectileParams: (p) => { reg.projectileParams = p; },
-        registerAmmoData: (p) => { reg.ammoData = p; },
+        registerWeaponData: (p) => {
+            reg.weaponData = p;
+        },
+        registerCombatFormula: (p) => {
+            reg.combatFormula = p;
+        },
+        registerSpecialAttack: (p) => {
+            reg.specialAttack = p;
+        },
+        registerCombatStyleSequence: (p) => {
+            reg.combatStyleSequence = p;
+        },
+        registerEquipmentBonus: (p) => {
+            reg.equipmentBonus = p;
+        },
+        registerSpellXp: (p) => {
+            reg.spellXp = p;
+        },
+        registerSpecialAttackVisual: (p) => {
+            reg.specialAttackVisual = p;
+        },
+        registerInstantUtilitySpecial: (p) => {
+            reg.instantUtilitySpecial = p;
+        },
+        registerSkillConfiguration: (c) => {
+            reg.skillConfiguration = c;
+        },
+        registerSpellData: (p) => {
+            reg.spellData = p;
+        },
+        registerRuneData: (p) => {
+            reg.runeData = p;
+        },
+        registerProjectileParams: (p) => {
+            reg.projectileParams = p;
+        },
+        registerAmmoData: (p) => {
+            reg.ammoData = p;
+        },
     };
 }
 
@@ -152,85 +233,194 @@ export function buildScriptServices(deps: ScriptServiceAdapterDeps): ScriptServi
         // Gamemode-contributed facades (populated by contributeScriptServices)
         gathering: deps.gatheringSystem,
         stopGatheringInteraction: (player) => {
-            try { player.clearInteraction(); } catch {}
-            try { player.stopAnimation(); } catch {}
-            try { player.clearPath(); } catch {}
-            try { player.clearWalkDestination(); } catch {}
+            try {
+                player.clearInteraction();
+            } catch {}
+            try {
+                player.stopAnimation();
+            } catch {}
+            try {
+                player.clearPath();
+            } catch {}
+            try {
+                player.clearWalkDestination();
+            } catch {}
         },
         production: {
-            takeInventoryItems: (player, inputs) => deps.inventoryService.takeInventoryItems(player, inputs),
-            restoreInventoryRemovals: (player, removed) => deps.inventoryService.restoreInventoryRemovals(player, removed),
-            restoreInventoryItems: (player, itemId, removed) => deps.inventoryService.restoreInventoryItems(player, itemId, removed),
-            queueSmithingMessage: (playerId, payload) => deps.queueSmithingInterfaceMessage(playerId, payload),
+            takeInventoryItems: (player, inputs) =>
+                deps.inventoryService.takeInventoryItems(player, inputs),
+            restoreInventoryRemovals: (player, removed) =>
+                deps.inventoryService.restoreInventoryRemovals(player, removed),
+            restoreInventoryItems: (player, itemId, removed) =>
+                deps.inventoryService.restoreInventoryItems(player, itemId, removed),
+            queueSmithingMessage: (playerId, payload) =>
+                deps.queueSmithingInterfaceMessage(playerId, payload),
             openSmithingModal: (player, groupId, varbits) =>
-                deps.interfaceService?.openModal(player, groupId, undefined, varbits ? { varbits } : undefined),
+                deps.interfaceService?.openModal(
+                    player,
+                    groupId,
+                    undefined,
+                    varbits ? { varbits } : undefined,
+                ),
             closeSmithingModal: (player) => deps.interfaceService?.closeModal(player),
-            isSmithingModalOpen: (player, groupId) => deps.interfaceService?.isModalOpen(player, groupId) ?? false,
+            isSmithingModalOpen: (player, groupId) =>
+                deps.interfaceService?.isModalOpen(player, groupId) ?? false,
             openSmithingBarModal: undefined,
             getBarTypeByItemId: (_itemId) => undefined,
         },
-        followers: deps.followerManager ? {
-            summonFollowerFromItem: (player, itemId, npcTypeId) => {
-                const result = deps.followerManager!.summonFollowerFromItem(player, itemId, npcTypeId) ?? { ok: false as const, reason: "spawn_failed" };
-                if (result.ok) deps.followerCombatManager?.resetPlayer(player.id);
-                return result;
-            },
-            pickupFollower: (player, npcId) => {
-                const result = deps.followerManager!.pickupFollower(player, npcId) ?? { ok: false as const, reason: "missing" };
-                if (result.ok) deps.followerCombatManager?.resetPlayer(player.id);
-                return result;
-            },
-            metamorphFollower: (player, npcId) => {
-                const result = deps.followerManager!.metamorphFollower(player, npcId) ?? { ok: false as const, reason: "missing" };
-                if (result.ok) deps.followerCombatManager?.resetPlayer(player.id);
-                return result;
-            },
-            callFollower: (player) => {
-                const result = deps.followerManager!.callFollower(player) ?? { ok: false as const, reason: "missing" };
-                if (result.ok) {
-                    deps.followerCombatManager?.resetPlayer(player.id);
-                    const npc = deps.npcManager?.getById(result.npcId);
-                    if (npc) deps.queueExternalNpcTeleportSync(npc);
-                }
-                return result;
-            },
-            despawnFollowerForPlayer: (playerId, clearPersistentState) => {
-                deps.followerCombatManager?.resetPlayer(playerId);
-                return deps.followerManager!.despawnFollowerForPlayer(playerId, clearPersistentState) ?? false;
-            },
-            getItemDefinitions: () => FOLLOWER_ITEM_DEFINITIONS,
-            getDefinitionByItemId: (itemId) => getFollowerDefinitionByItemId(itemId),
-            getDefinitionByNpcTypeId: (npcTypeId) => getFollowerDefinitionByNpcTypeId(npcTypeId),
-        } : undefined,
-        sailing: deps.sailingInstanceManager ? {
-            initSailingInstance: (player) => deps.sailingInstanceManager!.initInstance(player),
-            disposeSailingInstance: (player) => deps.sailingInstanceManager!.disposeInstance(player),
-            isInSailingInstanceRegion: (player) => deps.sailingInstanceManager!.isInSailingInstanceRegion(player),
-            teleportToWorldEntity: (player, x, y, level, entityIndex, configId, sizeX, sizeZ, templateChunks, buildAreas, extraLocs) =>
-                deps.teleportToWorldEntity(player, x, y, level, entityIndex, configId, sizeX, sizeZ, templateChunks, buildAreas, extraLocs),
-            sendWorldEntity: (player, entityIndex, configId, sizeX, sizeZ, templateChunks, buildAreas, extraLocs, extraNpcs, drawMode) =>
-                deps.sendWorldEntity(player, entityIndex, configId, sizeX, sizeZ, templateChunks, buildAreas, extraLocs, extraNpcs, drawMode),
-            removeWorldEntity: (playerId, entityIndex) => deps.worldEntityInfoEncoder.removeEntity(playerId, entityIndex),
-            queueWorldEntityPosition: (playerId, entityIndex, position) => deps.worldEntityInfoEncoder.queuePosition(playerId, entityIndex, position),
-            setWorldEntityPosition: (playerId, entityIndex, position) => deps.worldEntityInfoEncoder.setPosition(playerId, entityIndex, position),
-            queueWorldEntityMask: (playerId, entityIndex, mask) => deps.worldEntityInfoEncoder.queueMaskUpdate(playerId, entityIndex, mask),
-            buildSailingDockedCollision: () => deps.sailingInstanceManager!.buildDockedCollision(),
-        } : undefined,
+        followers: deps.followerManager
+            ? {
+                  summonFollowerFromItem: (player, itemId, npcTypeId) => {
+                      const result = deps.followerManager!.summonFollowerFromItem(
+                          player,
+                          itemId,
+                          npcTypeId,
+                      ) ?? { ok: false as const, reason: "spawn_failed" };
+                      if (result.ok) deps.followerCombatManager?.resetPlayer(player.id);
+                      return result;
+                  },
+                  pickupFollower: (player, npcId) => {
+                      const result = deps.followerManager!.pickupFollower(player, npcId) ?? {
+                          ok: false as const,
+                          reason: "missing",
+                      };
+                      if (result.ok) deps.followerCombatManager?.resetPlayer(player.id);
+                      return result;
+                  },
+                  metamorphFollower: (player, npcId) => {
+                      const result = deps.followerManager!.metamorphFollower(player, npcId) ?? {
+                          ok: false as const,
+                          reason: "missing",
+                      };
+                      if (result.ok) deps.followerCombatManager?.resetPlayer(player.id);
+                      return result;
+                  },
+                  callFollower: (player) => {
+                      const result = deps.followerManager!.callFollower(player) ?? {
+                          ok: false as const,
+                          reason: "missing",
+                      };
+                      if (result.ok) {
+                          deps.followerCombatManager?.resetPlayer(player.id);
+                          const npc = deps.npcManager?.getById(result.npcId);
+                          if (npc) deps.queueExternalNpcTeleportSync(npc);
+                      }
+                      return result;
+                  },
+                  despawnFollowerForPlayer: (playerId, clearPersistentState) => {
+                      deps.followerCombatManager?.resetPlayer(playerId);
+                      return (
+                          deps.followerManager!.despawnFollowerForPlayer(
+                              playerId,
+                              clearPersistentState,
+                          ) ?? false
+                      );
+                  },
+                  getItemDefinitions: () => FOLLOWER_ITEM_DEFINITIONS,
+                  getDefinitionByItemId: (itemId) => getFollowerDefinitionByItemId(itemId),
+                  getDefinitionByNpcTypeId: (npcTypeId) =>
+                      getFollowerDefinitionByNpcTypeId(npcTypeId),
+              }
+            : undefined,
+        sailing: deps.sailingInstanceManager
+            ? {
+                  initSailingInstance: (player) =>
+                      deps.sailingInstanceManager!.initInstance(player),
+                  disposeSailingInstance: (player) =>
+                      deps.sailingInstanceManager!.disposeInstance(player),
+                  isInSailingInstanceRegion: (player) =>
+                      deps.sailingInstanceManager!.isInSailingInstanceRegion(player),
+                  teleportToWorldEntity: (
+                      player,
+                      x,
+                      y,
+                      level,
+                      entityIndex,
+                      configId,
+                      sizeX,
+                      sizeZ,
+                      templateChunks,
+                      buildAreas,
+                      extraLocs,
+                  ) =>
+                      deps.teleportToWorldEntity(
+                          player,
+                          x,
+                          y,
+                          level,
+                          entityIndex,
+                          configId,
+                          sizeX,
+                          sizeZ,
+                          templateChunks,
+                          buildAreas,
+                          extraLocs,
+                      ),
+                  sendWorldEntity: (
+                      player,
+                      entityIndex,
+                      configId,
+                      sizeX,
+                      sizeZ,
+                      templateChunks,
+                      buildAreas,
+                      extraLocs,
+                      extraNpcs,
+                      drawMode,
+                  ) =>
+                      deps.sendWorldEntity(
+                          player,
+                          entityIndex,
+                          configId,
+                          sizeX,
+                          sizeZ,
+                          templateChunks,
+                          buildAreas,
+                          extraLocs,
+                          extraNpcs,
+                          drawMode,
+                      ),
+                  removeWorldEntity: (playerId, entityIndex) =>
+                      deps.worldEntityInfoEncoder.removeEntity(playerId, entityIndex),
+                  queueWorldEntityPosition: (playerId, entityIndex, position) =>
+                      deps.worldEntityInfoEncoder.queuePosition(playerId, entityIndex, position),
+                  setWorldEntityPosition: (playerId, entityIndex, position) =>
+                      deps.worldEntityInfoEncoder.setPosition(playerId, entityIndex, position),
+                  queueWorldEntityMask: (playerId, entityIndex, mask) =>
+                      deps.worldEntityInfoEncoder.queueMaskUpdate(playerId, entityIndex, mask),
+                  buildSailingDockedCollision: () =>
+                      deps.sailingInstanceManager!.buildDockedCollision(),
+              }
+            : undefined,
 
         // Grouped facades - constructed directly from deps
         messaging: {
-            sendGameMessage: (player, text) => deps.messagingService.sendGameMessageToPlayer(player, text),
-            queueNotification: (playerId, payload) => deps.messagingService.queueNotification(playerId, payload),
+            sendGameMessage: (player, text) =>
+                deps.messagingService.sendGameMessageToPlayer(player, text),
+            queueNotification: (playerId, payload) =>
+                deps.messagingService.queueNotification(playerId, payload),
         },
         variables: {
-            sendVarp: (player, varpId, value) => deps.variableService.queueVarp(player.id, varpId, value),
-            sendVarbit: (player, varbitId, value) => deps.variableService.queueVarbit(player.id, varbitId, value),
-            queueVarp: (playerId, varpId, value) => deps.variableService.queueVarp(playerId, varpId, value),
-            queueVarbit: (playerId, varbitId, value) => deps.variableService.queueVarbit(playerId, varbitId, value),
+            sendVarp: (player, varpId, value) =>
+                deps.variableService.queueVarp(player.id, varpId, value),
+            sendVarbit: (player, varbitId, value) =>
+                deps.variableService.queueVarbit(player.id, varbitId, value),
+            queueVarp: (playerId, varpId, value) =>
+                deps.variableService.queueVarp(playerId, varpId, value),
+            queueVarbit: (playerId, varbitId, value) =>
+                deps.variableService.queueVarbit(playerId, varbitId, value),
         },
         skills: {
             addSkillXp: (player, skillId, xp) => {
-                try { deps.skillService.awardSkillXp(player, skillId as SkillId, Number.isFinite(xp) ? xp : 0); } catch (err) { logger.warn("Failed to award skill XP", err); }
+                try {
+                    deps.skillService.awardSkillXp(
+                        player,
+                        skillId as SkillId,
+                        Number.isFinite(xp) ? xp : 0,
+                    );
+                } catch (err) {
+                    logger.warn("Failed to award skill XP", err);
+                }
             },
             getSkill: (player, skillId) => {
                 const skill = player.skillSystem.getSkill(skillId);
@@ -255,26 +445,36 @@ export function buildScriptServices(deps: ScriptServiceAdapterDeps): ScriptServi
             eventBus: deps.eventBus,
         },
         inventory: {
-            consumeItem: (player, slotIndex) => deps.inventoryService.consumeItem(player, slotIndex),
+            consumeItem: (player, slotIndex) =>
+                deps.inventoryService.consumeItem(player, slotIndex),
             getInventoryItems: (player) =>
                 deps.inventoryService.getInventory(player).map((entry, idx) => ({
-                    slot: idx, itemId: entry ? entry.itemId : -1, quantity: entry ? entry.quantity : 0,
+                    slot: idx,
+                    itemId: entry ? entry.itemId : -1,
+                    quantity: entry ? entry.quantity : 0,
                 })),
-            addItemToInventory: (player, itemId, qty) => deps.inventoryService.addItemToInventory(player, itemId, qty),
-            setInventorySlot: (player, slotIndex, itemId, qty) => deps.inventoryService.setInventorySlot(player, slotIndex, itemId, qty),
+            addItemToInventory: (player, itemId, qty) =>
+                deps.inventoryService.addItemToInventory(player, itemId, qty),
+            setInventorySlot: (player, slotIndex, itemId, qty) =>
+                deps.inventoryService.setInventorySlot(player, slotIndex, itemId, qty),
             snapshotInventory: snapshotInventoryFn,
             snapshotInventoryImmediate: snapshotInventoryFn,
-            findOwnedItemLocation: (player, itemId) => deps.inventoryService.findOwnedItemLocation(player, itemId),
+            findOwnedItemLocation: (player, itemId) =>
+                deps.inventoryService.findOwnedItemLocation(player, itemId),
             collectCarriedItemIds: (player) => deps.inventoryService.collectCarriedItemIds(player),
-            findInventorySlotWithItem: (player, itemId) => deps.inventoryService.findInventorySlotWithItem(player, itemId),
+            findInventorySlotWithItem: (player, itemId) =>
+                deps.inventoryService.findInventorySlotWithItem(player, itemId),
             canStoreItem: (player, itemId) => deps.inventoryService.canStoreItem(player, itemId),
             playerHasItem: (player, itemId) => deps.inventoryService.playerHasItem(player, itemId),
             hasInventorySlot: (player) => player.items.getFreeSlotCount() > 0,
         },
         equipment: {
             getEquippedItem: (player, slot) => {
-                try { return deps.equipmentService.ensureEquipArray(player)[slot] ?? -1; }
-                catch { return -1; }
+                try {
+                    return deps.equipmentService.ensureEquipArray(player)[slot] ?? -1;
+                } catch {
+                    return -1;
+                }
             },
             getEquipArray: (player) => deps.equipmentService.ensureEquipArray(player),
             unequipItem: (player, slot) => {
@@ -282,23 +482,51 @@ export function buildScriptServices(deps: ScriptServiceAdapterDeps): ScriptServi
                     const slotIndex = Math.max(0, Math.min(13, slot));
                     const equip = deps.equipmentService.ensureEquipArray(player);
                     if (!(equip[slotIndex] > 0)) return false;
-                    const result = deps.inventoryActionHandler.executeInventoryUnequipAction(player, { slot: slotIndex, playSound: true });
-                    if (result.ok && result.effects) deps.effectDispatcher.dispatchActionEffects(result.effects);
+                    const result = deps.inventoryActionHandler.executeInventoryUnequipAction(
+                        player,
+                        { slot: slotIndex, playSound: true },
+                    );
+                    if (result.ok && result.effects)
+                        deps.effectDispatcher.dispatchActionEffects(result.effects);
                     return result.ok;
-                } catch { return false; }
+                } catch {
+                    return false;
+                }
             },
         },
         animation: {
-            playPlayerSeq: (player, seqId, delay = 0) => { try { player.queueOneShotSeq(seqId, delay); } catch {} },
-            playPlayerSeqImmediate: (player, seqId) => { try { player.queueOneShotSeq(seqId, 0); } catch {} },
+            playPlayerSeq: (player, seqId, delay = 0) => {
+                try {
+                    player.queueOneShotSeq(seqId, delay);
+                } catch {}
+            },
+            playPlayerSeqImmediate: (player, seqId) => {
+                try {
+                    player.queueOneShotSeq(seqId, 0);
+                } catch {}
+            },
             broadcastPlayerSpot: (player, spotId, height = 0, delay = 0, slotArg?) => {
                 try {
-                    const slot = slotArg !== undefined && Number.isFinite(slotArg) ? slotArg & 0xff : undefined;
-                    deps.enqueueSpotAnimation({ tick: deps.getCurrentTick(), playerId: player.id, spotId, height, delay, slot });
+                    const slot =
+                        slotArg !== undefined && Number.isFinite(slotArg)
+                            ? slotArg & 0xff
+                            : undefined;
+                    deps.enqueueSpotAnimation({
+                        tick: deps.getCurrentTick(),
+                        playerId: player.id,
+                        spotId,
+                        height,
+                        delay,
+                        slot,
+                    });
                 } catch {}
             },
             playLocGraphic: (opts) => deps.soundService.playLocGraphic(opts),
-            stopPlayerAnimation: (player) => { try { player.stopAnimation(); } catch {} },
+            stopPlayerAnimation: (player) => {
+                try {
+                    player.stopAnimation();
+                } catch {}
+            },
             getEmoteSeq: (index) => getEmoteSeq(index),
             getSkillcapeSeqId: (capeItemId) => getSkillcapeSeqId(capeItemId),
             getSkillcapeSpotId: (capeItemId) => getSkillcapeSpotId(capeItemId),
@@ -310,14 +538,20 @@ export function buildScriptServices(deps: ScriptServiceAdapterDeps): ScriptServi
             skipMusicTrack: () => false,
             getMusicTrackId: (trackName) => deps.soundService.getMusicTrackIdByName(trackName),
             getMusicTrackBySlot: (slot) => deps.musicCatalogService?.getBaseListTrackBySlot(slot),
-            sendSound: (player, soundId, opts) => deps.soundService.sendSound(player, soundId, opts),
-            sendJingle: (player, jingleId, delay) => deps.soundService.sendJingle(player, jingleId, delay),
-            enqueueSoundBroadcast: (soundId, x, y, level) => deps.enqueueSoundBroadcast(soundId, x, y, level),
-            syncMusicInterface: deps.syncMusicInterface ? (player) => deps.syncMusicInterface!(player) : undefined,
+            sendSound: (player, soundId, opts) =>
+                deps.soundService.sendSound(player, soundId, opts),
+            sendJingle: (player, jingleId, delay) =>
+                deps.soundService.sendJingle(player, jingleId, delay),
+            enqueueSoundBroadcast: (soundId, x, y, level) =>
+                deps.enqueueSoundBroadcast(soundId, x, y, level),
+            syncMusicInterface: deps.syncMusicInterface
+                ? (player) => deps.syncMusicInterface!(player)
+                : undefined,
         },
         appearance: {
             refreshAppearanceKits: (player) => deps.appearanceService.refreshAppearanceKits(player),
-            queueAppearanceSnapshot: (player) => deps.appearanceService.queueAppearanceSnapshot(player),
+            queueAppearanceSnapshot: (player) =>
+                deps.appearanceService.queueAppearanceSnapshot(player),
             savePlayerSnapshot: (player) => {
                 try {
                     const key = player.__saveKey;
@@ -333,8 +567,10 @@ export function buildScriptServices(deps: ScriptServiceAdapterDeps): ScriptServi
         },
         dialog: {
             openDialog: (player, request) => deps.widgetDialogHandler.openDialog(player, request),
-            openDialogOptions: (player, options) => deps.widgetDialogHandler.openDialogOptions(player, options),
-            closeDialog: (player, dialogId) => deps.widgetDialogHandler.closeDialog(player, dialogId),
+            openDialogOptions: (player, options) =>
+                deps.widgetDialogHandler.openDialogOptions(player, options),
+            closeDialog: (player, dialogId) =>
+                deps.widgetDialogHandler.closeDialog(player, dialogId),
             closeInterruptibleInterfaces: (player) => deps.closeInterruptibleInterfaces(player),
             openSubInterface: (player, targetUid, groupId, type = 0, opts) => {
                 if (type === 0 || type === 1) {
@@ -345,18 +581,26 @@ export function buildScriptServices(deps: ScriptServiceAdapterDeps): ScriptServi
                         });
                     }
                     player.widgets.open(groupId, {
-                        targetUid, type,
+                        targetUid,
+                        type,
                         modal,
-                        varps: opts?.varps, varbits: opts?.varbits,
-                        preScripts: opts?.preScripts, postScripts: opts?.postScripts,
+                        varps: opts?.varps,
+                        varbits: opts?.varbits,
+                        preScripts: opts?.preScripts,
+                        postScripts: opts?.postScripts,
                         hiddenUids: opts?.hiddenUids,
                     });
                     return;
                 }
                 deps.queueWidgetEvent(player.id, {
-                    action: "open_sub", targetUid, groupId, type,
-                    varps: opts?.varps, varbits: opts?.varbits,
-                    preScripts: opts?.preScripts, postScripts: opts?.postScripts,
+                    action: "open_sub",
+                    targetUid,
+                    groupId,
+                    type,
+                    varps: opts?.varps,
+                    varbits: opts?.varbits,
+                    preScripts: opts?.preScripts,
+                    postScripts: opts?.postScripts,
                     hiddenUids: opts?.hiddenUids,
                 });
             },
@@ -376,8 +620,10 @@ export function buildScriptServices(deps: ScriptServiceAdapterDeps): ScriptServi
                     if (intf.groupId === SIDE_JOURNAL_GROUP_ID) continue;
                     const hideXpCounterOnOpen = intf.groupId === 122 && !xpDropsEnabled;
                     player.widgets?.open(intf.groupId, {
-                        targetUid: intf.targetUid, type: intf.type,
-                        modal: false, postScripts: intf.postScripts,
+                        targetUid: intf.targetUid,
+                        type: intf.type,
+                        modal: false,
+                        postScripts: intf.postScripts,
                         hiddenUids: hideXpCounterOnOpen ? [intf.targetUid] : undefined,
                     });
                 }
@@ -390,7 +636,14 @@ export function buildScriptServices(deps: ScriptServiceAdapterDeps): ScriptServi
             teleportPlayer: (player, x, y, level, forceRebuild) =>
                 deps.movementService.teleportPlayer(player, x, y, level, forceRebuild),
             teleportToInstance: (player, x, y, level, templateChunks, extraLocs) =>
-                deps.movementService.teleportToInstance(player, x, y, level, templateChunks, extraLocs),
+                deps.movementService.teleportToInstance(
+                    player,
+                    x,
+                    y,
+                    level,
+                    templateChunks,
+                    extraLocs,
+                ),
             requestTeleportAction: (player, request) =>
                 deps.movementService.requestTeleportAction(player, request),
             queueForcedMovement: (player, params) => {
@@ -407,9 +660,12 @@ export function buildScriptServices(deps: ScriptServiceAdapterDeps): ScriptServi
                 const endY = (params.endTile.y << 7) + 64;
                 deps.enqueueForcedMovement({
                     targetId: player.id,
-                    startDeltaX: params.startTile.x - player.tileX, startDeltaY: params.startTile.y - player.tileY,
-                    endDeltaX: params.endTile.x - player.tileX, endDeltaY: params.endTile.y - player.tileY,
-                    startCycle: normalizedStartTick, endCycle: normalizedEndTick,
+                    startDeltaX: params.startTile.x - player.tileX,
+                    startDeltaY: params.startTile.y - player.tileY,
+                    endDeltaX: params.endTile.x - player.tileX,
+                    endDeltaY: params.endTile.y - player.tileY,
+                    startCycle: normalizedStartTick,
+                    endCycle: normalizedEndTick,
                     direction: params.direction ?? faceAngleRs(startX, startY, endX, endY),
                 });
             },
@@ -418,11 +674,15 @@ export function buildScriptServices(deps: ScriptServiceAdapterDeps): ScriptServi
         location: {
             doorManager: deps.doorManager,
             resolveLocTransformId: (player, locDef) => resolveLocTransformId(player, locDef),
-            emitLocChange: (oldId, newId, tile, level, opts) => deps.locationService.emitLocChange(oldId, newId, tile, level, opts),
-            sendLocChangeToPlayer: (player, oldId, newId, tile, level) => deps.locationService.sendLocChangeToPlayer(player, oldId, newId, tile, level),
-            spawnLocForPlayer: (player, locId, tile, level, shape, rotation) => deps.locationService.spawnLocForPlayer(player, locId, tile, level, shape, rotation),
+            emitLocChange: (oldId, newId, tile, level, opts) =>
+                deps.locationService.emitLocChange(oldId, newId, tile, level, opts),
+            sendLocChangeToPlayer: (player, oldId, newId, tile, level) =>
+                deps.locationService.sendLocChangeToPlayer(player, oldId, newId, tile, level),
+            spawnLocForPlayer: (player, locId, tile, level, shape, rotation) =>
+                deps.locationService.spawnLocForPlayer(player, locId, tile, level, shape, rotation),
             triggerLocEffect: () => false, // replaced below with self-referencing version
-            isAdjacentToLoc: (player, locId, tile, level) => deps.locationService.isAdjacentToLoc(player, locId, tile, level),
+            isAdjacentToLoc: (player, locId, tile, level) =>
+                deps.locationService.isAdjacentToLoc(player, locId, tile, level),
             isAdjacentToNpc: (player, npc) => deps.locationService.isAdjacentToNpc(player, npc),
             faceTile: (player, tile) => deps.locationService.faceTile(player, tile),
         },
@@ -430,34 +690,48 @@ export function buildScriptServices(deps: ScriptServiceAdapterDeps): ScriptServi
             requestAction: (player, request, currentTick) => {
                 try {
                     const groups = Array.isArray(request?.groups) ? request.groups : [];
-                    if (groups.includes("skill.woodcut")) deps.actionScheduler.clearActionsInGroup(player.id, "skill.woodcut");
+                    if (groups.includes("skill.woodcut"))
+                        deps.actionScheduler.clearActionsInGroup(player.id, "skill.woodcut");
                 } catch {}
                 return deps.actionScheduler.requestAction(
-                    player.id, request,
+                    player.id,
+                    request,
                     Number.isFinite(currentTick) ? (currentTick as number) : deps.getCurrentTick(),
                 );
             },
             applyPrayers: (player, prayers) => deps.prayerSystem.applySelection(player, prayers),
             setCombatSpell: undefined,
-            queueCombatState: (player) => deps.queueCombatSnapshot(
-                player.id,
-                player.combat?.weaponCategory ?? 0,
-                player.combat?.weaponItemId ?? -1,
-                player.combat?.autoRetaliate ?? true,
-                player.combat?.styleSlot,
-                undefined,
-                player.combat?.spellId !== undefined && player.combat.spellId >= 0 ? player.combat.spellId : undefined,
-            ),
+            queueCombatState: (player) =>
+                deps.queueCombatSnapshot(
+                    player.id,
+                    player.combat?.weaponCategory ?? 0,
+                    player.combat?.weaponItemId ?? -1,
+                    player.combat?.autoRetaliate ?? true,
+                    player.combat?.styleSlot,
+                    undefined,
+                    player.combat?.spellId !== undefined && player.combat.spellId >= 0
+                        ? player.combat.spellId
+                        : undefined,
+                ),
             getNpc: (id) => deps.npcManager?.getById(id) ?? undefined,
             isPlayerStunned: (player) => player.timers.has(STUN_TIMER),
             isPlayerInCombat: (player) => player.isBeingAttacked(),
-            applyPlayerHitsplat: (player, style, damage, tick) => deps.combatEffectApplicator.applyPlayerHitsplat(player, style, damage, tick),
-            stunPlayer: (player, ticks) => { player.timers.set(STUN_TIMER, ticks); },
-            scheduleAction: (playerId, request, tick) => deps.actionScheduler.requestAction(playerId, request, tick),
-            clearPlayerFaceTarget: (player) => { try { player.clearInteraction(); } catch {} },
+            applyPlayerHitsplat: (player, style, damage, tick) =>
+                deps.combatEffectApplicator.applyPlayerHitsplat(player, style, damage, tick),
+            stunPlayer: (player, ticks) => {
+                player.timers.set(STUN_TIMER, ticks);
+            },
+            scheduleAction: (playerId, request, tick) =>
+                deps.actionScheduler.requestAction(playerId, request, tick),
+            clearPlayerFaceTarget: (player) => {
+                try {
+                    player.clearInteraction();
+                } catch {}
+            },
             getDropEligibility: (npc) => deps.damageTracker.getDropEligibility(npc),
             clearNpcDamageRecords: (npc) => deps.damageTracker.clearNpc(npc),
-            getLastAttacker: (actor, currentTick) => deps.multiCombatSystem.getLastAttacker(actor, currentTick),
+            getLastAttacker: (actor, currentTick) =>
+                deps.multiCombatSystem.getLastAttacker(actor, currentTick),
             isMultiCombat: (x, y, plane) => deps.multiCombatSystem.isMultiCombat(x, y, plane),
             applyAutocastState: (player, spellId, autocastIndex, isDefensive, callbacks) =>
                 applyAutocastState(player, spellId, autocastIndex, isDefensive, callbacks),
@@ -468,15 +742,24 @@ export function buildScriptServices(deps: ScriptServiceAdapterDeps): ScriptServi
         npc: {
             spawnNpc: (config) => deps.npcManager?.spawnTransientNpc(config),
             removeNpc: (npcId) => deps.npcManager?.removeNpc(npcId) ?? false,
-            queueNpcForcedChat: (npc, text) => { npc.pendingSay = text; },
-            queueNpcSeq: (npc, seqId) => { npc.queueOneShotSeq(seqId); },
-            faceNpcToPlayer: (npc, player) => { npc.faceTile(player.tileX, player.tileY); },
+            queueNpcForcedChat: (npc, text) => {
+                npc.pendingSay = text;
+            },
+            queueNpcSeq: (npc, seqId) => {
+                npc.queueOneShotSeq(seqId);
+            },
+            faceNpcToPlayer: (npc, player) => {
+                npc.faceTile(player.tileX, player.tileY);
+            },
         },
         collectionLog: {
-            sendCollectionLogSnapshot: (player) => deps.collectionLogService.sendCollectionLogSnapshot(player),
+            sendCollectionLogSnapshot: (player) =>
+                deps.collectionLogService.sendCollectionLogSnapshot(player),
             openCollectionLog: (player) => deps.collectionLogService.openCollectionLog(player),
-            openCollectionOverview: (player) => deps.collectionLogService.openCollectionOverview(player),
-            populateCollectionLogCategories: (player, tabIndex) => deps.collectionLogService.populateCollectionLogCategories(player, tabIndex),
+            openCollectionOverview: (player) =>
+                deps.collectionLogService.openCollectionOverview(player),
+            populateCollectionLogCategories: (player, tabIndex) =>
+                deps.collectionLogService.populateCollectionLogCategories(player, tabIndex),
         },
         viewport: {
             getMainmodalUid: (displayMode) => getMainmodalUid(displayMode),

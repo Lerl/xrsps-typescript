@@ -1,16 +1,16 @@
 import { deflateSync } from "zlib";
 
 import { CustomItemRegistry } from "../../../src/custom/items/CustomItemRegistry";
-import { CustomWidgetRegistry } from "../../src/game/scripts/CustomWidgetRegistry";
 import { ServerPacketId } from "../../../src/shared/packets/ServerPacketId";
-import { LEAGUE_TASKS } from "./data/leagueTasks.data";
+import { CustomWidgetRegistry } from "../../src/game/scripts/CustomWidgetRegistry";
+import { getAllCustomChallenges, getAllCustomTasks } from "./data/custom";
+import "./data/custom-items/customItems";
 import {
     LEAGUE_MASTERY_CHALLENGES,
     LEAGUE_MASTERY_NODES,
     LEAGUE_RELICS,
 } from "./data/leagueMasteries.data";
-import { getAllCustomChallenges, getAllCustomTasks } from "./data/custom";
-import "./data/custom-items/customItems";
+import { LEAGUE_TASKS } from "./data/leagueTasks.data";
 
 export interface GamemodeDataPayload {
     gamemodeId: string;
@@ -63,7 +63,9 @@ export class LeagueContentProvider {
 
         this.cachedPacket = packet;
         console.log(
-            `[leagues-v] content data built: ${jsonBytes.length} bytes JSON → ${compressed.length} bytes compressed (${Math.round((compressed.length / jsonBytes.length) * 100)}%)`,
+            `[leagues-v] content data built: ${jsonBytes.length} bytes JSON → ${
+                compressed.length
+            } bytes compressed (${Math.round((compressed.length / jsonBytes.length) * 100)}%)`,
         );
     }
 

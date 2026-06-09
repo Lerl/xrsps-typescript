@@ -94,7 +94,13 @@ export class NpcUpdateDecoder {
             // Desync detected — reset local list and let server re-add everything
             for (const id of this.npcIndices) removals.push(id | 0);
             this.npcIndices = [];
-            return { spawns: [], removals, movements: [], updateBlocks: new Map(), localNpcIds: [] };
+            return {
+                spawns: [],
+                removals,
+                movements: [],
+                updateBlocks: new Map(),
+                localNpcIds: [],
+            };
         }
 
         const nextIndices: number[] = [];
@@ -302,12 +308,13 @@ export class NpcUpdateDecoder {
 
             // COLOR_OVERRIDE (0x100)
             if ((mask & 0x100) !== 0) {
-                const startCycle = ((opts.clientCycle | 0) + (stream.readUnsignedShortAdd() | 0)) | 0;
+                const startCycle =
+                    ((opts.clientCycle | 0) + (stream.readUnsignedShortAdd() | 0)) | 0;
                 const endCycle = ((opts.clientCycle | 0) + (stream.readUnsignedShortAdd() | 0)) | 0;
                 const hue = stream.readByteNeg();
                 const sat = stream.readByteSub();
                 const lum = stream.readByteNeg();
-                const amount = ((stream.readUnsignedByteSub() << 24) >> 24); // cast to signed byte
+                const amount = (stream.readUnsignedByteSub() << 24) >> 24; // cast to signed byte
                 block.colorOverride = { startCycle, endCycle, hue, sat, lum, amount };
             }
 

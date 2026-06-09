@@ -643,7 +643,8 @@ export function walkToAttackRange(
     const strategy =
         attackRange <= 1
             ? new CardinalAdjacentRouteStrategy(tx, tz, targetSize, targetSize)
-            : pawn instanceof PlayerState && resolvePlayerAttackType(pawn.combat) !== AttackType.Melee
+            : pawn instanceof PlayerState &&
+              resolvePlayerAttackType(pawn.combat) !== AttackType.Melee
             ? new RectWithinRangeLineOfSightRouteStrategy(
                   tx,
                   tz,

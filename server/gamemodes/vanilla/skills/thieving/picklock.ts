@@ -1,6 +1,11 @@
 import type { ActionEffect, ActionExecutionResult } from "../../../../src/game/actions/types";
 import type { PlayerState } from "../../../../src/game/player";
-import type { IScriptRegistry, LocInteractionEvent, ScriptActionHandlerContext, ScriptServices } from "../../../../src/game/scripts/types";
+import type {
+    IScriptRegistry,
+    LocInteractionEvent,
+    ScriptActionHandlerContext,
+    ScriptServices,
+} from "../../../../src/game/scripts/types";
 
 // ---------------------------------------------------------------------------
 // Picklock System
@@ -18,8 +23,8 @@ import type { IScriptRegistry, LocInteractionEvent, ScriptActionHandlerContext, 
 const TRAPDOOR_CLIMB_SOUND = 91;
 
 // -- Action handler constants --
-const PICKLOCK_FAIL_ANIM = 537;    // human_lockedchest
-const PICKLOCK_SUCCESS_ANIM = 536;  // human_openchest
+const PICKLOCK_FAIL_ANIM = 537; // human_lockedchest
+const PICKLOCK_SUCCESS_ANIM = 536; // human_openchest
 const PICKLOCK_SOUND = 2402;
 const PICKLOCK_CYCLE_TICKS = 5;
 const THIEVING_SKILL_ID = 17;
@@ -93,14 +98,17 @@ function executePicklockAction(ctx: ScriptActionHandlerContext): ActionExecution
     const thievingLevel = thievingSkill?.baseLevel ?? 1;
 
     if (thievingLevel < data.thievingLevel) {
-        effects.push(buildMessageEffect(player,
-            `You need a Thieving level of ${data.thievingLevel} to pick this lock.`));
+        effects.push(
+            buildMessageEffect(
+                player,
+                `You need a Thieving level of ${data.thievingLevel} to pick this lock.`,
+            ),
+        );
         return { ok: true, effects };
     }
 
     if (!data.started) {
-        effects.push(buildMessageEffect(player,
-            "You attempt to pick the lock on the trap door."));
+        effects.push(buildMessageEffect(player, "You attempt to pick the lock on the trap door."));
         services.sound.sendSound(player, PICKLOCK_SOUND);
 
         services.combat.scheduleAction(
@@ -198,25 +206,39 @@ export function register(registry: IScriptRegistry, _services: ScriptServices): 
             registry.registerLocInteraction(id, openLockedHandler, "open");
         }
 
-        registry.registerLocInteraction(def.openTransformId, (event) => {
-            const { player, tile, level, services } = event;
-            player.varps.setVarbitValue(def.varbitId, 0);
-            services.variables.sendVarbit?.(player, def.varbitId, 0);
-            services.location.sendLocChangeToPlayer(player, def.locId, def.locId, tile, level);
-        }, "close");
+        registry.registerLocInteraction(
+            def.openTransformId,
+            (event) => {
+                const { player, tile, level, services } = event;
+                player.varps.setVarbitValue(def.varbitId, 0);
+                services.variables.sendVarbit?.(player, def.varbitId, 0);
+                services.location.sendLocChangeToPlayer(player, def.locId, def.locId, tile, level);
+            },
+            "close",
+        );
 
-        registry.registerLocInteraction(def.locId, (event) => {
-            const { player, services } = event;
+        registry.registerLocInteraction(
+            def.locId,
+            (event) => {
+                const { player, services } = event;
 
-            services.messaging.sendGameMessage(player, "You climb down through the trapdoor...");
+                services.messaging.sendGameMessage(
+                    player,
+                    "You climb down through the trapdoor...",
+                );
 
-            player.varps.setVarbitValue(def.varbitId, 0);
-            services.variables.sendVarbit?.(player, def.varbitId, 0);
+                player.varps.setVarbitValue(def.varbitId, 0);
+                services.variables.sendVarbit?.(player, def.varbitId, 0);
 
-            services.movement.teleportPlayer(player, 3149, 9652, 0);
-            services.sound.sendSound(player, TRAPDOOR_CLIMB_SOUND);
+                services.movement.teleportPlayer(player, 3149, 9652, 0);
+                services.sound.sendSound(player, TRAPDOOR_CLIMB_SOUND);
 
-            services.messaging.sendGameMessage(player, "... and enter a dimly lit cavern area.");
-        }, "climb-down");
+                services.messaging.sendGameMessage(
+                    player,
+                    "... and enter a dimly lit cavern area.",
+                );
+            },
+            "climb-down",
+        );
     }
 }

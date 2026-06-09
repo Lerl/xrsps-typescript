@@ -15,6 +15,7 @@ import {
     PlayerState,
     normalizeSkillXpValue,
 } from "../player";
+import type { PersistenceProvider } from "./PersistenceProvider";
 import { DEFAULT_BANK_CAPACITY } from "./PlayerBankSystem";
 
 const DEFAULT_DATA_DIR = path.resolve(__dirname, "../../../data");
@@ -473,8 +474,6 @@ function mergeStates(
 
     return result;
 }
-
-import type { PersistenceProvider } from "./PersistenceProvider";
 
 export type { PersistenceProvider };
 

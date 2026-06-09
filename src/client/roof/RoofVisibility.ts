@@ -94,7 +94,7 @@ export function computeRoofPlaneCutoff<T extends MapSquare>(
     // Inverted logic: when removeRoofsAll is false, hide roofs (toggle ON)
     // When removeRoofsAll is true, use normal behavior (toggle OFF)
     const hideRoofsSetting = context.osrsClient.removeRoofsAll === false;
-    
+
     if (hideRoofsSetting) {
         // Hide ALL roofs regardless of player position
         return Math.min(playerRoofPlane, 3);
@@ -393,8 +393,14 @@ export function sampleBridgeHeightForWorldTile<T extends MapSquare>(
 
     // For instances, the height data may be at source coordinates while the map
     // is registered at instance coordinates. Use baseWorldX/Y if available.
-    const mapWorldX = typeof (map as any).baseWorldX === "number" ? (map as any).baseWorldX : mapX * Scene.MAP_SQUARE_SIZE;
-    const mapWorldY = typeof (map as any).baseWorldY === "number" ? (map as any).baseWorldY : mapY * Scene.MAP_SQUARE_SIZE;
+    const mapWorldX =
+        typeof (map as any).baseWorldX === "number"
+            ? (map as any).baseWorldX
+            : mapX * Scene.MAP_SQUARE_SIZE;
+    const mapWorldY =
+        typeof (map as any).baseWorldY === "number"
+            ? (map as any).baseWorldY
+            : mapY * Scene.MAP_SQUARE_SIZE;
     const localPxX = Math.floor((worldX - mapWorldX) * 128);
     const localPxY = Math.floor((worldY - mapWorldY) * 128);
 

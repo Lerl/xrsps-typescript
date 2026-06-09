@@ -684,11 +684,7 @@ const ALL_COMBAT_POTION_DEFS: CombatPotionDef[] = [
 // Helper functions
 // ============================================================================
 
-const formatItemName = (
-    services: ScriptServices,
-    itemId: number,
-    fallback?: string,
-): string => {
+const formatItemName = (services: ScriptServices, itemId: number, fallback?: string): string => {
     const raw = services.data.getObjType(itemId);
     const name = raw?.name ?? fallback ?? "food";
     return name.toLowerCase();
@@ -856,13 +852,18 @@ export function register(registry: IScriptRegistry, services: ScriptServices): v
                         if (def.skillBoosts) {
                             for (const boost of def.skillBoosts) {
                                 if (boost.relativeToBase !== undefined) {
-                                    const baseLevel = player.skillSystem.getSkill(boost.skillId).baseLevel;
+                                    const baseLevel = player.skillSystem.getSkill(
+                                        boost.skillId,
+                                    ).baseLevel;
                                     player.skillSystem.setSkillBoost(
                                         boost.skillId,
                                         baseLevel + boost.relativeToBase,
                                     );
                                 } else if (boost.targetLevel !== undefined) {
-                                    player.skillSystem.setSkillBoost(boost.skillId, boost.targetLevel);
+                                    player.skillSystem.setSkillBoost(
+                                        boost.skillId,
+                                        boost.targetLevel,
+                                    );
                                 } else if (boost.delta !== undefined) {
                                     player.skillSystem.adjustSkillBoost(boost.skillId, boost.delta);
                                 }
@@ -891,7 +892,8 @@ export function register(registry: IScriptRegistry, services: ScriptServices): v
                         if (def.extraMessages) {
                             messages.push(...def.extraMessages);
                         }
-                        for (const text of messages) services.messaging.sendGameMessage(player, text);
+                        for (const text of messages)
+                            services.messaging.sendGameMessage(player, text);
                     },
                 });
                 if (!ok) {
@@ -936,7 +938,10 @@ export function register(registry: IScriptRegistry, services: ScriptServices): v
                             player,
                             "You drink some of your stamina potion.",
                         );
-                        services.messaging.sendGameMessage(player, formatDoseMessage(def.dosesAfter));
+                        services.messaging.sendGameMessage(
+                            player,
+                            formatDoseMessage(def.dosesAfter),
+                        );
                     },
                 });
                 if (!ok) {
@@ -983,7 +988,10 @@ export function register(registry: IScriptRegistry, services: ScriptServices): v
                         const consumeText =
                             def.consumeMessage ?? `You drink some of your ${def.label}.`;
                         services.messaging.sendGameMessage(player, consumeText);
-                        services.messaging.sendGameMessage(player, formatDoseMessage(def.dosesAfter));
+                        services.messaging.sendGameMessage(
+                            player,
+                            formatDoseMessage(def.dosesAfter),
+                        );
                         if (def.extraMessages) {
                             for (const msg of def.extraMessages) {
                                 services.messaging.sendGameMessage(player, msg);
@@ -1030,7 +1038,10 @@ export function register(registry: IScriptRegistry, services: ScriptServices): v
                             player,
                             `You drink some of your ${def.label}.`,
                         );
-                        services.messaging.sendGameMessage(player, formatDoseMessage(def.dosesAfter));
+                        services.messaging.sendGameMessage(
+                            player,
+                            formatDoseMessage(def.dosesAfter),
+                        );
                     },
                 });
                 if (!ok) {

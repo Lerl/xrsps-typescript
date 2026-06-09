@@ -21,14 +21,10 @@ const ZERO_PERSISTENT_VARPS = new Set<number>([
 const NON_PERSISTENT_VARPS = new Set<number>([VARP_COMBAT_TARGET_PLAYER_INDEX]);
 
 /** Varbits that are session-only and must NOT be saved to disk. */
-const NON_PERSISTENT_VARBITS = new Set<number>([
-    VARBIT_HAM_TRAPDOOR,
-]);
+const NON_PERSISTENT_VARBITS = new Set<number>([VARBIT_HAM_TRAPDOOR]);
 
 /** Varbits that should persist even when their value is 0. */
-const ZERO_PERSISTENT_VARBITS = new Set<number>([
-    VARBIT_XPDROPS_ENABLED,
-]);
+const ZERO_PERSISTENT_VARBITS = new Set<number>([VARBIT_XPDROPS_ENABLED]);
 
 /** Default value for XP drops varbit when no persisted value exists. */
 const DEFAULT_XPDROPS_ENABLED = 1;

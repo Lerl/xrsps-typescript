@@ -10,12 +10,12 @@
  * - playCombatSounds / pickResolvedMagicSound (sound helpers)
  */
 import { logger } from "../../../utils/logger";
-import { getPoweredStaffSpellData } from "../../spells/SpellDataProvider";
-import type { PoweredStaffSpellData } from "../../spells/SpellDataProvider";
 import { AttackType } from "../../combat/AttackType";
 import { HITMARK_DAMAGE } from "../../combat/HitEffects";
 import type { NpcState } from "../../npc";
 import type { PlayerState } from "../../player";
+import { getPoweredStaffSpellData } from "../../spells/SpellDataProvider";
+import type { PoweredStaffSpellData } from "../../spells/SpellDataProvider";
 import type {
     CombatAttackActionData,
     CombatNpcRetaliateActionData,
@@ -345,7 +345,9 @@ export class NpcHitHandler {
         const respawnTick = Math.max(tick + RESPAWN_DELAY_TICKS, despawnTick + 1);
         try {
             npc.markDeadUntil(despawnTick, tick);
-        } catch (err) { logger.warn("[combat] failed to mark npc dead", err); }
+        } catch (err) {
+            logger.warn("[combat] failed to mark npc dead", err);
+        }
         const queued = this.services.queueNpcDeath(npc.id, despawnTick, respawnTick, pendingDrops);
         if (!queued) {
             this.services.log(
@@ -504,7 +506,7 @@ export class NpcHitHandler {
                 npcId: npc.id,
                 spotId: spotId,
                 delay: 0,
-                height: landed ? (spell?.impactSpotAnimHeight ?? 100) : 100,
+                height: landed ? spell?.impactSpotAnimHeight ?? 100 : 100,
             });
         }
 

@@ -21,8 +21,8 @@ import {
     TARGET_SEARCH_INTERVAL,
 } from "./combat/NpcCombatAI";
 import {
-    DEFAULT_NPC_WANDER_RADIUS,
     DEFAULT_NPC_COMBAT_PROFILE,
+    DEFAULT_NPC_WANDER_RADIUS,
     NpcCombatProfile,
     NpcSpawnConfig,
     NpcState,
@@ -358,7 +358,9 @@ export class NpcManager {
             if (hpParam !== undefined && hpParam > 0) {
                 return hpParam;
             }
-        } catch (err) { logger.warn("[npc] failed to resolve npc hp from params", err); }
+        } catch (err) {
+            logger.warn("[npc] failed to resolve npc hp from params", err);
+        }
         const combat = npcType.combatLevel;
         if (combat > 0) {
             return Math.max(1, Math.round(combat * 3));
@@ -383,7 +385,9 @@ export class NpcManager {
             if (speedParam !== undefined && speedParam >= 1 && speedParam <= 12) {
                 return speedParam;
             }
-        } catch (err) { logger.warn("[npc] failed to resolve npc attack speed", err); }
+        } catch (err) {
+            logger.warn("[npc] failed to resolve npc attack speed", err);
+        }
         // Default fallback: 4 ticks (2.4s) - most common NPC attack speed
         return 4;
     }
@@ -416,7 +420,9 @@ export class NpcManager {
             if (hasAttack) {
                 return true;
             }
-        } catch (err) { logger.warn("[npc] failed to check npc attackable status", err); }
+        } catch (err) {
+            logger.warn("[npc] failed to check npc attackable status", err);
+        }
         return false;
     }
 
@@ -610,7 +616,9 @@ export class NpcManager {
                 if (!a) continue;
                 if (a.trim().toLowerCase() === target) return true;
             }
-        } catch (err) { logger.warn("[npc] failed to check npc action", err); }
+        } catch (err) {
+            logger.warn("[npc] failed to check npc action", err);
+        }
         return false;
     }
 
@@ -769,7 +777,7 @@ export class NpcManager {
             ids: ReadonlySet<number> | undefined,
         ): IterableIterator<NpcState> {
             if (!ids) {
-                // Sort all NPCs by ID for 
+                // Sort all NPCs by ID for
                 const sortedNpcs = Array.from(npcs.values()).sort((a, b) => a.id - b.id);
                 yield* sortedNpcs;
                 return;
@@ -839,14 +847,13 @@ export class NpcManager {
                     if (targetPlayer) {
                         const attackType = resolveNpcAttackType(npc);
                         const attackRange = resolveNpcAttackRange(npc, attackType);
-                        const canAttackFromCurrentPosition =
-                            canNpcAttackPlayerFromCurrentPosition(
-                                npc,
-                                targetPlayer,
-                                attackRange,
-                                attackType,
-                                { pathService: this.pathService },
-                            );
+                        const canAttackFromCurrentPosition = canNpcAttackPlayerFromCurrentPosition(
+                            npc,
+                            targetPlayer,
+                            attackRange,
+                            attackType,
+                            { pathService: this.pathService },
+                        );
 
                         if (!canAttackFromCurrentPosition) {
                             this.queueNpcPathToward(
@@ -1169,11 +1176,7 @@ export class NpcManager {
             npc.stopSpawnRecovery();
             return;
         }
-        this.queueNpcPathToward(
-            npc,
-            { x: npc.spawnX, y: npc.spawnY },
-            { maxQueuedSteps: 2 },
-        );
+        this.queueNpcPathToward(npc, { x: npc.spawnX, y: npc.spawnY }, { maxQueuedSteps: 2 });
     }
 
     private queueNpcPathToward(
@@ -1281,7 +1284,9 @@ export class NpcManager {
         const radius = Math.max(0, npc.aggressionRadius);
         for (let dx = -radius; dx <= radius; dx++) {
             for (let dy = -radius; dy <= radius; dy++) {
-                const bucket = playersByTile.get(tileKey(npc.tileX + dx, npc.tileY + dy, npc.level));
+                const bucket = playersByTile.get(
+                    tileKey(npc.tileX + dx, npc.tileY + dy, npc.level),
+                );
                 if (!bucket || bucket.length === 0) {
                     continue;
                 }
@@ -1299,7 +1304,8 @@ export class NpcManager {
                     continue;
                 }
                 const target =
-                    validTargets[Math.floor(Math.random() * validTargets.length)] ?? validTargets[0];
+                    validTargets[Math.floor(Math.random() * validTargets.length)] ??
+                    validTargets[0];
                 npc.engageCombat(target.id, currentTick);
                 npc.recordAttack(currentTick);
                 return {
@@ -1395,11 +1401,18 @@ export class NpcManager {
             // Spawn pending drops at despawn time (RSMod parity)
             if (entry.pendingDrops && this.groundItemSpawner) {
                 for (const drop of entry.pendingDrops) {
-                    this.groundItemSpawner(drop.itemId, drop.quantity, drop.tile, currentTick, {
-                        ownerId: drop.ownerId,
-                        isMonsterDrop: drop.isMonsterDrop,
-                        privateTicks: drop.isWilderness ? 0 : undefined,
-                    }, drop.worldViewId);
+                    this.groundItemSpawner(
+                        drop.itemId,
+                        drop.quantity,
+                        drop.tile,
+                        currentTick,
+                        {
+                            ownerId: drop.ownerId,
+                            isMonsterDrop: drop.isMonsterDrop,
+                            privateTicks: drop.isWilderness ? 0 : undefined,
+                        },
+                        drop.worldViewId,
+                    );
                 }
             }
 

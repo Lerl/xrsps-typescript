@@ -128,7 +128,8 @@ export class SceneRaycaster {
     private getPreferredMapForWorldTile(tileX: number, tileY: number): WebGLMapSquare | undefined {
         const preferredWorldViewId = this.getControlledPlayerWorldViewId();
         if (preferredWorldViewId >= 0) {
-            const preferredView = this.osrsClient.worldViewManager.getWorldView(preferredWorldViewId);
+            const preferredView =
+                this.osrsClient.worldViewManager.getWorldView(preferredWorldViewId);
             if (preferredView?.containsTile(tileX | 0, tileY | 0)) {
                 const overlayMap = this.osrsClient.worldViewManager.getOverlayMapSquare(
                     preferredWorldViewId,
@@ -139,10 +140,9 @@ export class SceneRaycaster {
                 }
             }
         }
-        return this.mapManager.getMap(
-            getMapIndexFromTile(tileX),
-            getMapIndexFromTile(tileY),
-        ) as WebGLMapSquare | undefined;
+        return this.mapManager.getMap(getMapIndexFromTile(tileX), getMapIndexFromTile(tileY)) as
+            | WebGLMapSquare
+            | undefined;
     }
 
     private getMapLocalTile(
@@ -153,12 +153,7 @@ export class SceneRaycaster {
         const mapTileSpan = map.getLocalTileSpan();
         const localX = (tileX | 0) - map.getRenderBaseTileX();
         const localY = (tileY | 0) - map.getRenderBaseTileY();
-        if (
-            localX < 0 ||
-            localY < 0 ||
-            localX >= mapTileSpan ||
-            localY >= mapTileSpan
-        ) {
+        if (localX < 0 || localY < 0 || localX >= mapTileSpan || localY >= mapTileSpan) {
             return undefined;
         }
         return { x: localX | 0, y: localY | 0 };

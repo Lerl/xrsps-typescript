@@ -1,6 +1,41 @@
-import { type ActionEffect, type ActionEnqueueResult, type ActionExecutionResult, type ActionKind, type ActionRequest } from "../actions";
+import {
+    type ActionEffect,
+    type ActionEnqueueResult,
+    type ActionExecutionResult,
+    type ActionKind,
+    type ActionRequest,
+} from "../actions";
 import { type NpcSpawnConfig, type NpcState } from "../npc";
 import { type PlayerState } from "../player";
+import type {
+    AnimationFacade,
+    AppearanceFacade,
+    BankingServices,
+    CollectionLogFacade,
+    CombatFacade,
+    DataLoaderFacade,
+    DialogFacade,
+    EquipmentFacade,
+    FollowerServiceFacade,
+    GatheringServices,
+    InventoryFacade,
+    LocationFacade,
+    MessagingFacade,
+    ModalActionHandler,
+    MovementFacade,
+    NpcFacade,
+    ProductionServiceFacade,
+    ProviderRegistrationFacade,
+    SailingServiceFacade,
+    ShoppingServices,
+    SkillFacade,
+    SoundFacade,
+    SystemFacade,
+    VariableFacade,
+    ViewportFacade,
+    WidgetCloseHandler,
+    WidgetOpenHandler,
+} from "./serviceInterfaces";
 
 export const ANY_ITEM_ID = -1;
 export const ANY_LOC_ID = -1;
@@ -123,9 +158,7 @@ export interface ScriptActionHandlerContext {
     services: ScriptServices;
 }
 
-export type ScriptActionHandler = (
-    ctx: ScriptActionHandlerContext,
-) => ActionExecutionResult;
+export type ScriptActionHandler = (ctx: ScriptActionHandlerContext) => ActionExecutionResult;
 
 export interface ScriptDialogOptionRequest {
     id: string;
@@ -294,10 +327,7 @@ export interface IScriptRegistry {
         handler: ClientMessageHandler,
     ): ScriptRegistrationResult;
     findClientMessageHandler(messageType: string): ClientMessageHandler | undefined;
-    registerActionHandler(
-        kind: string,
-        handler: ScriptActionHandler,
-    ): ScriptRegistrationResult;
+    registerActionHandler(kind: string, handler: ScriptActionHandler): ScriptRegistrationResult;
     findActionHandler(kind: string): ScriptActionHandler | undefined;
 }
 
@@ -305,10 +335,36 @@ export interface ScriptRegistrationResult {
     unregister(): void;
 }
 
-export { type BankingServices, type ShoppingServices, type GatheringServices, type WidgetCloseHandler, type WidgetOpenHandler, type ModalActionHandler, type ProviderRegistrationFacade } from "./serviceInterfaces";
-export { DisplayMode, BaseComponentUids, type InterfaceMount, type SmithingOptionMessage, type SmithingServerPayload, type WidgetAction } from "./serviceInterfaces";
-export { getMainmodalUid, getSidemodalUid, getPrayerTabUid, getViewportTrackerFrontUid } from "../../widgets/viewport";
-export type { DoorToggleResult, GateDef, GatePair, GateOpenStyle, DoorPartnerResult } from "./serviceInterfaces";
+export {
+    type BankingServices,
+    type ShoppingServices,
+    type GatheringServices,
+    type WidgetCloseHandler,
+    type WidgetOpenHandler,
+    type ModalActionHandler,
+    type ProviderRegistrationFacade,
+} from "./serviceInterfaces";
+export {
+    DisplayMode,
+    BaseComponentUids,
+    type InterfaceMount,
+    type SmithingOptionMessage,
+    type SmithingServerPayload,
+    type WidgetAction,
+} from "./serviceInterfaces";
+export {
+    getMainmodalUid,
+    getSidemodalUid,
+    getPrayerTabUid,
+    getViewportTrackerFrontUid,
+} from "../../widgets/viewport";
+export type {
+    DoorToggleResult,
+    GateDef,
+    GatePair,
+    GateOpenStyle,
+    DoorPartnerResult,
+} from "./serviceInterfaces";
 export type { FollowerItemDefinition } from "./serviceInterfaces";
 
 // Re-exports for gamemode consumption (avoid reaching into core impl files)
@@ -334,15 +390,17 @@ export type { TeleportSpellData } from "./serviceInterfaces";
 export { WaitCondition } from "./serviceInterfaces";
 export { HOME_TELEPORT_TIMER } from "./serviceInterfaces";
 export { RuneValidator } from "./serviceInterfaces";
-export type { RuneInventoryItem, RuneValidationResult, SkillBoltEnchantActionData } from "./serviceInterfaces";
+export type {
+    RuneInventoryItem,
+    RuneValidationResult,
+    SkillBoltEnchantActionData,
+} from "./serviceInterfaces";
 export { getItemDefinition, loadItemDefinitions } from "./serviceInterfaces";
 export type { ItemDefinition, WeaponInterface } from "./serviceInterfaces";
 export { damageTracker, multiCombatSystem } from "./serviceInterfaces";
 export type { DropEligibility, NpcLootConfig } from "./serviceInterfaces";
 export { applyAutocastState, clearAutocastState } from "./serviceInterfaces";
 export { getEmoteSeq, getSkillcapeSeqId, getSkillcapeSpotId } from "./serviceInterfaces";
-
-import type { GatheringServices, MessagingFacade, VariableFacade, SkillFacade, DataLoaderFacade, SystemFacade, InventoryFacade, EquipmentFacade, AnimationFacade, SoundFacade, AppearanceFacade, DialogFacade, MovementFacade, LocationFacade, CombatFacade, NpcFacade, CollectionLogFacade, ViewportFacade, FollowerServiceFacade, ProductionServiceFacade, SailingServiceFacade, BankingServices, ShoppingServices, WidgetCloseHandler, WidgetOpenHandler, ModalActionHandler, ProviderRegistrationFacade } from "./serviceInterfaces";
 
 export interface ScriptServices extends GatheringServices {
     messaging: MessagingFacade;

@@ -1,5 +1,5 @@
-import type { PlayerInventoryState } from "./PlayerInventoryState";
 import type { BankEntry, BankSnapshotEntry } from "../player";
+import type { PlayerInventoryState } from "./PlayerInventoryState";
 
 export const DEFAULT_BANK_CAPACITY = 800;
 

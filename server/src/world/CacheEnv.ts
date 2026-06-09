@@ -1,7 +1,7 @@
 import path from "path";
 
-import { CacheIndexDat2 } from "../../../src/rs/cache/CacheIndex";
 import { CacheFiles } from "../../../src/rs/cache/CacheFiles";
+import { CacheIndexDat2 } from "../../../src/rs/cache/CacheIndex";
 import { CacheInfo } from "../../../src/rs/cache/CacheInfo";
 import { CacheSystem } from "../../../src/rs/cache/CacheSystem";
 import { detectCacheType } from "../../../src/rs/cache/CacheType";
@@ -83,7 +83,9 @@ export function initCacheEnv(rootDir: string, name?: string): CacheEnv {
     let models: CacheIndexDat2 | undefined = undefined;
     try {
         models = CacheIndexDat2.fromStore(IndexType.DAT2.models, store);
-    } catch (err) { logger.info("[cache] failed to load models index", err); }
+    } catch (err) {
+        logger.info("[cache] failed to load models index", err);
+    }
 
     const mapFileIndex: MapFileIndex = new Dat2MapIndex(maps);
 

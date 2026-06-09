@@ -5,8 +5,13 @@ import type {
     ForcedMovementBroadcast,
     PendingSpotAnimation,
 } from "../game/systems/BroadcastScheduler";
-import { encodeMessage, type SmithingServerPayload, type SpellResultPayload, type TradeServerPayload } from "./messages";
 import { logger } from "../utils/logger";
+import {
+    type SmithingServerPayload,
+    type SpellResultPayload,
+    type TradeServerPayload,
+    encodeMessage,
+} from "./messages";
 
 const NPC_STREAM_RADIUS_TILES = 15;
 const NPC_STREAM_EXIT_RADIUS_TILES = NPC_STREAM_RADIUS_TILES + 2;
@@ -219,11 +224,7 @@ export class BroadcastService {
         this.svc.broadcastScheduler.queueKeyedMessage("trade", playerId, payload);
     }
 
-    queueClientScript(
-        playerId: number,
-        scriptId: number,
-        ...args: (number | string)[]
-    ): void {
+    queueClientScript(playerId: number, scriptId: number, ...args: (number | string)[]): void {
         logger.info?.(
             `[clientScript] queue player=${playerId} script=${scriptId} args=${JSON.stringify(
                 args,

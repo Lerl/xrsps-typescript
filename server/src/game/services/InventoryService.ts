@@ -1,14 +1,14 @@
 import type { WebSocket } from "ws";
 
-import { logger } from "../../utils/logger";
-import { encodeMessage } from "../../network/messages";
 import { getItemDefinition } from "../../data/items";
+import { encodeMessage } from "../../network/messages";
+import { logger } from "../../utils/logger";
+import type { ServerServices } from "../ServerServices";
 import {
     type OwnedItemLocation,
     findOwnedItemLocation as findOwnedItemLocationInSnapshot,
 } from "../items/playerItemOwnership";
-import type { PlayerState, InventoryEntry, InventoryAddResult } from "../player";
-import type { ServerServices } from "../ServerServices";
+import type { InventoryAddResult, InventoryEntry, PlayerState } from "../player";
 
 /**
  * Manages player inventory operations: get/set/add/consume/find/snapshot.
@@ -21,20 +21,11 @@ export class InventoryService {
         return p.getInventoryEntries();
     }
 
-    setInventorySlot(
-        p: PlayerState,
-        slotIndex: number,
-        itemId: number,
-        quantity: number,
-    ): void {
+    setInventorySlot(p: PlayerState, slotIndex: number, itemId: number, quantity: number): void {
         p.setInventorySlot(slotIndex, itemId, quantity);
     }
 
-    addItemToInventory(
-        p: PlayerState,
-        itemId: number,
-        quantity: number,
-    ): InventoryAddResult {
+    addItemToInventory(p: PlayerState, itemId: number, quantity: number): InventoryAddResult {
         const result = p.items.addItem(itemId, quantity, { assureFullInsertion: true });
         if (result.completed === 0 || result.slots.length === 0) {
             return { slot: -1, added: 0 };
@@ -92,10 +83,7 @@ export class InventoryService {
         return ids;
     }
 
-    findOwnedItemLocation(
-        player: PlayerState,
-        itemId: number,
-    ): OwnedItemLocation | undefined {
+    findOwnedItemLocation(player: PlayerState, itemId: number): OwnedItemLocation | undefined {
         try {
             return findOwnedItemLocationInSnapshot(itemId, {
                 inventory: this.getInventory(player),
@@ -126,7 +114,8 @@ export class InventoryService {
     queueInventorySnapshot(playerId: number): void {
         const frame = this.svc.activeFrame;
         if (frame) {
-            if (frame.inventorySnapshots.some((s: { playerId: number }) => s.playerId === playerId)) return;
+            if (frame.inventorySnapshots.some((s: { playerId: number }) => s.playerId === playerId))
+                return;
             frame.inventorySnapshots.push({ playerId });
             return;
         }
@@ -166,18 +155,16 @@ export class InventoryService {
         try {
             const sock = this.svc.players?.getSocketByPlayerId(player.id);
             if (sock) this.sendInventorySnapshot(sock, player);
-        } catch (err) { logger.warn("[inventory] failed to snapshot inventory", err); }
+        } catch (err) {
+            logger.warn("[inventory] failed to snapshot inventory", err);
+        }
     }
 
     snapshotInventoryImmediate(player: PlayerState): void {
         this.snapshotInventory(player);
     }
 
-    restoreInventoryItems(
-        player: PlayerState,
-        itemId: number,
-        removed: Map<number, number>,
-    ): void {
+    restoreInventoryItems(player: PlayerState, itemId: number, removed: Map<number, number>): void {
         if (removed.size === 0) return;
         const inv = this.getInventory(player);
         for (const [slot, qty] of removed.entries()) {

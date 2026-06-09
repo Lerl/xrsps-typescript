@@ -194,7 +194,10 @@ export class DoorRuntimeTileMappingStore {
                         closed,
                         opened,
                         count: Math.max(1, pair.count),
-                        lastObserved: pair.lastObserved.length > 0 ? pair.lastObserved : new Date(0).toISOString(),
+                        lastObserved:
+                            pair.lastObserved.length > 0
+                                ? pair.lastObserved
+                                : new Date(0).toISOString(),
                     });
                 }
 

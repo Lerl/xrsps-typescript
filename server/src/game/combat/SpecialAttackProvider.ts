@@ -1,8 +1,10 @@
+// =============================================================================
+// Provider Registration & Delegation
+// =============================================================================
+import { getProviderRegistry } from "../providers/ProviderRegistry";
 import type { AttackType } from "./AttackType";
 
-// =============================================================================
 // Types
-// =============================================================================
 
 export interface SpecialAttackEffect {
     freezeTicks?: number;
@@ -118,18 +120,12 @@ export interface SpecialAttackProvider {
     ): number;
     isDarkBow(weaponId: number): boolean;
     calculateDragonClawsHits(maxHit: number, hitRolls: number[]): number[];
-    canGraniteMaulCombo(
-        weaponId: number,
-        lastAttackTick: number,
-        currentTick: number,
-    ): boolean;
+    canGraniteMaulCombo(weaponId: number, lastAttackTick: number, currentTick: number): boolean;
 }
 
 // =============================================================================
-// Provider Registration & Delegation
-// =============================================================================
 
-import { getProviderRegistry } from "../providers/ProviderRegistry";
+// =============================================================================
 
 export function registerSpecialAttackProvider(provider: SpecialAttackProvider): void {
     getProviderRegistry().specialAttack = provider;
@@ -142,7 +138,9 @@ export function getSpecialAttackProvider(): SpecialAttackProvider | undefined {
 function ensureProvider(): SpecialAttackProvider {
     const p = getProviderRegistry().specialAttack;
     if (!p) {
-        throw new Error("[SpecialAttackRegistry] SpecialAttackProvider not registered. Ensure the gamemode has initialized.");
+        throw new Error(
+            "[SpecialAttackRegistry] SpecialAttackProvider not registered. Ensure the gamemode has initialized.",
+        );
     }
     return p;
 }

@@ -1,8 +1,5 @@
 import { CustomItemBuilder } from "../../../src/custom/items/CustomItemBuilder";
 import { CustomItemRegistry } from "../../../src/custom/items/CustomItemRegistry";
-import { CustomWidgetRegistry } from "../../src/game/scripts/CustomWidgetRegistry";
-import type { PlayerState } from "../../src/game/player";
-import type { IScriptRegistry, ScriptServices, WidgetActionEvent } from "../../src/game/scripts/types";
 import {
     ITEM_SPAWNER_MODAL_COMPONENT_BODY,
     ITEM_SPAWNER_MODAL_COMPONENT_CLOSE,
@@ -18,6 +15,13 @@ import {
     ITEM_SPAWNER_MODAL_GROUP_ID,
     ITEM_SPAWNER_MODAL_RESULT_SLOT_COUNT,
 } from "../../../src/shared/ui/widgets";
+import type { PlayerState } from "../../src/game/player";
+import { CustomWidgetRegistry } from "../../src/game/scripts/CustomWidgetRegistry";
+import type {
+    IScriptRegistry,
+    ScriptServices,
+    WidgetActionEvent,
+} from "../../src/game/scripts/types";
 import { buildItemSpawnerModalGroup } from "./widget/itemSpawner.cs2";
 
 const ITEM_SPAWNER_ID = 50100;
@@ -61,11 +65,20 @@ function normalizeQuery(query: string | undefined): string {
         .trim();
 }
 
-function queueWidgetEvent(services: WidgetActionEvent["services"], playerId: number, event: any): void {
+function queueWidgetEvent(
+    services: WidgetActionEvent["services"],
+    playerId: number,
+    event: any,
+): void {
     services.dialog.queueWidgetEvent?.(playerId, event);
 }
 
-function runScript(services: WidgetActionEvent["services"], playerId: number, scriptId: number, args: Array<number | string>): void {
+function runScript(
+    services: WidgetActionEvent["services"],
+    playerId: number,
+    scriptId: number,
+    args: Array<number | string>,
+): void {
     queueWidgetEvent(services, playerId, {
         action: "run_script",
         scriptId,
@@ -73,7 +86,12 @@ function runScript(services: WidgetActionEvent["services"], playerId: number, sc
     });
 }
 
-function setWidgetText(services: WidgetActionEvent["services"], playerId: number, componentId: number, text: string): void {
+function setWidgetText(
+    services: WidgetActionEvent["services"],
+    playerId: number,
+    componentId: number,
+    text: string,
+): void {
     queueWidgetEvent(services, playerId, {
         action: "set_text",
         uid: getWidgetUid(ITEM_SPAWNER_MODAL_GROUP_ID, componentId),
@@ -81,7 +99,12 @@ function setWidgetText(services: WidgetActionEvent["services"], playerId: number
     });
 }
 
-function setWidgetHidden(services: WidgetActionEvent["services"], playerId: number, componentId: number, hidden: boolean): void {
+function setWidgetHidden(
+    services: WidgetActionEvent["services"],
+    playerId: number,
+    componentId: number,
+    hidden: boolean,
+): void {
     queueWidgetEvent(services, playerId, {
         action: "set_hidden",
         uid: getWidgetUid(ITEM_SPAWNER_MODAL_GROUP_ID, componentId),
@@ -89,7 +112,10 @@ function setWidgetHidden(services: WidgetActionEvent["services"], playerId: numb
     });
 }
 
-function applyItemSpawnerLayout(services: WidgetActionEvent["services"], player: PlayerState): void {
+function applyItemSpawnerLayout(
+    services: WidgetActionEvent["services"],
+    player: PlayerState,
+): void {
     const playerId = player.id;
     runScript(services, playerId, SCRIPT_STEELBORDER_NOCLOSE, [
         getWidgetUid(ITEM_SPAWNER_MODAL_GROUP_ID, ITEM_SPAWNER_MODAL_COMPONENT_FRAME),
@@ -119,7 +145,11 @@ function applyItemSpawnerLayout(services: WidgetActionEvent["services"], player:
     );
 }
 
-function openItemSpawnerModal(services: WidgetActionEvent["services"], player: PlayerState, query?: string): string {
+function openItemSpawnerModal(
+    services: WidgetActionEvent["services"],
+    player: PlayerState,
+    query?: string,
+): string {
     const interfaceService = services.dialog.getInterfaceService?.();
     if (!interfaceService) return "Interface service unavailable.";
 
@@ -171,7 +201,11 @@ export function register(registry: IScriptRegistry, services: ScriptServices): v
     });
 
     // Search background click - no-op, handled client-side
-    registry.onButton(ITEM_SPAWNER_MODAL_GROUP_ID, ITEM_SPAWNER_MODAL_COMPONENT_SEARCH_BACKGROUND, () => {});
+    registry.onButton(
+        ITEM_SPAWNER_MODAL_GROUP_ID,
+        ITEM_SPAWNER_MODAL_COMPONENT_SEARCH_BACKGROUND,
+        () => {},
+    );
 
     // Query text click - no-op, handled client-side
     registry.onButton(ITEM_SPAWNER_MODAL_GROUP_ID, ITEM_SPAWNER_MODAL_COMPONENT_QUERY, () => {});
@@ -183,8 +217,16 @@ export function register(registry: IScriptRegistry, services: ScriptServices): v
     });
 
     // Results view / scrollbar - no-op, prevent fallthrough
-    registry.onButton(ITEM_SPAWNER_MODAL_GROUP_ID, ITEM_SPAWNER_MODAL_COMPONENT_RESULTS_VIEW, () => {});
-    registry.onButton(ITEM_SPAWNER_MODAL_GROUP_ID, ITEM_SPAWNER_MODAL_COMPONENT_RESULTS_SCROLLBAR, () => {});
+    registry.onButton(
+        ITEM_SPAWNER_MODAL_GROUP_ID,
+        ITEM_SPAWNER_MODAL_COMPONENT_RESULTS_VIEW,
+        () => {},
+    );
+    registry.onButton(
+        ITEM_SPAWNER_MODAL_GROUP_ID,
+        ITEM_SPAWNER_MODAL_COMPONENT_RESULTS_SCROLLBAR,
+        () => {},
+    );
 
     // Slot icon click handlers for spawning items
     for (let slotIndex = 0; slotIndex < ITEM_SPAWNER_MODAL_RESULT_SLOT_COUNT; slotIndex++) {

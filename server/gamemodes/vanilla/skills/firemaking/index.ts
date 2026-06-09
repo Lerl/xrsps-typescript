@@ -1,17 +1,21 @@
 import { SkillId } from "../../../../../src/rs/skill/skills";
 import type { ActionEffect, ActionExecutionResult } from "../../../../src/game/actions/types";
 import type { PlayerState } from "../../../../src/game/player";
+import type {
+    IScriptRegistry,
+    ScriptActionHandlerContext,
+    ScriptServices,
+} from "../../../../src/game/scripts/types";
+import { ResourceNodeTracker, buildTileKey } from "../../systems/ResourceNodeTracker";
 import {
     ASHES_ITEM_ID,
-    FIRE_LIGHTING_ANIMATION,
     FIREMAKING_LOG_IDS,
-    TINDERBOX_ITEM_IDS,
+    FIRE_LIGHTING_ANIMATION,
     type FireNodeData,
+    TINDERBOX_ITEM_IDS,
     computeFireLightingDelayTicks,
     getFiremakingLogDefinition,
 } from "./firemakingData";
-import type { IScriptRegistry, ScriptActionHandlerContext, ScriptServices } from "../../../../src/game/scripts/types";
-import { ResourceNodeTracker, buildTileKey } from "../../systems/ResourceNodeTracker";
 
 const FIRE_LIT_SYNTH_SOUND = 2596;
 
@@ -80,13 +84,21 @@ function executeFiremakingAction(ctx: ScriptActionHandlerContext): ActionExecuti
     }
 
     if (!services.playerHasTinderbox?.(player)) {
-        return failFiremakingPrecheck(player, services, "You need a tinderbox to light these logs.");
+        return failFiremakingPrecheck(
+            player,
+            services,
+            "You need a tinderbox to light these logs.",
+        );
     }
 
     const skill = services.skills.getSkill(player, SkillId.Firemaking);
     const baseLevel = skill?.baseLevel ?? 1;
     if (baseLevel < logDef.level) {
-        return failFiremakingPrecheck(player, services, `You need Firemaking level ${logDef.level} to light these logs.`);
+        return failFiremakingPrecheck(
+            player,
+            services,
+            `You need Firemaking level ${logDef.level} to light these logs.`,
+        );
     }
 
     if (services.gathering?.getTracker<FireNodeData>("firemaking")?.hasTile(tile, plane)) {
@@ -224,17 +236,19 @@ export function register(registry: IScriptRegistry, services: ScriptServices): v
             if (services.inventory.consumeItem(player, slotIndex)) return slotIndex;
         }
         const fallback = services.inventory.findInventorySlotWithItem(player, logId);
-        if (fallback !== undefined && services.inventory.consumeItem(player, fallback)) return fallback;
+        if (fallback !== undefined && services.inventory.consumeItem(player, fallback))
+            return fallback;
         return undefined;
     };
 
     services.walkPlayerAwayFromFire = (player, fireTile) => {
         const westTile = { x: fireTile.x - 1, y: fireTile.y };
         const pathService = services.movement.getPathService();
-        const canStep = pathService?.canNpcStep?.(
-            { x: player.tileX, y: player.tileY, plane: player.level },
-            westTile,
-        ) ?? true;
+        const canStep =
+            pathService?.canNpcStep?.(
+                { x: player.tileX, y: player.tileY, plane: player.level },
+                westTile,
+            ) ?? true;
         if (canStep && (westTile.x !== player.tileX || westTile.y !== player.tileY)) {
             player.setPath([westTile], false);
         }
@@ -249,7 +263,8 @@ export function register(registry: IScriptRegistry, services: ScriptServices): v
                 tinderboxId,
                 logDef.logId,
                 ({ player, source, target, tick }) => {
-                    const level = services.skills.getSkill(player, SkillId.Firemaking)?.baseLevel ?? 1;
+                    const level =
+                        services.skills.getSkill(player, SkillId.Firemaking)?.baseLevel ?? 1;
                     if (level < logDef.level) {
                         services.messaging.sendGameMessage(
                             player,
@@ -282,7 +297,10 @@ export function register(registry: IScriptRegistry, services: ScriptServices): v
                         tick,
                     );
                     if (!result.ok) {
-                        services.messaging.sendGameMessage(player, "You're too busy to do that right now.");
+                        services.messaging.sendGameMessage(
+                            player,
+                            "You're too busy to do that right now.",
+                        );
                     }
                 },
             );

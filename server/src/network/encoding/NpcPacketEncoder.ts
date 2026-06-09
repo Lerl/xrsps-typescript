@@ -6,17 +6,17 @@
  *
  * NPC sync packet encoder.
  */
-import { logger } from "../../utils/logger";
 import type { ServerServices } from "../../game/ServerServices";
 import {
-    resolveHitsplatTypeForObserver,
     type HitsplatSourceType,
+    resolveHitsplatTypeForObserver,
 } from "../../game/combat/OsrsHitsplatIds";
-import { encodeCp1252Bytes } from "./Cp1252";
 import type { NpcState, NpcUpdateDelta } from "../../game/npc";
 import type { PlayerState } from "../../game/player";
+import { logger } from "../../utils/logger";
 import { BitWriter } from "../BitWriter";
 import { NpcSyncSession } from "../NpcSyncSession";
+import { encodeCp1252Bytes } from "./Cp1252";
 import {
     HITSPLAT_SENTINEL_NO_TYPE,
     HITSPLAT_SENTINEL_SECONDARY,
@@ -290,7 +290,9 @@ export class NpcPacketEncoder {
                         health2: scaled,
                     });
                 }
-            } catch (err) { logger.warn("[npc-encoder] failed to encode health bar", err); }
+            } catch (err) {
+                logger.warn("[npc-encoder] failed to encode health bar", err);
+            }
 
             if (hasHits || healthBars.length > 0) {
                 info.mask |= NPC_MASKS.HIT;

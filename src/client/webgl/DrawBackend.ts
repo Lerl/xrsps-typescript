@@ -1,4 +1,4 @@
-import PicoGL, { App as PicoApp, DrawCall, Texture } from "picogl";
+import PicoGL, { DrawCall, App as PicoApp, Texture } from "picogl";
 
 import type { DrawRange } from "./DrawRange";
 

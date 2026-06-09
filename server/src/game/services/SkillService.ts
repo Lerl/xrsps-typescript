@@ -1,18 +1,18 @@
 import type { WebSocket } from "ws";
 
-import { logger } from "../../utils/logger";
 import type { SkillId } from "../../../../src/rs/skill/skills";
-import { getSpellBaseXp } from "../combat/SpellXpProvider";
+import { encodeMessage } from "../../network/messages";
+import { logger } from "../../utils/logger";
+import type { ServerServices } from "../ServerServices";
+import type { ActionEffect, ActionExecutionResult } from "../actions";
 import { AttackType } from "../combat/AttackType";
 import {
     type AttackType as CombatXpAttackType,
     type StyleMode,
     calculateCombatXp,
 } from "../combat/CombatXp";
-import { encodeMessage } from "../../network/messages";
+import { getSpellBaseXp } from "../combat/SpellXpProvider";
 import type { PlayerState, SkillSyncUpdate } from "../player";
-import type { ActionEffect, ActionExecutionResult } from "../actions";
-import type { ServerServices } from "../ServerServices";
 
 /**
  * Manages skill XP awards, level-up detection, and skill snapshot broadcasting.
@@ -95,13 +95,22 @@ export class SkillService {
             if (update) {
                 this.queueSkillSnapshot(player.id, update);
             }
-        } catch (err) { logger.warn("[skill] failed to award xp and sync", err); }
+        } catch (err) {
+            logger.warn("[skill] failed to award xp and sync", err);
+        }
     }
 
     awardCombatXp(
         player: PlayerState,
         damage: number,
-        hitData: { attackType?: string; attackStyleMode?: string; spellId?: number; spellBaseXpAtCast?: boolean } | undefined,
+        hitData:
+            | {
+                  attackType?: string;
+                  attackStyleMode?: string;
+                  spellId?: number;
+                  spellBaseXpAtCast?: boolean;
+              }
+            | undefined,
         effects: ActionEffect[],
     ): void {
         if (!(damage > 0)) return;
@@ -137,7 +146,10 @@ export class SkillService {
             const skill = player.skillSystem.getSkill(award.skillId);
             const currentXp = skill?.xp ?? 0;
             const scaledXp = gamemode.getSkillXpAward
-                ? gamemode.getSkillXpAward(player, award.skillId, award.xp, { source: "combat", spellId: spellId })
+                ? gamemode.getSkillXpAward(player, award.skillId, award.xp, {
+                      source: "combat",
+                      spellId: spellId,
+                  })
                 : award.xp * gamemode.getSkillXpMultiplier(player);
             const newXp = Math.min(MAX_XP, currentXp + scaledXp);
 
@@ -185,11 +197,7 @@ export class SkillService {
         };
     }
 
-    buildSkillFailure(
-        player: PlayerState,
-        message: string,
-        reason: string,
-    ): ActionExecutionResult {
+    buildSkillFailure(player: PlayerState, message: string, reason: string): ActionExecutionResult {
         return {
             ok: false,
             reason,

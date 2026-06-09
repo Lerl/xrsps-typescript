@@ -12,8 +12,8 @@ import {
     deriveEquipSlotFromParams,
     getHeadCoverage,
 } from "../../../../src/rs/config/player/Equipment";
-import { DEFAULT_EQUIP_SLOT_COUNT } from "../../game/equipment";
 import type { ServerServices } from "../../game/ServerServices";
+import { DEFAULT_EQUIP_SLOT_COUNT } from "../../game/equipment";
 import type { PlayerAppearance as PlayerAppearanceState, PlayerState } from "../../game/player";
 import { buildAnimSetFromBas, ensureCorePlayerAnimSet } from "../anim/playerAnim";
 import type { Appearance as HandshakeAppearance } from "../messages";
@@ -68,7 +68,6 @@ export interface AppearanceSnapshotEntry {
         worldViewId?: number;
     };
 }
-
 
 /**
  * Manager for player appearance, equipment visuals, and animation sets.
@@ -169,7 +168,10 @@ export class PlayerAppearanceManager {
                 if (kitId < 0) continue;
                 try {
                     const kit = idkLoader.load(kitId);
-                    if (!kit) { kits[part] = -1; continue; }
+                    if (!kit) {
+                        kits[part] = -1;
+                        continue;
+                    }
                     const bodyPartId = this.getIdkBodyPartId(kit);
                     if (bodyPartId !== expectedBodyPartId(part)) {
                         kits[part] = -1;

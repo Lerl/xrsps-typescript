@@ -58,18 +58,14 @@ export function runeliteResizableScalingPercentFromScale(scale: number): number 
 }
 
 export function getRuneliteDefaultStretchedUiScale(): number {
-    return scaleFromRuneliteResizableScalingPercent(
-        RUNELITE_DEFAULT_RESIZABLE_SCALING_PERCENT,
-    );
+    return scaleFromRuneliteResizableScalingPercent(RUNELITE_DEFAULT_RESIZABLE_SCALING_PERCENT);
 }
 
 export function normalizeOsrsInterfaceScalingPercent(
     percent: number,
     minPercent: number = OSRS_INTERFACE_SCALING_MIN_DESKTOP_PERCENT,
 ): number {
-    return Math.round(
-        clamp(percent, minPercent, OSRS_INTERFACE_SCALING_MAX_PERCENT),
-    );
+    return Math.round(clamp(percent, minPercent, OSRS_INTERFACE_SCALING_MAX_PERCENT));
 }
 
 export function scaleFromOsrsInterfaceScalingPercent(percent: number): number {

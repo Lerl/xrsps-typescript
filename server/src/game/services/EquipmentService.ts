@@ -1,24 +1,21 @@
-import {
-    EquipmentSlot
-} from "../../../../src/rs/config/player/Equipment";
+import { EquipmentSlot } from "../../../../src/rs/config/player/Equipment";
 import {
     DEFAULT_WEAPON_CATEGORY,
     resolveWeaponCategoryFromObj,
 } from "../../../../src/rs/config/player/WeaponCategory";
 import { getItemDefinition } from "../../data/items";
+import { logger } from "../../utils/logger";
+import type { ServerServices } from "../ServerServices";
 import { clearAutocastState } from "../combat/AutocastState";
 import { getCategoryForWeaponInterface } from "../combat/WeaponInterfaces";
 import {
     ensureEquipArrayOn,
     ensureEquipQtyArrayOn,
-    inferEquipSlot,
     getSkillcapeSeqId,
     getSkillcapeSpotId,
+    inferEquipSlot,
 } from "../equipment";
-import type { PlayerState, PlayerAppearance as PlayerAppearanceState } from "../player";
-import type { ServerServices } from "../ServerServices";
-
-import { logger } from "../../utils/logger";
+import type { PlayerAppearance as PlayerAppearanceState, PlayerState } from "../player";
 
 const EQUIP_SLOT_COUNT = 14;
 const EQUIPMENT_STATS_BONUS_COUNT = 14;
@@ -88,7 +85,10 @@ export class EquipmentService {
 
         const weaponData = this.services.appearanceService.getWeaponData();
         const dataEntry = weaponData.get(normalizedWeaponId);
-        const obj = normalizedWeaponId > 0 ? this.services.dataLoaderService.getObjType(normalizedWeaponId) : undefined;
+        const obj =
+            normalizedWeaponId > 0
+                ? this.services.dataLoaderService.getObjType(normalizedWeaponId)
+                : undefined;
         const def = normalizedWeaponId > 0 ? getItemDefinition(normalizedWeaponId) : undefined;
         let derived: number | undefined = getCategoryForWeaponInterface(def?.weaponInterface);
         if (dataEntry?.combatCategory !== undefined) {
@@ -129,9 +129,7 @@ export class EquipmentService {
 
         const combatCategoryData = this.services.combatCategoryData;
         if (combatCategoryData) {
-            p.setCombatCategoryAttackTypes(
-                combatCategoryData.getAttackTypes(normalizedCategory),
-            );
+            p.setCombatCategoryAttackTypes(combatCategoryData.getAttackTypes(normalizedCategory));
             p.setCombatCategoryMeleeBonusIndices(
                 combatCategoryData.getMeleeBonusIndices(normalizedCategory),
             );

@@ -255,7 +255,7 @@ export function deriveMenuEntriesForWidget(
     // widget menus use configured ops (actions + flags + handlers).
     // Do not synthesize fallback Examine options for item widgets here.
     // Pause button widgets (flags & 1) show "Continue" with empty target
-    
+
     // This is added after ops are checked, only if no other actionable entries exist
     const hasActionableEntry = entries.some(
         (e) =>
@@ -555,7 +555,7 @@ export function collectWidgetsAtPoint(
             w._absY = y;
             hits.push(w);
             // Check noClickThrough flag
-            
+
             // When noClickThrough is true on an IF3 widget, widgets behind it are blocked.
             // In OSRS, this clears pending script events for all widgets processed earlier.
             // We track the index so we can filter them out after traversal.

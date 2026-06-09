@@ -7,7 +7,10 @@ import { VARP_MUSICPLAY } from "../../../../src/shared/vars";
 import type { PlayerState } from "../../../src/game/player";
 import { type IScriptRegistry, type ScriptServices } from "../../../src/game/scripts/types";
 
-export function registerMusicWidgetHandlers(registry: IScriptRegistry, services: ScriptServices): void {
+export function registerMusicWidgetHandlers(
+    registry: IScriptRegistry,
+    services: ScriptServices,
+): void {
     const playTrack = (player: PlayerState, trackId: number, trackName: string): void => {
         if (player.varps.getVarpValue(VARP_MUSICPLAY) !== 2) {
             player.varps.setVarpValue(VARP_MUSICPLAY, 2);

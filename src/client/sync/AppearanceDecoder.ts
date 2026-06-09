@@ -112,7 +112,7 @@ class AppearanceReader {
         const b1 = this.readUnsignedByte();
         const b2 = this.readUnsignedByte();
         const b3 = this.readUnsignedByte();
-        return ((b0 << 24) | (b1 << 16) | (b2 << 8) | b3) | 0;
+        return (b0 << 24) | (b1 << 16) | (b2 << 8) | b3 | 0;
     }
 
     readStringCp1252NullTerminated(): string {
@@ -205,14 +205,14 @@ export function decodeAppearanceBinary(buffer: Uint8Array): DecodedAppearance | 
             if (result.type === "item") {
                 // Map wire slot → EquipmentSlot index (server equip array ordering)
                 const wireToEquipSlot: Record<number, number> = {
-                    0: 0,  // head → HEAD
-                    1: 1,  // cape → CAPE
-                    2: 2,  // amulet → AMULET
-                    3: 3,  // weapon → WEAPON
-                    4: 4,  // body → BODY
-                    5: 5,  // shield → SHIELD
-                    7: 6,  // legs → LEGS
-                    9: 7,  // hands → GLOVES
+                    0: 0, // head → HEAD
+                    1: 1, // cape → CAPE
+                    2: 2, // amulet → AMULET
+                    3: 3, // weapon → WEAPON
+                    4: 4, // body → BODY
+                    5: 5, // shield → SHIELD
+                    7: 6, // legs → LEGS
+                    9: 7, // hands → GLOVES
                     10: 8, // feet → BOOTS
                 };
                 const eqIdx = wireToEquipSlot[slot];
@@ -223,13 +223,13 @@ export function decodeAppearanceBinary(buffer: Uint8Array): DecodedAppearance | 
                 // Map wire slot → kit array index (body part index)
                 // Matches OSRS PlayerCompositionBodyPart.getEquipmentSlotForBodyPart
                 const wireToKitIndex: Record<number, number> = {
-                    8: 0,   // hair → kits[0] (head/hair)
-                    11: 1,  // jaw → kits[1] (jaw/beard)
-                    4: 2,   // body → kits[2] (torso)
-                    6: 3,   // arms → kits[3] (arms)
-                    9: 4,   // hands → kits[4] (hands)
-                    7: 5,   // legs → kits[5] (legs)
-                    10: 6,  // feet → kits[6] (feet)
+                    8: 0, // hair → kits[0] (head/hair)
+                    11: 1, // jaw → kits[1] (jaw/beard)
+                    4: 2, // body → kits[2] (torso)
+                    6: 3, // arms → kits[3] (arms)
+                    9: 4, // hands → kits[4] (hands)
+                    7: 5, // legs → kits[5] (legs)
+                    10: 6, // feet → kits[6] (feet)
                 };
                 const kitIndex = wireToKitIndex[slot];
                 if (kitIndex !== undefined) {

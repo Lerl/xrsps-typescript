@@ -1,8 +1,8 @@
 import { SkillId } from "../../../../src/rs/skill/skills";
-import { SpellDataEntry, getSpellData } from "./SpellDataProvider";
 import { NpcState } from "../npc";
 import { PlayerState } from "../player";
 import { InventoryItem, RuneValidationResult, RuneValidator } from "./RuneValidator";
+import { SpellDataEntry, getSpellData } from "./SpellDataProvider";
 
 export type SpellCastContext = {
     player: PlayerState;

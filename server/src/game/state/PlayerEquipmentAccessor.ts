@@ -2,7 +2,6 @@
  * Equipment charge tracking and equipped-item queries.
  * Composed into PlayerState to decouple equipment logic from the main class.
  */
-
 import type { EquipmentSlot } from "../../../../src/rs/config/player/Equipment";
 import type { PlayerAppearance } from "../player";
 

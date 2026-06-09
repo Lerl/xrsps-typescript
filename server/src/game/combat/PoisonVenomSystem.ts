@@ -317,7 +317,8 @@ export function processPoisonTick(
         type: state.type,
         damage: newDamage,
         nextDamageTick:
-            currentTick + (state.type === PoisonType.Venom ? VENOM_TICK_INTERVAL : POISON_TICK_INTERVAL),
+            currentTick +
+            (state.type === PoisonType.Venom ? VENOM_TICK_INTERVAL : POISON_TICK_INTERVAL),
         hitsSinceDecrease,
         immunityExpiryTick: state.immunityExpiryTick,
     };

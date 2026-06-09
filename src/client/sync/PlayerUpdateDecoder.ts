@@ -1,5 +1,10 @@
 import { normalizePublicChatTextOsrs } from "../../rs/chat/ChatText";
-import { MovementDirection, directionToDelta, runDirectionToDelta, runDirectionToWalkDirections } from "../../shared/Direction";
+import {
+    MovementDirection,
+    directionToDelta,
+    runDirectionToDelta,
+    runDirectionToWalkDirections,
+} from "../../shared/Direction";
 import { BitStream } from "./BitStream";
 import { getPlayerSyncHuffman } from "./HuffmanProvider";
 import { PlayerSyncContext, type PlayerSyncState } from "./PlayerSyncContext";
@@ -317,9 +322,7 @@ export class PlayerUpdateDecoder {
             // client-side route reconstruction which fails inside WorldViews
             // (client collision doesn't have WorldView blocking).
             const walkDirs = runDirectionToWalkDirections(code);
-            const dirs: number[] = walkDirs
-                ? [walkDirs[0] & 7, walkDirs[1] & 7]
-                : [];
+            const dirs: number[] = walkDirs ? [walkDirs[0] & 7, walkDirs[1] & 7] : [];
             const traversal = resolveTraversalDefault(state);
             if (needsUpdate && !localOutOfBounds) {
                 state.pendingMove = {

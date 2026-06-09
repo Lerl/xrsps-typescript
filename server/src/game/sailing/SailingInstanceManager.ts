@@ -1,21 +1,21 @@
 import type { CollisionMap } from "../../../../src/rs/scene/CollisionMap";
-import type { PlayerState } from "../player";
-import type { NpcSpawnConfig, NpcState } from "../npc";
+import { logger } from "../../utils/logger";
 import type { ServerServices } from "../ServerServices";
+import type { NpcSpawnConfig, NpcState } from "../npc";
+import type { PlayerState } from "../player";
 import {
-    buildSailingIntroTemplates,
-    buildSailingOverlayTemplates,
-    SOURCE_BASE_X,
-    SOURCE_BASE_Y,
     SAILING_INTRO_BOAT_LOCS,
     SAILING_INTRO_LEVEL,
     SAILING_INTRO_NPC_SPAWNS,
     SAILING_INTRO_X,
     SAILING_INTRO_Y,
     SAILING_WORLD_ENTITY_INDEX,
+    SOURCE_BASE_X,
+    SOURCE_BASE_Y,
+    buildSailingIntroTemplates,
+    buildSailingOverlayTemplates,
 } from "./SailingInstance";
 import { SailingWorldView } from "./SailingWorldView";
-import { logger } from "../../utils/logger";
 
 // Sailing instance region: source base is (3840, 6400).
 const INSTANCE_MIN_X = 3840;
@@ -97,7 +97,8 @@ export class SailingInstanceManager {
         const templateChunks = buildSailingOverlayTemplates();
         const collisionMaps = mapCollision.buildInstanceCollision(
             templateChunks,
-            0, 0,
+            0,
+            0,
             INSTANCE_SCENE_SIZE,
             INSTANCE_SCENE_SIZE,
         );
@@ -134,10 +135,10 @@ export class SailingInstanceManager {
         //   left:  bx+2 (y: by+2, by+3, by+5)
         //   right: bx+5 (y: by+2, by+5)
         // The walkable interior is everything strictly inside that perimeter.
-        const deckMinX = (SOURCE_BASE_X + 3) - sceneBaseX; // bx+3 → local 51
-        const deckMaxX = (SOURCE_BASE_X + 4) - sceneBaseX; // bx+4 → local 52
-        const deckMinY = (SOURCE_BASE_Y + 2) - sceneBaseY; // by+2 → local 50
-        const deckMaxY = (SOURCE_BASE_Y + 5) - sceneBaseY; // by+5 → local 53
+        const deckMinX = SOURCE_BASE_X + 3 - sceneBaseX; // bx+3 → local 51
+        const deckMaxX = SOURCE_BASE_X + 4 - sceneBaseX; // bx+4 → local 52
+        const deckMinY = SOURCE_BASE_Y + 2 - sceneBaseY; // by+2 → local 50
+        const deckMaxY = SOURCE_BASE_Y + 5 - sceneBaseY; // by+5 → local 53
         let clearedCount = 0;
         for (let x = deckMinX; x <= deckMaxX; x++) {
             for (let y = deckMinY; y <= deckMaxY; y++) {

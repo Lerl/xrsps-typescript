@@ -1,6 +1,10 @@
-import { BankMainChild, BankSideChild, BankVarbit, WidgetGroup } from "./bankConstants";
 import { type PlayerState } from "../../../src/game/player";
-import { type IScriptRegistry, type ScriptServices, type WidgetActionEvent } from "../../../src/game/scripts/types";
+import {
+    type IScriptRegistry,
+    type ScriptServices,
+    type WidgetActionEvent,
+} from "../../../src/game/scripts/types";
+import { BankMainChild, BankSideChild, BankVarbit, WidgetGroup } from "./bankConstants";
 
 const BANK_GROUP_ID = WidgetGroup.BANK_MAIN;
 const BANKSIDE_GROUP_ID = WidgetGroup.BANK_SIDE;
@@ -113,7 +117,11 @@ const handleWithdrawOp = (event: WidgetActionEvent, opId: number): void => {
 function registerMainBankWidgets(registry: IScriptRegistry): void {
     const guard = (
         option: string,
-        handler: (args: { player: PlayerState; services: ScriptServices; event: WidgetActionEvent }) => void,
+        handler: (args: {
+            player: PlayerState;
+            services: ScriptServices;
+            event: WidgetActionEvent;
+        }) => void,
     ) =>
         registry.registerWidgetAction({
             option,
@@ -145,18 +153,14 @@ function registerMainBankWidgets(registry: IScriptRegistry): void {
         },
     });
 
-    registry.onButton(
-        BANK_GROUP_ID,
-        BankMainChild.SWAP_INSERT_BUTTON,
-        ({ player, services }) => {
-            const next = !player.bank.getBankInsertMode();
-            player.bank.setBankInsertMode(next);
-            services.variables.sendVarbit?.(player, BankVarbit.INSERT_MODE, next ? 1 : 0);
-            services.system.logger.debug?.(
-                `[script:bank-widgets] insert mode=${next} player=${player.id}`,
-            );
-        },
-    );
+    registry.onButton(BANK_GROUP_ID, BankMainChild.SWAP_INSERT_BUTTON, ({ player, services }) => {
+        const next = !player.bank.getBankInsertMode();
+        player.bank.setBankInsertMode(next);
+        services.variables.sendVarbit?.(player, BankVarbit.INSERT_MODE, next ? 1 : 0);
+        services.system.logger.debug?.(
+            `[script:bank-widgets] insert mode=${next} player=${player.id}`,
+        );
+    });
 
     registry.onButton(BANK_GROUP_ID, BankMainChild.NOTE_BUTTON, ({ player, services }) => {
         const next = !player.bank.getBankWithdrawNotes();
@@ -175,58 +179,34 @@ function registerMainBankWidgets(registry: IScriptRegistry): void {
         );
     };
 
-    registry.onButton(
-        BANK_GROUP_ID,
-        BankMainChild.QUANTITY_ONE_BUTTON,
-        ({ player, services }) => {
-            setQuantityMode(player, services, 0);
-        },
-    );
+    registry.onButton(BANK_GROUP_ID, BankMainChild.QUANTITY_ONE_BUTTON, ({ player, services }) => {
+        setQuantityMode(player, services, 0);
+    });
 
-    registry.onButton(
-        BANK_GROUP_ID,
-        BankMainChild.QUANTITY_FIVE_BUTTON,
-        ({ player, services }) => {
-            setQuantityMode(player, services, 1);
-        },
-    );
+    registry.onButton(BANK_GROUP_ID, BankMainChild.QUANTITY_FIVE_BUTTON, ({ player, services }) => {
+        setQuantityMode(player, services, 1);
+    });
 
-    registry.onButton(
-        BANK_GROUP_ID,
-        BankMainChild.QUANTITY_TEN_BUTTON,
-        ({ player, services }) => {
-            setQuantityMode(player, services, 2);
-        },
-    );
+    registry.onButton(BANK_GROUP_ID, BankMainChild.QUANTITY_TEN_BUTTON, ({ player, services }) => {
+        setQuantityMode(player, services, 2);
+    });
 
-    registry.onButton(
-        BANK_GROUP_ID,
-        BankMainChild.QUANTITY_X_BUTTON,
-        ({ player, services }) => {
-            setQuantityMode(player, services, 3);
-        },
-    );
+    registry.onButton(BANK_GROUP_ID, BankMainChild.QUANTITY_X_BUTTON, ({ player, services }) => {
+        setQuantityMode(player, services, 3);
+    });
 
-    registry.onButton(
-        BANK_GROUP_ID,
-        BankMainChild.QUANTITY_ALL_BUTTON,
-        ({ player, services }) => {
-            setQuantityMode(player, services, 4);
-        },
-    );
+    registry.onButton(BANK_GROUP_ID, BankMainChild.QUANTITY_ALL_BUTTON, ({ player, services }) => {
+        setQuantityMode(player, services, 4);
+    });
 
-    registry.onButton(
-        BANK_GROUP_ID,
-        BankMainChild.PLACEHOLDER_BUTTON,
-        ({ player, services }) => {
-            const next = !player.bank.getBankPlaceholderMode();
-            player.bank.setBankPlaceholderMode(next);
-            services.variables.sendVarbit?.(player, BankVarbit.LEAVE_PLACEHOLDERS, next ? 1 : 0);
-            services.system.logger.debug?.(
-                `[script:bank-widgets] placeholders=${next} player=${player.id}`,
-            );
-        },
-    );
+    registry.onButton(BANK_GROUP_ID, BankMainChild.PLACEHOLDER_BUTTON, ({ player, services }) => {
+        const next = !player.bank.getBankPlaceholderMode();
+        player.bank.setBankPlaceholderMode(next);
+        services.variables.sendVarbit?.(player, BankVarbit.LEAVE_PLACEHOLDERS, next ? 1 : 0);
+        services.system.logger.debug?.(
+            `[script:bank-widgets] placeholders=${next} player=${player.id}`,
+        );
+    });
 
     guard("Placeholders", ({ player, services }) => {
         const next = !player.bank.getBankPlaceholderMode();
@@ -345,14 +325,9 @@ function registerBanksideWidgets(registry: IScriptRegistry): void {
 
         if (!desired || desired <= 0) return;
 
-        const result = event.services?.depositInventoryItemToBank?.(
-            event.player,
-            slot,
-            desired,
-            {
-                itemIdHint: event.itemId,
-            },
-        );
+        const result = event.services?.depositInventoryItemToBank?.(event.player, slot, desired, {
+            itemIdHint: event.itemId,
+        });
 
         if (result && result.ok === false && result.message) {
             event.services.messaging.sendGameMessage(event.player, String(result.message));
@@ -368,7 +343,10 @@ function registerBanksideWidgets(registry: IScriptRegistry): void {
     }
 }
 
-export function registerBankWidgetHandlers(registry: IScriptRegistry, _services: ScriptServices): void {
+export function registerBankWidgetHandlers(
+    registry: IScriptRegistry,
+    _services: ScriptServices,
+): void {
     registerMainBankWidgets(registry);
     registerBanksideWidgets(registry);
 }

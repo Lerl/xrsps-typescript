@@ -1,9 +1,9 @@
 import { ClickMode } from "../../client/InputManager";
 import { BitmapFont } from "../../rs/font/BitmapFont";
+import { getUiScale } from "../UiScale";
 import { FONT_BOLD_12 } from "../fonts";
 import type { MenuClickContext } from "../menu/MenuEngine";
 import { MenuState } from "../menu/MenuState";
-import { getUiScale } from "../UiScale";
 import { drawTextGL as UI_drawTextGL } from "../widgets/components/TextRenderer";
 import { GLRenderer } from "./renderer";
 
@@ -164,7 +164,8 @@ export function getChooseOptionMenuRect(
     }
 
     const boxW = (sp(contentW, s) + sp(MENU_WIDTH_PADDING_PX, s)) | 0;
-    const boxH = ((menu.entries.length * sp(MENU_ROW_HEIGHT_PX, s) + sp(MENU_HEIGHT_BASE_PX, s)) | 0) as number;
+    const boxH = ((menu.entries.length * sp(MENU_ROW_HEIGHT_PX, s) + sp(MENU_HEIGHT_BASE_PX, s)) |
+        0) as number;
 
     let left = ((menu.x | 0) - ((boxW / 2) | 0)) | 0;
     if (left + boxW > (hostW | 0)) left = (hostW | 0) - boxW;
@@ -316,7 +317,8 @@ export function drawChooseOptionMenu(
     // Use renderScaleX propagated from the main renderer (same source as overhead text/hitsplats).
     // Falls back to integer getUiScale if not yet set (e.g. first frame before onResize fires).
     const renderScale = (canvas as any)?.__uiRenderScale;
-    const s = (typeof renderScale === "number" && renderScale > 0) ? renderScale : getUiScale(cssW, cssH);
+    const s =
+        typeof renderScale === "number" && renderScale > 0 ? renderScale : getUiScale(cssW, cssH);
     const hostW = glr.width | 0;
     const hostH = glr.height | 0;
     const anchor = getMenuAnchorPoint(canvas, menu);
@@ -412,8 +414,7 @@ export function drawChooseOptionMenu(
             const sHitBot = sp(MENU_ROW_HIT_BOTTOM_OFFSET_PX, s);
             let pickedIndex = -1;
             for (let i = 0; i < menu.entries.length; i++) {
-                const baselineY =
-                    (top + sFirstRowBase + i * sRowH) | 0;
+                const baselineY = (top + sFirstRowBase + i * sRowH) | 0;
                 if (
                     pressX > left &&
                     pressX < left + boxW &&
@@ -482,13 +483,7 @@ export function drawChooseOptionMenu(
     // Menu background fill (0x5D5447)
     glr.drawRect(left, top, boxW, boxH, COL_MENU_BG);
     // Title background (black) at (x+1, y+1, w-2, 16)
-    glr.drawRect(
-        left + sInset,
-        top + sInset,
-        boxW - sInset * 2,
-        sTitleBgH,
-        COL_BLACK,
-    );
+    glr.drawRect(left + sInset, top + sInset, boxW - sInset * 2, sTitleBgH, COL_BLACK);
     // Options area outline (black) at (x+1, y+18, w-2, h-19)
     const optX0 = left + sInset;
     const optY0 = top + sOutlineY;

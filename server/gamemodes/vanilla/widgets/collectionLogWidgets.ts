@@ -13,7 +13,11 @@ import {
     VARP_COLLECTION_CATEGORY_COUNT3,
     buildTabChangeArgs,
 } from "../../../src/game/scripts/types";
-import { type IScriptRegistry, type ScriptServices, type WidgetActionEvent } from "../../../src/game/scripts/types";
+import {
+    type IScriptRegistry,
+    type ScriptServices,
+    type WidgetActionEvent,
+} from "../../../src/game/scripts/types";
 
 /**
  * Collection Log widget handlers.
@@ -30,17 +34,17 @@ import { type IScriptRegistry, type ScriptServices, type WidgetActionEvent } fro
  * CS2 scripts query `inv_total(collection_transmit, itemId)` to check if item was obtained.
  */
 
-export function registerCollectionLogWidgetHandlers(registry: IScriptRegistry, services: ScriptServices): void {
+export function registerCollectionLogWidgetHandlers(
+    registry: IScriptRegistry,
+    services: ScriptServices,
+): void {
     // Handle the Collection Log entry click from the account panel's dynamic list.
     registry.registerWidgetAction({
         widgetId: ACCOUNT_SUMMARY_ENTRY_LIST_UID,
         handler: (event: WidgetActionEvent) => {
             if (event.groupId !== ACCOUNT_SUMMARY_GROUP_ID) return;
             const slotVal = event.slot ?? -1;
-            const entryIndex =
-                slotVal >= 0 && slotVal !== 65535
-                    ? slotVal
-                    : event.childId ?? -1;
+            const entryIndex = slotVal >= 0 && slotVal !== 65535 ? slotVal : event.childId ?? -1;
             if (entryIndex !== ACCOUNT_SUMMARY_COLLECTION_LOG_CHILD_INDEX) return;
 
             // Account summary entry has:
@@ -171,9 +175,7 @@ export function registerCollectionLogWidgetHandlers(registry: IScriptRegistry, s
             if (tabIndex === undefined) return;
             const slotVal = event.slot ?? -1;
             const categoryIndexRaw =
-                slotVal >= 0 && slotVal !== 65535
-                    ? slotVal
-                    : event.childId ?? -1;
+                slotVal >= 0 && slotVal !== 65535 ? slotVal : event.childId ?? -1;
 
             // Dynamic category rows are keyed by childIndex (slot). If slot is missing and
             // childId equals the static click-layer component, ignore to prevent bad selection redraws.
@@ -193,14 +195,18 @@ export function registerCollectionLogWidgetHandlers(registry: IScriptRegistry, s
             services.system.logger.info?.(
                 `[collection-log] Category clicked: player=${
                     player.id
-                } tab=${tabIndex} category=${categoryIndex} target=${
-                    event.target
-                } slot=${String(event.slot)} childId=${event.childId}`,
+                } tab=${tabIndex} category=${categoryIndex} target=${event.target} slot=${String(
+                    event.slot,
+                )} childId=${event.childId}`,
             );
 
             // Set varbit 6906 (VARBIT_COLLECTION_LAST_CATEGORY) to selected category
             player.varps.setVarbitValue(VARBIT_COLLECTION_LAST_CATEGORY, categoryIndex);
-            services.variables.queueVarbit?.(player.id, VARBIT_COLLECTION_LAST_CATEGORY, categoryIndex);
+            services.variables.queueVarbit?.(
+                player.id,
+                VARBIT_COLLECTION_LAST_CATEGORY,
+                categoryIndex,
+            );
 
             // Set category kill/completion count varps
             // For now just set to 0 - real implementation would look up player's stats

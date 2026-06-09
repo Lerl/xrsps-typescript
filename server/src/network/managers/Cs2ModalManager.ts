@@ -22,7 +22,6 @@ type IndexedMenuState = {
     onSelect?: (player: PlayerState, optionIndex: number, optionLabel: string) => void;
 };
 
-
 /**
  * Reusable manager for custom CS2-driven modals mounted in mainmodal.
  */
@@ -135,5 +134,4 @@ export class Cs2ModalManager {
             flags: INDEXED_MENU_PAUSE_BUTTON_FLAGS,
         });
     }
-
 }

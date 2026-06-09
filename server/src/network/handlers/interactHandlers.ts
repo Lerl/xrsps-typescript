@@ -1,9 +1,12 @@
+import { logger } from "../../utils/logger";
 import type { MessageHandlerServices } from "../MessageHandlers";
 import { normalizeModifierFlags } from "../MessageHandlers";
 import type { MessageRouter } from "../MessageRouter";
-import { logger } from "../../utils/logger";
 
-export function registerInteractHandlers(router: MessageRouter, services: MessageHandlerServices): void {
+export function registerInteractHandlers(
+    router: MessageRouter,
+    services: MessageHandlerServices,
+): void {
     router.register("interact", (ctx) => {
         const { mode = "follow", targetId, modifierFlags: rawModifierFlags } = ctx.payload;
         const modifierFlags = normalizeModifierFlags(rawModifierFlags);
@@ -12,7 +15,9 @@ export function registerInteractHandlers(router: MessageRouter, services: Messag
             if (!res?.ok) {
                 logger.info(`interact rejected: ${res?.message || "invalid"}`);
             }
-        } catch (err) { logger.warn("Failed to start player interaction", err); }
+        } catch (err) {
+            logger.warn("Failed to start player interaction", err);
+        }
     });
 
     router.register("player_attack", (ctx) => {
@@ -62,7 +67,9 @@ export function registerInteractHandlers(router: MessageRouter, services: Messag
                 },
                 services.currentTick(),
             );
-        } catch (err) { logger.warn("Failed to start loc interaction", err); }
+        } catch (err) {
+            logger.warn("Failed to start loc interaction", err);
+        }
     });
 
     router.register("trade_action", (ctx) => {

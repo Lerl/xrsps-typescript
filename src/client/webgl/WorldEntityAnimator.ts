@@ -2,9 +2,9 @@ import { mat4 } from "gl-matrix";
 
 import type { SeqTypeLoader } from "../../rs/config/seqtype/SeqTypeLoader";
 import type { WorldEntityTypeLoader } from "../../rs/config/worldentitytype/WorldEntityTypeLoader";
-import type { SkeletalSeqLoader } from "../../rs/model/skeletal/SkeletalSeqLoader";
-import type { SkeletalSeq } from "../../rs/model/skeletal/SkeletalSeq";
 import type { SkeletalBase } from "../../rs/model/skeletal/SkeletalBase";
+import type { SkeletalSeq } from "../../rs/model/skeletal/SkeletalSeq";
+import type { SkeletalSeqLoader } from "../../rs/model/skeletal/SkeletalSeqLoader";
 
 interface WorldEntityAnimState {
     skeletalSeq: SkeletalSeq;
@@ -60,7 +60,10 @@ export class WorldEntityAnimator {
                 rootTransform: mat4.create() as Float32Array,
             });
         } catch (e) {
-            console.log(`[WorldEntityAnimator] Failed to load animation for config ${configId}:`, e);
+            console.log(
+                `[WorldEntityAnimator] Failed to load animation for config ${configId}:`,
+                e,
+            );
         }
     }
 
@@ -68,7 +71,12 @@ export class WorldEntityAnimator {
      * Override the active animation for a world entity (sequence animation from mask update).
      * Pass animId = -1 to revert to the config idle animation.
      */
-    setSequenceAnimation(entityIndex: number, animId: number, configId: number, clientCycle: number): void {
+    setSequenceAnimation(
+        entityIndex: number,
+        animId: number,
+        configId: number,
+        clientCycle: number,
+    ): void {
         if (animId < 0) {
             // Revert to idle: re-add with config idle animation
             this.entities.delete(entityIndex);
@@ -90,7 +98,9 @@ export class WorldEntityAnimator {
                 skeletalStart: seqType.skeletalStart,
                 duration,
                 startCycle: clientCycle,
-                rootTransform: this.entities.get(entityIndex)?.rootTransform ?? (mat4.create() as Float32Array),
+                rootTransform:
+                    this.entities.get(entityIndex)?.rootTransform ??
+                    (mat4.create() as Float32Array),
             });
         } catch (e) {
             console.log(`[WorldEntityAnimator] Failed to set sequence animation ${animId}:`, e);
@@ -108,7 +118,9 @@ export class WorldEntityAnimator {
     tick(clientCycle: number): void {
         for (const [_, state] of this.entities) {
             const elapsed = clientCycle - state.startCycle;
-            const frame = state.skeletalStart + (((elapsed % state.duration) + state.duration) % state.duration);
+            const frame =
+                state.skeletalStart +
+                (((elapsed % state.duration) + state.duration) % state.duration);
 
             state.skeletalBase.updateAnimMatrices(state.skeletalSeq, frame);
 
@@ -124,9 +136,18 @@ export class WorldEntityAnimator {
                 // (view space uses tile units after the /= 128 vertex scaling).
                 // Negate Y translation per OSRS (m13 = -m13).
                 const dst = state.rootTransform;
-                dst[0] = src[0]; dst[1] = src[1]; dst[2] = src[2]; dst[3] = 0;
-                dst[4] = src[4]; dst[5] = src[5]; dst[6] = src[6]; dst[7] = 0;
-                dst[8] = src[8]; dst[9] = src[9]; dst[10] = src[10]; dst[11] = 0;
+                dst[0] = src[0];
+                dst[1] = src[1];
+                dst[2] = src[2];
+                dst[3] = 0;
+                dst[4] = src[4];
+                dst[5] = src[5];
+                dst[6] = src[6];
+                dst[7] = 0;
+                dst[8] = src[8];
+                dst[9] = src[9];
+                dst[10] = src[10];
+                dst[11] = 0;
                 dst[12] = src[12] / 128.0;
                 dst[13] = -src[13] / 128.0;
                 dst[14] = src[14] / 128.0;

@@ -55,7 +55,8 @@ export class ScriptRuntime {
         this.logger = options.logger ?? defaultLogger;
         const hostServices = options.services;
         const hotReloadFlag =
-            (hostServices as unknown as Record<string, unknown>).hotReloadEnabled ?? process.env.SCRIPT_HOT_RELOAD === "1";
+            (hostServices as unknown as Record<string, unknown>).hotReloadEnabled ??
+            process.env.SCRIPT_HOT_RELOAD === "1";
         this.hotReloadEnabled = !!hotReloadFlag;
         this.services = hostServices;
     }
@@ -512,8 +513,7 @@ export class ScriptRuntime {
                 this.registry.findClientMessageHandler(messageType),
             registerActionHandler: (kind: string, handler: ScriptActionHandler) =>
                 track(this.registry.registerActionHandler(kind, handler)),
-            findActionHandler: (kind: string) =>
-                this.registry.findActionHandler(kind),
+            findActionHandler: (kind: string) => this.registry.findActionHandler(kind),
         } as IScriptRegistry;
     }
 }

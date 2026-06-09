@@ -34,8 +34,7 @@ export class ChatBroadcaster implements BroadcastDomain {
             const encoded = encodeMessage({
                 type: "chat",
                 payload: {
-                    messageType:
-                        msg.messageType === "private" ? "private_in" : msg.messageType,
+                    messageType: msg.messageType === "private" ? "private_in" : msg.messageType,
                     playerId: msg.playerId,
                     from: msg.from,
                     prefix: msg.prefix,
@@ -45,11 +44,7 @@ export class ChatBroadcaster implements BroadcastDomain {
 
             if (msg.targetPlayerIds && msg.targetPlayerIds.length > 0) {
                 for (const targetId of msg.targetPlayerIds) {
-                    ctx.sendWithGuard(
-                        ctx.getSocketByPlayerId(targetId),
-                        encoded,
-                        "chat_direct",
-                    );
+                    ctx.sendWithGuard(ctx.getSocketByPlayerId(targetId), encoded, "chat_direct");
                 }
             } else if (this.forEachPlayer) {
                 this.forEachPlayer((sock) => ctx.sendWithGuard(sock, encoded, "chat_broadcast"));

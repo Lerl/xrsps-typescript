@@ -1,6 +1,10 @@
 import { ScriptVarTypeId } from "../../../../src/rs/config/db/ScriptVarType";
 import type { PlayerState } from "../../../src/game/player";
-import { type IScriptRegistry, ScriptServices, BaseComponentUids } from "../../../src/game/scripts/types";
+import {
+    BaseComponentUids,
+    type IScriptRegistry,
+    ScriptServices,
+} from "../../../src/game/scripts/types";
 
 // ============================================================================
 // Constants
@@ -130,9 +134,8 @@ function buildJournalLines(player: PlayerState, quest: QuestEntry): string[] {
     // Check if quest was completed via ::quest command by checking known quest varps
     const completionEntry = QUEST_COMPLETION_DATA.get(quest.displayName.toLowerCase());
     if (completionEntry) {
-        const currentValue = completionEntry.varpId >= 0
-            ? player.varps.getVarpValue(completionEntry.varpId)
-            : 0;
+        const currentValue =
+            completionEntry.varpId >= 0 ? player.varps.getVarpValue(completionEntry.varpId) : 0;
 
         // Check varbit entries too
         let allVarbitsComplete = true;
@@ -150,11 +153,7 @@ function buildJournalLines(player: PlayerState, quest: QuestEntry): string[] {
             (completionEntry.varpId < 0 && allVarbitsComplete);
 
         if (isComplete) {
-            return [
-                "<str>I have completed this quest.",
-                "",
-                "<col=ff0000>QUEST COMPLETE!",
-            ];
+            return ["<str>I have completed this quest.", "", "<col=ff0000>QUEST COMPLETE!"];
         }
     }
 
@@ -228,7 +227,10 @@ const QUEST_COMPLETION_DATA = new Map<string, QuestCompletionInfo>([
 // Module
 // ============================================================================
 
-export function registerQuestJournalWidgetHandlers(registry: IScriptRegistry, services: ScriptServices): void {
+export function registerQuestJournalWidgetHandlers(
+    registry: IScriptRegistry,
+    services: ScriptServices,
+): void {
     // Lazy-loaded quest map: the DbRepository is not available at module registration
     // time (scripts bootstrap before cache DB is initialized). Build on first click.
     let questMap: Map<number, QuestEntry> | undefined;
@@ -253,9 +255,7 @@ export function registerQuestJournalWidgetHandlers(registry: IScriptRegistry, se
 
         const quest = getQuestMap().get(questId);
         if (!quest) {
-            services.system.logger.info?.(
-                `[quest-journal] No quest found for slot=${questId}`,
-            );
+            services.system.logger.info?.(`[quest-journal] No quest found for slot=${questId}`);
             return;
         }
 
@@ -335,11 +335,7 @@ export function registerQuestJournalWidgetHandlers(registry: IScriptRegistry, se
  * 4. Set title and journal line text
  * 5. Run scroll configuration script
  */
-function openQuestJournal(
-    player: PlayerState,
-    quest: QuestEntry,
-    services: ScriptServices,
-): void {
+function openQuestJournal(player: PlayerState, quest: QuestEntry, services: ScriptServices): void {
     const lines = buildJournalLines(player, quest);
     const lineCount = lines.length;
     const playerId = player.id;

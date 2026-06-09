@@ -1,8 +1,8 @@
-import type { MessageHandler } from "../MessageRouter";
-import type { MessageHandlerServices } from "../MessageHandlers";
-import type { WidgetEntry } from "../../widgets/WidgetManager";
-import { encodeMessage } from "../messages";
 import { logger } from "../../utils/logger";
+import type { WidgetEntry } from "../../widgets/WidgetManager";
+import type { MessageHandlerServices } from "../MessageHandlers";
+import type { MessageHandler } from "../MessageRouter";
+import { encodeMessage } from "../messages";
 
 const SIDE_JOURNAL_GROUP_ID = 629;
 
@@ -11,7 +11,11 @@ export function createWidgetHandler(services: MessageHandlerServices): MessageHa
         try {
             const p = services.getPlayer(ctx.ws);
             if (!p) return;
-            const { groupId, action, modal } = ctx.payload as unknown as { groupId: number; action: string; modal?: boolean };
+            const { groupId, action, modal } = ctx.payload as unknown as {
+                groupId: number;
+                action: string;
+                modal?: boolean;
+            };
             if (action === "open") {
                 logger.info(`[widget-open] player=${p.id} group=${groupId} modal=${modal}`);
                 services.noteWidgetEventForLedger(p.id, { action: "open", groupId, modal });
@@ -31,7 +35,10 @@ export function createWidgetHandler(services: MessageHandlerServices): MessageHa
                             ctx.ws,
                             encodeMessage({
                                 type: "varp",
-                                payload: { varpId: VARP_SIDE_JOURNAL_STATE, value: sideJournalState.stateVarp },
+                                payload: {
+                                    varpId: VARP_SIDE_JOURNAL_STATE,
+                                    value: sideJournalState.stateVarp,
+                                },
                             }),
                             "varp",
                         ),
@@ -41,7 +48,10 @@ export function createWidgetHandler(services: MessageHandlerServices): MessageHa
                             ctx.ws,
                             encodeMessage({
                                 type: "varbit",
-                                payload: { varbitId: VARBIT_SIDE_JOURNAL_TAB, value: sideJournalState.tab },
+                                payload: {
+                                    varbitId: VARBIT_SIDE_JOURNAL_TAB,
+                                    value: sideJournalState.tab,
+                                },
                             }),
                             "varbit",
                         ),
@@ -77,6 +87,8 @@ export function createWidgetHandler(services: MessageHandlerServices): MessageHa
                 }
                 services.getGamemodeUi().handleWidgetClose(p, groupId);
             }
-        } catch (err) { logger.warn("[widget] failed to handle widget close", err); }
+        } catch (err) {
+            logger.warn("[widget] failed to handle widget close", err);
+        }
     };
 }

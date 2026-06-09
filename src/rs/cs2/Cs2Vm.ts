@@ -1,5 +1,5 @@
-import type { WidgetManager, WidgetNode } from "../../ui/widgets/WidgetManager";
 import { markWidgetInteractionDirty } from "../../ui/widgets/WidgetInteraction";
+import type { WidgetManager, WidgetNode } from "../../ui/widgets/WidgetManager";
 import type { TypeLoader } from "../config/TypeLoader";
 import type { DbRepository } from "../config/db/DbRepository";
 import type { EnumType } from "../config/enumtype/EnumType";

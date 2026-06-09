@@ -2,10 +2,10 @@ import path from "path";
 
 import { getCacheLoaderFactory } from "../../src/rs/cache/loader/CacheLoaderFactory";
 import { config } from "./config";
-import { initSpellWidgetMapping } from "./game/spells/SpellDataProvider";
 import { damageTracker } from "./game/combat/DamageTracker";
 import { createGamemode } from "./game/gamemodes/GamemodeRegistry";
 import { NpcManager } from "./game/npcManager";
+import { initSpellWidgetMapping } from "./game/spells/SpellDataProvider";
 import { GameTicker } from "./game/ticker";
 import { WSServer } from "./network/wsServer";
 import { PathService } from "./pathfinding/PathService";
@@ -57,7 +57,8 @@ async function main() {
     logger.info(`Boot: creating gamemode "${config.gamemode}"...`);
     const gamemode = createGamemode(config.gamemode);
     if (gamemode.getLootDistributionConfig) {
-        damageTracker.lootConfigResolver = (npcTypeId) => gamemode.getLootDistributionConfig!(npcTypeId);
+        damageTracker.lootConfigResolver = (npcTypeId) =>
+            gamemode.getLootDistributionConfig!(npcTypeId);
     }
     logger.info(`Boot: gamemode "${gamemode.name}" created`);
 

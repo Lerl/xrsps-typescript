@@ -1,5 +1,5 @@
-import type { PlayerState } from "../player";
 import type { ServerServices } from "../ServerServices";
+import type { PlayerState } from "../player";
 
 export const EQUIPMENT_STATS_GROUP_ID = 84;
 
@@ -30,7 +30,8 @@ export class EquipmentStatsUiService {
         undeadPercent: number;
         slayerPercent: number;
     } {
-        const contributed = this.services.scriptRuntime.getServices().equipment.computeTargetBonusPercentages;
+        const contributed =
+            this.services.scriptRuntime.getServices().equipment.computeTargetBonusPercentages;
         if (contributed) {
             return contributed(player);
         }
@@ -53,47 +54,63 @@ export class EquipmentStatsUiService {
             this.queueEquipmentStatsWidgetText(
                 playerId,
                 EQUIPMENT_STATS_ATTACK_CHILD_BY_INDEX[i],
-                `${attackLabels[i]}: ${this.services.equipmentService.formatEquipmentSignedInt(bonuses[i] ?? 0)}`,
+                `${attackLabels[i]}: ${this.services.equipmentService.formatEquipmentSignedInt(
+                    bonuses[i] ?? 0,
+                )}`,
             );
         }
         for (let i = 0; i < EQUIPMENT_STATS_DEFENCE_CHILD_BY_INDEX.length; i++) {
             this.queueEquipmentStatsWidgetText(
                 playerId,
                 EQUIPMENT_STATS_DEFENCE_CHILD_BY_INDEX[i],
-                `${defenceLabels[i]}: ${this.services.equipmentService.formatEquipmentSignedInt(bonuses[i + 5] ?? 0)}`,
+                `${defenceLabels[i]}: ${this.services.equipmentService.formatEquipmentSignedInt(
+                    bonuses[i + 5] ?? 0,
+                )}`,
             );
         }
         this.queueEquipmentStatsWidgetText(
             playerId,
             EQUIPMENT_STATS_OTHER_CHILD_BY_INDEX[0],
-            `${otherLabels[0]}: ${this.services.equipmentService.formatEquipmentSignedInt(bonuses[10] ?? 0)}`,
+            `${otherLabels[0]}: ${this.services.equipmentService.formatEquipmentSignedInt(
+                bonuses[10] ?? 0,
+            )}`,
         );
         this.queueEquipmentStatsWidgetText(
             playerId,
             EQUIPMENT_STATS_OTHER_CHILD_BY_INDEX[1],
-            `${otherLabels[1]}: ${this.services.equipmentService.formatEquipmentSignedInt(bonuses[11] ?? 0)}`,
+            `${otherLabels[1]}: ${this.services.equipmentService.formatEquipmentSignedInt(
+                bonuses[11] ?? 0,
+            )}`,
         );
         this.queueEquipmentStatsWidgetText(
             playerId,
             EQUIPMENT_STATS_OTHER_CHILD_BY_INDEX[2],
-            `${otherLabels[2]}: ${this.services.equipmentService.formatEquipmentSignedIntPercent(bonuses[12] ?? 0)}`,
+            `${otherLabels[2]}: ${this.services.equipmentService.formatEquipmentSignedIntPercent(
+                bonuses[12] ?? 0,
+            )}`,
         );
         this.queueEquipmentStatsWidgetText(
             playerId,
             EQUIPMENT_STATS_OTHER_CHILD_BY_INDEX[3],
-            `${otherLabels[3]}: ${this.services.equipmentService.formatEquipmentSignedInt(bonuses[13] ?? 0)}`,
+            `${otherLabels[3]}: ${this.services.equipmentService.formatEquipmentSignedInt(
+                bonuses[13] ?? 0,
+            )}`,
         );
 
         const targetSpecific = this.computeEquipmentTargetSpecificBonusPercentages(player);
         this.queueEquipmentStatsWidgetText(
             playerId,
             EQUIPMENT_STATS_TARGET_UNDEAD_CHILD,
-            `Undead: ${this.services.equipmentService.formatEquipmentSignedPercent(targetSpecific.undeadPercent)}`,
+            `Undead: ${this.services.equipmentService.formatEquipmentSignedPercent(
+                targetSpecific.undeadPercent,
+            )}`,
         );
         this.queueEquipmentStatsWidgetText(
             playerId,
             EQUIPMENT_STATS_TARGET_SLAYER_CHILD,
-            `Slayer task: ${this.services.equipmentService.formatEquipmentSignedPercent(targetSpecific.slayerPercent)}`,
+            `Slayer task: ${this.services.equipmentService.formatEquipmentSignedPercent(
+                targetSpecific.slayerPercent,
+            )}`,
         );
 
         const baseAttackSpeed = this.services.playerCombatService!.resolveBaseAttackSpeed(player);
@@ -101,12 +118,16 @@ export class EquipmentStatsUiService {
         this.queueEquipmentStatsWidgetText(
             playerId,
             EQUIPMENT_STATS_WEAPON_SPEED_BASE_CHILD,
-            `Base: ${this.services.equipmentService.formatEquipmentAttackSpeedSeconds(baseAttackSpeed)}`,
+            `Base: ${this.services.equipmentService.formatEquipmentAttackSpeedSeconds(
+                baseAttackSpeed,
+            )}`,
         );
         this.queueEquipmentStatsWidgetText(
             playerId,
             EQUIPMENT_STATS_WEAPON_SPEED_ACTUAL_CHILD,
-            `Current: ${this.services.equipmentService.formatEquipmentAttackSpeedSeconds(actualAttackSpeed)}`,
+            `Current: ${this.services.equipmentService.formatEquipmentAttackSpeedSeconds(
+                actualAttackSpeed,
+            )}`,
         );
     }
 }

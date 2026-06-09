@@ -1,14 +1,14 @@
-import type { GameTicker } from "./ticker";
+import type { AuthenticationService } from "../network/AuthenticationService";
+import type { PlayerNetworkLayer } from "../network/PlayerNetworkLayer";
+import type { PathService } from "../pathfinding/PathService";
+import type { CacheEnv } from "../world/CacheEnv";
+import type { MapCollisionService } from "../world/MapCollisionService";
+import type { PlayerManager } from "./PlayerManager";
 import type { GamemodeDefinition } from "./gamemodes/GamemodeDefinition";
 import type { NpcManager } from "./npcManager";
 import type { PlayerState } from "./player";
-import type { PathService } from "../pathfinding/PathService";
-import type { MapCollisionService } from "../world/MapCollisionService";
-import type { CacheEnv } from "../world/CacheEnv";
 import type { DataLoaderService } from "./services/DataLoaderService";
-import type { AuthenticationService } from "../network/AuthenticationService";
-import type { PlayerNetworkLayer } from "../network/PlayerNetworkLayer";
-import type { PlayerManager } from "./PlayerManager";
+import type { GameTicker } from "./ticker";
 
 /**
  * Central service container for the game server.

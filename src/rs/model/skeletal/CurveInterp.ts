@@ -298,7 +298,15 @@ function evaluateCurveAtT(curve: Curve, t: number): number {
         rootFinderOutput[2] = 0.0;
         rootFinderOutput[3] = 0.0;
         rootFinderOutput[4] = 0.0;
-        const var4 = findPolynomialRoots(rootFinderInput, 3, 0.0, true, 1.0, true, rootFinderOutput);
+        const var4 = findPolynomialRoots(
+            rootFinderInput,
+            3,
+            0.0,
+            true,
+            1.0,
+            true,
+            rootFinderOutput,
+        );
         if (var4 === 1) {
             v1 = rootFinderOutput[0];
         } else {
@@ -376,7 +384,15 @@ function findPolynomialRoots(
         }
 
         const var41 = new Float32Array(var1 + 1);
-        const recursiveStatus = findPolynomialRoots(var12, var1 - 1, var2, false, var4, false, var41);
+        const recursiveStatus = findPolynomialRoots(
+            var12,
+            var1 - 1,
+            var2,
+            false,
+            var4,
+            false,
+            var41,
+        );
         if (recursiveStatus === -1) {
             return 0;
         }

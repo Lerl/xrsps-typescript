@@ -1,4 +1,5 @@
 import type { WebSocket } from "ws";
+
 import {
     MODIFIER_FLAG_CTRL,
     MODIFIER_FLAG_CTRL_SHIFT,
@@ -14,11 +15,7 @@ import { logger } from "../../utils/logger";
 import { Actor } from "../actor";
 import { PlayerState } from "../player";
 import type { PlayerRepository } from "./PlayerInteractionSystem";
-import {
-    FollowInteractionKind,
-    FollowInteractionState,
-    PlayerInteractionState,
-} from "./types";
+import { FollowInteractionKind, FollowInteractionState, PlayerInteractionState } from "./types";
 
 export interface FollowingCallbacks {
     onTradeHandshake?: (initiator: PlayerState, target: PlayerState, tick: number) => void;
@@ -57,10 +54,14 @@ export class FollowingHandler {
     private replaceInteractionState(ws: WebSocket, player: PlayerState): void {
         try {
             player.interruptQueues();
-        } catch (err) { logger.warn("[interaction] failed to interrupt queues", err); }
+        } catch (err) {
+            logger.warn("[interaction] failed to interrupt queues", err);
+        }
         try {
             player.resetInteractions();
-        } catch (err) { logger.warn("[interaction] failed to reset interactions", err); }
+        } catch (err) {
+            logger.warn("[interaction] failed to reset interactions", err);
+        }
         // clearAllInteractions inline for follow/trade context
         const st = this.interactions.get(ws);
         if (st) {
@@ -132,7 +133,11 @@ export class FollowingHandler {
 
     public updateFollowing(currentTick: number = 0): void {
         for (const [ws, interaction] of this.interactions.entries()) {
-            if (interaction.kind !== FollowInteractionKind.Follow && interaction.kind !== FollowInteractionKind.Trade) continue;
+            if (
+                interaction.kind !== FollowInteractionKind.Follow &&
+                interaction.kind !== FollowInteractionKind.Trade
+            )
+                continue;
             const st = interaction as FollowInteractionState;
             const me = this.players.get(ws);
             if (!me) {
@@ -167,7 +172,9 @@ export class FollowingHandler {
                     me.clearInteraction();
                     try {
                         this.callbacks.onTradeHandshake?.(me, target, currentTick);
-                    } catch (err) { logger.warn("[interaction] trade handshake failed", err); }
+                    } catch (err) {
+                        logger.warn("[interaction] trade handshake failed", err);
+                    }
                     continue;
                 }
                 // Otherwise continue to re-route around the obstruction.
@@ -230,7 +237,8 @@ export class FollowingHandler {
                 } else {
                     const wsTarget = this.players.getSocketByPlayerId(target.id);
                     const targetFollowingMe =
-                        wsTarget != null && this.isFollowingWithMode(wsTarget, me.id, FollowInteractionKind.Follow);
+                        wsTarget != null &&
+                        this.isFollowingWithMode(wsTarget, me.id, FollowInteractionKind.Follow);
                     if (!targetFollowingMe) {
                         st.swirlIndex = 0;
 
@@ -398,7 +406,12 @@ export class FollowingHandler {
                 continue;
             }
 
-            if (!routed && st.kind === FollowInteractionKind.Follow && st.slotX != null && st.slotY != null) {
+            if (
+                !routed &&
+                st.kind === FollowInteractionKind.Follow &&
+                st.slotX != null &&
+                st.slotY != null
+            ) {
                 // Skip if fallback slot is target's current tile
                 if (st.slotX === tx && st.slotY === ty) {
                     // Skip fallback
@@ -620,7 +633,11 @@ export class FollowingHandler {
         return res.steps;
     }
 
-    private isFollowingWithMode(ws: WebSocket, targetId: number, mode: FollowInteractionKind): boolean {
+    private isFollowingWithMode(
+        ws: WebSocket,
+        targetId: number,
+        mode: FollowInteractionKind,
+    ): boolean {
         const st = this.interactions.get(ws);
         if (!st || st.kind !== mode) return false;
         return st.targetId === targetId;

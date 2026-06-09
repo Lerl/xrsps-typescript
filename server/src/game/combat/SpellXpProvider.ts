@@ -1,3 +1,5 @@
+import { getProviderRegistry } from "../providers/ProviderRegistry";
+
 /**
  * Spell Base XP Provider
  *
@@ -8,8 +10,6 @@
 export interface SpellXpProvider {
     getSpellBaseXp(spellId: number): number;
 }
-
-import { getProviderRegistry } from "../providers/ProviderRegistry";
 
 export function registerSpellXpProvider(provider: SpellXpProvider): void {
     getProviderRegistry().spellXp = provider;

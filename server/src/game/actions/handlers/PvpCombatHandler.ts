@@ -8,11 +8,11 @@
  * - handleMagicPvpEffects (magic spell effects in PvP)
  */
 import { logger } from "../../../utils/logger";
-import { getPoweredStaffSpellData } from "../../spells/SpellDataProvider";
-import type { PoweredStaffSpellData } from "../../spells/SpellDataProvider";
 import { AttackType } from "../../combat/AttackType";
 import { HITMARK_DAMAGE } from "../../combat/HitEffects";
 import type { PlayerState } from "../../player";
+import { getPoweredStaffSpellData } from "../../spells/SpellDataProvider";
+import type { PoweredStaffSpellData } from "../../spells/SpellDataProvider";
 import type { CombatAutocastActionData, CombatPlayerHitActionData } from "../actionPayloads";
 import type { ActionEffect, ActionExecutionResult } from "../types";
 import type { CombatActionServices } from "./CombatActionHandler";
@@ -48,7 +48,9 @@ export class PvpCombatHandler {
         // Keep autocast pacing consistent even on failure
         try {
             player.combat.lastSpellCastTick = tick;
-        } catch (err) { logger.warn("[combat] failed to set last spell cast tick", err); }
+        } catch (err) {
+            logger.warn("[combat] failed to set last spell cast tick", err);
+        }
 
         const targetId = data.targetId;
         const target = targetId > 0 ? this.services.getPlayer(targetId) : undefined;
@@ -63,7 +65,9 @@ export class PvpCombatHandler {
         ) {
             try {
                 if (sock) this.services.stopPlayerCombat(sock);
-            } catch (err) { logger.warn("[combat] failed to stop player combat on invalid target", err); }
+            } catch (err) {
+                logger.warn("[combat] failed to stop player combat on invalid target", err);
+            }
             return { ok: true, cooldownTicks: 0, groups: [], effects: [] };
         }
 
@@ -179,7 +183,9 @@ export class PvpCombatHandler {
                 const sock = this.services.getPlayerSocket(player.id);
                 if (sock) this.services.stopPlayerCombat(sock);
             }
-        } catch (err) { logger.warn("[combat] failed to stop combat after pvp hit", err); }
+        } catch (err) {
+            logger.warn("[combat] failed to stop combat after pvp hit", err);
+        }
 
         // PvP auto-retaliate for target
         this.handlePvpAutoRetaliate(player, target, targetId);
@@ -242,11 +248,7 @@ export class PvpCombatHandler {
     /**
      * Handle PvP auto-retaliate for the target player.
      */
-    handlePvpAutoRetaliate(
-        attacker: PlayerState,
-        target: PlayerState,
-        targetId: number,
-    ): void {
+    handlePvpAutoRetaliate(attacker: PlayerState, target: PlayerState, targetId: number): void {
         try {
             if (
                 target.combat.autoRetaliate &&
@@ -267,7 +269,9 @@ export class PvpCombatHandler {
                     }
                 }
             }
-        } catch (err) { logger.warn("[combat] failed to handle pvp auto-retaliate", err); }
+        } catch (err) {
+            logger.warn("[combat] failed to handle pvp auto-retaliate", err);
+        }
     }
 
     /**
@@ -337,7 +341,7 @@ export class PvpCombatHandler {
                 playerId: targetId,
                 spotId: spotId,
                 delay: 0,
-                height: landed ? (spell?.impactSpotAnimHeight ?? 100) : 100,
+                height: landed ? spell?.impactSpotAnimHeight ?? 100 : 100,
             });
         }
 
@@ -368,10 +372,14 @@ export class PvpCombatHandler {
     private disableAutocast(player: PlayerState, sock: unknown | undefined): void {
         try {
             this.services.resetAutocast(player);
-        } catch (err) { logger.warn("[combat] failed to reset autocast", err); }
+        } catch (err) {
+            logger.warn("[combat] failed to reset autocast", err);
+        }
         try {
             if (sock) this.services.stopPlayerCombat(sock);
-        } catch (err) { logger.warn("[combat] failed to stop combat after autocast disable", err); }
+        } catch (err) {
+            logger.warn("[combat] failed to stop combat after autocast disable", err);
+        }
     }
 
     private pickResolvedMagicSound(

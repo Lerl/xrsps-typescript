@@ -4,7 +4,10 @@ import {
     deriveRegionsFromCenter,
     deriveRegionsFromTemplates,
 } from "../../../src/shared/instance/InstanceTypes";
-import type { WorldEntityBuildArea, RebuildWorldEntityPayload } from "../../../src/shared/worldentity/WorldEntityTypes";
+import type {
+    RebuildWorldEntityPayload,
+    WorldEntityBuildArea,
+} from "../../../src/shared/worldentity/WorldEntityTypes";
 import type { CacheEnv } from "./CacheEnv";
 
 export interface RebuildRegionPayload {

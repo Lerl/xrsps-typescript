@@ -1,16 +1,10 @@
 import { EquipmentSlot } from "../../../src/rs/config/player/Equipment";
-import {
-    PrayerName,
-} from "../../../src/rs/prayer/prayers";
-import {
-    SKILL_IDS,
-    SkillId,
-} from "../../../src/rs/skill/skills";
+import { PrayerName } from "../../../src/rs/prayer/prayers";
+import { SKILL_IDS, SkillId } from "../../../src/rs/skill/skills";
 import { logger } from "../utils/logger";
 import { DisplayMode, PlayerWidgetManager } from "../widgets/WidgetManager";
 import { Actor, RUN_ENERGY_MAX, Tile } from "./actor";
 import type { AttackType } from "./combat/AttackType";
-
 import type { ChargeTracker } from "./combat/DegradationSystem";
 import type { StatusHitsplat } from "./combat/HitEffects";
 import type { PlayerAggressionState } from "./combat/NpcCombatAI";
@@ -29,33 +23,41 @@ import {
 } from "./model/timer";
 import { NpcState } from "./npc";
 import { PlayerAccountState } from "./state/PlayerAccountState";
-import { PlayerCollectionLogState, type CollectionLogUnlockEntry } from "./state/PlayerCollectionLogState";
+import { PlayerAggressionTracker } from "./state/PlayerAggressionTracker";
+import { PlayerBankSystem } from "./state/PlayerBankSystem";
+import {
+    type CollectionLogUnlockEntry,
+    PlayerCollectionLogState,
+} from "./state/PlayerCollectionLogState";
 import { PlayerCombatState } from "./state/PlayerCombatState";
 import { PlayerEquipmentAccessor } from "./state/PlayerEquipmentAccessor";
-import {
-    exportPersistentVars as serializerExport,
-    applyPersistentVars as serializerApply,
-} from "./state/PlayerStateSerializer";
 import { PlayerFollowerPersistState } from "./state/PlayerFollowerPersistState";
 import { PlayerInventoryState } from "./state/PlayerInventoryState";
-import { PlayerPrayerState } from "./state/PlayerPrayerState";
-import { PlayerStatusState } from "./state/PlayerStatusState";
-import { PlayerAggressionTracker } from "./state/PlayerAggressionTracker";
-import { PlayerRunEnergyState, type RunEnergyOwner } from "./state/PlayerRunEnergyState";
-import { PlayerVarpState } from "./state/PlayerVarpState";
-import { PlayerBankSystem } from "./state/PlayerBankSystem";
-import { PlayerSpecialEnergyState } from "./state/PlayerSpecialEnergyState";
 import {
+    type InventoryEntry,
+    type ItemDefResolver,
+    type ItemTransaction,
+} from "./state/PlayerInventoryState";
+import { PlayerPrayerState } from "./state/PlayerPrayerState";
+import { PlayerRunEnergyState, type RunEnergyOwner } from "./state/PlayerRunEnergyState";
+import {
+    type PlayerSkillPersistentEntry,
     PlayerSkillSystem,
     type SkillEntry,
     type SkillSyncState,
     type SkillSyncUpdate,
-    type PlayerSkillPersistentEntry,
-    normalizeSkillXpValue,
-    createInitialSkills,
-    computeTotalLevel,
     computeCombatLevel,
+    computeTotalLevel,
+    createInitialSkills,
+    normalizeSkillXpValue,
 } from "./state/PlayerSkillSystem";
+import { PlayerSpecialEnergyState } from "./state/PlayerSpecialEnergyState";
+import {
+    applyPersistentVars as serializerApply,
+    exportPersistentVars as serializerExport,
+} from "./state/PlayerStateSerializer";
+import { PlayerStatusState } from "./state/PlayerStatusState";
+import { PlayerVarpState } from "./state/PlayerVarpState";
 
 export { Actor } from "./actor";
 export { type Tile } from "./actor";
@@ -79,11 +81,6 @@ export type PlayerSkillState = SkillEntry;
 // Re-export inventory types from PlayerInventoryState for backward compatibility
 export {
     INVENTORY_SLOT_COUNT,
-    type InventoryEntry,
-    type ItemDefResolver,
-    type ItemTransaction,
-} from "./state/PlayerInventoryState";
-import {
     type InventoryEntry,
     type ItemDefResolver,
     type ItemTransaction,
@@ -246,7 +243,6 @@ export class PlayerState extends Actor {
     /** Composed skill system (levels, XP, hitpoints, status effects, restoration) */
     readonly skillSystem: PlayerSkillSystem;
 
-
     /**
      * OSRS PID-style processing priority. Lower values execute first
      * for same-tick player actions. Randomized per session.
@@ -271,9 +267,7 @@ export class PlayerState extends Actor {
     readonly status = new PlayerStatusState();
 
     /** Composed run energy & stamina state */
-    readonly energy = new PlayerRunEnergyState(
-        this as unknown as RunEnergyOwner,
-    );
+    readonly energy = new PlayerRunEnergyState(this as unknown as RunEnergyOwner);
     /** Composed aggression tolerance tracker */
     readonly aggression = new PlayerAggressionTracker();
     /** Composed varp/varbit storage */
@@ -292,11 +286,10 @@ export class PlayerState extends Actor {
     // These mirror RSMod's COMBAT_TARGET_FOCUS_ATTR, INTERACTING_NPC_ATTR, etc.
     // ========================================================================
 
-
     // Combat target accessors
     /** @deprecated Use player.combat.getCombatTarget() directly */
     getCombatTarget(): NpcState | PlayerState | null {
-        return this.combat.combatTargetFocus?.deref() as (NpcState | PlayerState | null) ?? null;
+        return (this.combat.combatTargetFocus?.deref() as NpcState | PlayerState | null) ?? null;
     }
 
     /** @deprecated Use player.combat.setCombatTarget() directly */
@@ -333,7 +326,7 @@ export class PlayerState extends Actor {
 
     /** @deprecated Use player.combat.getInteractingPlayer() directly */
     getInteractingPlayer(): PlayerState | null {
-        return this.combat.interactingPlayer?.deref() as (PlayerState | null) ?? null;
+        return (this.combat.interactingPlayer?.deref() as PlayerState | null) ?? null;
     }
 
     /** @deprecated Use player.combat.setInteractingPlayer() directly */
@@ -344,7 +337,7 @@ export class PlayerState extends Actor {
     // Last hit tracking
     /** @deprecated Use player.combat.getLastHitBy() directly */
     getLastHitBy(): NpcState | PlayerState | null {
-        return this.combat.lastHitBy?.deref() as (NpcState | PlayerState | null) ?? null;
+        return (this.combat.lastHitBy?.deref() as NpcState | PlayerState | null) ?? null;
     }
 
     /** @deprecated Use player.combat.setLastHitBy() directly */
@@ -354,7 +347,7 @@ export class PlayerState extends Actor {
 
     /** @deprecated Use player.combat.getLastHit() directly */
     getLastHit(): NpcState | PlayerState | null {
-        return this.combat.lastHit?.deref() as (NpcState | PlayerState | null) ?? null;
+        return (this.combat.lastHit?.deref() as NpcState | PlayerState | null) ?? null;
     }
 
     /** @deprecated Use player.combat.setLastHit() directly */
@@ -564,7 +557,13 @@ export class PlayerState extends Actor {
     /** Pending face direction (consumed by interaction system) */
     _pendingFace?: { x: number; y: number };
 
-    constructor(id: number, spawnTileX: number, spawnTileY: number, level: number = 0, public readonly gamemode: GamemodeDefinition) {
+    constructor(
+        id: number,
+        spawnTileX: number,
+        spawnTileY: number,
+        level: number = 0,
+        public readonly gamemode: GamemodeDefinition,
+    ) {
         super(id, spawnTileX, spawnTileY, level);
         // Random per-session priority similar to OSRS PID randomness.
         this.pidPriority = Math.random() * 0x7fffffff;
@@ -607,7 +606,6 @@ export class PlayerState extends Actor {
         // Initialize task queue (RSMod: Pawn.queue)
         this.taskQueue = new QueueTaskSet<PlayerState>(this);
     }
-
 
     getPidPriority(): number {
         return this.pidPriority;
@@ -708,7 +706,6 @@ export class PlayerState extends Actor {
     // =========================================================================
     // OSRS Aggression Tolerance System
     // =========================================================================
-
 
     private canInteractWithWorld(): boolean {
         return this.gamemode.canInteract(this);
@@ -831,7 +828,11 @@ export class PlayerState extends Actor {
                     }
                 }
                 if (foundSlot === undefined) {
-                    for (let s = this.combat.styleSlot + 1; s < this.combat.attackTypes.length; s++) {
+                    for (
+                        let s = this.combat.styleSlot + 1;
+                        s < this.combat.attackTypes.length;
+                        s++
+                    ) {
                         if (this.combat.attackTypes[s] !== undefined) {
                             foundSlot = s;
                             break;
@@ -857,7 +858,10 @@ export class PlayerState extends Actor {
 
     getCurrentAttackType(): AttackType | undefined {
         if (!this.combat.attackTypes || this.combat.attackTypes.length === 0) return undefined;
-        const slot = Math.max(0, Math.min(this.combat.attackTypes.length - 1, this.combat.styleSlot));
+        const slot = Math.max(
+            0,
+            Math.min(this.combat.attackTypes.length - 1, this.combat.styleSlot),
+        );
         return this.combat.attackTypes[slot];
     }
 
@@ -896,7 +900,9 @@ export class PlayerState extends Actor {
         return this.prayer.setActivePrayers(prayers);
     }
 
-    public override hasAvailableRunEnergy(): boolean { return this.energy.hasAvailableRunEnergy(); }
+    public override hasAvailableRunEnergy(): boolean {
+        return this.energy.hasAvailableRunEnergy();
+    }
 
     public override setRunToggle(on: boolean): void {
         const prev = this.runToggle;
@@ -919,10 +925,6 @@ export class PlayerState extends Actor {
         this.setColorOverride(42, 5, 80, 30, Math.max(1, durationTicks));
         return true;
     }
-
-
-
-
 
     exportInventorySnapshot(): InventorySnapshotEntry[] {
         const snapshot: InventorySnapshotEntry[] = [];
@@ -955,13 +957,10 @@ export class PlayerState extends Actor {
         return snapshot;
     }
 
-
-
     /** @deprecated Use player.items.clearInventory() directly */
     clearInventory(): void {
         this.items.clearInventory();
     }
-
 
     /** @deprecated Use player.equipment.getCharges() directly */
     getEquipmentCharges(itemId: number): number {
@@ -1109,7 +1108,6 @@ export class PlayerState extends Actor {
         serializerApply(this, state);
     }
 
-
     private ensureAppearanceEquip(): number[] {
         ensureEquipQtyArrayOn(this.appearance, DEFAULT_EQUIP_SLOT_COUNT);
         return ensureEquipArrayOn(this.appearance, DEFAULT_EQUIP_SLOT_COUNT);
@@ -1118,7 +1116,6 @@ export class PlayerState extends Actor {
     private ensureAppearanceEquipQty(): number[] {
         return ensureEquipQtyArrayOn(this.appearance, DEFAULT_EQUIP_SLOT_COUNT);
     }
-
 
     /**
      * Add delay to the player's attack timer (OSRS: eating food adds +3 ticks, combo food +2 ticks).

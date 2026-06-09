@@ -7,14 +7,14 @@
  * - Widget action normalization and routing
  * - Dialog close state management
  */
+import { logger } from "../../../utils/logger";
 import {
     setOptionsDialogFlags,
     setSpriteDialogFlags,
 } from "../../../widgets/hooks/DialogInterfaceHooks";
-import { logger } from "../../../utils/logger";
-import { ScriptDialogKind } from "../../scripts/types";
 import type { ServerServices } from "../../ServerServices";
 import type { PlayerState } from "../../player";
+import { ScriptDialogKind } from "../../scripts/types";
 
 // ============================================================================
 // Types
@@ -135,7 +135,6 @@ const DOUBLE_SPRITE_LEFT_ITEM_COMPONENT = 1;
 const DOUBLE_SPRITE_TEXT_COMPONENT = 2;
 const DOUBLE_SPRITE_RIGHT_ITEM_COMPONENT = 3;
 const DOUBLE_SPRITE_CONTINUE_COMPONENT = 4;
-
 
 // ============================================================================
 // WidgetDialogHandler
@@ -399,7 +398,11 @@ export class WidgetDialogHandler {
             });
             // Run script 2868 (objbox_setbuttons) to set up continue button
             if (payload.clickToContinue !== false) {
-                this.svc.broadcastService.queueClientScript(playerId, 2868, "Click here to continue");
+                this.svc.broadcastService.queueClientScript(
+                    playerId,
+                    2868,
+                    "Click here to continue",
+                );
                 // Set flags AFTER script 2868 creates the continue button
                 setSpriteDialogFlags(this.svc.interfaceService!, player);
             }

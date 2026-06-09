@@ -12,7 +12,11 @@ import { ServerBinaryEncoder, serverEncoder } from "./ServerBinaryEncoder";
 /**
  * Send a binary message over WebSocket
  */
-export function sendMessage(ws: WebSocket | undefined, type: string, payload: Record<string, unknown>): void {
+export function sendMessage(
+    ws: WebSocket | undefined,
+    type: string,
+    payload: Record<string, unknown>,
+): void {
     if (!ws || ws.readyState !== 1 /* WebSocket.OPEN */) return;
 
     // Import encodeMessage dynamically to avoid circular dependency

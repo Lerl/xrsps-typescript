@@ -40,10 +40,7 @@ export class PlayerPrayerState {
         if (!changed) return false;
         this.activePrayers = next;
         this.updateHeadIcon();
-        if (
-            this.quickPrayersEnabled &&
-            !this.areSetsEqual(this.quickPrayers, this.activePrayers)
-        ) {
+        if (this.quickPrayersEnabled && !this.areSetsEqual(this.quickPrayers, this.activePrayers)) {
             this.quickPrayersEnabled = false;
         }
         return true;

@@ -229,9 +229,7 @@ function shouldCheckWidgetHoverVisual(w: any, isIf3: boolean): boolean {
     if (!w) return false;
     const type = (w.type ?? 0) | 0;
     if (type === 3) {
-        return (
-            typeof w.mouseOverColor === "number" || typeof w.mouseOverColor2 === "number"
-        );
+        return typeof w.mouseOverColor === "number" || typeof w.mouseOverColor2 === "number";
     }
     if (type === 4 || type === 8) {
         return (
@@ -266,35 +264,33 @@ function getWidgetInteractionSnapshot(
 
     let hasCs2Click = false;
     if (w?.hasListener || hasEventHandlerContainer || hasLegacyHandlerArrays) {
-        hasCs2Click =
-            !!(
-                (eh instanceof Map
-                    ? eh.get("onClick") ||
-                      eh.get("onOp") ||
-                      eh.get("onHold") ||
-                      eh.get("onRelease") ||
-                      eh.get("onMouseOver") ||
-                      eh.get("onMouseLeave")
-                    : eh?.onClick ||
-                      eh?.onOp ||
-                      eh?.onHold ||
-                      eh?.onRelease ||
-                      eh?.onMouseOver ||
-                      eh?.onMouseLeave) ||
-                (Array.isArray(w?.onClick) && w.onClick.length > 0) ||
-                (Array.isArray(w?.onOp) && w.onOp.length > 0) ||
-                (Array.isArray(w?.onHold) && w.onHold.length > 0) ||
-                (Array.isArray(w?.onRelease) && w.onRelease.length > 0) ||
-                (Array.isArray(w?.onMouseOver) && w.onMouseOver.length > 0) ||
-                (Array.isArray(w?.onMouseLeave) && w.onMouseLeave.length > 0)
-            );
+        hasCs2Click = !!(
+            (eh instanceof Map
+                ? eh.get("onClick") ||
+                  eh.get("onOp") ||
+                  eh.get("onHold") ||
+                  eh.get("onRelease") ||
+                  eh.get("onMouseOver") ||
+                  eh.get("onMouseLeave")
+                : eh?.onClick ||
+                  eh?.onOp ||
+                  eh?.onHold ||
+                  eh?.onRelease ||
+                  eh?.onMouseOver ||
+                  eh?.onMouseLeave) ||
+            (Array.isArray(w?.onClick) && w.onClick.length > 0) ||
+            (Array.isArray(w?.onOp) && w.onOp.length > 0) ||
+            (Array.isArray(w?.onHold) && w.onHold.length > 0) ||
+            (Array.isArray(w?.onRelease) && w.onRelease.length > 0) ||
+            (Array.isArray(w?.onMouseOver) && w.onMouseOver.length > 0) ||
+            (Array.isArray(w?.onMouseLeave) && w.onMouseLeave.length > 0)
+        );
     }
 
     const widgetActions = Array.isArray(w?.actions) ? (w.actions as any[]) : undefined;
     const hasActions = !!widgetActions?.some((a: any) => a && a !== "");
     const hasActionSlots = !!widgetActions?.length;
-    const hasTargetVerbCandidate =
-        !!w?.targetVerb || !!w?.spellActionName || !!w?.buttonText;
+    const hasTargetVerbCandidate = !!w?.targetVerb || !!w?.spellActionName || !!w?.buttonText;
     const buttonType = (w?.buttonType ?? 0) | 0;
     const hasButtonTypeInteraction = buttonType > 0;
     const hasOriginalHandlers =
@@ -304,7 +300,7 @@ function getWidgetInteractionSnapshot(
         !!w?.__hasOriginalOnRelease;
 
     const widgetItemId = w?.itemId;
-    const widgetGroupId = ((w?.groupId ?? (w?.uid >>> 16)) ?? 0) | 0;
+    const widgetGroupId = (w?.groupId ?? w?.uid >>> 16 ?? 0) | 0;
     const isInventoryItem = widgetGroupId === 149 && widgetItemId != null && widgetItemId >= 0;
 
     let isPauseButtonWidget = false;
@@ -882,7 +878,7 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
     const widgetFlagsFrameCache = new Map<number, number>();
     const getCachedWidgetFlags = (w: any): number => {
         if (!widgetManager || !w) return ((w?.flags ?? 0) as number) | 0;
-        const uid = typeof w.uid === "number" ? (w.uid | 0) : undefined;
+        const uid = typeof w.uid === "number" ? w.uid | 0 : undefined;
         if (uid === undefined) {
             const flags = widgetManager.getWidgetFlags(w) | 0;
             w.__widgetFlagsVersion = widgetFlagsVersion | 0;
@@ -1875,7 +1871,7 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                 }
             }
             if (ct === 327 || ct === 328) {
-                // Reference: 
+                // Reference:
                 const cycleCntr = ((osrsClient?.transmitCycles?.cycleCntr ?? 0) | 0) as number;
                 const angleX = 150;
                 const angleY = ((Math.sin(cycleCntr / 40.0) * 256.0) | 0) & 2047;
@@ -1965,10 +1961,10 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
         const height = Math.max(1, y1 - y);
         const isContainer = w.type === 0 || w.type === 11;
         const staticChildren = isContainer
-            ? (widgetManager?.getStaticChildrenByParentUid(w.uid) ?? EMPTY_WIDGETS)
+            ? widgetManager?.getStaticChildrenByParentUid(w.uid) ?? EMPTY_WIDGETS
             : EMPTY_WIDGETS;
         const dynamicChildren = isContainer
-            ? (widgetManager?.getDynamicChildrenByParent(w) ?? EMPTY_WIDGETS)
+            ? widgetManager?.getDynamicChildrenByParent(w) ?? EMPTY_WIDGETS
             : EMPTY_WIDGETS;
         const hasStaticChildren = staticChildren.length > 0;
         const hasChildren = dynamicChildren.length > 0;
@@ -2084,263 +2080,267 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
             if (!shouldProbeInteraction) {
                 // Continue with normal widget rendering; this widget does not participate in UI hit logic.
             } else {
-            const clickProbeStartMs = profileWidgetRender ? performance.now() : 0;
-            const interaction = getWidgetInteractionSnapshot(
-                w as any,
-                getCachedWidgetFlags,
-                widgetFlagsVersion,
-            );
-            const widgetActions = Array.isArray(w.actions) ? (w.actions as any[]) : undefined;
-            const widgetItemId = (w as any).itemId;
-            if (profileWidgetRender) {
-                clickProbeMs += performance.now() - clickProbeStartMs;
-            }
-            if (interaction.shouldDeriveEntries) {
-                menuDeriveWidgets++;
-            }
+                const clickProbeStartMs = profileWidgetRender ? performance.now() : 0;
+                const interaction = getWidgetInteractionSnapshot(
+                    w as any,
+                    getCachedWidgetFlags,
+                    widgetFlagsVersion,
+                );
+                const widgetActions = Array.isArray(w.actions) ? (w.actions as any[]) : undefined;
+                const widgetItemId = (w as any).itemId;
+                if (profileWidgetRender) {
+                    clickProbeMs += performance.now() - clickProbeStartMs;
+                }
+                if (interaction.shouldDeriveEntries) {
+                    menuDeriveWidgets++;
+                }
 
-            // Use widgetManager.getWidgetFlags for IF_SETEVENTS override lookup.
-            // Without this, equipment slots won't show "Remove" if flags are only set via IF_SETEVENTS.
-            const getWidgetFlagsLocal = widgetManager ? getCachedWidgetFlags : undefined;
-            const clickDeriveStartMs = profileWidgetRender ? performance.now() : 0;
-            const entries = interaction.shouldDeriveEntries
-                ? deriveMenuEntriesForWidgetCached(w as any, getWidgetFlagsLocal)
-                : [];
-            if (profileWidgetRender) {
-                clickDeriveMs += performance.now() - clickDeriveStartMs;
-            }
-            menuEntriesTotal += entries.length | 0;
-            const clickPrimaryFindStartMs = profileWidgetRender ? performance.now() : 0;
-            const primary = entries.find((e) => {
-                const lower = String(e?.option ?? "")
-                    .trim()
-                    .toLowerCase();
-                return !!lower && lower !== "cancel" && lower !== "examine";
-            });
-            if (profileWidgetRender) {
-                clickPrimaryFindMs += performance.now() - clickPrimaryFindStartMs;
-            }
+                // Use widgetManager.getWidgetFlags for IF_SETEVENTS override lookup.
+                // Without this, equipment slots won't show "Remove" if flags are only set via IF_SETEVENTS.
+                const getWidgetFlagsLocal = widgetManager ? getCachedWidgetFlags : undefined;
+                const clickDeriveStartMs = profileWidgetRender ? performance.now() : 0;
+                const entries = interaction.shouldDeriveEntries
+                    ? deriveMenuEntriesForWidgetCached(w as any, getWidgetFlagsLocal)
+                    : [];
+                if (profileWidgetRender) {
+                    clickDeriveMs += performance.now() - clickDeriveStartMs;
+                }
+                menuEntriesTotal += entries.length | 0;
+                const clickPrimaryFindStartMs = profileWidgetRender ? performance.now() : 0;
+                const primary = entries.find((e) => {
+                    const lower = String(e?.option ?? "")
+                        .trim()
+                        .toLowerCase();
+                    return !!lower && lower !== "cancel" && lower !== "examine";
+                });
+                if (profileWidgetRender) {
+                    clickPrimaryFindMs += performance.now() - clickPrimaryFindStartMs;
+                }
 
-            if (
-                primary ||
-                interaction.hasCs2Click ||
-                interaction.hasActions ||
-                interaction.hasOriginalHandlers ||
-                interaction.isInventoryItem ||
-                interaction.isPauseButtonWidget ||
-                interaction.hasButtonTypeInteraction
-            ) {
-                clickCandidateWidgets++;
-                interactiveWidgets++;
-                const clickPrimaryResolveStartMs = profileWidgetRender ? performance.now() : 0;
-                let primaryOptionText = primary?.option ?? "";
-                let primaryTarget = primary?.target;
+                if (
+                    primary ||
+                    interaction.hasCs2Click ||
+                    interaction.hasActions ||
+                    interaction.hasOriginalHandlers ||
+                    interaction.isInventoryItem ||
+                    interaction.isPauseButtonWidget ||
+                    interaction.hasButtonTypeInteraction
+                ) {
+                    clickCandidateWidgets++;
+                    interactiveWidgets++;
+                    const clickPrimaryResolveStartMs = profileWidgetRender ? performance.now() : 0;
+                    let primaryOptionText = primary?.option ?? "";
+                    let primaryTarget = primary?.target;
 
-                // For inventory items, use the widget's actions array to find the primary action
-                // The CS2 scripts set actions on inventory widgets from the item definition
-                // We need to find the first non-empty, non-Drop, non-Examine action
-                if (interaction.isInventoryItem && widgetActions) {
-                    const clickInventoryPrimaryStartMs = profileWidgetRender ? performance.now() : 0;
-                    const itemWidgetActions = widgetActions as (string | null | undefined)[];
-                    const hasNonUseAction = widgetActions.some((action) => {
-                        if (!action || typeof action !== "string") return false;
-                        const lower = action.trim().toLowerCase();
-                        if (!lower) return false;
-                        return (
-                            lower !== "use" &&
-                            lower !== "drop" &&
-                            lower !== "examine" &&
-                            lower !== "cancel"
-                        );
-                    });
-                    for (let i = 0; i < itemWidgetActions.length; i++) {
-                        const action = itemWidgetActions[i];
-                        if (!action || typeof action !== "string") continue;
-                        const trimmed = action.trim();
-                        if (!trimmed) continue;
-                        const lower = trimmed.toLowerCase();
-                        if (lower === "drop" || lower === "examine" || lower === "cancel") continue;
-                        if (hasNonUseAction && lower === "use") continue;
-                        primaryOptionText = trimmed;
-                        break;
+                    // For inventory items, use the widget's actions array to find the primary action
+                    // The CS2 scripts set actions on inventory widgets from the item definition
+                    // We need to find the first non-empty, non-Drop, non-Examine action
+                    if (interaction.isInventoryItem && widgetActions) {
+                        const clickInventoryPrimaryStartMs = profileWidgetRender
+                            ? performance.now()
+                            : 0;
+                        const itemWidgetActions = widgetActions as (string | null | undefined)[];
+                        const hasNonUseAction = widgetActions.some((action) => {
+                            if (!action || typeof action !== "string") return false;
+                            const lower = action.trim().toLowerCase();
+                            if (!lower) return false;
+                            return (
+                                lower !== "use" &&
+                                lower !== "drop" &&
+                                lower !== "examine" &&
+                                lower !== "cancel"
+                            );
+                        });
+                        for (let i = 0; i < itemWidgetActions.length; i++) {
+                            const action = itemWidgetActions[i];
+                            if (!action || typeof action !== "string") continue;
+                            const trimmed = action.trim();
+                            if (!trimmed) continue;
+                            const lower = trimmed.toLowerCase();
+                            if (lower === "drop" || lower === "examine" || lower === "cancel")
+                                continue;
+                            if (hasNonUseAction && lower === "use") continue;
+                            primaryOptionText = trimmed;
+                            break;
+                        }
+                        if (profileWidgetRender) {
+                            clickInventoryPrimaryMs +=
+                                performance.now() - clickInventoryPrimaryStartMs;
+                        }
+                    }
+
+                    // Pause button widgets show "Continue" with empty target
+                    if (interaction.isPauseButtonWidget && !primaryOptionText) {
+                        primaryOptionText = "Continue";
+                        primaryTarget = undefined;
                     }
                     if (profileWidgetRender) {
-                        clickInventoryPrimaryMs +=
-                            performance.now() - clickInventoryPrimaryStartMs;
+                        clickPrimaryResolveMs += performance.now() - clickPrimaryResolveStartMs;
                     }
-                }
 
-                // Pause button widgets show "Continue" with empty target
-                if (interaction.isPauseButtonWidget && !primaryOptionText) {
-                    primaryOptionText = "Continue";
-                    primaryTarget = undefined;
-                }
-                if (profileWidgetRender) {
-                    clickPrimaryResolveMs += performance.now() - clickPrimaryResolveStartMs;
-                }
+                    // Check if widget has a Drop action (for shift-click drop)
+                    const clickMetaStartMs = profileWidgetRender ? performance.now() : 0;
+                    const hasDropAction =
+                        interaction.isInventoryItem &&
+                        !!widgetActions &&
+                        widgetActions.some(
+                            (a: any) =>
+                                a && typeof a === "string" && a.trim().toLowerCase() === "drop",
+                        );
 
-                // Check if widget has a Drop action (for shift-click drop)
-                const clickMetaStartMs = profileWidgetRender ? performance.now() : 0;
-                const hasDropAction =
-                    interaction.isInventoryItem &&
-                    !!widgetActions &&
-                    widgetActions.some(
-                        (a: any) => a && typeof a === "string" && a.trim().toLowerCase() === "drop",
-                    );
+                    // PERF: Update cached metadata object in-place instead of creating new
+                    const slot =
+                        typeof (w as any).childIndex === "number"
+                            ? (w as any).childIndex | 0
+                            : undefined;
+                    const itemId = typeof widgetItemId === "number" ? widgetItemId | 0 : undefined;
 
-                // PERF: Update cached metadata object in-place instead of creating new
-                const slot =
-                    typeof (w as any).childIndex === "number"
-                        ? (w as any).childIndex | 0
-                        : undefined;
-                const itemId = typeof widgetItemId === "number" ? widgetItemId | 0 : undefined;
-
-                let meta = clickMetaMap.get(w.uid);
-                if (!meta) {
-                    meta = {
-                        widget: w,
-                        option: primaryOptionText,
-                        target: primaryTarget,
-                        hasDropAction,
-                        itemId,
-                        slot,
-                    };
-                    clickMetaMap.set(w.uid, meta);
-                } else {
-                    meta.widget = w;
-                    meta.option = primaryOptionText;
-                    meta.target = primaryTarget;
-                    meta.hasDropAction = hasDropAction;
-                    meta.itemId = itemId;
-                    meta.slot = slot;
-                }
-                if (profileWidgetRender) {
-                    clickMetaMs += performance.now() - clickMetaStartMs;
-                }
-
-                // PERF: Get or create cached click target, update in-place
-                // OSRS-style: persist=true for performance, visibility checked at query time via widgetUid
-                const clickTargetStartMs = profileWidgetRender ? performance.now() : 0;
-                let target = clickTargetCache.get(w.uid);
-                if (!target) {
-                    const targetId = `widget:${w.uid}`;
-                    const newTarget: CachedClickTarget = {
-                        id: targetId,
-                        rect: { x, y, w: width, h: height },
-                        priority: 100,
-                        hoverText: primaryOptionText,
-                        primaryOption:
-                            primaryOptionText || primaryTarget
-                                ? { option: primaryOptionText, target: primaryTarget }
-                                : undefined,
-                        menuOptionsCount: entries.length | 0,
-                        persist: true, // OSRS-style: persist for perf, visibility checked at query time
-                        widgetUid: w.uid, // For OSRS-style visibility filtering during hit testing
-                    };
-                    clickTargetCache.set(w.uid, newTarget);
-                    target = newTarget;
-                    (w as any).__clickTargetId = targetId;
-                } else {
-                    // Update rect in-place
-                    target.rect.x = x;
-                    target.rect.y = y;
-                    target.rect.w = width;
-                    target.rect.h = height;
-                    target.hoverText = primaryOptionText;
-                    // left-click primary actions are handled by OsrsClient.handleUiInput,
-                    // not by the GL click registry. Ensure any previously-set handlers are cleared.
-                    target.onDown = undefined;
-                    target.onClick = undefined;
-                    // Update primaryOption in-place if it exists, create if needed
-                    if (primaryOptionText || primaryTarget) {
-                        if (!target.primaryOption) {
-                            target.primaryOption = {
-                                option: primaryOptionText,
-                                target: primaryTarget,
-                            };
-                        } else {
-                            target.primaryOption.option = primaryOptionText;
-                            target.primaryOption.target = primaryTarget;
-                        }
+                    let meta = clickMetaMap.get(w.uid);
+                    if (!meta) {
+                        meta = {
+                            widget: w,
+                            option: primaryOptionText,
+                            target: primaryTarget,
+                            hasDropAction,
+                            itemId,
+                            slot,
+                        };
+                        clickMetaMap.set(w.uid, meta);
                     } else {
-                        target.primaryOption = undefined;
+                        meta.widget = w;
+                        meta.option = primaryOptionText;
+                        meta.target = primaryTarget;
+                        meta.hasDropAction = hasDropAction;
+                        meta.itemId = itemId;
+                        meta.slot = slot;
                     }
-                    target.menuOptionsCount = entries.length | 0;
-                    (w as any).__clickTargetId = target.id;
-                }
-                if (profileWidgetRender) {
-                    clickTargetMs += performance.now() - clickTargetStartMs;
-                }
+                    if (profileWidgetRender) {
+                        clickMetaMs += performance.now() - clickMetaStartMs;
+                    }
 
-                const clickRegisterStartMs = profileWidgetRender ? performance.now() : 0;
-                clicks.register(target);
-                clickRegisteredWidgets++;
+                    // PERF: Get or create cached click target, update in-place
+                    // OSRS-style: persist=true for performance, visibility checked at query time via widgetUid
+                    const clickTargetStartMs = profileWidgetRender ? performance.now() : 0;
+                    let target = clickTargetCache.get(w.uid);
+                    if (!target) {
+                        const targetId = `widget:${w.uid}`;
+                        const newTarget: CachedClickTarget = {
+                            id: targetId,
+                            rect: { x, y, w: width, h: height },
+                            priority: 100,
+                            hoverText: primaryOptionText,
+                            primaryOption:
+                                primaryOptionText || primaryTarget
+                                    ? { option: primaryOptionText, target: primaryTarget }
+                                    : undefined,
+                            menuOptionsCount: entries.length | 0,
+                            persist: true, // OSRS-style: persist for perf, visibility checked at query time
+                            widgetUid: w.uid, // For OSRS-style visibility filtering during hit testing
+                        };
+                        clickTargetCache.set(w.uid, newTarget);
+                        target = newTarget;
+                        (w as any).__clickTargetId = targetId;
+                    } else {
+                        // Update rect in-place
+                        target.rect.x = x;
+                        target.rect.y = y;
+                        target.rect.w = width;
+                        target.rect.h = height;
+                        target.hoverText = primaryOptionText;
+                        // left-click primary actions are handled by OsrsClient.handleUiInput,
+                        // not by the GL click registry. Ensure any previously-set handlers are cleared.
+                        target.onDown = undefined;
+                        target.onClick = undefined;
+                        // Update primaryOption in-place if it exists, create if needed
+                        if (primaryOptionText || primaryTarget) {
+                            if (!target.primaryOption) {
+                                target.primaryOption = {
+                                    option: primaryOptionText,
+                                    target: primaryTarget,
+                                };
+                            } else {
+                                target.primaryOption.option = primaryOptionText;
+                                target.primaryOption.target = primaryTarget;
+                            }
+                        } else {
+                            target.primaryOption = undefined;
+                        }
+                        target.menuOptionsCount = entries.length | 0;
+                        (w as any).__clickTargetId = target.id;
+                    }
+                    if (profileWidgetRender) {
+                        clickTargetMs += performance.now() - clickTargetStartMs;
+                    }
 
-                // Debug: draw purple outline for clickable areas
-                if (DEBUG_CLICK_AREAS) {
-                    const purple = [0.8, 0.2, 0.8, 1.0] as [number, number, number, number];
-                    // Top edge
-                    glr.drawRect(x, y, width, 1, purple);
-                    // Bottom edge
-                    glr.drawRect(x, y + height - 1, width, 1, purple);
-                    // Left edge
-                    glr.drawRect(x, y, 1, height, purple);
-                    // Right edge
-                    glr.drawRect(x + width - 1, y, 1, height, purple);
-                }
-                if (profileWidgetRender) {
-                    clickRegisterMs += performance.now() - clickRegisterStartMs;
-                }
-            } else if (ClientState.isSpellSelected || ClientState.isItemSelected === 1) {
-                clickCandidateWidgets++;
-                const clickCancelSetupStartMs = profileWidgetRender ? performance.now() : 0;
-                // Widget has no options, but there's an active spell/item selection.
-                // Register a click target so clicking this widget cancels the selection.
-                // This matches OSRS behavior where clicking on widgets without valid
-                // targeting options cancels spell/item selection.
-                // PERF: Reuse cached click target object, update in-place
-                // OSRS-style: persist=true for performance, visibility checked at query time via widgetUid
-                const clickTargetStartMs = profileWidgetRender ? performance.now() : 0;
-                let target = clickTargetCache.get(w.uid);
-                if (!target) {
-                    const targetId = `widget:${w.uid}`;
-                    const newTarget: CachedClickTarget = {
-                        id: targetId,
-                        rect: { x, y, w: width, h: height },
-                        priority: 50,
-                        hoverText: undefined,
-                        primaryOption: undefined,
-                        onClick: CANCEL_SELECTION_HANDLER,
-                        persist: true, // OSRS-style: persist for perf, visibility checked at query time
-                        widgetUid: w.uid, // For OSRS-style visibility filtering during hit testing
-                    };
-                    clickTargetCache.set(w.uid, newTarget);
-                    target = newTarget;
-                    (w as any).__clickTargetId = targetId;
-                } else {
-                    target.rect.x = x;
-                    target.rect.y = y;
-                    target.rect.w = width;
-                    target.rect.h = height;
-                    target.priority = 50;
-                    target.hoverText = undefined;
-                    target.primaryOption = undefined;
-                    target.onClick = CANCEL_SELECTION_HANDLER;
-                    (w as any).__clickTargetId = target.id;
-                }
-                if (profileWidgetRender) {
-                    clickCancelSetupMs += performance.now() - clickCancelSetupStartMs;
-                    clickTargetMs += performance.now() - clickTargetStartMs;
-                }
+                    const clickRegisterStartMs = profileWidgetRender ? performance.now() : 0;
+                    clicks.register(target);
+                    clickRegisteredWidgets++;
 
-                const clickRegisterStartMs = profileWidgetRender ? performance.now() : 0;
-                clicks.register(target);
-                clickRegisteredWidgets++;
-                cancelSelectionWidgets++;
-                if (profileWidgetRender) {
-                    clickRegisterMs += performance.now() - clickRegisterStartMs;
+                    // Debug: draw purple outline for clickable areas
+                    if (DEBUG_CLICK_AREAS) {
+                        const purple = [0.8, 0.2, 0.8, 1.0] as [number, number, number, number];
+                        // Top edge
+                        glr.drawRect(x, y, width, 1, purple);
+                        // Bottom edge
+                        glr.drawRect(x, y + height - 1, width, 1, purple);
+                        // Left edge
+                        glr.drawRect(x, y, 1, height, purple);
+                        // Right edge
+                        glr.drawRect(x + width - 1, y, 1, height, purple);
+                    }
+                    if (profileWidgetRender) {
+                        clickRegisterMs += performance.now() - clickRegisterStartMs;
+                    }
+                } else if (ClientState.isSpellSelected || ClientState.isItemSelected === 1) {
+                    clickCandidateWidgets++;
+                    const clickCancelSetupStartMs = profileWidgetRender ? performance.now() : 0;
+                    // Widget has no options, but there's an active spell/item selection.
+                    // Register a click target so clicking this widget cancels the selection.
+                    // This matches OSRS behavior where clicking on widgets without valid
+                    // targeting options cancels spell/item selection.
+                    // PERF: Reuse cached click target object, update in-place
+                    // OSRS-style: persist=true for performance, visibility checked at query time via widgetUid
+                    const clickTargetStartMs = profileWidgetRender ? performance.now() : 0;
+                    let target = clickTargetCache.get(w.uid);
+                    if (!target) {
+                        const targetId = `widget:${w.uid}`;
+                        const newTarget: CachedClickTarget = {
+                            id: targetId,
+                            rect: { x, y, w: width, h: height },
+                            priority: 50,
+                            hoverText: undefined,
+                            primaryOption: undefined,
+                            onClick: CANCEL_SELECTION_HANDLER,
+                            persist: true, // OSRS-style: persist for perf, visibility checked at query time
+                            widgetUid: w.uid, // For OSRS-style visibility filtering during hit testing
+                        };
+                        clickTargetCache.set(w.uid, newTarget);
+                        target = newTarget;
+                        (w as any).__clickTargetId = targetId;
+                    } else {
+                        target.rect.x = x;
+                        target.rect.y = y;
+                        target.rect.w = width;
+                        target.rect.h = height;
+                        target.priority = 50;
+                        target.hoverText = undefined;
+                        target.primaryOption = undefined;
+                        target.onClick = CANCEL_SELECTION_HANDLER;
+                        (w as any).__clickTargetId = target.id;
+                    }
+                    if (profileWidgetRender) {
+                        clickCancelSetupMs += performance.now() - clickCancelSetupStartMs;
+                        clickTargetMs += performance.now() - clickTargetStartMs;
+                    }
+
+                    const clickRegisterStartMs = profileWidgetRender ? performance.now() : 0;
+                    clicks.register(target);
+                    clickRegisteredWidgets++;
+                    cancelSelectionWidgets++;
+                    if (profileWidgetRender) {
+                        clickRegisterMs += performance.now() - clickRegisterStartMs;
+                    }
                 }
-            }
             }
         } catch {}
         if (profileWidgetRender) {
@@ -2394,10 +2394,10 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
         const isWidgetHovered =
             hoverVisual &&
             (isIf3
-                ? (((w as any).__clickTargetId &&
+                ? ((w as any).__clickTargetId &&
                       (clicks?.isHover?.((w as any).__clickTargetId) ?? false)) ||
                   clicks?.isHover?.(`widget:${w.uid}`) ||
-                  false)
+                  false
                 : mousedOverIf1WidgetUid === widgetUid);
         if (profileWidgetRender) {
             hoverMs += performance.now() - hoverStartMs;
@@ -2675,7 +2675,13 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
 
                     // Draw player marker at center (white square, scaled for render resolution)
                     const markerSize = 4 * minimapRenderScale;
-                    minimapRenderer.drawSolidRect(centerX, centerY, markerSize, markerSize, [1, 1, 1, 1]);
+                    minimapRenderer.drawSolidRect(
+                        centerX,
+                        centerY,
+                        markerSize,
+                        markerSize,
+                        [1, 1, 1, 1],
+                    );
 
                     // Draw destination flag (unrotated overlay)
                     let destWorldX = ClientState.destinationWorldX;
@@ -3137,10 +3143,7 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
             // localPlayer.getModelInternal() which bakes in the live idle animation.
             // Inject the local player's movement sequence so the widget model animates.
             let liveMovementFrame: number | undefined;
-            if (
-                sequenceId === undefined &&
-                ((w.contentType ?? 0) | 0) === 328
-            ) {
+            if (sequenceId === undefined && ((w.contentType ?? 0) | 0) === 328) {
                 try {
                     const ac = osrsClient?.playerAnimController;
                     const sid = osrsClient?.controlledPlayerServerId;
@@ -3277,7 +3280,9 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                 // PERF: Use cached texture + offsets, skip CPU model rendering entirely
                 const stretch = !!(w as any).stretchModel;
                 const modelScaleX =
-                    logicalWidth > 0 ? Math.max(1 / logicalWidth, width / logicalWidth) : rootScaleX;
+                    logicalWidth > 0
+                        ? Math.max(1 / logicalWidth, width / logicalWidth)
+                        : rootScaleX;
                 const modelScaleY =
                     logicalHeight > 0
                         ? Math.max(1 / logicalHeight, height / logicalHeight)
@@ -3287,10 +3292,8 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                 } else {
                     const drawW = Math.max(1, Math.round(cached.w * modelScaleX));
                     const drawH = Math.max(1, Math.round(cached.h * modelScaleY));
-                    const drawX =
-                        x + ((width / 2) | 0) - Math.round(cached.offsetX * modelScaleX);
-                    const drawY =
-                        y + ((height / 2) | 0) - Math.round(cached.offsetY * modelScaleY);
+                    const drawX = x + ((width / 2) | 0) - Math.round(cached.offsetX * modelScaleX);
+                    const drawY = y + ((height / 2) | 0) - Math.round(cached.offsetY * modelScaleY);
                     glr.drawTexture(cached.tex, drawX, drawY, drawW, drawH, 1, 1);
                 }
             } else {
@@ -3313,7 +3316,10 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                         orthographic: ortho,
                         widget: w,
                         sequenceId,
-                        sequenceFrame: liveMovementFrame !== undefined ? liveMovementFrame : (w.modelFrame ?? 0) | 0,
+                        sequenceFrame:
+                            liveMovementFrame !== undefined
+                                ? liveMovementFrame
+                                : (w.modelFrame ?? 0) | 0,
                         depthTest: true,
                     },
                     width,
@@ -3697,8 +3703,10 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
             // Temporarily set visual position to absolute coords and use ox=0
             const origVisualX = (d.w as any)._dragVisualX;
             const origVisualY = (d.w as any)._dragVisualY;
-            (d.w as any)._dragVisualX = (((d.w as any)._dragAbsX ?? 0) - rootOffsetX) / rootScaleX | 0;
-            (d.w as any)._dragVisualY = (((d.w as any)._dragAbsY ?? 0) - rootOffsetY) / rootScaleY | 0;
+            (d.w as any)._dragVisualX =
+                ((((d.w as any)._dragAbsX ?? 0) - rootOffsetX) / rootScaleX) | 0;
+            (d.w as any)._dragVisualY =
+                ((((d.w as any)._dragAbsY ?? 0) - rootOffsetY) / rootScaleY) | 0;
             drawNode(d.w, 0, 0, d.parentVisible, d.inSelected, fullClip, false);
             // Restore original values for other code that might use them
             (d.w as any)._dragVisualX = origVisualX;
@@ -3894,26 +3902,38 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                     _accumulatedWidgetClickRegisterMs;
                 const clickMiscMs = Math.max(0, _accumulatedWidgetClickMs - clickAccounted);
                 const avgPerPass = (value: number) =>
-                    (_accumulatedWidgetPasses > 0 ? value / _accumulatedWidgetPasses : 0).toFixed(1);
+                    (_accumulatedWidgetPasses > 0 ? value / _accumulatedWidgetPasses : 0).toFixed(
+                        1,
+                    );
                 const pct = (value: number) => ((value / total) * 100).toFixed(0);
                 const modelCacheSize =
-                    ((canvasAny.__modelRenderCache as Map<
-                        string,
-                        { tex: any; offsetX: number; offsetY: number; w: number; h: number }
-                    > | undefined)?.size ?? 0);
+                    (
+                        canvasAny.__modelRenderCache as
+                            | Map<
+                                  string,
+                                  {
+                                      tex: any;
+                                      offsetX: number;
+                                      offsetY: number;
+                                      w: number;
+                                      h: number;
+                                  }
+                              >
+                            | undefined
+                    )?.size ?? 0;
                 const iconTexCacheSize =
-                    ((canvasAny.__iconTexCache as Map<number, any> | undefined)?.size ?? 0);
+                    (canvasAny.__iconTexCache as Map<number, any> | undefined)?.size ?? 0;
                 const clickTargetCacheSize =
-                    ((canvasAny.__clickTargetCache as Map<number, CachedClickTarget> | undefined)
-                        ?.size ?? 0);
+                    (canvasAny.__clickTargetCache as Map<number, CachedClickTarget> | undefined)
+                        ?.size ?? 0;
                 const clickMetaCacheSize =
-                    ((canvasAny.__clickMetaMap as Map<number, WidgetClickMeta> | undefined)
-                        ?.size ?? 0);
+                    (canvasAny.__clickMetaMap as Map<number, WidgetClickMeta> | undefined)?.size ??
+                    0;
                 const textureCacheStats = tc.getCacheStats();
                 console.log(
-                    `[PERF] Widget render branches (${
-                        _accumulatedWidgetPasses
-                    } passes, ${total.toFixed(1)}ms): ` +
+                    `[PERF] Widget render branches (${_accumulatedWidgetPasses} passes, ${total.toFixed(
+                        1,
+                    )}ms): ` +
                         `other=${_accumulatedWidgetOtherMs.toFixed(1)}ms (${pct(
                             _accumulatedWidgetOtherMs,
                         )}%), ` +
@@ -3937,21 +3957,33 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                         `grad ${_accumulatedWidgetGradientDrawCalls}, masked ${_accumulatedWidgetMaskedDrawCalls}) | ` +
                         `texBySource: text ${_accumulatedTextTextureDrawCalls}, sprite ${_accumulatedSpriteTextureDrawCalls}, ` +
                         `model ${_accumulatedModelTextureDrawCalls}, minimap ${_accumulatedMinimapTextureDrawCalls} | ` +
-                        `other: rect ${_accumulatedWidgetRectMs.toFixed(1)}, line ${_accumulatedWidgetLineMs.toFixed(
+                        `other: rect ${_accumulatedWidgetRectMs.toFixed(
                             1,
-                        )}, prep ${_accumulatedWidgetPrepMs.toFixed(1)} (ct ${_accumulatedWidgetPrepContentTypeMs.toFixed(
+                        )}, line ${_accumulatedWidgetLineMs.toFixed(
+                            1,
+                        )}, prep ${_accumulatedWidgetPrepMs.toFixed(
+                            1,
+                        )} (ct ${_accumulatedWidgetPrepContentTypeMs.toFixed(
                             1,
                         )}, vis ${_accumulatedWidgetPrepVisibilityMs.toFixed(
                             1,
-                        )}), layout ${_accumulatedWidgetLayoutMs.toFixed(1)}, clip ${_accumulatedWidgetClipMs.toFixed(
+                        )}), layout ${_accumulatedWidgetLayoutMs.toFixed(
+                            1,
+                        )}, clip ${_accumulatedWidgetClipMs.toFixed(
                             1,
                         )}, bounds ${_accumulatedWidgetBoundsMs.toFixed(
                             1,
-                        )}, select ${_accumulatedWidgetSelectionMs.toFixed(1)}, defer ${_accumulatedWidgetDeferMs.toFixed(
+                        )}, select ${_accumulatedWidgetSelectionMs.toFixed(
                             1,
-                        )}, scrollbar ${_accumulatedWidgetScrollbarMs.toFixed(1)}, hover ${_accumulatedWidgetHoverMs.toFixed(
+                        )}, defer ${_accumulatedWidgetDeferMs.toFixed(
                             1,
-                        )}, compass ${_accumulatedWidgetCompassMs.toFixed(1)}, containerScaffold ${_accumulatedWidgetContainerScaffoldMs.toFixed(
+                        )}, scrollbar ${_accumulatedWidgetScrollbarMs.toFixed(
+                            1,
+                        )}, hover ${_accumulatedWidgetHoverMs.toFixed(
+                            1,
+                        )}, compass ${_accumulatedWidgetCompassMs.toFixed(
+                            1,
+                        )}, containerScaffold ${_accumulatedWidgetContainerScaffoldMs.toFixed(
                             1,
                         )}, scrollClamp ${_accumulatedWidgetScrollClampMs.toFixed(
                             1,
@@ -3989,26 +4021,38 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                         )}, register ${_accumulatedWidgetClickRegisterMs.toFixed(
                             1,
                         )}, misc ${clickMiscMs.toFixed(1)} | ` +
-                        `avg/pass: widgets ${avgPerPass(_accumulatedWidgetCount)}, text ${avgPerPass(
-                            _accumulatedTextWidgets,
-                        )}, sprite ${avgPerPass(_accumulatedSpriteWidgets)}, model ${avgPerPass(
-                            _accumulatedModelWidgets,
-                        )}, minimap ${avgPerPass(_accumulatedMinimapWidgets)}, containers ${avgPerPass(
+                        `avg/pass: widgets ${avgPerPass(
+                            _accumulatedWidgetCount,
+                        )}, text ${avgPerPass(_accumulatedTextWidgets)}, sprite ${avgPerPass(
+                            _accumulatedSpriteWidgets,
+                        )}, model ${avgPerPass(_accumulatedModelWidgets)}, minimap ${avgPerPass(
+                            _accumulatedMinimapWidgets,
+                        )}, containers ${avgPerPass(
                             _accumulatedContainerWidgets,
-                        )}, leaves ${avgPerPass(_accumulatedLeafWidgets)}, staticChildren ${avgPerPass(
+                        )}, leaves ${avgPerPass(
+                            _accumulatedLeafWidgets,
+                        )}, staticChildren ${avgPerPass(
                             _accumulatedStaticChildrenVisited,
-                        )}, dynamicChildren ${avgPerPass(_accumulatedDynamicChildrenVisited)}, ifaceRoots ${avgPerPass(
+                        )}, dynamicChildren ${avgPerPass(
+                            _accumulatedDynamicChildrenVisited,
+                        )}, ifaceRoots ${avgPerPass(
                             _accumulatedInterfaceParentRootsVisited,
                         )}, interactive ${avgPerPass(
                             _accumulatedInteractiveWidgets,
-                        )}, clickCandidates ${avgPerPass(_accumulatedClickCandidateWidgets)}, clickRegistered ${avgPerPass(
+                        )}, clickCandidates ${avgPerPass(
+                            _accumulatedClickCandidateWidgets,
+                        )}, clickRegistered ${avgPerPass(
                             _accumulatedClickRegisteredWidgets,
                         )}, cancelSelection ${avgPerPass(_accumulatedCancelSelectionWidgets)},
-                        menuDerive ${avgPerPass(_accumulatedMenuDeriveWidgets)}, menuEntries ${avgPerPass(
+                        menuDerive ${avgPerPass(
+                            _accumulatedMenuDeriveWidgets,
+                        )}, menuEntries ${avgPerPass(
                             _accumulatedMenuEntries,
-                        )}, modelCache hit/miss ${_accumulatedModelCacheHits}/${
-                            _accumulatedModelCacheMisses
-                        } | cacheSizes: clickTargets ${clickTargetCacheSize}, clickMeta ${clickMetaCacheSize}, model ${modelCacheSize}, iconTex ${iconTexCacheSize}, glTex ${textureCacheStats.glTextures}, spriteCanvas ${textureCacheStats.spriteCanvas}, urlImages ${textureCacheStats.urlImages}, urlPending ${textureCacheStats.urlPending}`,
+                        )}, modelCache hit/miss ${_accumulatedModelCacheHits}/${_accumulatedModelCacheMisses} | cacheSizes: clickTargets ${clickTargetCacheSize}, clickMeta ${clickMetaCacheSize}, model ${modelCacheSize}, iconTex ${iconTexCacheSize}, glTex ${
+                            textureCacheStats.glTextures
+                        }, spriteCanvas ${textureCacheStats.spriteCanvas}, urlImages ${
+                            textureCacheStats.urlImages
+                        }, urlPending ${textureCacheStats.urlPending}`,
                 );
             }
             _accumulatedWidgetRenderMs = 0;

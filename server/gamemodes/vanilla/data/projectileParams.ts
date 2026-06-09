@@ -1,9 +1,10 @@
 import fs from "fs";
 import path from "path";
+
 import {
     PROJECTILE_ARCHETYPES,
-    type ProjectileArchetypeName,
     type ProjectileAliasTarget,
+    type ProjectileArchetypeName,
     type ProjectileParams,
     type ProjectileParamsProvider,
     type ProjectileTarget,
@@ -187,10 +188,16 @@ export function createProjectileParamsProvider(): ProjectileParamsProvider {
                 ) {
                     standardTarget.targetHeightOffset = params.targetHeightOffset;
                 }
-                if (standardTarget.travelFrames === undefined && params.travelFrames !== undefined) {
+                if (
+                    standardTarget.travelFrames === undefined &&
+                    params.travelFrames !== undefined
+                ) {
                     standardTarget.travelFrames = params.travelFrames;
                 }
-                if (standardTarget.ticksPerTile === undefined && params.ticksPerTile !== undefined) {
+                if (
+                    standardTarget.ticksPerTile === undefined &&
+                    params.ticksPerTile !== undefined
+                ) {
                     standardTarget.ticksPerTile = params.ticksPerTile;
                 }
                 return target;

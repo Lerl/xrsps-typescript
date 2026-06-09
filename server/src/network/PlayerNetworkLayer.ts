@@ -1,7 +1,7 @@
 import { WebSocket } from "ws";
 
-import { logger } from "../utils/logger";
 import type { PlayerState } from "../game/player";
+import { logger } from "../utils/logger";
 
 export interface PlayerSocketLookup {
     getSocketByPlayerId(playerId: number): WebSocket | undefined;

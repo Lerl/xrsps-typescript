@@ -8,8 +8,8 @@
  * Challenges appear in the mastery combat tree interface and grant
  * mastery points when completed.
  */
-import type { CustomChallenge } from "../CustomContentTypes";
 import { TriggerType } from "../../../triggers/TriggerTypes";
+import type { CustomChallenge } from "../CustomContentTypes";
 
 /**
  * All custom mastery challenges.

@@ -105,8 +105,7 @@ export class MusicUnlockService {
      * Set the default unlock message preference for a new player.
      * Should be called during player initialization.
      */
-    initializeDefaults(_player: PlayerState): void {
-    }
+    initializeDefaults(_player: PlayerState): void {}
 
     /**
      * Get all unlocked track IDs for a player.

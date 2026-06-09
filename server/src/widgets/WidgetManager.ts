@@ -232,7 +232,9 @@ export class PlayerWidgetManager {
                 groupId: Math.trunc(entry.groupId),
                 modal: entry.modal,
             });
-        } catch (err) { logger.warn("[widget] failed to dispatch widget open", err); }
+        } catch (err) {
+            logger.warn("[widget] failed to dispatch widget open", err);
+        }
     }
 
     private dispatchClose(entry: WidgetEntry): void {
@@ -243,7 +245,9 @@ export class PlayerWidgetManager {
                 return;
             }
             this.dispatcher({ action: "close", groupId: Math.trunc(entry.groupId) });
-        } catch (err) { logger.warn("[widget] failed to dispatch widget close", err); }
+        } catch (err) {
+            logger.warn("[widget] failed to dispatch widget close", err);
+        }
     }
 
     private closeKeys(keys: Iterable<string>, opts: { silent?: boolean } = {}): WidgetEntry[] {

@@ -8,10 +8,10 @@ import { register as registerHerblore } from "./herblore/index";
 import { register as registerMining } from "./mining/index";
 import { register as registerPrayer } from "./prayer/index";
 import { register as registerProduction } from "./production/index";
+import { register as registerSailing } from "./sailing/index";
 import { register as registerSmithing } from "./smithing/index";
 import { register as registerThieving } from "./thieving/index";
 import { register as registerWoodcutting } from "./woodcutting/index";
-import { register as registerSailing } from "./sailing/index";
 
 export function register(registry: IScriptRegistry, services: ScriptServices): void {
     registerThieving(registry, services);

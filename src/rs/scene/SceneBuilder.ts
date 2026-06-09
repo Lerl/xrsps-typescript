@@ -62,7 +62,8 @@ export class SceneBuilder {
     > = new Map();
 
     // Dynamic loc spawns: Map<"x,y,level", {id,type,rotation}> - locs not in base map data
-    private locSpawns: Map<string, { id: number; type: LocModelType; rotation: number }> = new Map();
+    private locSpawns: Map<string, { id: number; type: LocModelType; rotation: number }> =
+        new Map();
 
     constructor(
         readonly cacheInfo: CacheInfo,
@@ -106,7 +107,14 @@ export class SceneBuilder {
         this.locOverrides.clear();
     }
 
-    setLocSpawn(x: number, y: number, level: number, id: number, type: LocModelType, rotation: number): void {
+    setLocSpawn(
+        x: number,
+        y: number,
+        level: number,
+        id: number,
+        type: LocModelType,
+        rotation: number,
+    ): void {
         const key = `${x},${y},${level}`;
         this.locSpawns.set(key, { id, type, rotation });
     }
@@ -298,33 +306,45 @@ export class SceneBuilder {
         mapY: number,
     ): void {
         const buffer = new ByteBuffer(data);
+        try {
+            for (let level = 0; level < Scene.MAX_LEVELS; level++) {
+                for (let x = 0; x < Scene.MAP_SQUARE_SIZE; x++) {
+                    for (let y = 0; y < Scene.MAP_SQUARE_SIZE; y++) {
+                        const sceneX = x + offsetX;
+                        const sceneY = y + offsetY;
 
-        for (let level = 0; level < Scene.MAX_LEVELS; level++) {
-            for (let x = 0; x < Scene.MAP_SQUARE_SIZE; x++) {
-                for (let y = 0; y < Scene.MAP_SQUARE_SIZE; y++) {
-                    const sceneX = x + offsetX;
-                    const sceneY = y + offsetY;
+                        // Determine if this map file is authoritative for this world tile
+                        // A map is authoritative for tiles within its 64x64 core region (no borders)
+                        const worldX = mapX * Scene.MAP_SQUARE_SIZE + x;
+                        const worldY = mapY * Scene.MAP_SQUARE_SIZE + y;
+                        const authMapX = Math.floor(worldX / Scene.MAP_SQUARE_SIZE);
+                        const authMapY = Math.floor(worldY / Scene.MAP_SQUARE_SIZE);
+                        const isAuthoritative = mapX === authMapX && mapY === authMapY;
 
-                    // Determine if this map file is authoritative for this world tile
-                    // A map is authoritative for tiles within its 64x64 core region (no borders)
-                    const worldX = mapX * Scene.MAP_SQUARE_SIZE + x;
-                    const worldY = mapY * Scene.MAP_SQUARE_SIZE + y;
-                    const authMapX = Math.floor(worldX / Scene.MAP_SQUARE_SIZE);
-                    const authMapY = Math.floor(worldY / Scene.MAP_SQUARE_SIZE);
-                    const isAuthoritative = mapX === authMapX && mapY === authMapY;
-
-                    this.decodeTerrainTile(
-                        scene,
-                        buffer,
-                        level,
-                        sceneX,
-                        sceneY,
-                        baseX,
-                        baseY,
-                        0,
-                        isAuthoritative,
-                    );
+                        this.decodeTerrainTile(
+                            scene,
+                            buffer,
+                            level,
+                            sceneX,
+                            sceneY,
+                            baseX,
+                            baseY,
+                            0,
+                            isAuthoritative,
+                        );
+                    }
                 }
+            }
+        } catch (e) {
+            // Map squares at the edge of the world (e.g. the southeast corner
+            // beyond the last column) have terrain data shorter than the
+            // fixed 4x64x64 tile loop expects. The buffer is exhausted before
+            // all tiles are read. Treat this as "end of data" / "world edge
+            // reached" — the remaining tiles keep their default values
+            // (height 0, no overlay/underlay/render flags). Re-throw any
+            // other error.
+            if (!(e instanceof Error) || e.message !== "Buffer overflow") {
+                throw e;
             }
         }
     }
@@ -458,72 +478,82 @@ export class SceneBuilder {
 
         let id = -1;
         let idDelta: number;
-        while ((idDelta = buffer.readSmart3()) !== 0) {
-            id += idDelta;
+        try {
+            while ((idDelta = buffer.readSmart3()) !== 0) {
+                id += idDelta;
 
-            let pos = 0;
-            let posDelta: number;
-            while ((posDelta = buffer.readUnsignedSmart()) !== 0) {
-                pos += posDelta - 1;
+                let pos = 0;
+                let posDelta: number;
+                while ((posDelta = buffer.readUnsignedSmart()) !== 0) {
+                    pos += posDelta - 1;
 
-                const localX = (pos >> 6) & 0x3f;
-                const localY = pos & 0x3f;
-                const level = pos >> 12;
+                    const localX = (pos >> 6) & 0x3f;
+                    const localY = pos & 0x3f;
+                    const level = pos >> 12;
 
-                const attributes = buffer.readUnsignedByte();
+                    const attributes = buffer.readUnsignedByte();
 
-                const type: LocModelType = attributes >> 2;
-                const rotation = attributes & 0x3;
+                    const type: LocModelType = attributes >> 2;
+                    const rotation = attributes & 0x3;
 
-                const sceneX = localX + offsetX;
-                const sceneY = localY + offsetY;
-
-                if (
-                    sceneX > 0 &&
-                    sceneY > 0 &&
-                    sceneX < scene.sizeX - 1 &&
-                    sceneY < scene.sizeY - 1
-                ) {
-                    let collisionMap: CollisionMap | undefined = scene.collisionMaps[level];
-
-                    // Check for dynamic loc override
-                    const overrideKey = `${sceneX},${sceneY},${level},${id}`;
-                    const override = this.locOverrides.get(overrideKey);
-                    const finalId = override?.newId ?? id;
-                    const finalRotation = override?.newRotation ?? rotation;
-                    const moveToX = override?.moveToX;
-                    const moveToY = override?.moveToY;
+                    const sceneX = localX + offsetX;
+                    const sceneY = localY + offsetY;
 
                     if (
-                        typeof moveToX === "number" &&
-                        Number.isFinite(moveToX) &&
-                        typeof moveToY === "number" &&
-                        Number.isFinite(moveToY) &&
-                        ((moveToX | 0) !== (sceneX | 0) || (moveToY | 0) !== (sceneY | 0))
+                        sceneX > 0 &&
+                        sceneY > 0 &&
+                        sceneX < scene.sizeX - 1 &&
+                        sceneY < scene.sizeY - 1
                     ) {
-                        movedLocs.push({
-                            level: level | 0,
-                            x: moveToX | 0,
-                            y: moveToY | 0,
-                            id: finalId | 0,
-                            type,
-                            rotation: finalRotation & 0x3,
-                        });
-                        continue;
-                    }
+                        let collisionMap: CollisionMap | undefined = scene.collisionMaps[level];
 
-                    this.addLoc(
-                        scene,
-                        level,
-                        sceneX,
-                        sceneY,
-                        finalId,
-                        type,
-                        finalRotation,
-                        collisionMap,
-                        locLoadType,
-                    );
+                        // Check for dynamic loc override
+                        const overrideKey = `${sceneX},${sceneY},${level},${id}`;
+                        const override = this.locOverrides.get(overrideKey);
+                        const finalId = override?.newId ?? id;
+                        const finalRotation = override?.newRotation ?? rotation;
+                        const moveToX = override?.moveToX;
+                        const moveToY = override?.moveToY;
+
+                        if (
+                            typeof moveToX === "number" &&
+                            Number.isFinite(moveToX) &&
+                            typeof moveToY === "number" &&
+                            Number.isFinite(moveToY) &&
+                            ((moveToX | 0) !== (sceneX | 0) || (moveToY | 0) !== (sceneY | 0))
+                        ) {
+                            movedLocs.push({
+                                level: level | 0,
+                                x: moveToX | 0,
+                                y: moveToY | 0,
+                                id: finalId | 0,
+                                type,
+                                rotation: finalRotation & 0x3,
+                            });
+                            continue;
+                        }
+
+                        this.addLoc(
+                            scene,
+                            level,
+                            sceneX,
+                            sceneY,
+                            finalId,
+                            type,
+                            finalRotation,
+                            collisionMap,
+                            locLoadType,
+                        );
+                    }
                 }
+            }
+        } catch (e) {
+            // Same edge-of-world behaviour as decodeTerrain: a short loc
+            // data buffer at the edge of the world is not a fatal error.
+            // Whatever locs we have already parsed are kept in `movedLocs`
+            // and applied below. Re-throw any other error.
+            if (!(e instanceof Error) || e.message !== "Buffer overflow") {
+                throw e;
             }
         }
 
@@ -535,11 +565,24 @@ export class SceneBuilder {
             const sy = parseInt(parts[1]);
             const sl = parseInt(parts[2]);
             if (
-                sx > 0 && sy > 0 &&
-                sx < scene.sizeX - 1 && sy < scene.sizeY - 1 &&
-                sl >= 0 && sl < scene.levels
+                sx > 0 &&
+                sy > 0 &&
+                sx < scene.sizeX - 1 &&
+                sy < scene.sizeY - 1 &&
+                sl >= 0 &&
+                sl < scene.levels
             ) {
-                this.addLoc(scene, sl, sx, sy, spawn.id, spawn.type, spawn.rotation, scene.collisionMaps[sl], locLoadType);
+                this.addLoc(
+                    scene,
+                    sl,
+                    sx,
+                    sy,
+                    spawn.id,
+                    spawn.type,
+                    spawn.rotation,
+                    scene.collisionMaps[sl],
+                    locLoadType,
+                );
             }
         }
 
@@ -1466,8 +1509,12 @@ export class SceneBuilder {
                         this.clearTerrainChunk(scene, plane, cx * CHUNK_SIZE, cy * CHUNK_SIZE);
                         continue;
                     }
-                    const { plane: sourcePlane, chunkX, chunkY, rotation } =
-                        unpackTemplateChunk(packed);
+                    const {
+                        plane: sourcePlane,
+                        chunkX,
+                        chunkY,
+                        rotation,
+                    } = unpackTemplateChunk(packed);
                     const regionId = ((chunkX >> 3) << 8) | (chunkY >> 3);
                     const archive = archives.get(regionId);
                     if (!archive?.terrain) {
@@ -1500,7 +1547,13 @@ export class SceneBuilder {
             for (let cy = 0; cy < INSTANCE_CHUNK_COUNT; cy++) {
                 const packed = templateChunks[0]?.[cx]?.[cy] ?? -1;
                 if (packed === -1) {
-                    this.fillMissingTerrain(scene, cx * CHUNK_SIZE, cy * CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE);
+                    this.fillMissingTerrain(
+                        scene,
+                        cx * CHUNK_SIZE,
+                        cy * CHUNK_SIZE,
+                        CHUNK_SIZE,
+                        CHUNK_SIZE,
+                    );
                 }
             }
         }
@@ -1511,8 +1564,12 @@ export class SceneBuilder {
                 for (let cy = 0; cy < INSTANCE_CHUNK_COUNT; cy++) {
                     const packed = templateChunks[plane]?.[cx]?.[cy] ?? -1;
                     if (packed === -1) continue;
-                    const { plane: sourcePlane, chunkX, chunkY, rotation } =
-                        unpackTemplateChunk(packed);
+                    const {
+                        plane: sourcePlane,
+                        chunkX,
+                        chunkY,
+                        rotation,
+                    } = unpackTemplateChunk(packed);
                     const regionId = ((chunkX >> 3) << 8) | (chunkY >> 3);
                     const archive = archives.get(regionId);
                     if (!archive?.loc) continue;
@@ -1562,7 +1619,11 @@ export class SceneBuilder {
             const mapY = regionId & 0xff;
             const terrain = this.mapFileLoader.getTerrainData(mapX, mapY, xteas);
             const loc = this.mapFileLoader.getLocData(mapX, mapY, xteas);
-            console.log(`[SceneBuilder] loadInstanceRegion ${regionId} (m${mapX}_${mapY}): terrain=${terrain?.length ?? 'null'} loc=${loc?.length ?? 'null'}`);
+            console.log(
+                `[SceneBuilder] loadInstanceRegion ${regionId} (m${mapX}_${mapY}): terrain=${
+                    terrain?.length ?? "null"
+                } loc=${loc?.length ?? "null"}`,
+            );
             archives.set(regionId, { terrain: terrain ?? undefined, loc: loc ?? undefined });
         }
 
@@ -1680,13 +1741,28 @@ export class SceneBuilder {
         }
 
         // Copy corner from diagonal neighbor
-        if (chunkSceneX > 0 && chunkSceneY >= 0 && chunkSceneX < scene.sizeX && chunkSceneY < scene.sizeY) {
+        if (
+            chunkSceneX > 0 &&
+            chunkSceneY >= 0 &&
+            chunkSceneX < scene.sizeX &&
+            chunkSceneY < scene.sizeY
+        ) {
             if (chunkSceneX > 0 && scene.tileHeights[level][chunkSceneX - 1][chunkSceneY] !== 0) {
-                scene.tileHeights[level][chunkSceneX][chunkSceneY] = scene.tileHeights[level][chunkSceneX - 1][chunkSceneY];
-            } else if (chunkSceneY > 0 && scene.tileHeights[level][chunkSceneX][chunkSceneY - 1] !== 0) {
-                scene.tileHeights[level][chunkSceneX][chunkSceneY] = scene.tileHeights[level][chunkSceneX][chunkSceneY - 1];
-            } else if (chunkSceneX > 0 && chunkSceneY > 0 && scene.tileHeights[level][chunkSceneX - 1][chunkSceneY - 1] !== 0) {
-                scene.tileHeights[level][chunkSceneX][chunkSceneY] = scene.tileHeights[level][chunkSceneX - 1][chunkSceneY - 1];
+                scene.tileHeights[level][chunkSceneX][chunkSceneY] =
+                    scene.tileHeights[level][chunkSceneX - 1][chunkSceneY];
+            } else if (
+                chunkSceneY > 0 &&
+                scene.tileHeights[level][chunkSceneX][chunkSceneY - 1] !== 0
+            ) {
+                scene.tileHeights[level][chunkSceneX][chunkSceneY] =
+                    scene.tileHeights[level][chunkSceneX][chunkSceneY - 1];
+            } else if (
+                chunkSceneX > 0 &&
+                chunkSceneY > 0 &&
+                scene.tileHeights[level][chunkSceneX - 1][chunkSceneY - 1] !== 0
+            ) {
+                scene.tileHeights[level][chunkSceneX][chunkSceneY] =
+                    scene.tileHeights[level][chunkSceneX - 1][chunkSceneY - 1];
             }
         }
     }
@@ -1706,16 +1782,20 @@ export class SceneBuilder {
                 if (sceneX >= 0 && sceneX < scene.sizeX && sceneY >= 0 && sceneY < scene.sizeY) {
                     scene.tileLightOcclusions[0][sceneX][sceneY] = 127;
                     if (sceneX === startSceneX && sceneX > 0) {
-                        scene.tileHeights[0][sceneX][sceneY] = scene.tileHeights[0][sceneX - 1][sceneY];
+                        scene.tileHeights[0][sceneX][sceneY] =
+                            scene.tileHeights[0][sceneX - 1][sceneY];
                     }
                     if (sceneX === width + startSceneX && sceneX < scene.sizeX - 1) {
-                        scene.tileHeights[0][sceneX][sceneY] = scene.tileHeights[0][sceneX + 1][sceneY];
+                        scene.tileHeights[0][sceneX][sceneY] =
+                            scene.tileHeights[0][sceneX + 1][sceneY];
                     }
                     if (sceneY === startSceneY && sceneY > 0) {
-                        scene.tileHeights[0][sceneX][sceneY] = scene.tileHeights[0][sceneX][sceneY - 1];
+                        scene.tileHeights[0][sceneX][sceneY] =
+                            scene.tileHeights[0][sceneX][sceneY - 1];
                     }
                     if (sceneY === startSceneY + height && sceneY < scene.sizeY - 1) {
-                        scene.tileHeights[0][sceneX][sceneY] = scene.tileHeights[0][sceneX][sceneY + 1];
+                        scene.tileHeights[0][sceneX][sceneY] =
+                            scene.tileHeights[0][sceneX][sceneY + 1];
                     }
                 }
             }
@@ -1799,16 +1879,12 @@ export class SceneBuilder {
                         sceneY < scene.sizeY - 1
                     ) {
                         let collisionLevel = targetPlane;
-                        if (
-                            (scene.tileRenderFlags[1]?.[sceneX]?.[sceneY] & 0x2) === 0x2
-                        ) {
+                        if ((scene.tileRenderFlags[1]?.[sceneX]?.[sceneY] & 0x2) === 0x2) {
                             collisionLevel = targetPlane - 1;
                         }
 
                         const collisionMap =
-                            collisionLevel >= 0
-                                ? scene.collisionMaps[collisionLevel]
-                                : undefined;
+                            collisionLevel >= 0 ? scene.collisionMaps[collisionLevel] : undefined;
 
                         this.addLoc(
                             scene,
@@ -1826,7 +1902,9 @@ export class SceneBuilder {
             }
         }
         if (locsMatched > 0 || locsTotal > 100) {
-            console.log(`[SceneBuilder] decodeInstanceLocs: plane=${targetPlane} chunk=(${chunkSceneX},${chunkSceneY}) src=(${sourceChunkX},${sourceChunkY}) srcPlane=${sourcePlane}: ${locsMatched}/${locsTotal} matched`);
+            console.log(
+                `[SceneBuilder] decodeInstanceLocs: plane=${targetPlane} chunk=(${chunkSceneX},${chunkSceneY}) src=(${sourceChunkX},${sourceChunkY}) srcPlane=${sourcePlane}: ${locsMatched}/${locsTotal} matched`,
+            );
         }
     }
 }

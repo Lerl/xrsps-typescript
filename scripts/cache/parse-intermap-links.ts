@@ -9,7 +9,6 @@
  *
  * Output: server/data/intermap-links.json
  */
-
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -21,10 +20,7 @@ const SCRIPT_PATH = path.resolve(
     __dirname,
     "../../references/cs2-scripts/scripts/[proc,script1705].cs2",
 );
-const OUTPUT_PATH = path.resolve(
-    __dirname,
-    "../../server/data/intermap-links.json",
-);
+const OUTPUT_PATH = path.resolve(__dirname, "../../server/data/intermap-links.json");
 
 interface Coord {
     x: number;
@@ -62,18 +58,14 @@ function main(): void {
         const trimmed = line.trim();
 
         // Match: case 0_39_54_16_52 :
-        const caseMatch = trimmed.match(
-            /^case\s+(\d+_\d+_\d+_\d+_\d+)\s*:$/,
-        );
+        const caseMatch = trimmed.match(/^case\s+(\d+_\d+_\d+_\d+_\d+)\s*:$/);
         if (caseMatch) {
             currentCase = caseMatch[1];
             continue;
         }
 
         // Match: ~script1706(0_27_83_36_55);
-        const destMatch = trimmed.match(
-            /^~script1706\((\d+_\d+_\d+_\d+_\d+)\);$/,
-        );
+        const destMatch = trimmed.match(/^~script1706\((\d+_\d+_\d+_\d+_\d+)\);$/);
         if (destMatch && currentCase) {
             const from = parseCoord(currentCase);
             const to = parseCoord(destMatch[1]);
@@ -106,9 +98,7 @@ function main(): void {
     fs.mkdirSync(path.dirname(OUTPUT_PATH), { recursive: true });
     fs.writeFileSync(OUTPUT_PATH, JSON.stringify(output, null, 2) + "\n");
 
-    console.log(
-        `Parsed ${links.length} intermap links -> ${OUTPUT_PATH}`,
-    );
+    console.log(`Parsed ${links.length} intermap links -> ${OUTPUT_PATH}`);
 }
 
 main();

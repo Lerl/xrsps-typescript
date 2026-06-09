@@ -2,7 +2,11 @@ import fs from "fs";
 import path from "path";
 
 import { CollisionFlag } from "../../../../../src/shared/CollisionFlag";
-import { type IScriptRegistry, type ScriptServices, type LocInteractionEvent } from "../../../../src/game/scripts/types";
+import {
+    type IScriptRegistry,
+    type LocInteractionEvent,
+    type ScriptServices,
+} from "../../../../src/game/scripts/types";
 
 // ---------------------------------------------------------------------------
 // OSRS Loc Traversal System
@@ -58,8 +62,8 @@ const TILE_BLOCKED = CollisionFlag.OBJECT | CollisionFlag.FLOOR_BLOCKED;
 const CARDINAL_OFFSETS: ReadonlyArray<{ dx: number; dy: number }> = [
     { dx: 0, dy: -1 }, // south
     { dx: -1, dy: 0 }, // west
-    { dx: 0, dy: 1 },  // north
-    { dx: 1, dy: 0 },  // east
+    { dx: 0, dy: 1 }, // north
+    { dx: 1, dy: 0 }, // east
 ];
 
 /**
@@ -94,7 +98,7 @@ class IntermapLinkIndex {
     }
 
     private static bucketKey(level: number, x: number, y: number): string {
-        return `${level}:${(x >> 3)}:${(y >> 3)}`;
+        return `${level}:${x >> 3}:${y >> 3}`;
     }
 
     /**
@@ -169,7 +173,11 @@ class IntermapLinkIndex {
      * Find the source (from) position of the closest intermap link near (tileX, tileY, level).
      * Used to locate the return loc at a destination so the player can face it.
      */
-    findSourceTile(tileX: number, tileY: number, level: number): { x: number; y: number } | undefined {
+    findSourceTile(
+        tileX: number,
+        tileY: number,
+        level: number,
+    ): { x: number; y: number } | undefined {
         const r = INTERMAP_SEARCH_RADIUS;
         const minBX = (tileX - r) >> 3;
         const maxBX = (tileX + r) >> 3;
@@ -338,13 +346,12 @@ function resolveMultiFloorTarget(
 
     let targetLevel: number;
     if (direction === "top") {
-        targetLevel = floorCount !== undefined
-            ? Math.min(level + (floorCount - 1), 3)
-            : Math.min(level + 2, 3);
+        targetLevel =
+            floorCount !== undefined
+                ? Math.min(level + (floorCount - 1), 3)
+                : Math.min(level + 2, 3);
     } else {
-        targetLevel = floorCount !== undefined
-            ? Math.max(level - (floorCount - 1), 0)
-            : 0;
+        targetLevel = floorCount !== undefined ? Math.max(level - (floorCount - 1), 0) : 0;
     }
 
     return { level: targetLevel, fixedDest: entry?.dest };
@@ -368,15 +375,33 @@ function resolveMultiFloorTarget(
  */
 const WALKABLE_SEARCH_OFFSETS: ReadonlyArray<{ dx: number; dy: number }> = [
     // Radius 1 — cardinals first (OSRS SWNE order)
-    { dx: 0, dy: -1 }, { dx: -1, dy: 0 }, { dx: 0, dy: 1 }, { dx: 1, dy: 0 },
+    { dx: 0, dy: -1 },
+    { dx: -1, dy: 0 },
+    { dx: 0, dy: 1 },
+    { dx: 1, dy: 0 },
     // Radius 1 — diagonals
-    { dx: -1, dy: -1 }, { dx: -1, dy: 1 }, { dx: 1, dy: -1 }, { dx: 1, dy: 1 },
+    { dx: -1, dy: -1 },
+    { dx: -1, dy: 1 },
+    { dx: 1, dy: -1 },
+    { dx: 1, dy: 1 },
     // Radius 2 — cardinals
-    { dx: 0, dy: -2 }, { dx: -2, dy: 0 }, { dx: 0, dy: 2 }, { dx: 2, dy: 0 },
+    { dx: 0, dy: -2 },
+    { dx: -2, dy: 0 },
+    { dx: 0, dy: 2 },
+    { dx: 2, dy: 0 },
     // Radius 2 — diagonals and edges
-    { dx: -1, dy: -2 }, { dx: 1, dy: -2 }, { dx: -2, dy: -1 }, { dx: 2, dy: -1 },
-    { dx: -2, dy: 1 }, { dx: 2, dy: 1 }, { dx: -1, dy: 2 }, { dx: 1, dy: 2 },
-    { dx: -2, dy: -2 }, { dx: -2, dy: 2 }, { dx: 2, dy: -2 }, { dx: 2, dy: 2 },
+    { dx: -1, dy: -2 },
+    { dx: 1, dy: -2 },
+    { dx: -2, dy: -1 },
+    { dx: 2, dy: -1 },
+    { dx: -2, dy: 1 },
+    { dx: 2, dy: 1 },
+    { dx: -1, dy: 2 },
+    { dx: 1, dy: 2 },
+    { dx: -2, dy: -2 },
+    { dx: -2, dy: 2 },
+    { dx: 2, dy: -2 },
+    { dx: 2, dy: 2 },
 ];
 
 function resolveWalkableDest(
@@ -413,10 +438,7 @@ function resolveWalkableDest(
  * to handle cases where the same-XY tile at the target level is blocked
  * (e.g. the Lighthouse cog wheel occupying the staircase tile on level 2).
  */
-function executeInstantTraversal(
-    event: LocInteractionEvent,
-    dest: TraversalDestination,
-): void {
+function executeInstantTraversal(event: LocInteractionEvent, dest: TraversalDestination): void {
     const { player, tile, services } = event;
 
     const resolved = resolveWalkableDest(services, dest);
@@ -471,7 +493,10 @@ function executeTraversal(
 // Registration
 // ---------------------------------------------------------------------------
 
-export function registerClimbingHandlers(registry: IScriptRegistry, _services: ScriptServices): void {
+export function registerClimbingHandlers(
+    registry: IScriptRegistry,
+    _services: ScriptServices,
+): void {
     // ---- climb-up: default plane + 1 ----
     registry.registerLocAction("climb-up", (event) => {
         const dest = resolveDestination(event, +1);

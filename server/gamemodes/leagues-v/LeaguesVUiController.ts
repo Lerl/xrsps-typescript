@@ -1,5 +1,14 @@
+import { VARBIT_LEAGUE_TUTORIAL_COMPLETED } from "../../../src/shared/vars";
+import type {
+    GamemodeUiBridge,
+    GamemodeUiController,
+} from "../../src/game/gamemodes/GamemodeDefinition";
 import type { PlayerState } from "../../src/game/player";
-import type { GamemodeUiBridge, GamemodeUiController } from "../../src/game/gamemodes/GamemodeDefinition";
+import {
+    LEAGUE_TUTORIAL_STEP_OPEN_JOURNAL,
+    applyLeagueTutorialUiState,
+    queueLeagueTutorialOverlayAndState,
+} from "./scripts/leagueTutorialUiState";
 import {
     type LeagueWsUiBridge,
     type LeagueWsUiPlayer,
@@ -7,12 +16,6 @@ import {
     normalizeSideJournalLeagueState,
     queueActivateQuestSideTab,
 } from "./scripts/leagueWidgets";
-import {
-    applyLeagueTutorialUiState,
-    LEAGUE_TUTORIAL_STEP_OPEN_JOURNAL,
-    queueLeagueTutorialOverlayAndState,
-} from "./scripts/leagueTutorialUiState";
-import { VARBIT_LEAGUE_TUTORIAL_COMPLETED } from "../../../src/shared/vars";
 
 const SIDE_JOURNAL_GROUP_ID = 629;
 
@@ -49,11 +52,7 @@ export class LeaguesVUiController implements GamemodeUiController {
         player: PlayerState,
         opts?: { queueFlashsideVarbitOnStep3?: boolean },
     ): void {
-        queueLeagueTutorialOverlayAndState(
-            this.asLeaguePlayer(player),
-            this.leagueBridge,
-            opts,
-        );
+        queueLeagueTutorialOverlayAndState(this.asLeaguePlayer(player), this.leagueBridge, opts);
     }
 
     handleWidgetClose(player: PlayerState, groupId: number): void {

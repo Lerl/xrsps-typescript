@@ -1,9 +1,9 @@
 import { performance } from "perf_hooks";
 
+import type { TickFrame } from "../../network/wsServerTypes";
 import { logger } from "../../utils/logger";
 import type { ServerServices } from "../ServerServices";
 
-import type { TickFrame } from "../../network/wsServerTypes";
 export type { TickFrame };
 
 export interface TickPhase {

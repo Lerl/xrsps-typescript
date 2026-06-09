@@ -47,7 +47,9 @@ export function loadExtrascriptEntries(): ExtrascriptEntry[] {
         }
 
         if (typeof mod.register !== "function") {
-            logger.warn(`[extrascripts] ${name}/index does not export a register() function — skipping`);
+            logger.warn(
+                `[extrascripts] ${name}/index does not export a register() function — skipping`,
+            );
             continue;
         }
 
@@ -56,9 +58,7 @@ export function loadExtrascriptEntries(): ExtrascriptEntry[] {
         entries.push({
             id: `extrascript.${name}`,
             register: (registry, services) => registerFn(registry, services),
-            watch: hasTsIndex
-                ? [path.resolve(dir, "index.ts")]
-                : [path.resolve(dir, "index.js")],
+            watch: hasTsIndex ? [path.resolve(dir, "index.ts")] : [path.resolve(dir, "index.js")],
         });
     }
 

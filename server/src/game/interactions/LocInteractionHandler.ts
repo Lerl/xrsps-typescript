@@ -1,7 +1,8 @@
-import type { LocTypeLoader } from "../../../../src/rs/config/loctype/LocTypeLoader";
+import type { WebSocket } from "ws";
+
 import { LocModelType } from "../../../../src/rs/config/loctype/LocModelType";
 import type { LocType } from "../../../../src/rs/config/loctype/LocType";
-import type { WebSocket } from "ws";
+import type { LocTypeLoader } from "../../../../src/rs/config/loctype/LocTypeLoader";
 import { PathService } from "../../pathfinding/PathService";
 import {
     CardinalAdjacentRouteStrategy,
@@ -311,7 +312,9 @@ export class LocInteractionHandler {
             ) {
                 logger.warn(`[DOOR] No reverse id found for loc ${info.id}`);
             }
-        } catch (err) { logger.warn("[interaction] loc action handler failed", err); }
+        } catch (err) {
+            logger.warn("[interaction] loc action handler failed", err);
+        }
 
         return true;
     }

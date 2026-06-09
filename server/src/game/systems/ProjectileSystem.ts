@@ -3,11 +3,11 @@ import type {
     ProjectileEndpoint,
     ProjectileLaunch,
 } from "../../../../src/shared/projectiles/ProjectileLaunch";
+import type { ServerServices } from "../ServerServices";
 import { ProjectileParams } from "../data/ProjectileParamsProvider";
-import { SpellDataEntry } from "../spells/SpellDataProvider";
 import { NpcState } from "../npc";
 import { PlayerState } from "../player";
-import type { ServerServices } from "../ServerServices";
+import { SpellDataEntry } from "../spells/SpellDataProvider";
 
 const NPC_STREAM_EXIT_RADIUS_TILES = 17;
 

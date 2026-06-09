@@ -1,5 +1,5 @@
-import type { IScriptRegistry, ScriptServices } from "../../../src/game/scripts/types";
 import type { PlayerState } from "../../../src/game/player";
+import type { IScriptRegistry, ScriptServices } from "../../../src/game/scripts/types";
 
 /**
  * Equipment widget handlers for equipment interfaces.
@@ -157,10 +157,15 @@ function openEquipmentStats(player: PlayerState, services: ScriptServices): void
         "",
     ]);
 
-    services.system.logger.info?.(`[equipment-widgets] Opened equipment stats for player=${playerId}`);
+    services.system.logger.info?.(
+        `[equipment-widgets] Opened equipment stats for player=${playerId}`,
+    );
 }
 
-export function registerEquipmentWidgetHandlers(registry: IScriptRegistry, services: ScriptServices): void {
+export function registerEquipmentWidgetHandlers(
+    registry: IScriptRegistry,
+    services: ScriptServices,
+): void {
     // ============ VIEW EQUIPMENT STATS BUTTON (387:1) ============
     // Opens the equipment stats interface (84) with equipment inventory sidemodal (85)
     registry.onButton(EQUIPMENT_TAB_GROUP_ID, VIEW_EQUIPMENT_STATS_COMPONENT, (event) => {

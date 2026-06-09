@@ -747,7 +747,10 @@ export function registerClientOps(handlers: HandlerMap): void {
     handlers.set(Opcodes.MOUSE_GETX, (ctx) => {
         const osrsClient = (ctx.widgetManager as any)?.osrsClient;
         const mouseX = osrsClient?.inputManager?.mouseX;
-        if (typeof mouseX !== "number") { ctx.pushInt(-1); return; }
+        if (typeof mouseX !== "number") {
+            ctx.pushInt(-1);
+            return;
+        }
         const layoutW = ctx.widgetManager?.canvasWidth ?? 0;
         const bufW: number = osrsClient?.renderer?.canvas?.width ?? layoutW;
         const scale = layoutW > 0 && bufW > 0 ? bufW / layoutW : 1;
@@ -757,7 +760,10 @@ export function registerClientOps(handlers: HandlerMap): void {
     handlers.set(Opcodes.MOUSE_GETY, (ctx) => {
         const osrsClient = (ctx.widgetManager as any)?.osrsClient;
         const mouseY = osrsClient?.inputManager?.mouseY;
-        if (typeof mouseY !== "number") { ctx.pushInt(-1); return; }
+        if (typeof mouseY !== "number") {
+            ctx.pushInt(-1);
+            return;
+        }
         const layoutH = ctx.widgetManager?.canvasHeight ?? 0;
         const bufH: number = osrsClient?.renderer?.canvas?.height ?? layoutH;
         const scale = layoutH > 0 && bufH > 0 ? bufH / layoutH : 1;

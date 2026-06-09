@@ -1,17 +1,17 @@
-import type { MessageRouter } from "../MessageRouter";
 import type { MessageHandlerServices } from "../MessageHandlers";
-import { createLogoutHandler } from "./logoutHandler";
-import { createIfCloseHandler } from "./ifCloseHandler";
-import { createWidgetHandler } from "./widgetHandler";
-import { createVarpTransmitHandler } from "./varpTransmitHandler";
+import type { MessageRouter } from "../MessageRouter";
 import { type BinaryHandlerExtServices, registerBinaryHandlers } from "./binaryMessageHandlers";
-import { registerInteractHandlers } from "./interactHandlers";
+import { registerChatHandler } from "./chatHandler";
+import { registerDebugHandler } from "./debugHandler";
 import { registerDialogHandlers } from "./dialogHandlers";
+import { createIfCloseHandler } from "./ifCloseHandler";
+import { registerInteractHandlers } from "./interactHandlers";
+import { createLogoutHandler } from "./logoutHandler";
 import { registerMovementHandlers } from "./movementHandlers";
 import { registerNpcHandlers } from "./npcHandlers";
 import { registerSpellHandlers } from "./spellHandlers";
-import { registerDebugHandler } from "./debugHandler";
-import { registerChatHandler } from "./chatHandler";
+import { createVarpTransmitHandler } from "./varpTransmitHandler";
+import { createWidgetHandler } from "./widgetHandler";
 
 export type { BinaryHandlerExtServices };
 

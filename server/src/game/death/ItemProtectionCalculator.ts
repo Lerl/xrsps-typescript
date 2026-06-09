@@ -7,7 +7,13 @@
 import { EquipmentSlot } from "../../../../src/rs/config/player/Equipment";
 import type { ItemDefinition } from "../../data/items";
 import type { EquipmentSnapshotEntry, InventoryEntry, PlayerState } from "../player";
-import { DeathType, ItemSourceType, type ItemProtectionResult, type ItemSource, type ValuedItem } from "./types";
+import {
+    DeathType,
+    type ItemProtectionResult,
+    type ItemSource,
+    ItemSourceType,
+    type ValuedItem,
+} from "./types";
 
 /**
  * Item IDs that are always kept on death regardless of other rules

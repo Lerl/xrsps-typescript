@@ -5,8 +5,8 @@ import {
     getClientClock as getClientClockFromCycles,
     markWidgetsLoaded,
 } from "../../../client/TransmitCycles";
-import type { WidgetNode } from "../../../ui/widgets/WidgetManager";
 import { markWidgetInteractionDirty } from "../../../ui/widgets/WidgetInteraction";
+import type { WidgetNode } from "../../../ui/widgets/WidgetManager";
 import { getViewportSize } from "../../../util/DeviceUtil";
 import { Opcodes } from "../Opcodes";
 import type { HandlerContext, HandlerMap } from "./HandlerTypes";

@@ -1,5 +1,5 @@
-import { LoginIndex } from "./GameState";
 import { isIosStandalonePwa } from "../../util/DeviceUtil";
+import { LoginIndex } from "./GameState";
 
 const STORAGE_KEY_TITLE_MUSIC_DISABLED = "osrs:titleMusicDisabled";
 const STORAGE_KEY_LAST_SERVER = "osrs:lastServer";
@@ -223,11 +223,14 @@ export class LoginState {
     /** Persist the last selected server to localStorage */
     saveLastServer(): void {
         try {
-            localStorage.setItem(STORAGE_KEY_LAST_SERVER, JSON.stringify({
-                name: this.serverName,
-                address: this.serverAddress,
-                secure: this.serverSecure,
-            }));
+            localStorage.setItem(
+                STORAGE_KEY_LAST_SERVER,
+                JSON.stringify({
+                    name: this.serverName,
+                    address: this.serverAddress,
+                    secure: this.serverSecure,
+                }),
+            );
         } catch {}
     }
 

@@ -95,7 +95,10 @@ export class DoorStateManager {
     private openDoors: Map<string, OpenDoorEntry> = new Map();
 
     constructor(
-        private readonly locTypeLoader?: { load(id: number): LocTypeShape | undefined; getCount?(): number },
+        private readonly locTypeLoader?: {
+            load(id: number): LocTypeShape | undefined;
+            getCount?(): number;
+        },
         private readonly doorDefLoader?: DoorDefinitionLoader,
         private readonly doorCollisionService?: DoorCollisionService,
         private readonly collisionFlagGetter?: (
@@ -634,8 +637,12 @@ export class DoorStateManager {
         // doors can swing clockwise (default) or counter-clockwise.
         const openCw = singleDef.openDir !== "ccw";
         const newRotation = isClosed
-            ? openCw ? (rotation + 1) & 3 : (rotation - 1 + 4) & 3
-            : openCw ? (rotation - 1 + 4) & 3 : (rotation + 1) & 3;
+            ? openCw
+                ? (rotation + 1) & 3
+                : (rotation - 1 + 4) & 3
+            : openCw
+            ? (rotation - 1 + 4) & 3
+            : (rotation + 1) & 3;
 
         const newTile = isClosed
             ? this.getOpenedTilePosition(x, y, rotation, openCw)
@@ -742,19 +749,29 @@ export class DoorStateManager {
     ): { x: number; y: number } {
         if (openCw) {
             switch (rotation & 3) {
-                case 0: return { x: x - 1, y };
-                case 1: return { x, y: y + 1 };
-                case 2: return { x: x + 1, y };
-                case 3: return { x, y: y - 1 };
-                default: return { x, y };
+                case 0:
+                    return { x: x - 1, y };
+                case 1:
+                    return { x, y: y + 1 };
+                case 2:
+                    return { x: x + 1, y };
+                case 3:
+                    return { x, y: y - 1 };
+                default:
+                    return { x, y };
             }
         } else {
             switch (rotation & 3) {
-                case 0: return { x: x + 1, y };
-                case 1: return { x, y: y + 1 };   // ← changed
-                case 2: return { x: x - 1, y };
-                case 3: return { x, y: y + 1 };
-                default: return { x, y };
+                case 0:
+                    return { x: x + 1, y };
+                case 1:
+                    return { x, y: y + 1 }; // ← changed
+                case 2:
+                    return { x: x - 1, y };
+                case 3:
+                    return { x, y: y + 1 };
+                default:
+                    return { x, y };
             }
         }
     }
@@ -772,20 +789,30 @@ export class DoorStateManager {
         if (openCw) {
             const closedRotation = (openedRotation - 1 + 4) & 3;
             switch (closedRotation) {
-                case 0: return { x: x + 1, y };
-                case 1: return { x, y: y - 1 };
-                case 2: return { x: x - 1, y };
-                case 3: return { x, y: y + 1 };
-                default: return { x, y };
+                case 0:
+                    return { x: x + 1, y };
+                case 1:
+                    return { x, y: y - 1 };
+                case 2:
+                    return { x: x - 1, y };
+                case 3:
+                    return { x, y: y + 1 };
+                default:
+                    return { x, y };
             }
         } else {
             const closedRotation = (openedRotation + 1) & 3;
             switch (closedRotation) {
-                case 0: return { x: x - 1, y };
-                case 1: return { x, y: y + 1 };
-                case 2: return { x, y: y - 1 };   // ← changed
-                case 3: return { x, y: y - 1 };
-                default: return { x, y };
+                case 0:
+                    return { x: x - 1, y };
+                case 1:
+                    return { x, y: y + 1 };
+                case 2:
+                    return { x, y: y - 1 }; // ← changed
+                case 3:
+                    return { x, y: y - 1 };
+                default:
+                    return { x, y };
             }
         }
     }
@@ -1627,8 +1654,16 @@ export class DoorStateManager {
         partnerKey?: string,
     ): void {
         this.openDoors.set(key, {
-            key, closedX, closedY, currentX, currentY,
-            level, closedId, openedId, rotation, locType,
+            key,
+            closedX,
+            closedY,
+            currentX,
+            currentY,
+            level,
+            closedId,
+            openedId,
+            rotation,
+            locType,
             openedAtTick: currentTick,
             openCw,
             partnerKey,
@@ -1667,8 +1702,8 @@ export class DoorStateManager {
             if (currentTick - entry.openedAtTick >= DOOR_AUTO_CLOSE_TICKS) {
                 // Auto-close this door
                 const newRotation = entry.openCw
-                    ? (entry.rotation - 1 + 4) & 3  // CW open → CCW close
-                    : (entry.rotation + 1) & 3;     // CCW open → CW close
+                    ? (entry.rotation - 1 + 4) & 3 // CW open → CCW close
+                    : (entry.rotation + 1) & 3; // CCW open → CW close
                 const newTile = { x: entry.closedX, y: entry.closedY }; // Closing returns to original position
                 this.transitionLocCollision(
                     {
@@ -1705,9 +1740,10 @@ export class DoorStateManager {
                 if (entry.partnerKey) {
                     const partnerEntry = this.openDoors.get(entry.partnerKey);
                     if (partnerEntry) {
-                        const partnerNewRotation = (partnerEntry.openCw ?? true)
-                            ? (partnerEntry.rotation - 1 + 4) & 3
-                            : (partnerEntry.rotation + 1) & 3;
+                        const partnerNewRotation =
+                            partnerEntry.openCw ?? true
+                                ? (partnerEntry.rotation - 1 + 4) & 3
+                                : (partnerEntry.rotation + 1) & 3;
                         const partnerNewTile = {
                             x: partnerEntry.closedX,
                             y: partnerEntry.closedY,

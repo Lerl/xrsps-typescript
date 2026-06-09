@@ -50,7 +50,8 @@ export class NpcSoundLookup {
         let soundPairCount = 0;
 
         for (const row of table88Rows) {
-            const categoryName = (row.getColumn(0)?.values?.[0] as string | undefined)?.trim() ?? "";
+            const categoryName =
+                (row.getColumn(0)?.values?.[0] as string | undefined)?.trim() ?? "";
             const sounds = row.getColumn(2)?.values as NpcSoundCategoryValue[] | undefined;
             if (categoryName && Array.isArray(sounds)) {
                 this.soundCategories.set(categoryName.toLowerCase(), sounds);
@@ -79,8 +80,12 @@ export class NpcSoundLookup {
             }
         }
 
-        this.loadNpcSoundMapFile(path.resolve(__dirname, "../../../data/npc-sounds.generated.json"));
-        this.loadNpcSoundMapFile(path.resolve(__dirname, "../../../data/npc-sounds.overrides.json"));
+        this.loadNpcSoundMapFile(
+            path.resolve(__dirname, "../../../data/npc-sounds.generated.json"),
+        );
+        this.loadNpcSoundMapFile(
+            path.resolve(__dirname, "../../../data/npc-sounds.overrides.json"),
+        );
 
         this.initialized = true;
         logger.info(

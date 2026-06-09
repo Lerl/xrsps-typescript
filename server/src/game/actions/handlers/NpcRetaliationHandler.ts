@@ -1,6 +1,4 @@
-import {
-    canNpcAttackPlayerFromCurrentPosition,
-} from "../../combat/CombatAction";
+import { canNpcAttackPlayerFromCurrentPosition } from "../../combat/CombatAction";
 import { HITMARK_DAMAGE } from "../../combat/HitEffects";
 import type { NpcState } from "../../npc";
 import type { PlayerState } from "../../player";

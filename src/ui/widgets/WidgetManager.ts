@@ -897,15 +897,17 @@ export class WidgetManager {
         return false;
     }
 
-    private isRuntimeChildNode(parentUid: number, child: WidgetNode | null | undefined): child is WidgetNode {
+    private isRuntimeChildNode(
+        parentUid: number,
+        child: WidgetNode | null | undefined,
+    ): child is WidgetNode {
         if (!child || typeof child !== "object") {
             return false;
         }
         if (((child.parentUid ?? -1) | 0) !== (parentUid | 0)) {
             return false;
         }
-        const childIndex =
-            typeof child.childIndex === "number" ? child.childIndex | 0 : -1;
+        const childIndex = typeof child.childIndex === "number" ? child.childIndex | 0 : -1;
         return childIndex >= 0 || ((child.fileId ?? 0) | 0) === -1;
     }
 
@@ -946,9 +948,8 @@ export class WidgetManager {
         }
 
         const node: WidgetNode | null | undefined =
-            typeof parent === "number" ? this.widgetByUid.get(parentUid) : (parent ?? undefined);
-        const sparseChildren =
-            node && Array.isArray(node.children) ? node.children : null;
+            typeof parent === "number" ? this.widgetByUid.get(parentUid) : parent ?? undefined;
+        const sparseChildren = node && Array.isArray(node.children) ? node.children : null;
         const denseChildren: WidgetNode[] = [];
         if (sparseChildren) {
             for (let i = 0; i < sparseChildren.length; i++) {
@@ -1425,7 +1426,7 @@ export class WidgetManager {
         // OSRS interfaces can have multiple independent root widget trees
         if (this.canvasWidth > 0 && this.canvasHeight > 0) {
             const allRoots = this.getAllGroupRoots(groupId);
-            // Pass static children callback for 
+            // Pass static children callback for
             const getStaticChildren = (uid: number) => this.getStaticChildrenByParentUid(uid);
 
             // First pass: initial layout before onLoad scripts run
@@ -1519,7 +1520,7 @@ export class WidgetManager {
         const layoutWidth = targetHostW > 0 ? targetHostW : this.canvasWidth || 0;
         const layoutHeight = targetHostH > 0 ? targetHostH : this.canvasHeight || 0;
 
-        // Pass static children callback for 
+        // Pass static children callback for
         const getStaticChildren = (uid: number) => this.getStaticChildrenByParentUid(uid);
 
         for (const root of allRoots) {

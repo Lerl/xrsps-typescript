@@ -1,6 +1,5 @@
 import Denque from "denque";
 import { mat4, vec2, vec3, vec4 } from "gl-matrix";
-import { WorldEntityAnimator } from "./WorldEntityAnimator";
 import { button, folder } from "leva";
 import { Schema } from "leva/dist/declarations/src/types";
 import {
@@ -35,8 +34,8 @@ import { OsrsMenuEntry } from "../../rs/MenuEntry";
 import { MenuTargetType } from "../../rs/MenuEntry";
 import { LocModelLoader } from "../../rs/config/loctype/LocModelLoader";
 import { LocModelType } from "../../rs/config/loctype/LocModelType";
-import { NpcDrawPriority } from "../../rs/config/npctype/NpcType";
 import { NpcModelLoader } from "../../rs/config/npctype/NpcModelLoader";
+import { NpcDrawPriority } from "../../rs/config/npctype/NpcType";
 import { PlayerAppearance } from "../../rs/config/player/PlayerAppearance";
 import { PlayerModelLoader } from "../../rs/config/player/PlayerModelLoader";
 import { decodeInteractionIndex } from "../../rs/interaction/InteractionIndex";
@@ -44,6 +43,7 @@ import { getMapIndexFromTile, getMapSquareId } from "../../rs/map/MapFileIndex";
 import { Model } from "../../rs/model/Model";
 import { ModelData } from "../../rs/model/ModelData";
 import { Scene } from "../../rs/scene/Scene";
+import { getUiScale } from "../../ui/UiScale";
 import { ClickCrossOverlay } from "../../ui/devoverlay/ClickCrossOverlay";
 import { GroundItemOverlay } from "../../ui/devoverlay/GroundItemOverlay";
 import { HealthBarOverlay } from "../../ui/devoverlay/HealthBarOverlay";
@@ -91,7 +91,6 @@ import {
     isTouchDevice,
     isWebGL2Supported,
 } from "../../util/DeviceUtil";
-import { getUiScale } from "../../ui/UiScale";
 import { clamp } from "../../util/MathUtil";
 import { ClientState } from "../ClientState";
 import { GameRenderer } from "../GameRenderer";
@@ -146,12 +145,14 @@ import type { PlayerSpotAnimationEvent } from "../sync/PlayerSyncTypes";
 import { RAD_TO_RS_UNITS, computeFacingRotation } from "../utils/rotation";
 import { AnimationFrames } from "./AnimationFrames";
 import { ChatheadFactory } from "./ChatheadFactory";
+import { type DrawBackend, createDrawBackend } from "./DrawBackend";
 import { DrawRange, NULL_DRAW_RANGE, newDrawRange } from "./DrawRange";
-import { createDrawBackend, type DrawBackend } from "./DrawBackend";
 import { InteractType } from "./InteractType";
 import { profiler } from "./PerformanceProfiler";
 import { PlayerChatheadFactory } from "./PlayerChatheadFactory";
+import { resolveFogRange } from "./RenderDistancePolicy";
 import { WebGLMapSquare } from "./WebGLMapSquare";
+import { WorldEntityAnimator } from "./WorldEntityAnimator";
 import { SceneBuffer } from "./buffer/SceneBuffer";
 import { getModelFaces, isModelFaceTransparent } from "./buffer/SceneBuffer";
 import { GfxManager } from "./gfx/GfxManager";
@@ -176,7 +177,6 @@ import {
     createPlayerProgram,
     createProjectileProgram,
 } from "./shaders/Shaders";
-import { resolveFogRange } from "./RenderDistancePolicy";
 
 const MAX_TEXTURES = 1024;
 const TEXTURE_SIZE = 128;
@@ -353,21 +353,31 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
     private instanceRegionY: number = 0;
     private instanceLocRebuildTimer: ReturnType<typeof setTimeout> | null = null;
     /** Active world entity overlays (rendered on top of normal world). */
-    private worldEntityOverlays: Map<number, {
-        entityIndex: number;
-        configId: number;
-        templateChunks: number[][][];
-        regionX: number;
-        regionY: number;
-        worldX: number;
-        worldY: number;
-        sizeX: number;
-        sizeZ: number;
-        extraLocs: Array<{ id: number; x: number; y: number; level: number; shape: number; rotation: number }>;
-        extraNpcs?: Array<{ id: number; x: number; y: number; level: number }>;
-        basePlane: number;
-        deckHeight?: number;
-    }> = new Map();
+    private worldEntityOverlays: Map<
+        number,
+        {
+            entityIndex: number;
+            configId: number;
+            templateChunks: number[][][];
+            regionX: number;
+            regionY: number;
+            worldX: number;
+            worldY: number;
+            sizeX: number;
+            sizeZ: number;
+            extraLocs: Array<{
+                id: number;
+                x: number;
+                y: number;
+                level: number;
+                shape: number;
+                rotation: number;
+            }>;
+            extraNpcs?: Array<{ id: number; x: number; y: number; level: number }>;
+            basePlane: number;
+            deckHeight?: number;
+        }
+    > = new Map();
     private worldEntityLocRebuildTimer: ReturnType<typeof setTimeout> | null = null;
     private nextWorldEntityLoadToken: number = 1;
     private worldEntityLoadTokens: Map<number, number> = new Map();
@@ -1408,7 +1418,11 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                 this.syncMobileLoginInput(false);
                 state.savePersistedLoginState();
                 this.osrsClient.updateGameState(GameState.CONNECTING);
-                sendLogin(state.username.trim(), state.password, this.osrsClient.loadedCache?.info?.revision ?? 0);
+                sendLogin(
+                    state.username.trim(),
+                    state.password,
+                    this.osrsClient.loadedCache?.info?.revision ?? 0,
+                );
             } else {
                 this.osrsClient.handleLoginKeyInput("Enter", "");
                 this.syncMobileLoginInput(true);
@@ -3197,7 +3211,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                         for (const viewportRoot of allRoots) {
                             if (viewportRoot) {
                                 // Layout each root independently in the current UI layout space.
-                                // Pass static children callback for 
+                                // Pass static children callback for
                                 const getStaticChildren = (uid: number) =>
                                     manager?.getStaticChildrenByParentUid(uid) ?? [];
                                 layoutWidgets(
@@ -4331,7 +4345,10 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         this.needsFramebufferUpdate = false;
     }
 
-    private initTextureFramebuffer(width: number = this.app.width, height: number = this.app.height): void {
+    private initTextureFramebuffer(
+        width: number = this.app.width,
+        height: number = this.app.height,
+    ): void {
         this.textureFramebuffer?.delete();
         this.textureColorTarget?.delete();
         this.textureDepthTarget?.delete();
@@ -5278,7 +5295,11 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
 
         if (mapData) {
             console.log(
-                `[WebGLOsrsRenderer] Instance scene loaded: vertices=${mapData.vertices?.length ?? 0} indices=${mapData.indices?.length ?? 0} mapX=${mapData.mapX} mapY=${mapData.mapY} border=${mapData.borderSize} extraLocs=${extraLocs?.length ?? 0}`,
+                `[WebGLOsrsRenderer] Instance scene loaded: vertices=${
+                    mapData.vertices?.length ?? 0
+                } indices=${mapData.indices?.length ?? 0} mapX=${mapData.mapX} mapY=${
+                    mapData.mapY
+                } border=${mapData.borderSize} extraLocs=${extraLocs?.length ?? 0}`,
             );
             // Clear any in-flight normal map loads that arrived during the async instance build
             this.mapsToLoad.clear();
@@ -5300,7 +5321,14 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
 
         // Instance scene is built as a single map square at (playerMapX, playerMapY).
         // Collect all addedLocs — the scene builder will filter by bounds.
-        const locs: Array<{ id: number; x: number; y: number; level: number; shape: number; rotation: number }> = [];
+        const locs: Array<{
+            id: number;
+            x: number;
+            y: number;
+            level: number;
+            shape: number;
+            rotation: number;
+        }> = [];
         for (const loc of this.addedLocs.values()) {
             locs.push({
                 id: loc.locId,
@@ -5356,7 +5384,14 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         worldY: number,
         sizeX: number,
         sizeZ: number,
-        extraLocs: Array<{ id: number; x: number; y: number; level: number; shape: number; rotation: number }>,
+        extraLocs: Array<{
+            id: number;
+            x: number;
+            y: number;
+            level: number;
+            shape: number;
+            rotation: number;
+        }>,
         configId: number = -1,
         extraNpcs?: Array<{ id: number; x: number; y: number; level: number }>,
         basePlane: number = 0,
@@ -5387,8 +5422,18 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         );
 
         this.worldEntityOverlays.set(entityIndex, {
-            entityIndex, configId, templateChunks, regionX, regionY,
-            worldX, worldY, sizeX, sizeZ, extraLocs, extraNpcs, basePlane,
+            entityIndex,
+            configId,
+            templateChunks,
+            regionX,
+            regionY,
+            worldX,
+            worldY,
+            sizeX,
+            sizeZ,
+            extraLocs,
+            extraNpcs,
+            basePlane,
         });
 
         // Register with WorldViewManager
@@ -5420,14 +5465,27 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         const sceneMaxY = sceneBaseY + 13 * CHUNK_SIZE;
         const allExtraLocs: typeof extraLocs = [...extraLocs];
         for (const loc of this.addedLocs.values()) {
-            if (loc.x >= sceneBaseX && loc.x < sceneMaxX && loc.y >= sceneBaseY && loc.y < sceneMaxY) {
+            if (
+                loc.x >= sceneBaseX &&
+                loc.x < sceneMaxX &&
+                loc.y >= sceneBaseY &&
+                loc.y < sceneMaxY
+            ) {
                 allExtraLocs.push({
-                    id: loc.locId, x: loc.x, y: loc.y,
-                    level: loc.level, shape: loc.shape, rotation: loc.rotation,
+                    id: loc.locId,
+                    x: loc.x,
+                    y: loc.y,
+                    level: loc.level,
+                    shape: loc.shape,
+                    rotation: loc.rotation,
                 });
             }
         }
-        console.log(`[WebGLOsrsRenderer] World entity overlay: ${allExtraLocs.length} extra locs, ${extraNpcs?.length ?? 0} extra NPCs`);
+        console.log(
+            `[WebGLOsrsRenderer] World entity overlay: ${allExtraLocs.length} extra locs, ${
+                extraNpcs?.length ?? 0
+            } extra NPCs`,
+        );
 
         const input: SdMapLoaderInput = {
             mapX: overlayMapX,
@@ -5456,7 +5514,9 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
 
         if (mapData) {
             console.log(
-                `[WebGLOsrsRenderer] World entity overlay loaded: entity=${entityIndex} vertices=${mapData.vertices?.length ?? 0}`,
+                `[WebGLOsrsRenderer] World entity overlay loaded: entity=${entityIndex} vertices=${
+                    mapData.vertices?.length ?? 0
+                }`,
             );
             this.mapsToLoad.push(mapData);
             this.mapManager.loadingMapIds.add(overlayMapId);
@@ -5464,7 +5524,6 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         } else {
             this.mapManager.loadingMapIds.delete(overlayMapId);
         }
-
     }
 
     private ensureWorldEntityOverlaysLoaded(nowMs: number): void {
@@ -5507,10 +5566,14 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
             if (!overlay) return;
             console.log(`[WebGLOsrsRenderer] Rebuilding world entity overlay with deferred locs`);
             this.loadWorldEntityScene(
-                overlay.entityIndex, overlay.templateChunks,
-                overlay.regionX, overlay.regionY,
-                overlay.worldX, overlay.worldY,
-                overlay.sizeX, overlay.sizeZ,
+                overlay.entityIndex,
+                overlay.templateChunks,
+                overlay.regionX,
+                overlay.regionY,
+                overlay.worldX,
+                overlay.worldY,
+                overlay.sizeX,
+                overlay.sizeZ,
                 overlay.extraLocs,
                 overlay.configId,
                 overlay.extraNpcs,
@@ -5560,7 +5623,10 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
             const entityMapX = Math.floor(overlay.worldX / 64) | 0;
             const entityMapY = Math.floor(overlay.worldY / 64) | 0;
             if (map.mapX === entityMapX && map.mapY === entityMapY) {
-                return this.worldEntityAnimator?.getTransform(entityIndex) ?? WebGLMapSquare.IDENTITY_MAT4;
+                return (
+                    this.worldEntityAnimator?.getTransform(entityIndex) ??
+                    WebGLMapSquare.IDENTITY_MAT4
+                );
             }
         }
         return WebGLMapSquare.IDENTITY_MAT4;
@@ -5583,7 +5649,10 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
             const minY = overlay.worldY - halfSize;
             const maxY = overlay.worldY + halfSize;
             if (tileX >= minX && tileX < maxX && tileY >= minY && tileY < maxY) {
-                return this.worldEntityAnimator?.getTransform(entityIndex) ?? WebGLMapSquare.IDENTITY_MAT4;
+                return (
+                    this.worldEntityAnimator?.getTransform(entityIndex) ??
+                    WebGLMapSquare.IDENTITY_MAT4
+                );
             }
         }
         return WebGLMapSquare.IDENTITY_MAT4;
@@ -5752,10 +5821,9 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
             existing instanceof WebGLMapSquare
                 ? existing.timeLoaded
                 : this.skipMapFadeIn
-                  ? -1.0
-                  : time;
-        const reuseFrame =
-            existing instanceof WebGLMapSquare ? existing.frameLoaded : frameCount;
+                ? -1.0
+                : time;
+        const reuseFrame = existing instanceof WebGLMapSquare ? existing.frameLoaded : frameCount;
 
         const loadedMap = WebGLMapSquare.load(
             this.osrsClient.seqTypeLoader,
@@ -5779,8 +5847,12 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         // For instances, set base world position for height sampling.
         // The height data is at source coordinates, not instance coordinates.
         if (mapData.renderPosX != null) {
-            (loadedMap as any).baseWorldX = (mapData.renderPosX - mapData.borderSize / Scene.MAP_SQUARE_SIZE) * Scene.MAP_SQUARE_SIZE;
-            (loadedMap as any).baseWorldY = (mapData.renderPosY! - mapData.borderSize / Scene.MAP_SQUARE_SIZE) * Scene.MAP_SQUARE_SIZE;
+            (loadedMap as any).baseWorldX =
+                (mapData.renderPosX - mapData.borderSize / Scene.MAP_SQUARE_SIZE) *
+                Scene.MAP_SQUARE_SIZE;
+            (loadedMap as any).baseWorldY =
+                (mapData.renderPosY! - mapData.borderSize / Scene.MAP_SQUARE_SIZE) *
+                Scene.MAP_SQUARE_SIZE;
         }
         this.mapManager.addMap(mapX, mapY, loadedMap);
         this.rebuildGroundItemsForMap(loadedMap, this.groundItemStacks.get(mapId));
@@ -6172,7 +6244,11 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                             // Update game state to CONNECTING (hides buttons)
                             loginState.savePersistedLoginState();
                             this.osrsClient.updateGameState(GameState.CONNECTING);
-                            sendLogin(loginState.username.trim(), loginState.password, this.osrsClient.loadedCache?.info?.revision ?? 0);
+                            sendLogin(
+                                loginState.username.trim(),
+                                loginState.password,
+                                this.osrsClient.loadedCache?.info?.revision ?? 0,
+                            );
                         } else {
                             this.osrsClient.handleLoginKeyInput("Enter", "");
                         }
@@ -6207,7 +6283,11 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                         // Send login message
                         const { loginState } = this.osrsClient;
                         loginState.savePersistedLoginState();
-                        sendLogin(loginState.username.trim(), loginState.password, this.osrsClient.loadedCache?.info?.revision ?? 0);
+                        sendLogin(
+                            loginState.username.trim(),
+                            loginState.password,
+                            this.osrsClient.loadedCache?.info?.revision ?? 0,
+                        );
                     }
                     // Clear click mode to prevent further processing
                     inputManager.clickMode3 = 0;
@@ -6668,11 +6748,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                 const state =
                     playerServerId > 0 ? this.playerHitsplats.get(playerServerId) : undefined;
                 if (state) {
-                    for (
-                        let slot = 0;
-                        slot < 4 && hitsplats.length < hitsplatMaxEntries;
-                        slot++
-                    ) {
+                    for (let slot = 0; slot < 4 && hitsplats.length < hitsplatMaxEntries; slot++) {
                         // Use client cycles and calculate visibility from end cycle
                         const animProgress = this.getHitsplatVisibility(state, slot, clientCycle);
                         if (animProgress === undefined) continue;
@@ -7385,10 +7461,14 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
 
             for (const pendingMap of toApply) {
                 if (!this.isValidMapData(pendingMap)) {
-                    console.warn(`[WebGLOsrsRenderer] mapsToLoad rejected: mapX=${pendingMap.mapX} mapY=${pendingMap.mapY} cacheName=${pendingMap.cacheName} loadObjs=${pendingMap.loadObjs} loadNpcs=${pendingMap.loadNpcs} smooth=${pendingMap.smoothTerrain}`);
+                    console.warn(
+                        `[WebGLOsrsRenderer] mapsToLoad rejected: mapX=${pendingMap.mapX} mapY=${pendingMap.mapY} cacheName=${pendingMap.cacheName} loadObjs=${pendingMap.loadObjs} loadNpcs=${pendingMap.loadNpcs} smooth=${pendingMap.smoothTerrain}`,
+                    );
                     continue;
                 }
-                console.log(`[WebGLOsrsRenderer] mapsToLoad applying: mapX=${pendingMap.mapX} mapY=${pendingMap.mapY} verts=${pendingMap.vertices?.length}`);
+                console.log(
+                    `[WebGLOsrsRenderer] mapsToLoad applying: mapX=${pendingMap.mapX} mapY=${pendingMap.mapY} verts=${pendingMap.vertices?.length}`,
+                );
                 mapApplyCount++;
                 this.loadMap(
                     this.mainProgram,
@@ -7405,7 +7485,8 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                 for (const [entityIndex, overlay] of this.worldEntityOverlays) {
                     const overlayMapX = 200 + entityIndex;
                     const overlayMapY = 200 + entityIndex;
-                    if (pendingMap.mapX !== overlayMapX || pendingMap.mapY !== overlayMapY) continue;
+                    if (pendingMap.mapX !== overlayMapX || pendingMap.mapY !== overlayMapY)
+                        continue;
                     const overlayMapId = getMapSquareId(overlayMapX, overlayMapY);
                     const overlayMap = this.mapManager.mapSquares.get(overlayMapId);
                     if (!overlayMap) continue;
@@ -7418,7 +7499,10 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                     overlayMap.interactionPlane = basePlane;
 
                     if (overlay.deckHeight !== undefined && overlay.deckHeight !== 0) continue;
-                    if (basePlane === 0) { overlay.deckHeight = 0; continue; }
+                    if (basePlane === 0) {
+                        overlay.deckHeight = 0;
+                        continue;
+                    }
                     if (!overlayMap.heightMapData) continue;
                     const hmSize = overlayMap.heightMapSize;
                     const hmX = 48 + 4;
@@ -7474,15 +7558,24 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         profiler.recordDrawCall(this.stats.drawBatches | 0, this.stats.trianglesSubmitted);
         profiler.recordGauge("visibleMaps", this.stats.visibleMaps);
         profiler.recordGauge("loadedMaps", this.stats.loadedMaps);
-        profiler.recordGauge("fpsLimit", this.stats.frameBudgetMs > 0 ? 1000 / this.stats.frameBudgetMs : 0);
+        profiler.recordGauge(
+            "fpsLimit",
+            this.stats.frameBudgetMs > 0 ? 1000 / this.stats.frameBudgetMs : 0,
+        );
         profiler.recordGauge("frameBudgetMs", this.stats.frameBudgetMs);
         profiler.recordGauge("callbackDeltaMs", this.stats.callbackDeltaMs);
         profiler.recordGauge("estimatedRefreshHz", this.stats.estimatedRefreshHz);
         profiler.recordGauge("limiterSkippedCallbacks", this.stats.limiterSkippedCallbacks);
         profiler.recordGauge("limiterSkipDebtMs", this.stats.limiterSkipDebtMs);
         profiler.recordGauge("timeoutScheduler", this.stats.usedTimeoutScheduler ? 1 : 0);
-        profiler.recordGauge("frameJsMs", Math.max(0, performance.now() - this.stats.frameTimeStart));
-        profiler.recordGauge("resolutionScale", this.osrsClient.mobileEffectiveResolutionScale || 1);
+        profiler.recordGauge(
+            "frameJsMs",
+            Math.max(0, performance.now() - this.stats.frameTimeStart),
+        );
+        profiler.recordGauge(
+            "resolutionScale",
+            this.osrsClient.mobileEffectiveResolutionScale || 1,
+        );
         profiler.recordGauge("canvasPixelsMp", (this.app.width * this.app.height) / 1_000_000);
         profiler.recordGauge(
             "scenePixelsMp",
@@ -8249,7 +8342,10 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
 
         const left = Math.max(0, viewportRect.x | 0);
         const top = Math.max(0, viewportRect.y | 0);
-        const right = Math.min(this.sceneRenderWidth | 0, (viewportRect.x + viewportRect.width) | 0);
+        const right = Math.min(
+            this.sceneRenderWidth | 0,
+            (viewportRect.x + viewportRect.width) | 0,
+        );
         const bottom = Math.min(
             this.sceneRenderHeight | 0,
             (viewportRect.y + viewportRect.height) | 0,
@@ -8442,12 +8538,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
 
         let tileX = localPxX >> 7;
         let tileZ = localPxZ >> 7;
-        if (
-            tileX < 0 ||
-            tileZ < 0 ||
-            tileX >= mapTileSpan ||
-            tileZ >= mapTileSpan
-        ) {
+        if (tileX < 0 || tileZ < 0 || tileX >= mapTileSpan || tileZ >= mapTileSpan) {
             return 0;
         }
         tileX = Math.max(0, Math.min(mapTileSpan - 1, tileX));
@@ -8871,12 +8962,18 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                 if (!proxyType) continue;
                 const proxyModel =
                     locModelLoader.getModelAnimated(
-                        proxyType, LocModelType.NORMAL, anim.rotation ?? 0,
-                        anim.seqType?.id ?? -1, anim.frame | 0,
+                        proxyType,
+                        LocModelType.NORMAL,
+                        anim.rotation ?? 0,
+                        anim.seqType?.id ?? -1,
+                        anim.frame | 0,
                     ) ??
                     locModelLoader.getModelAnimated(
-                        proxyType, modelType as LocModelType, modelRotation,
-                        anim.seqType?.id ?? -1, anim.frame | 0,
+                        proxyType,
+                        modelType as LocModelType,
+                        modelRotation,
+                        anim.seqType?.id ?? -1,
+                        anim.frame | 0,
                     );
                 if (proxyModel && !this.hasNoVisibleFaces(proxyModel)) {
                     return proxyModel;
@@ -8957,7 +9054,10 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         // visual proxy loc at the same tile for the highlight outline.
         if (model && this.hasNoVisibleFaces(model)) {
             const proxy = this.findVisualProxyModel(
-                locModelLoader, target, modelType, modelRotation,
+                locModelLoader,
+                target,
+                modelType,
+                modelRotation,
             );
             if (proxy) {
                 model = proxy;
@@ -8981,7 +9081,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         // full UNITS_LEVEL_HEIGHT below.
         const heightMap = this.getPreferredMapForWorldTile(target.tileX, target.tileY);
         const isOverlay = !target.overworldProxy && heightMap && heightMap.interactionPlane >= 0;
-        const heightPlane = isOverlay ? 0 : (target.plane | 0);
+        const heightPlane = isOverlay ? 0 : target.plane | 0;
         let baseY = sampleBridgeHeightForWorldTile(
             this.mapManager,
             entityX / 128.0,
@@ -9633,7 +9733,8 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
     private getPreferredMapForWorldTile(tileX: number, tileY: number): WebGLMapSquare | undefined {
         const preferredWorldViewId = this.getControlledPlayerWorldViewId();
         if (preferredWorldViewId >= 0) {
-            const preferredView = this.osrsClient.worldViewManager.getWorldView(preferredWorldViewId);
+            const preferredView =
+                this.osrsClient.worldViewManager.getWorldView(preferredWorldViewId);
             if (preferredView?.containsTile(tileX | 0, tileY | 0)) {
                 const overlayMap = this.osrsClient.worldViewManager.getOverlayMapSquare(
                     preferredWorldViewId,
@@ -9644,10 +9745,9 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                 }
             }
         }
-        return this.mapManager.getMap(
-            getMapIndexFromTile(tileX),
-            getMapIndexFromTile(tileY),
-        ) as WebGLMapSquare | undefined;
+        return this.mapManager.getMap(getMapIndexFromTile(tileX), getMapIndexFromTile(tileY)) as
+            | WebGLMapSquare
+            | undefined;
     }
 
     private getMapLocalTile(
@@ -9658,12 +9758,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         const mapTileSpan = map.getLocalTileSpan();
         const localX = (tileX | 0) - map.getRenderBaseTileX();
         const localY = (tileY | 0) - map.getRenderBaseTileY();
-        if (
-            localX < 0 ||
-            localY < 0 ||
-            localX >= mapTileSpan ||
-            localY >= mapTileSpan
-        ) {
+        if (localX < 0 || localY < 0 || localX >= mapTileSpan || localY >= mapTileSpan) {
             return undefined;
         }
         return { x: localX | 0, y: localY | 0 };
@@ -9685,7 +9780,12 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         const map = this.getPreferredMapForWorldTile(tileX, tileY);
         const local = map ? this.getMapLocalTile(map, tileX, tileY) : undefined;
         if (!map || !local) {
-            return resolveCollisionSamplePlaneForWorldTile(this.mapManager, basePlane, tileX, tileY);
+            return resolveCollisionSamplePlaneForWorldTile(
+                this.mapManager,
+                basePlane,
+                tileX,
+                tileY,
+            );
         }
         return resolveCollisionSamplePlaneForLocal(map, basePlane, local.x, local.y);
     }
@@ -10220,10 +10320,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
     }
 
     private getActorTileSelectionKey(tileX: number, tileY: number, plane: number): number {
-        return (
-            ((plane & 0x3) * 0x40000000 + ((tileX & 0x7fff) * 0x8000 + (tileY & 0x7fff))) >>>
-            0
-        );
+        return ((plane & 0x3) * 0x40000000 + ((tileX & 0x7fff) * 0x8000 + (tileY & 0x7fff))) >>> 0;
     }
 
     private shouldReplaceTileWinner(
@@ -10245,10 +10342,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
     ): void {
         const key = this.getActorTileSelectionKey(tileX | 0, tileY | 0, plane | 0);
         const current = this.frameWinningActorByTile.get(key);
-        if (
-            current &&
-            !this.shouldReplaceTileWinner(current, kind, id | 0, priority | 0)
-        ) {
+        if (current && !this.shouldReplaceTileWinner(current, kind, id | 0, priority | 0)) {
             return;
         }
 
@@ -10430,8 +10524,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
             return undefined;
         }
 
-        const controlledPid =
-            this.osrsClient.playerEcs.getIndexForServerId(controlledServerId);
+        const controlledPid = this.osrsClient.playerEcs.getIndexForServerId(controlledServerId);
         if (controlledPid === undefined) {
             return undefined;
         }
@@ -10484,9 +10577,9 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                 return true;
             }
 
-            const overlayMap = this.mapManager.mapSquares.get(
-                worldView.overlayMapId,
-            ) as WebGLMapSquare | undefined;
+            const overlayMap = this.mapManager.mapSquares.get(worldView.overlayMapId) as
+                | WebGLMapSquare
+                | undefined;
             if (overlayMap?.npcEntityIds?.indexOf(ecsId | 0) !== -1) {
                 for (let i = 0; i < this.mapManager.visibleMapCount; i++) {
                     if (this.mapManager.visibleMaps[i] === overlayMap) {
@@ -11418,8 +11511,8 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         const zoneY = tileY >> 3;
         const bwx = (map as any).baseWorldX;
         const bwy = (map as any).baseWorldY;
-        const mapMinZoneX = bwx != null ? ((bwx | 0) >> 3) : map.mapX << 3;
-        const mapMinZoneY = bwy != null ? ((bwy | 0) >> 3) : map.mapY << 3;
+        const mapMinZoneX = bwx != null ? (bwx | 0) >> 3 : map.mapX << 3;
+        const mapMinZoneY = bwy != null ? (bwy | 0) >> 3 : map.mapY << 3;
         const mapMaxZoneX = mapMinZoneX + 7;
         const mapMaxZoneY = mapMinZoneY + 7;
         const dx =
@@ -11631,7 +11724,9 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
             if (isWorldEntity) {
                 weEntityIndex = this.getWorldEntityIndexForMapId(map.id);
                 if (weEntityIndex !== undefined) {
-                    weTransform = this.worldEntityAnimator?.getTransform(weEntityIndex) ?? WebGLMapSquare.IDENTITY_MAT4;
+                    weTransform =
+                        this.worldEntityAnimator?.getTransform(weEntityIndex) ??
+                        WebGLMapSquare.IDENTITY_MAT4;
                 }
             }
 
@@ -11689,32 +11784,42 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                 const weEntity = this.osrsClient.worldViewManager.getWorldEntity(weEntityIndex);
                 if (weEntity && weEntity.drawMode === 1) {
                     const weView = this.osrsClient.worldViewManager.getWorldView(weEntityIndex);
-                    const hasOverlap = weView && (weView.npcIds.size > 0 || weView.playerIds.size > 0);
+                    const hasOverlap =
+                        weView && (weView.npcIds.size > 0 || weView.playerIds.size > 0);
                     if (hasOverlap) {
                         const overlay = this.worldEntityOverlays.get(weEntityIndex);
-                        const weType = overlay?.configId !== undefined && overlay.configId >= 0
-                            ? this.osrsClient.worldEntityTypeLoader?.load(overlay.configId)
-                            : undefined;
+                        const weType =
+                            overlay?.configId !== undefined && overlay.configId >= 0
+                                ? this.osrsClient.worldEntityTypeLoader?.load(overlay.configId)
+                                : undefined;
                         if (weType && weType.sceneTintHsl > 0 && this.sceneUniformBuffer) {
                             this.setSceneHslOverrideFromPacked(weType.sceneTintHsl, 127);
-                            this.sceneUniformBuffer.set(4, this.sceneHslOverride as Float32Array).update();
+                            this.sceneUniformBuffer
+                                .set(4, this.sceneHslOverride as Float32Array)
+                                .update();
 
                             this.app.enable(PicoGL.BLEND);
                             this.app.blendFunc(PicoGL.SRC_ALPHA, PicoGL.ONE_MINUS_SRC_ALPHA);
 
                             drawCall.uniform("u_worldEntityOpacity", 0.01);
-                            this.drawWithRoofPlaneFilter(drawCall, drawRanges, drawRangePlanes, roofPlaneLimit);
+                            this.drawWithRoofPlaneFilter(
+                                drawCall,
+                                drawRanges,
+                                drawRangePlanes,
+                                roofPlaneLimit,
+                            );
                             drawCall.uniform("u_worldEntityOpacity", 1.0);
 
                             this.app.disable(PicoGL.BLEND);
 
                             this.clearSceneHslOverride();
-                            this.sceneUniformBuffer.set(4, this.sceneHslOverride as Float32Array).update();
+                            this.sceneUniformBuffer
+                                .set(4, this.sceneHslOverride as Float32Array)
+                                .update();
                         }
                     }
                 }
             }
-
         }
 
         if (!transparent) {
@@ -11920,7 +12025,11 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                     if (dynWvId >= 0) {
                         const dynDeckH = this.getWorldEntityDeckHeight(0, 0);
                         dynDrawCall.uniform("u_modelYOffset", -dynDeckH);
-                        dynDrawCall.uniform("u_worldEntityTransform", this.worldEntityAnimator?.getTransform(dynWvId) ?? WebGLMapSquare.IDENTITY_MAT4);
+                        dynDrawCall.uniform(
+                            "u_worldEntityTransform",
+                            this.worldEntityAnimator?.getTransform(dynWvId) ??
+                                WebGLMapSquare.IDENTITY_MAT4,
+                        );
                     } else {
                         dynDrawCall.uniform("u_modelYOffset", 0.0);
                         dynDrawCall.uniform("u_worldEntityTransform", WebGLMapSquare.IDENTITY_MAT4);
@@ -12219,9 +12328,10 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                     if (weNpcIndices.length > 0) {
                         const firstWeId = ids[weNpcIndices[0]] | 0;
                         const weEntityIdx = ecs.getWorldViewId(firstWeId);
-                        const weTransform = this.worldEntityAnimator?.getTransform(weEntityIdx) ?? WebGLMapSquare.IDENTITY_MAT4;
+                        const weTransform =
+                            this.worldEntityAnimator?.getTransform(weEntityIdx) ??
+                            WebGLMapSquare.IDENTITY_MAT4;
                         const weDeckH = this.getWorldEntityDeckHeight(0, 0);
-
 
                         drawCall
                             .uniform("u_modelYOffset", -weDeckH)
@@ -12235,10 +12345,14 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                         for (const wj of weNpcIndices) {
                             const wid = ids[wj] | 0;
                             const anim = this._resolveNpcAnimation(map, wj, ecs, wid);
-                            const wFrameId = ecs.getSeqId(wid) >= 0 && ecs.getSeqDelay?.(wid) === 0
-                                ? ecs.getFrameIndex(wid) | 0
-                                : ecs.getMovementFrameIndex?.(wid) | 0;
-                            const frame = anim.frames[Math.max(0, Math.min((anim.frames.length - 1) | 0, wFrameId))];
+                            const wFrameId =
+                                ecs.getSeqId(wid) >= 0 && ecs.getSeqDelay?.(wid) === 0
+                                    ? ecs.getFrameIndex(wid) | 0
+                                    : ecs.getMovementFrameIndex?.(wid) | 0;
+                            const frame =
+                                anim.frames[
+                                    Math.max(0, Math.min((anim.frames.length - 1) | 0, wFrameId))
+                                ];
                             (drawCall as any).offsets[wj] = frame[0];
                             (drawCall as any).numElements[wj] = frame[1];
                             drawRanges[wj] = frame;
@@ -12316,7 +12430,11 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                     if (dynWvId >= 0) {
                         const dynDeckH = this.getWorldEntityDeckHeight(0, 0);
                         dynDrawCall.uniform("u_modelYOffset", -dynDeckH);
-                        dynDrawCall.uniform("u_worldEntityTransform", this.worldEntityAnimator?.getTransform(dynWvId) ?? WebGLMapSquare.IDENTITY_MAT4);
+                        dynDrawCall.uniform(
+                            "u_worldEntityTransform",
+                            this.worldEntityAnimator?.getTransform(dynWvId) ??
+                                WebGLMapSquare.IDENTITY_MAT4,
+                        );
                     } else {
                         dynDrawCall.uniform("u_modelYOffset", 0.0);
                         dynDrawCall.uniform("u_worldEntityTransform", WebGLMapSquare.IDENTITY_MAT4);
@@ -13966,14 +14084,14 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                 this.clearInteractHighlightHoverTarget();
             }
             const overrideRotation =
-                typeof opts?.newRotation === "number"
-                    ? opts.newRotation & 0x3
-                    : undefined;
+                typeof opts?.newRotation === "number" ? opts.newRotation & 0x3 : undefined;
 
             const spawnKey = `${oldTile.x | 0},${oldTile.y | 0},${level | 0}`;
             const existingSpawn = this.locSpawns.get(spawnKey);
             // Use locSpawns for: locs spawned on empty ground (oldId===0) or ongoing lifecycle of a spawned loc
-            const isSpawnedLoc = (oldId | 0) === 0 || (existingSpawn !== undefined && existingSpawn.id === (oldId | 0));
+            const isSpawnedLoc =
+                (oldId | 0) === 0 ||
+                (existingSpawn !== undefined && existingSpawn.id === (oldId | 0));
 
             const clearOverridesAtTile = (tileX: number, tileY: number): void => {
                 const keyPrefix = `${tileX | 0},${tileY | 0},${level},`;
@@ -14047,9 +14165,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                     return `(${Number(mxRaw) | 0}, ${Number(myRaw) | 0})`;
                 })
                 .join(", ");
-            console.log(
-                `Refreshing map square(s) ${mapSummary} via loc geometry refresh`,
-            );
+            console.log(`Refreshing map square(s) ${mapSummary} via loc geometry refresh`);
         } catch (err) {
             console.warn("onLocChange error", err);
         }
@@ -14058,13 +14174,29 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
     private getExtraLocsForMap(
         mapX: number,
         mapY: number,
-    ): Array<{ id: number; x: number; y: number; level: number; shape: number; rotation: number }> | undefined {
+    ):
+        | Array<{
+              id: number;
+              x: number;
+              y: number;
+              level: number;
+              shape: number;
+              rotation: number;
+          }>
+        | undefined {
         if (this.addedLocs.size === 0) return undefined;
         const minX = mapX * 64;
         const minY = mapY * 64;
         const maxX = minX + 64;
         const maxY = minY + 64;
-        const locs: Array<{ id: number; x: number; y: number; level: number; shape: number; rotation: number }> = [];
+        const locs: Array<{
+            id: number;
+            x: number;
+            y: number;
+            level: number;
+            shape: number;
+            rotation: number;
+        }> = [];
         for (const loc of this.addedLocs.values()) {
             if (loc.x >= minX && loc.x < maxX && loc.y >= minY && loc.y < maxY) {
                 locs.push({
@@ -14110,12 +14242,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         }
     }
 
-    onLocDel(
-        tile: { x: number; y: number },
-        level: number,
-        shape: number,
-        rotation: number,
-    ): void {
+    onLocDel(tile: { x: number; y: number }, level: number, shape: number, rotation: number): void {
         try {
             const key = `${tile.x},${tile.y},${level},${shape}`;
             this.addedLocs.delete(key);

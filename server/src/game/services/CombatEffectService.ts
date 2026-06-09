@@ -1,23 +1,23 @@
+import type { PrayerName } from "../../../../src/rs/prayer/prayers";
+import { SkillId } from "../../../../src/rs/skill/skills";
+import { logger } from "../../utils/logger";
+import type { ServerServices } from "../ServerServices";
+import type { ActionEffect, ScheduledAction } from "../actions/types";
+import { AttackType } from "../combat/AttackType";
 import { combatEffectApplicator } from "../combat/CombatEffectApplicator";
 import {
     resolveNpcAttackRange as resolveNpcAttackRangeRule,
     resolveNpcAttackType as resolveNpcAttackTypeRule,
 } from "../combat/CombatRules";
+import type { DamageType, DropEligibility } from "../combat/DamageTracker";
+import { HITMARK_BLOCK, HITMARK_DAMAGE } from "../combat/HitEffects";
 import { isInWilderness } from "../combat/MultiCombatZones";
-import { HITMARK_DAMAGE, HITMARK_BLOCK } from "../combat/HitEffects";
-import { CombatEngine } from "../systems/combat/CombatEngine";
 import { DropRollService } from "../drops/DropRollService";
 import { NpcDropRegistry } from "../drops/NpcDropRegistry";
-import { SkillId } from "../../../../src/rs/skill/skills";
-import type { PrayerName } from "../../../../src/rs/prayer/prayers";
-import { AttackType } from "../combat/AttackType";
-import type { ActionEffect, ScheduledAction } from "../actions/types";
-import type { DamageType, DropEligibility } from "../combat/DamageTracker";
-import { logger } from "../../utils/logger";
-import type { PlayerState } from "../player";
 import type { NpcState } from "../npc";
 import type { PendingNpcDrop } from "../npcManager";
-import type { ServerServices } from "../ServerServices";
+import type { PlayerState } from "../player";
+import { CombatEngine } from "../systems/combat/CombatEngine";
 
 export const COMBAT_SOUND_DELAY_MS = 50;
 const RESPAWN_DELAY_TICKS = 17;
@@ -177,7 +177,15 @@ export class CombatEffectService {
     applyMultiTargetSpellDamage(opts: {
         player: PlayerState;
         primary: NpcState;
-        spell: { id: number; maxTargets?: number; freezeDuration?: number; impactSpotAnim?: number; impactSpotAnimHeight?: number; splashSpotAnim?: number; poisonDamage?: number };
+        spell: {
+            id: number;
+            maxTargets?: number;
+            freezeDuration?: number;
+            impactSpotAnim?: number;
+            impactSpotAnimHeight?: number;
+            splashSpotAnim?: number;
+            poisonDamage?: number;
+        };
         baseDamage: number;
         style: number;
         hitsplatTick: number;
@@ -266,7 +274,7 @@ export class CombatEffectService {
                     npcId: extra.id,
                     spotId: spotId,
                     delay: 0,
-                    height: result.amount > 0 ? (opts.spell.impactSpotAnimHeight ?? 100) : 100,
+                    height: result.amount > 0 ? opts.spell.impactSpotAnimHeight ?? 100 : 100,
                 });
             }
         }
@@ -287,7 +295,13 @@ export class CombatEffectService {
 
         const result = combatEffectApplicator.applyNpcHitsplat(npc, style, damage, tick, maxHit);
         if (result.amount > 0) {
-            this.svc.playerCombatManager?.recordDamage(player, npc, result.amount, damageType, tick);
+            this.svc.playerCombatManager?.recordDamage(
+                player,
+                npc,
+                result.amount,
+                damageType,
+                tick,
+            );
         }
         if (result.hpCurrent <= 0) {
             this.handleNpcDeathOutsidePrimaryCombat(player, npc, tick);
@@ -297,11 +311,7 @@ export class CombatEffectService {
 
     // ── NPC Death ───────────────────────────────────────────────────
 
-    handleNpcDeathOutsidePrimaryCombat(
-        player: PlayerState,
-        npc: NpcState,
-        tick: number,
-    ): void {
+    handleNpcDeathOutsidePrimaryCombat(player: PlayerState, npc: NpcState, tick: number): void {
         if (npc.isPlayerFollower?.() === true || npc.isDead(tick)) {
             return;
         }
@@ -373,7 +383,9 @@ export class CombatEffectService {
         const respawnTick = Math.max(tick + RESPAWN_DELAY_TICKS, despawnTick + 1);
         try {
             npc.markDeadUntil(despawnTick, tick);
-        } catch (err) { logger.warn("[npc] mark dead failed", err); }
+        } catch (err) {
+            logger.warn("[npc] mark dead failed", err);
+        }
         const npcManager = this.svc.npcManager;
         const queued =
             npcManager?.queueDeath?.(npc.id, despawnTick, respawnTick, pendingDrops) ?? false;
@@ -509,10 +521,7 @@ export class CombatEffectService {
         return this.npcDropRollService;
     }
 
-    rollNpcDrops(
-        npc: NpcState,
-        eligibility: DropEligibility | undefined,
-    ): PendingNpcDrop[] {
+    rollNpcDrops(npc: NpcState, eligibility: DropEligibility | undefined): PendingNpcDrop[] {
         const service = this.getNpcDropRollService();
         if (!service) return [];
         const recipients: Array<{
@@ -540,9 +549,7 @@ export class CombatEffectService {
             recipients.push({
                 ownerId: eligibility.primaryLooter.id,
                 player: eligibility.primaryLooter,
-                dropRateMultiplier: gamemode.getDropRateMultiplier(
-                    eligibility.primaryLooter,
-                ),
+                dropRateMultiplier: gamemode.getDropRateMultiplier(eligibility.primaryLooter),
             });
         }
         if (recipients.length === 0) {
@@ -556,7 +563,9 @@ export class CombatEffectService {
         let npcName = "";
         try {
             npcName = npcTypeLoader?.load(npc.typeId)?.name ?? "";
-        } catch (err) { logger.warn("[drop] npc name lookup failed", err); }
+        } catch (err) {
+            logger.warn("[drop] npc name lookup failed", err);
+        }
         return service.roll({
             npcTypeId: npc.typeId,
             npcName,
@@ -564,8 +573,11 @@ export class CombatEffectService {
             isWilderness: isInWilderness(npc.tileX, npc.tileY),
             recipients,
             worldViewId: npc.worldViewId,
-            transformItemId: (npcTypeId: number, itemId: number, recipient: { player?: PlayerState }) =>
-                gamemode.transformDropItemId(npcTypeId, itemId, recipient.player),
+            transformItemId: (
+                npcTypeId: number,
+                itemId: number,
+                recipient: { player?: PlayerState },
+            ) => gamemode.transformDropItemId(npcTypeId, itemId, recipient.player),
             tableOverride: gamemode.getDropTable?.(npc.typeId),
         });
     }

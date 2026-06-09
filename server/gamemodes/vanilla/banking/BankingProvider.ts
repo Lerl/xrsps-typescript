@@ -1,5 +1,5 @@
-import type { BankEntry, PlayerState } from "../../../src/game/player";
 import type { GamemodeServerServices } from "../../../src/game/gamemodes/GamemodeDefinition";
+import type { BankEntry, PlayerState } from "../../../src/game/player";
 
 export interface BankOperationResult {
     ok: boolean;
@@ -46,10 +46,7 @@ export interface BankingProvider {
         opts?: { overrideNoted?: boolean },
     ): BankOperationResult;
     addItemToBank(player: PlayerState, itemId: number, quantity: number, tab?: number): boolean;
-    getBankEntryAtClientSlot(
-        player: PlayerState,
-        clientSlot: number,
-    ): BankEntry | undefined;
+    getBankEntryAtClientSlot(player: PlayerState, clientSlot: number): BankEntry | undefined;
     moveBankSlot(
         player: PlayerState,
         from: number,

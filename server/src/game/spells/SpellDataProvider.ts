@@ -1,5 +1,9 @@
 import type { CacheInfo } from "../../../../src/rs/cache/CacheInfo";
 import type { CacheSystem } from "../../../../src/rs/cache/CacheSystem";
+// =============================================================================
+// Provider Registration & Delegation
+// =============================================================================
+import { getProviderRegistry } from "../providers/ProviderRegistry";
 
 export type RuneCost = {
     runeId: number;
@@ -108,7 +112,10 @@ export type PoweredStaffSpellData = {
 
 export interface SpellDataProvider {
     getSpellData(spellId: number): SpellDataEntry | undefined;
-    getSpellDataByWidget(spellbookGroupId: number, widgetChildId: number): SpellDataEntry | undefined;
+    getSpellDataByWidget(
+        spellbookGroupId: number,
+        widgetChildId: number,
+    ): SpellDataEntry | undefined;
     getAllSpellData(): SpellDataEntry[];
     registerSpellData(entry: SpellDataEntry): void;
     hasSpellData(spellId: number): boolean;
@@ -126,14 +133,11 @@ export interface SpellDataProvider {
     // Powered staff
     getPoweredStaffSpellData(weaponId: number): PoweredStaffSpellData | undefined;
     hasPoweredStaffSpellData(weaponId: number): boolean;
-    calculatePoweredStaffBaseDamage(magicLevel: number, formula: PoweredStaffSpellData["maxHitFormula"]): number;
+    calculatePoweredStaffBaseDamage(
+        magicLevel: number,
+        formula: PoweredStaffSpellData["maxHitFormula"],
+    ): number;
 }
-
-// =============================================================================
-// Provider Registration & Delegation
-// =============================================================================
-
-import { getProviderRegistry } from "../providers/ProviderRegistry";
 
 export function registerSpellDataProvider(provider: SpellDataProvider): void {
     getProviderRegistry().spellData = provider;
@@ -146,7 +150,9 @@ export function getSpellDataProvider(): SpellDataProvider | undefined {
 function ensureProvider(): SpellDataProvider {
     const p = getProviderRegistry().spellData;
     if (!p) {
-        throw new Error("[spells] SpellDataProvider not registered. Ensure the gamemode has initialized.");
+        throw new Error(
+            "[spells] SpellDataProvider not registered. Ensure the gamemode has initialized.",
+        );
     }
     return p;
 }
@@ -155,7 +161,10 @@ export function getSpellData(spellId: number): SpellDataEntry | undefined {
     return ensureProvider().getSpellData(spellId);
 }
 
-export function getSpellDataByWidget(spellbookGroupId: number, widgetChildId: number): SpellDataEntry | undefined {
+export function getSpellDataByWidget(
+    spellbookGroupId: number,
+    widgetChildId: number,
+): SpellDataEntry | undefined {
     return ensureProvider().getSpellDataByWidget(spellbookGroupId, widgetChildId);
 }
 
@@ -195,11 +204,16 @@ export function buildVisibleAutocastIndices(weaponItemId: number): number[] {
     return ensureProvider().buildVisibleAutocastIndices(weaponItemId);
 }
 
-export function canWeaponAutocastSpell(weaponItemId: number, spellId: number): AutocastCompatibilityResult {
+export function canWeaponAutocastSpell(
+    weaponItemId: number,
+    spellId: number,
+): AutocastCompatibilityResult {
     return ensureProvider().canWeaponAutocastSpell(weaponItemId, spellId);
 }
 
-export function getAutocastCompatibilityMessage(reason: AutocastCompatibilityResult["reason"]): string {
+export function getAutocastCompatibilityMessage(
+    reason: AutocastCompatibilityResult["reason"],
+): string {
     return ensureProvider().getAutocastCompatibilityMessage(reason);
 }
 
@@ -211,10 +225,17 @@ export function hasPoweredStaffSpellData(weaponId: number): boolean {
     return ensureProvider().hasPoweredStaffSpellData(weaponId);
 }
 
-export function calculatePoweredStaffBaseDamage(magicLevel: number, formula: PoweredStaffSpellData["maxHitFormula"]): number {
+export function calculatePoweredStaffBaseDamage(
+    magicLevel: number,
+    formula: PoweredStaffSpellData["maxHitFormula"],
+): number {
     return ensureProvider().calculatePoweredStaffBaseDamage(magicLevel, formula);
 }
 
 // Re-exports for gamemode consumption (avoids reaching into spellWidgetLoader directly)
-export { buildSpellNameToWidgetMap, getSpellWidgetId, getSpellWidgetInfo } from "../../data/spellWidgetLoader";
+export {
+    buildSpellNameToWidgetMap,
+    getSpellWidgetId,
+    getSpellWidgetInfo,
+} from "../../data/spellWidgetLoader";
 export type { SpellWidgetInfo, SpellbookName } from "../../data/spellWidgetLoader";

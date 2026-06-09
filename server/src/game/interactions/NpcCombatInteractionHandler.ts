@@ -1,4 +1,5 @@
 import type { WebSocket } from "ws";
+
 import { PathService } from "../../pathfinding/PathService";
 import {
     CardinalAdjacentRouteStrategy,
@@ -6,8 +7,8 @@ import {
     RectWithinRangeRouteStrategy,
 } from "../../pathfinding/legacy/pathfinder/RouteStrategy";
 import { CollisionFlag } from "../../pathfinding/legacy/pathfinder/flag/CollisionFlag";
-import { hasProjectileLineOfSightToNpc } from "../combat/CombatAction";
 import { AttackType } from "../combat/AttackType";
+import { hasProjectileLineOfSightToNpc } from "../combat/CombatAction";
 import {
     POWERED_STAFF_CATEGORIES,
     resolvePlayerAttackReach,
@@ -15,11 +16,8 @@ import {
 } from "../combat/CombatRules";
 import { NpcState } from "../npc";
 import { PlayerState } from "../player";
-import type {
-    NpcCombatInteractionState,
-    PlayerInteractionState,
-} from "./types";
 import type { PlayerRepository } from "./PlayerInteractionSystem";
+import type { NpcCombatInteractionState, PlayerInteractionState } from "./types";
 
 /**
  * Maximum distance (in tiles) the player can be from the NPC before combat disengages.
@@ -61,7 +59,10 @@ export class NpcCombatInteractionHandler {
         private readonly extractValidatedStrategyPathSteps: (
             player: PlayerState,
             res: ReturnType<PathService["findPathSteps"]>,
-            strategy: InstanceType<typeof CardinalAdjacentRouteStrategy> | InstanceType<typeof RectWithinRangeRouteStrategy> | InstanceType<typeof RectWithinRangeLineOfSightRouteStrategy>,
+            strategy:
+                | InstanceType<typeof CardinalAdjacentRouteStrategy>
+                | InstanceType<typeof RectWithinRangeRouteStrategy>
+                | InstanceType<typeof RectWithinRangeLineOfSightRouteStrategy>,
         ) => { x: number; y: number }[] | undefined,
         private readonly hasDirectReach: (
             from: { x: number; y: number },

@@ -4,8 +4,8 @@
  * Core provider interface for instant utility specials (Rock Knocker, Fishstabber, Lumber Up).
  * Gamemodes register their implementations at startup.
  */
-
 import type { PlayerState } from "../player";
+import { getProviderRegistry } from "../providers/ProviderRegistry";
 
 export interface InstantUtilitySpecialResult {
     kind: "rock_knocker" | "fishstabber" | "lumber_up";
@@ -16,17 +16,25 @@ export interface InstantUtilitySpecialResult {
 export interface InstantUtilitySpecialProvider {
     getInstantUtilitySpecial(weaponId: number): InstantUtilitySpecialResult | undefined;
     applySpecialBoost(player: PlayerState, kind: InstantUtilitySpecialResult["kind"]): void;
-    markHandledAtTick(player: Record<string, number | undefined> | null | undefined, tick: number): void;
-    wasHandledAtTick(player: Record<string, number | undefined> | null | undefined, tick: number): boolean;
+    markHandledAtTick(
+        player: Record<string, number | undefined> | null | undefined,
+        tick: number,
+    ): void;
+    wasHandledAtTick(
+        player: Record<string, number | undefined> | null | undefined,
+        tick: number,
+    ): boolean;
 }
 
-import { getProviderRegistry } from "../providers/ProviderRegistry";
-
-export function registerInstantUtilitySpecialProvider(provider: InstantUtilitySpecialProvider): void {
+export function registerInstantUtilitySpecialProvider(
+    provider: InstantUtilitySpecialProvider,
+): void {
     getProviderRegistry().instantUtilitySpecial = provider;
 }
 
-export function getInstantUtilitySpecial(weaponId: number): InstantUtilitySpecialResult | undefined {
+export function getInstantUtilitySpecial(
+    weaponId: number,
+): InstantUtilitySpecialResult | undefined {
     return getProviderRegistry().instantUtilitySpecial?.getInstantUtilitySpecial(weaponId);
 }
 

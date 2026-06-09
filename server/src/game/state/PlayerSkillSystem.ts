@@ -22,11 +22,11 @@ import {
 } from "../combat/HitEffects";
 import {
     computeCombatLevel as computeCombatLevelFromConfig,
-    getSkillRestoreIntervalTicks,
-    getSkillBoostDecayIntervalTicks,
-    getHitpointRegenIntervalTicks,
     getHitpointOverhealDecayIntervalTicks,
+    getHitpointRegenIntervalTicks,
     getPreserveDecayMultiplier,
+    getSkillBoostDecayIntervalTicks,
+    getSkillRestoreIntervalTicks,
 } from "../combat/SkillConfigurationProvider";
 import type { PlayerStatusState } from "./PlayerStatusState";
 
@@ -110,9 +110,7 @@ export type SlayerTaskLike = {
     monsterSpecies?: string[];
 };
 
-export function createInitialSkills(
-    gamemodeXpFn?: DefaultSkillXpResolver,
-): SkillEntry[] {
+export function createInitialSkills(gamemodeXpFn?: DefaultSkillXpResolver): SkillEntry[] {
     const skills: SkillEntry[] = new Array(SKILL_COUNT);
     for (const id of SKILL_IDS) {
         const xp = gamemodeXpFn?.(id) ?? DEFAULT_SKILL_XP[id] ?? 0;
@@ -207,7 +205,10 @@ export class PlayerSkillSystem {
 
         if (id === SkillId.Hitpoints) {
             const maxHp = skill.baseLevel;
-            this.status.hitpointsCurrent = Math.min(maxHp, Math.max(0, this.status.hitpointsCurrent));
+            this.status.hitpointsCurrent = Math.min(
+                maxHp,
+                Math.max(0, this.status.hitpointsCurrent),
+            );
             this.markSkillDirty(SkillId.Hitpoints);
         }
     }
@@ -326,18 +327,22 @@ export class PlayerSkillSystem {
         if (wasAlive && next <= 0) {
             try {
                 this.status.onDeath?.();
-            } catch (err) { logger.warn("[player] death callback failed", err); }
+            } catch (err) {
+                logger.warn("[player] death callback failed", err);
+            }
         }
     }
 
     applyHitpointsDamage(amount: number): { current: number; max: number } {
-        if (!(amount > 0)) return { current: this.status.hitpointsCurrent, max: this.getHitpointsMax() };
+        if (!(amount > 0))
+            return { current: this.status.hitpointsCurrent, max: this.getHitpointsMax() };
         this.setHitpointsCurrent(this.status.hitpointsCurrent - amount);
         return { current: this.status.hitpointsCurrent, max: this.getHitpointsMax() };
     }
 
     applyHitpointsHeal(amount: number): { current: number; max: number } {
-        if (!(amount > 0)) return { current: this.status.hitpointsCurrent, max: this.getHitpointsMax() };
+        if (!(amount > 0))
+            return { current: this.status.hitpointsCurrent, max: this.getHitpointsMax() };
         const target = Math.max(0, Math.floor(this.status.hitpointsCurrent + amount));
         if (target > this.getHitpointsMax()) {
             this.ensureHitpointsTempMax(target);

@@ -1,16 +1,16 @@
 import type { WebSocket } from "ws";
 
-import type { GamemodeServerServices } from "../gamemodes/GamemodeDefinition";
-import type { GameEventBus } from "../events/GameEventBus";
-import type { DataLoaderService } from "./DataLoaderService";
-import type { VariableService } from "./VariableService";
-import type { MessagingService } from "./MessagingService";
-import type { InventoryService } from "./InventoryService";
-import type { EquipmentService } from "./EquipmentService";
-import type { AppearanceService } from "./AppearanceService";
-import type { PlayerState } from "../player";
-import type { InterfaceService } from "../../widgets/InterfaceService";
 import { logger } from "../../utils/logger";
+import type { InterfaceService } from "../../widgets/InterfaceService";
+import type { GameEventBus } from "../events/GameEventBus";
+import type { GamemodeServerServices } from "../gamemodes/GamemodeDefinition";
+import type { PlayerState } from "../player";
+import type { AppearanceService } from "./AppearanceService";
+import type { DataLoaderService } from "./DataLoaderService";
+import type { EquipmentService } from "./EquipmentService";
+import type { InventoryService } from "./InventoryService";
+import type { MessagingService } from "./MessagingService";
+import type { VariableService } from "./VariableService";
 
 export interface GamemodeServiceAdapterDeps {
     dataLoaders: DataLoaderService;
@@ -22,7 +22,10 @@ export interface GamemodeServiceAdapterDeps {
     getCurrentTick: () => number;
     getPlayerById: (id: number) => PlayerState | undefined;
     getSocketByPlayerId: (id: number) => WebSocket | undefined;
-    refreshCombatWeaponCategory: (player: PlayerState) => { categoryChanged: boolean; weaponItemChanged: boolean };
+    refreshCombatWeaponCategory: (player: PlayerState) => {
+        categoryChanged: boolean;
+        weaponItemChanged: boolean;
+    };
     queueCombatSnapshot: (
         playerId: number,
         category: number,
@@ -36,7 +39,10 @@ export interface GamemodeServiceAdapterDeps {
     queueGamemodeSnapshot: (key: string, playerId: number, payload: unknown) => void;
     registerSnapshotEncoder: (
         key: string,
-        encoder: (playerId: number, payload: unknown) => { message: string | Uint8Array; context: string } | undefined,
+        encoder: (
+            playerId: number,
+            payload: unknown,
+        ) => { message: string | Uint8Array; context: string } | undefined,
         onSent?: (playerId: number, payload: unknown) => void,
     ) => void;
     gamemodeTickCallbacks: Array<(tick: number) => void>;
@@ -66,11 +72,28 @@ export function buildGamemodeServices(deps: GamemodeServiceAdapterDeps): Gamemod
             const player = deps.getPlayerById(playerId);
             if (player) deps.appearanceService.sendAppearanceUpdate(player);
         },
-        queueCombatSnapshot: (playerId, category, weaponItemId, autoRetaliate, styleSlot, activePrayers, combatSpellId) => {
-            deps.queueCombatSnapshot(playerId, category, weaponItemId, autoRetaliate, styleSlot, activePrayers, combatSpellId);
+        queueCombatSnapshot: (
+            playerId,
+            category,
+            weaponItemId,
+            autoRetaliate,
+            styleSlot,
+            activePrayers,
+            combatSpellId,
+        ) => {
+            deps.queueCombatSnapshot(
+                playerId,
+                category,
+                weaponItemId,
+                autoRetaliate,
+                styleSlot,
+                activePrayers,
+                combatSpellId,
+            );
         },
         queueChatMessage: (opts) => deps.messagingService.queueChatMessage(opts),
-        queueVarbit: (playerId, varbitId, value) => deps.variableService.queueVarbit(playerId, varbitId, value),
+        queueVarbit: (playerId, varbitId, value) =>
+            deps.variableService.queueVarbit(playerId, varbitId, value),
         queueWidgetEvent: (playerId, event) => deps.queueWidgetEvent(playerId, event),
         queueGamemodeSnapshot: (key, playerId, payload) =>
             deps.queueGamemodeSnapshot(key, playerId, payload),

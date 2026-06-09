@@ -1,4 +1,9 @@
+// =============================================================================
+// Provider Registration & Delegation
+// =============================================================================
+import { getProviderRegistry } from "../providers/ProviderRegistry";
 import type { AttackType } from "./AttackType";
+
 export type { AttackType } from "./AttackType";
 export { normalizeAttackType } from "./AttackType";
 
@@ -84,12 +89,6 @@ export interface CombatFormulaProvider {
     ): NpcVsPlayerResult;
 }
 
-// =============================================================================
-// Provider Registration & Delegation
-// =============================================================================
-
-import { getProviderRegistry } from "../providers/ProviderRegistry";
-
 export function registerCombatFormulaProvider(provider: CombatFormulaProvider): void {
     getProviderRegistry().combatFormula = provider;
 }
@@ -101,7 +100,9 @@ export function getCombatFormulaProvider(): CombatFormulaProvider | undefined {
 function ensureProvider(): CombatFormulaProvider {
     const p = getProviderRegistry().combatFormula;
     if (!p) {
-        throw new Error("[CombatFormulas] CombatFormulaProvider not registered. Ensure the gamemode has initialized.");
+        throw new Error(
+            "[CombatFormulas] CombatFormulaProvider not registered. Ensure the gamemode has initialized.",
+        );
     }
     return p;
 }
@@ -126,7 +127,11 @@ export function rollDamage(maxHitVal: number, random: number): number {
     return ensureProvider().rollDamage(maxHitVal, random);
 }
 
-export function effectiveLevel(level: number, prayerMultiplier: number, stanceBonus: number): number {
+export function effectiveLevel(
+    level: number,
+    prayerMultiplier: number,
+    stanceBonus: number,
+): number {
     return ensureProvider().effectiveLevel(level, prayerMultiplier, stanceBonus);
 }
 

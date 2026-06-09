@@ -46,9 +46,11 @@ export function computeLeagueGeneralVarpFromPlayer(player: LeagueGeneralVarpPlay
     return v;
 }
 
-export function syncLeagueGeneralVarp(player: LeagueGeneralVarpPlayer & {
-    id: number;
-}): { changed: boolean; value: number } {
+export function syncLeagueGeneralVarp(
+    player: LeagueGeneralVarpPlayer & {
+        id: number;
+    },
+): { changed: boolean; value: number } {
     const next = computeLeagueGeneralVarpFromPlayer(player);
     const prev = player.varps.getVarpValue(VARP_LEAGUE_GENERAL);
     if (next === prev) return { changed: false, value: prev };

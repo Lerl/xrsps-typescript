@@ -1,4 +1,11 @@
-import { type DoorToggleResult, type GateDef, type IScriptRegistry, type ScriptServices, type LocInteractionEvent, type NpcInteractionEvent } from "../../../../src/game/scripts/types";
+import {
+    type DoorToggleResult,
+    type GateDef,
+    type IScriptRegistry,
+    type LocInteractionEvent,
+    type NpcInteractionEvent,
+    type ScriptServices,
+} from "../../../../src/game/scripts/types";
 
 const GATE_LEVEL = 0;
 const GATE_SOUND_ID = 71;
@@ -237,18 +244,30 @@ function emitOpenGateLocChanges(
     services: ScriptServices,
     views: { south: ToggleView; north: ToggleView },
 ): void {
-    services.location.emitLocChange(SOUTH_PART.baseId, views.south.newLocId, SOUTH_PART.tile, GATE_LEVEL, {
-        oldTile: SOUTH_PART.tile,
-        newTile: views.south.newTile,
-        oldRotation: views.south.oldRotation,
-        newRotation: views.south.newRotation,
-    });
-    services.location.emitLocChange(NORTH_PART.baseId, views.north.newLocId, NORTH_PART.tile, GATE_LEVEL, {
-        oldTile: NORTH_PART.tile,
-        newTile: views.north.newTile,
-        oldRotation: views.north.oldRotation,
-        newRotation: views.north.newRotation,
-    });
+    services.location.emitLocChange(
+        SOUTH_PART.baseId,
+        views.south.newLocId,
+        SOUTH_PART.tile,
+        GATE_LEVEL,
+        {
+            oldTile: SOUTH_PART.tile,
+            newTile: views.south.newTile,
+            oldRotation: views.south.oldRotation,
+            newRotation: views.south.newRotation,
+        },
+    );
+    services.location.emitLocChange(
+        NORTH_PART.baseId,
+        views.north.newLocId,
+        NORTH_PART.tile,
+        GATE_LEVEL,
+        {
+            oldTile: NORTH_PART.tile,
+            newTile: views.north.newTile,
+            oldRotation: views.north.oldRotation,
+            newRotation: views.north.newRotation,
+        },
+    );
 }
 
 function emitCloseGateLocChanges(
@@ -265,12 +284,18 @@ function emitCloseGateLocChanges(
         return;
     }
 
-    services.location.emitLocChange(SOUTH_PART.openedId, SOUTH_PART.baseId, southOpenTile, GATE_LEVEL, {
-        oldTile: southOpenTile,
-        newTile: SOUTH_PART.tile,
-        oldRotation: normalizeRotation(result.oldRotation),
-        newRotation: normalizeRotation(result.newRotation),
-    });
+    services.location.emitLocChange(
+        SOUTH_PART.openedId,
+        SOUTH_PART.baseId,
+        southOpenTile,
+        GATE_LEVEL,
+        {
+            oldTile: southOpenTile,
+            newTile: SOUTH_PART.tile,
+            oldRotation: normalizeRotation(result.oldRotation),
+            newRotation: normalizeRotation(result.newRotation),
+        },
+    );
     services.location.emitLocChange(
         NORTH_PART.openedId,
         NORTH_PART.baseId,
@@ -358,7 +383,10 @@ function isWalkDestination(
     return !!walkDestination && walkDestination.x === tile.x && walkDestination.y === tile.y;
 }
 
-export function registerAlKharidBorderHandlers(registry: IScriptRegistry, services: ScriptServices): void {
+export function registerAlKharidBorderHandlers(
+    registry: IScriptRegistry,
+    services: ScriptServices,
+): void {
     const pendingApproaches = new Map<number, PendingGateApproach>();
     const pendingCrossings = new Map<number, PendingGateCrossing>();
     const getCurrentTick = services.system.getCurrentTick;
@@ -376,8 +404,7 @@ export function registerAlKharidBorderHandlers(registry: IScriptRegistry, servic
                 services.data.getLocDefinition(NORTH_PART.baseId),
             ) ?? NORTH_PART.freeClosedId;
         const isTollGate =
-            southVisible === SOUTH_PART.tollClosedId ||
-            northVisible === NORTH_PART.tollClosedId;
+            southVisible === SOUTH_PART.tollClosedId || northVisible === NORTH_PART.tollClosedId;
         return {
             southVisible,
             northVisible,
@@ -606,83 +633,78 @@ export function registerAlKharidBorderHandlers(registry: IScriptRegistry, servic
     ): void => {
         const dialogBase = `al_kharid_gate_${event.player.id}`;
 
-        openPlayerDialog(
-            event,
-            `${dialogBase}_intro`,
-            ["Can I come through this gate?"],
-            () => {
-                openNpcDialog(
-                    event,
-                    `${dialogBase}_guard_intro`,
-                    guardNpcId,
-                    ["You must pay a toll of 10 gold coins to pass."],
-                    () => {
-                        services.dialog.openDialogOptions(event.player, {
-                            id: `${dialogBase}_options`,
-                            title: "Border Guard",
-                            options: [
-                                "No thank you, I'll walk around.",
-                                "Who does my money go to?",
-                                "Yes, ok.",
-                            ],
-                            onSelect: (choiceIndex) => {
-                                if (choiceIndex === 0) {
-                                    openPlayerDialog(
-                                        event,
-                                        `${dialogBase}_decline_player`,
-                                        ["No, thank you. I'll walk around."],
-                                        () => {
-                                            openNpcDialog(
-                                                event,
-                                                `${dialogBase}_decline_guard`,
-                                                guardNpcId,
-                                                ["Ok suit yourself."],
-                                            );
-                                        },
-                                    );
-                                    return;
-                                }
-
-                                if (choiceIndex === 1) {
-                                    openPlayerDialog(
-                                        event,
-                                        `${dialogBase}_city_player`,
-                                        ["Who does my money go to?"],
-                                        () => {
-                                            openNpcDialog(
-                                                event,
-                                                `${dialogBase}_city_guard`,
-                                                guardNpcId,
-                                                ["The money goes to the city of Al-Kharid."],
-                                            );
-                                        },
-                                    );
-                                    return;
-                                }
-
+        openPlayerDialog(event, `${dialogBase}_intro`, ["Can I come through this gate?"], () => {
+            openNpcDialog(
+                event,
+                `${dialogBase}_guard_intro`,
+                guardNpcId,
+                ["You must pay a toll of 10 gold coins to pass."],
+                () => {
+                    services.dialog.openDialogOptions(event.player, {
+                        id: `${dialogBase}_options`,
+                        title: "Border Guard",
+                        options: [
+                            "No thank you, I'll walk around.",
+                            "Who does my money go to?",
+                            "Yes, ok.",
+                        ],
+                        onSelect: (choiceIndex) => {
+                            if (choiceIndex === 0) {
                                 openPlayerDialog(
                                     event,
-                                    `${dialogBase}_pay_player`,
-                                    ["Yes, ok."],
+                                    `${dialogBase}_decline_player`,
+                                    ["No, thank you. I'll walk around."],
                                     () => {
-                                        services.dialog.closeDialog(
-                                            event.player,
-                                            `${dialogBase}_pay_player`,
+                                        openNpcDialog(
+                                            event,
+                                            `${dialogBase}_decline_guard`,
+                                            guardNpcId,
+                                            ["Ok suit yourself."],
                                         );
-                                        const attempt = queueGateApproach(event, part, true);
-                                        if (attempt.ok || attempt.reason !== "coins") {
-                                            return;
-                                        }
-                                        showNoMoneyDialog(event);
                                     },
-                                    true,
                                 );
-                            },
-                        });
-                    },
-                );
-            },
-        );
+                                return;
+                            }
+
+                            if (choiceIndex === 1) {
+                                openPlayerDialog(
+                                    event,
+                                    `${dialogBase}_city_player`,
+                                    ["Who does my money go to?"],
+                                    () => {
+                                        openNpcDialog(
+                                            event,
+                                            `${dialogBase}_city_guard`,
+                                            guardNpcId,
+                                            ["The money goes to the city of Al-Kharid."],
+                                        );
+                                    },
+                                );
+                                return;
+                            }
+
+                            openPlayerDialog(
+                                event,
+                                `${dialogBase}_pay_player`,
+                                ["Yes, ok."],
+                                () => {
+                                    services.dialog.closeDialog(
+                                        event.player,
+                                        `${dialogBase}_pay_player`,
+                                    );
+                                    const attempt = queueGateApproach(event, part, true);
+                                    if (attempt.ok || attempt.reason !== "coins") {
+                                        return;
+                                    }
+                                    showNoMoneyDialog(event);
+                                },
+                                true,
+                            );
+                        },
+                    });
+                },
+            );
+        });
     };
 
     const showFreePassPrompt = (

@@ -166,7 +166,13 @@ export class SceneBuffer {
         }
     }
 
-    addTerrain(scene: Scene, borderSize: number, maxLevel: number, coreSize: number = Scene.MAP_SQUARE_SIZE, worldTileOffset: number = borderSize): number {
+    addTerrain(
+        scene: Scene,
+        borderSize: number,
+        maxLevel: number,
+        coreSize: number = Scene.MAP_SQUARE_SIZE,
+        worldTileOffset: number = borderSize,
+    ): number {
         const startX = borderSize;
         const startY = borderSize;
         const endX = borderSize + coreSize;

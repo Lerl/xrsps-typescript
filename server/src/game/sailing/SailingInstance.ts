@@ -165,9 +165,7 @@ export function buildSailingOverlayTemplates(): number[][][] {
         // Surrounding chunks are intentionally empty so the overlay doesn't
         // cover Port Sarim terrain with ocean visuals.  Server-side collision
         // blocking is handled separately in buildDockedCollision().
-        chunks[plane][6][6] = packTemplateChunk(
-            plane, SOURCE_CHUNK_X, SOURCE_CHUNK_Y, 0,
-        );
+        chunks[plane][6][6] = packTemplateChunk(plane, SOURCE_CHUNK_X, SOURCE_CHUNK_Y, 0);
     }
 
     return chunks;
@@ -185,11 +183,17 @@ export function buildSailingIntroTemplates(): number[][][] {
             for (let cy = TEMPLATE_MIN; cy < TEMPLATE_MAX; cy++) {
                 if (cx === 6 && cy === 6) {
                     chunks[plane][cx][cy] = packTemplateChunk(
-                        plane, SOURCE_CHUNK_X, SOURCE_CHUNK_Y, 0,
+                        plane,
+                        SOURCE_CHUNK_X,
+                        SOURCE_CHUNK_Y,
+                        0,
                     );
                 } else {
                     chunks[plane][cx][cy] = packTemplateChunk(
-                        plane, OCEAN_CHUNK_X, OCEAN_CHUNK_Y, 0,
+                        plane,
+                        OCEAN_CHUNK_X,
+                        OCEAN_CHUNK_Y,
+                        0,
                     );
                 }
             }

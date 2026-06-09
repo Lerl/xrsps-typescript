@@ -268,7 +268,9 @@ export class WebGLMapSquare {
         const usedRenderX = mapData.renderPosX ?? mapX;
         const usedRenderY = mapData.renderPosY ?? mapY;
         if (mapData.renderPosX != null) {
-            console.log(`[WebGLMapSquare] Using renderPos: (${usedRenderX}, ${usedRenderY}) instead of mapXY (${mapX}, ${mapY})`);
+            console.log(
+                `[WebGLMapSquare] Using renderPos: (${usedRenderX}, ${usedRenderY}) instead of mapXY (${mapX}, ${mapY})`,
+            );
         }
         const mapPos = vec2.fromValues(usedRenderX, usedRenderY);
 
@@ -313,7 +315,7 @@ export class WebGLMapSquare {
             mapData.modelTextureDataInteractLodAlpha,
         );
 
-        const heightMapSize = mapData.heightMapSize ?? (Scene.MAP_SQUARE_SIZE + borderSize * 2);
+        const heightMapSize = mapData.heightMapSize ?? Scene.MAP_SQUARE_SIZE + borderSize * 2;
         const heightMapTexture = app.createTextureArray(
             mapData.heightMapTextureData,
             heightMapSize,
@@ -669,7 +671,11 @@ export class WebGLMapSquare {
                             const ownerMapId = getMapSquareId(placement.mapX, placement.mapY) | 0;
                             const mappedMapId = npcEcs.getMapId(mapped | 0) | 0;
                             if ((mappedMapId | 0) !== (ownerMapId | 0)) {
-                                npcEcs.rebaseToMapSquare(mapped | 0, placement.mapX, placement.mapY);
+                                npcEcs.rebaseToMapSquare(
+                                    mapped | 0,
+                                    placement.mapX,
+                                    placement.mapY,
+                                );
                             }
                             ecsId = mapped | 0;
                         }
@@ -960,7 +966,7 @@ export class WebGLMapSquare {
     }
 
     getLocalTileSpan(): number {
-        return Math.max(0, (this.heightMapSize | 0) - ((this.borderSize | 0) * 2));
+        return Math.max(0, (this.heightMapSize | 0) - (this.borderSize | 0) * 2);
     }
 
     getTileRenderFlag(level: number, tileX: number, tileY: number): number {
@@ -1391,14 +1397,9 @@ export class WebGLMapSquare {
 
             let ecsId = 0;
             if (npcEcs) {
-                const serverIdRaw =
-                    typeof npc.serverId === "number"
-                        ? npc.serverId | 0
-                        : undefined;
+                const serverIdRaw = typeof npc.serverId === "number" ? npc.serverId | 0 : undefined;
                 const npcWorldViewId =
-                    typeof npc.worldViewId === "number"
-                        ? npc.worldViewId | 0
-                        : -1;
+                    typeof npc.worldViewId === "number" ? npc.worldViewId | 0 : -1;
                 const placement = resolveNpcOwnerPlacement(
                     getMapSquareId(this.mapX, this.mapY) | 0,
                     this.mapX,
@@ -1778,7 +1779,11 @@ export class WebGLMapSquare {
         time?: number,
     ): void {
         if (mapData.mapX !== this.mapX || mapData.mapY !== this.mapY) {
-            console.warn("[WebGLMapSquare] Scene geometry map mismatch", mapData.mapX, mapData.mapY);
+            console.warn(
+                "[WebGLMapSquare] Scene geometry map mismatch",
+                mapData.mapX,
+                mapData.mapY,
+            );
             return;
         }
 

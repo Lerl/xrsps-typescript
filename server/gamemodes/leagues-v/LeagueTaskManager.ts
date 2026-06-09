@@ -13,7 +13,6 @@ import {
 } from "../../../src/shared/vars";
 import { logger } from "../../src/utils/logger";
 import { LeagueTaskIndex, type ParsedChallenge, type ParsedTask } from "./LeagueTaskIndex";
-import { TriggerType } from "./triggers/TriggerTypes";
 import {
     type LeagueTaskPlayer,
     LeagueTaskService,
@@ -24,6 +23,7 @@ import {
     setTaskProgress,
 } from "./LeagueTaskService";
 import { syncLeaguePackedVarps } from "./leaguePackedVarps";
+import { TriggerType } from "./triggers/TriggerTypes";
 
 export interface TaskManagerServices {
     getPlayer: (playerId: number) => LeagueTaskPlayer | undefined;
@@ -137,8 +137,10 @@ export class LeagueTaskManager {
      */
     private awardMasteryPoint(player: LeagueTaskPlayer, playerId: number): void {
         // Get current points
-        const pointsToSpend = player.varps.getVarbitValue?.(VARBIT_LEAGUE_MASTERY_POINTS_TO_SPEND) ?? 0;
-        const pointsEarned = player.varps.getVarbitValue?.(VARBIT_LEAGUE_MASTERY_POINTS_EARNED) ?? 0;
+        const pointsToSpend =
+            player.varps.getVarbitValue?.(VARBIT_LEAGUE_MASTERY_POINTS_TO_SPEND) ?? 0;
+        const pointsEarned =
+            player.varps.getVarbitValue?.(VARBIT_LEAGUE_MASTERY_POINTS_EARNED) ?? 0;
         const nextPointsToSpend = pointsToSpend + 1;
         const nextPointsEarned = pointsEarned + 1;
 
@@ -239,7 +241,7 @@ export class LeagueTaskManager {
         increment: number = 1,
     ): void {
         if (LeagueTaskService.isTaskComplete(player, task.taskId)) {
-            clearTaskProgress(player,task.taskId);
+            clearTaskProgress(player, task.taskId);
             return;
         }
 
@@ -254,7 +256,7 @@ export class LeagueTaskManager {
             if (nextProgress < requiredCount) {
                 return;
             }
-            clearTaskProgress(player,task.taskId);
+            clearTaskProgress(player, task.taskId);
         }
 
         // Check if this is a custom task - they use different varp tracking
@@ -277,7 +279,8 @@ export class LeagueTaskManager {
                 this.services.queueVarbit(playerId, v.id, v.value);
             }
 
-            const notifications = result.notifications ?? (result.notification ? [result.notification] : []);
+            const notifications =
+                result.notifications ?? (result.notification ? [result.notification] : []);
             for (const notification of notifications) {
                 this.services.queueNotification(playerId, notification);
             }
@@ -316,7 +319,8 @@ export class LeagueTaskManager {
                 this.services.queueVarbit(playerId, v.id, v.value);
             }
 
-            const notifications = result.notifications ?? (result.notification ? [result.notification] : []);
+            const notifications =
+                result.notifications ?? (result.notification ? [result.notification] : []);
             for (const notification of notifications) {
                 this.services.queueNotification(playerId, notification);
             }
@@ -346,12 +350,12 @@ export class LeagueTaskManager {
     ): number {
         const delta = normalizeProgressIncrement(increment);
         if (delta <= 0) {
-            return getTaskProgress(player,taskId);
+            return getTaskProgress(player, taskId);
         }
-        const previous = getTaskProgress(player,taskId);
+        const previous = getTaskProgress(player, taskId);
         const next = Math.min(requiredCount, previous + delta);
         if (next !== previous) {
-            setTaskProgress(player,taskId, next);
+            setTaskProgress(player, taskId, next);
         }
         return next;
     }
@@ -392,11 +396,13 @@ export class LeagueTaskManager {
 
         // Determine the required count for completion
         const requiredCount =
-            (trigger.type === TriggerType.NpcKillCombatLevel && trigger.count > 1)
+            trigger.type === TriggerType.NpcKillCombatLevel && trigger.count > 1
                 ? trigger.count
-                : (trigger.type === TriggerType.NpcKill && trigger.count !== undefined && trigger.count > 1)
-                    ? trigger.count
-                    : 1;
+                : trigger.type === TriggerType.NpcKill &&
+                  trigger.count !== undefined &&
+                  trigger.count > 1
+                ? trigger.count
+                : 1;
 
         if (requiredCount > 1) {
             // Counter-based challenge: track progress separately, only set varbit on completion.

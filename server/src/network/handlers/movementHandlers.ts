@@ -1,9 +1,12 @@
+import { logger } from "../../utils/logger";
 import type { MessageHandlerServices } from "../MessageHandlers";
 import { normalizeModifierFlags, resolveRunWithModifier } from "../MessageHandlers";
 import type { MessageRouter } from "../MessageRouter";
-import { logger } from "../../utils/logger";
 
-export function registerMovementHandlers(router: MessageRouter, services: MessageHandlerServices): void {
+export function registerMovementHandlers(
+    router: MessageRouter,
+    services: MessageHandlerServices,
+): void {
     router.register("walk", (ctx) => {
         const to = ctx.payload.to;
         const modifierFlags = normalizeModifierFlags(ctx.payload.modifierFlags);
@@ -33,11 +36,15 @@ export function registerMovementHandlers(router: MessageRouter, services: Messag
                 ctx.player.clearInteraction();
                 ctx.player.stopAnimation();
             }
-        } catch (err) { logger.warn("Failed to clear woodcutting actions on walk", err); }
+        } catch (err) {
+            logger.warn("Failed to clear woodcutting actions on walk", err);
+        }
 
         try {
             services.clearActionsInGroup(ctx.player.id, "inventory");
-        } catch (err) { logger.warn("Failed to clear inventory actions on walk", err); }
+        } catch (err) {
+            logger.warn("Failed to clear inventory actions on walk", err);
+        }
     });
 
     router.register("teleport", (ctx) => {
@@ -73,7 +80,9 @@ export function registerMovementHandlers(router: MessageRouter, services: Messag
                 }
                 return;
             }
-        } catch (err) { logger.warn("Failed to process teleport request", err); }
+        } catch (err) {
+            logger.warn("Failed to process teleport request", err);
+        }
     });
 
     router.register("face", (ctx) => {
@@ -91,7 +100,9 @@ export function registerMovementHandlers(router: MessageRouter, services: Messag
                     ctx.player.faceTile(tx, ty);
                 }
             }
-        } catch (err) { logger.warn("Failed to process face direction", err); }
+        } catch (err) {
+            logger.warn("Failed to process face direction", err);
+        }
     });
 
     router.register("pathfind", (ctx) => {
@@ -116,7 +127,9 @@ export function registerMovementHandlers(router: MessageRouter, services: Messag
         const dt = Date.now() - t0;
         try {
             logger.info(`pathfind request: ${dt}ms`);
-        } catch (err) { logger.warn("Failed to log pathfind timing", err); }
+        } catch (err) {
+            logger.warn("Failed to log pathfind timing", err);
+        }
         services.sendAdminResponse(
             ctx.ws,
             services.encodeMessage({

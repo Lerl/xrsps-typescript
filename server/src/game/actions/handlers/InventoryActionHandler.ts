@@ -15,11 +15,11 @@ import {
     MODIFIER_FLAG_CTRL,
     MODIFIER_FLAG_CTRL_SHIFT,
 } from "../../../../../src/shared/input/modifierFlags";
-import { logger } from "../../../utils/logger";
 import { RectAdjacentRouteStrategy } from "../../../pathfinding/legacy/pathfinder/RouteStrategy";
 import type { RouteStrategy } from "../../../pathfinding/legacy/pathfinder/RouteStrategy";
-import { pickEquipSound, unequipItemApply } from "../../equipment";
+import { logger } from "../../../utils/logger";
 import type { ServerServices } from "../../ServerServices";
+import { pickEquipSound, unequipItemApply } from "../../equipment";
 import type { NpcState } from "../../npc";
 import type { InventoryAddResult, PlayerState } from "../../player";
 import type {
@@ -75,7 +75,6 @@ export interface UnequipResult {
     ok: boolean;
     reason?: string;
 }
-
 
 function resolveRunWithModifier(baseRun: boolean, rawModifierFlags: number | undefined): boolean {
     const flags = rawModifierFlags ?? 0;
@@ -212,12 +211,7 @@ export class InventoryActionHandler {
             }
 
             // Check arrival using adjacent rectangle strategy
-            const strategy = new RectAdjacentRouteStrategy(
-                targetX,
-                targetY,
-                sizeX,
-                sizeY,
-            );
+            const strategy = new RectAdjacentRouteStrategy(targetX, targetY, sizeX, sizeY);
             const arrived = strategy.hasArrived(player.tileX, player.tileY, player.level);
             if (!arrived) {
                 // If not moving, compute a fresh path toward the target
@@ -382,7 +376,12 @@ export class InventoryActionHandler {
             return { ok: false, reason: "item_missing" };
         }
         const obj = this.svc.dataLoaderService.getObjType(slotEntry.itemId);
-        if (!this.svc.inventoryMessageService!.isConsumable(obj as { inventoryActions?: Array<string | null | undefined> } | undefined, optionLower)) {
+        if (
+            !this.svc.inventoryMessageService!.isConsumable(
+                obj as { inventoryActions?: Array<string | null | undefined> } | undefined,
+                optionLower,
+            )
+        ) {
             return { ok: false, reason: "item_not_consumable" };
         }
         const consumed = this.svc.inventoryService.consumeItem(player, slotIndex);
@@ -502,7 +501,8 @@ export class InventoryActionHandler {
         const res = unequipItemApply({
             appearance,
             equipSlot: slotIndex,
-            addItemToInventory: (id, qty) => this.svc.inventoryService.addItemToInventory(player, id, qty),
+            addItemToInventory: (id, qty) =>
+                this.svc.inventoryService.addItemToInventory(player, id, qty),
             slotCount: EQUIP_SLOT_COUNT,
         });
         if (!res.ok) {

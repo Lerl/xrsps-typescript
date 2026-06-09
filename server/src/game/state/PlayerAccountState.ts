@@ -6,9 +6,7 @@ export interface AccountPersistSnapshot {
     playTimeSeconds?: number;
 }
 
-export class PlayerAccountState
-    implements PersistentSubState<AccountPersistSnapshot>
-{
+export class PlayerAccountState implements PersistentSubState<AccountPersistSnapshot> {
     accountStage: number = 1;
     private creationTimeMs: number = Date.now();
     private lifetimePlayTimeSecondsBase: number = 0;
@@ -45,9 +43,7 @@ export class PlayerAccountState
             accountStage: Number.isFinite(this.accountStage) ? this.accountStage : 1,
             accountCreationTimeMs: Math.max(
                 0,
-                Number.isFinite(this.creationTimeMs)
-                    ? Math.floor(this.creationTimeMs)
-                    : 0,
+                Number.isFinite(this.creationTimeMs) ? Math.floor(this.creationTimeMs) : 0,
             ),
             playTimeSeconds: this.getLifetimePlayTimeSeconds(),
         };

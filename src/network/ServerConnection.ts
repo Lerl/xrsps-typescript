@@ -694,7 +694,9 @@ export interface RebuildWorldEntityPayload {
     buildAreas: import("../shared/worldentity/WorldEntityTypes").WorldEntityBuildArea[];
 }
 const rebuildWorldEntityListeners = new Set<(payload: RebuildWorldEntityPayload) => void>();
-export function subscribeRebuildWorldEntity(fn: (payload: RebuildWorldEntityPayload) => void): () => void {
+export function subscribeRebuildWorldEntity(
+    fn: (payload: RebuildWorldEntityPayload) => void,
+): () => void {
     rebuildWorldEntityListeners.add(fn);
     return () => rebuildWorldEntityListeners.delete(fn);
 }
@@ -727,7 +729,9 @@ export interface WorldEntityInfoPayload {
     newSpawns: WorldEntityNewSpawn[];
 }
 const worldEntityInfoListeners = new Set<(payload: WorldEntityInfoPayload) => void>();
-export function subscribeWorldEntityInfo(fn: (payload: WorldEntityInfoPayload) => void): () => void {
+export function subscribeWorldEntityInfo(
+    fn: (payload: WorldEntityInfoPayload) => void,
+): () => void {
     worldEntityInfoListeners.add(fn);
     return () => worldEntityInfoListeners.delete(fn);
 }
@@ -1541,7 +1545,11 @@ export function initServerConnection(url: string = DEFAULT_URL) {
                 console.log("[ws] Reconnected - attempting session resumption...");
                 send({
                     type: "login",
-                    payload: { username: sessionUsername, password: sessionPassword, revision: sessionRevision },
+                    payload: {
+                        username: sessionUsername,
+                        password: sessionPassword,
+                        revision: sessionRevision,
+                    },
                 } as any);
             }
             // Only auto-send handshake if flag is set (for backwards compatibility)
@@ -2971,7 +2979,7 @@ export function sendIfTriggerOpLocal(
     for (let i = 0; i < objectArgs.length; i++) {
         const arg = objectArgs[i];
         if (typeof arg === "number" && Number.isFinite(arg)) {
-// zigzag + LEB128-style varint.
+            // zigzag + LEB128-style varint.
             let v = (((arg | 0) << 1) ^ ((arg | 0) >> 31)) >>> 0;
             while ((v & ~0x7f) !== 0) {
                 buf.writeByte((v & 0x7f) | 0x80);
@@ -3055,7 +3063,6 @@ export function subscribePlayerSync(cb: (frame: PlayerSyncFrame) => void): () =>
     playerSyncListeners.add(cb);
     return () => playerSyncListeners.delete(cb);
 }
-
 
 export function subscribeNpcInfo(cb: (payload: NpcInfoPayload) => void): () => void {
     npcInfoListeners.add(cb);
