@@ -154,6 +154,16 @@ export class OverheadTextOverlay implements Overlay {
     > = new Map();
 
     private lastArgs?: OverlayUpdateArgs;
+    // Reused layout scratch for the per-frame text de-overlap pass.
+    private layoutScratch: Array<{
+        entry: OverheadTextEntry;
+        tex: CachedTexture;
+        alpha: number;
+        centerX: number;
+        baseline: number;
+        halfWidth: number;
+        ascent: number;
+    }> = [];
 
     init(args: OverlayInitArgs): void {
         this.app = args.app;
@@ -194,6 +204,14 @@ export class OverheadTextOverlay implements Overlay {
         this.app.disable(PicoGL.DEPTH_TEST);
         this.app.disable(PicoGL.SCISSOR_TEST);
 
+        const stacks = args.state.actor2dStacks;
+        this.ensureFont();
+        const fontAscent = this.font ? this.font.maxAscent || this.font.ascent || 12 : 12;
+
+        // First pass: project anchors, claim the per-actor element offset, and
+        // collect layout metrics for the overlap pass.
+        const layouts = this.layoutScratch;
+        layouts.length = 0;
         for (const entry of entries) {
             const plane = entry.plane | 0;
             const height = helpers.getMinTileHeightInRadius(
@@ -216,8 +234,54 @@ export class OverheadTextOverlay implements Overlay {
             if (!screenPos || typeof screenPos[0] !== "number" || typeof screenPos[1] !== "number")
                 continue;
 
+            const groupKey = typeof entry.groupKey === "number" ? entry.groupKey | 0 : undefined;
+            const var18 = (groupKey !== undefined ? stacks?.get(groupKey) : undefined) ?? -2;
             const centerX = Math.round(screenPos[0]);
-            const centerY = Math.round(screenPos[1]);
+            const baseline = Math.round(screenPos[1]) - var18;
+            if (groupKey !== undefined) {
+                stacks?.set(groupKey, var18 + 12);
+            }
+            layouts.push({
+                entry,
+                tex,
+                alpha,
+                centerX,
+                baseline,
+                halfWidth: Math.floor(Math.max(0, tex.w - H_PADDING * 2) / 2),
+                ascent: fontAscent,
+            });
+        }
+
+        // Push overlapping texts above earlier ones, comparing against already
+        // settled positions.
+        for (let i = 0; i < layouts.length; i++) {
+            const current = layouts[i];
+            let y = current.baseline;
+            let moved = true;
+            while (moved) {
+                moved = false;
+                for (let j = 0; j < i; j++) {
+                    const other = layouts[j];
+                    if (
+                        y + 2 > other.baseline - other.ascent &&
+                        y - current.ascent < other.baseline + 2 &&
+                        current.centerX - current.halfWidth < other.centerX + other.halfWidth &&
+                        current.centerX + current.halfWidth > other.centerX - other.halfWidth &&
+                        other.baseline - other.ascent < y
+                    ) {
+                        y = other.baseline - other.ascent;
+                        moved = true;
+                    }
+                }
+            }
+            current.baseline = y;
+        }
+
+        for (const layout of layouts) {
+            const entry = layout.entry;
+            const tex = layout.tex;
+            const alpha = layout.alpha;
+            const centerX = layout.centerX;
             const width = Math.max(1, Math.round(tex.w * this.scale));
             const heightPx = Math.max(1, Math.round(tex.h * this.scale));
             const cyclesRemaining = this.toCyclesRemaining150(entry);
@@ -225,7 +289,8 @@ export class OverheadTextOverlay implements Overlay {
             const offsetY = Math.round(this.computeEffectOffset(entry.effect, progress));
 
             let left = centerX - Math.round(width / 2);
-            const top = centerY - heightPx - 4 + offsetY;
+            // The texture's internal baseline sits at V_PADDING + ascent from its top.
+            const top = layout.baseline - V_PADDING - layout.ascent + offsetY;
 
             if ((entry.effect | 0) === 4) {
                 const textWidth = Math.max(0, tex.w - H_PADDING * 2);

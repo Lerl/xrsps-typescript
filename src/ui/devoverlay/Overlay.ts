@@ -62,13 +62,17 @@ export interface HealthBarEntry {
     footprintRadius?: number;
     /** Height offset relative to tile units; defaults to 0.5 tiles (player head). */
     heightOffsetTiles?: number;
-    /** Ratio of current health to maximum (0..1). */
-    ratio: number;
-    /** Optional transparency multiplier (0..1). */
-    alpha?: number;
+    /** Starting health value in definition width units (HealthBarUpdate.health). */
+    health: number;
+    /** Target health value in definition width units (HealthBarUpdate.health2). */
+    health2: number;
+    /** Game cycle the update was applied (HealthBarUpdate.cycle). */
+    cycle: number;
+    /** Transition duration in cycles (HealthBarUpdate.cycleOffset). */
+    cycleOffset: number;
     /** Optional override for the definition id to pick sprites/timing. */
     defId?: number;
-    /** Optional group key used to stack multiple bars for the same actor. */
+    /** Group key used to stack 2D elements for the same actor. */
     groupKey?: number;
 }
 
@@ -78,6 +82,8 @@ export interface OverheadTextEntry {
     plane: number;
     /** Actor footprint size in fine units (128/tile) used for min-height anchoring. */
     footprintRadius?: number;
+    /** Group key used to stack 2D elements for the same actor. */
+    groupKey?: number;
     heightOffsetTiles: number;
     text: string;
     color: number;
@@ -97,6 +103,8 @@ export interface OverheadPrayerEntry {
     plane: number;
     /** Actor footprint size in fine units (128/tile) used for min-height anchoring. */
     footprintRadius?: number;
+    /** Group key used to stack 2D elements for the same actor. */
+    groupKey?: number;
     heightOffsetTiles: number;
     /** Prayer head icon index (0 = Protect from Melee, 1 = Protect from Missiles, 2 = Protect from Magic, etc.) */
     headIconPrayer: number;
@@ -148,6 +156,13 @@ export interface OverlayUpdateArgs {
         overheadTexts?: OverheadTextEntry[];
         overheadPrayers?: OverheadPrayerEntry[];
         groundItems?: GroundItemOverlayEntry[];
+        /** Current game cycle (20ms client ticks) used for health bar timing. */
+        gameCycle?: number;
+        /**
+         * Per-actor running 2D element offset shared across overhead text, health bars
+         * and head icons, keyed by group key. Cleared by the renderer each frame.
+         */
+        actor2dStacks?: Map<number, number>;
     };
     helpers: {
         getTileHeightAtPlane: (worldX: number, worldY: number, plane: number) => number;

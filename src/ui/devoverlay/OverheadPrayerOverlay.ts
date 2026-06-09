@@ -65,6 +65,8 @@ export class OverheadPrayerOverlay implements Overlay {
     private quadUvs: Float32Array = new Float32Array([0, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0]);
 
     private lastArgs?: OverlayUpdateArgs;
+    private actorStacks?: Map<number, number>;
+    private entries: OverheadPrayerEntry[] = [];
 
     init(args: OverlayInitArgs): void {
         this.app = args.app;
@@ -208,16 +210,26 @@ export class OverheadPrayerOverlay implements Overlay {
 
     update(args: OverlayUpdateArgs): void {
         this.lastArgs = args;
+        // OverlayManager updates overlays multiple times per frame. Preserve the
+        // scene-pass payload when a later update omits it.
+        if (Object.prototype.hasOwnProperty.call(args.state, "overheadPrayers")) {
+            this.entries = Array.isArray(args.state.overheadPrayers)
+                ? args.state.overheadPrayers
+                : [];
+        }
+        if (args.state.actor2dStacks) {
+            this.actorStacks = args.state.actor2dStacks;
+        }
     }
 
     draw(phase: RenderPhase): void {
-        if (phase !== RenderPhase.ToFrameTexture) return;
+        if (phase !== RenderPhase.PostPresent) return;
         if (!this.drawCall || !this.positions || !this.uvs) return;
 
         const args = this.lastArgs;
         if (!args) return;
-        const entries = args.state.overheadPrayers as OverheadPrayerEntry[] | undefined;
-        if (!entries || entries.length === 0) return;
+        const entries = this.entries;
+        if (entries.length === 0) return;
 
         this.screenSize[0] = this.app.width;
         this.screenSize[1] = this.app.height;
@@ -226,6 +238,7 @@ export class OverheadPrayerOverlay implements Overlay {
 
         const helpers = args.helpers;
         const center = this.centerWorld;
+        const stacks = this.actorStacks;
 
         for (const entry of entries) {
             const iconIndex = entry.headIconPrayer | 0;
@@ -247,17 +260,22 @@ export class OverheadPrayerOverlay implements Overlay {
             center[1] = height - headOffset;
             center[2] = entry.worldZ;
 
-            // OSRS draws the sprite centered above the actor head
-            // offset is accumulated (25 per icon above actor head)
-            // Position relative to head with sprite centered horizontally
             const spriteW = sprite.w;
             const spriteH = sprite.h;
 
-            // Position: centered horizontally, offset above head
-            // Icon is centered horizontally and drawn 25px above the actor anchor point.
-            // We center dynamically based on actual sprite width.
-            const x = -Math.floor(spriteW / 2);
-            const y = -25; // Match OSRS offset of 25 pixels above the anchor
+            // Continue the per-actor element offset above any text/health bars;
+            // an untouched offset advances by 7 before icons are placed.
+            const groupKey = typeof entry.groupKey === "number" ? entry.groupKey | 0 : undefined;
+            let var18 = (groupKey !== undefined ? stacks?.get(groupKey) : undefined) ?? -2;
+            if (var18 === -2) {
+                var18 += 7;
+            }
+            var18 += 25;
+            const x = -12;
+            const y = -var18;
+            if (groupKey !== undefined) {
+                stacks?.set(groupKey, var18);
+            }
 
             this.writeQuad(x, y, spriteW, spriteH);
             this.resetFullUvs();

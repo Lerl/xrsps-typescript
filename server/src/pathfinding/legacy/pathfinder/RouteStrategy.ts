@@ -7,17 +7,37 @@ export abstract class RouteStrategy {
     destSizeX: number = 1;
     destSizeY: number = 1;
 
-    abstract hasArrived(tileX: number, tileY: number, level: number): boolean;
+    /**
+     * Client parity: the deob signature is hasArrived(size, x, y, collisionData).
+     * The mover size is passed last (optional, default 1) so size-1 call sites
+     * stay simple; (tileX, tileY) is the mover's SOUTH-WEST tile and the
+     * footprint spans size x size tiles (OSRS movers are square).
+     */
+    abstract hasArrived(tileX: number, tileY: number, level: number, size?: number): boolean;
+}
+
+/** Does a size x size mover footprint at (tileX, tileY) overlap the rect? */
+function footprintOverlaps(
+    tileX: number,
+    tileY: number,
+    size: number,
+    minX: number,
+    minY: number,
+    maxX: number,
+    maxY: number,
+): boolean {
+    return tileX <= maxX && tileX + size - 1 >= minX && tileY <= maxY && tileY + size - 1 >= minY;
 }
 
 export class ExactRouteStrategy extends RouteStrategy {
-    hasArrived(tileX: number, tileY: number, level: number): boolean {
+    // Deob ApproximateRouteStrategy.hasArrived ignores the mover size.
+    hasArrived(tileX: number, tileY: number, level: number, _size: number = 1): boolean {
         return tileX === this.approxDestX && tileY === this.approxDestY;
     }
 }
 
 // Client parity: ApproximateRouteStrategy is the default "walk to tile" strategy and only
-// checks for exact tile arrival.
+// checks for exact tile arrival (the deob implementation ignores the mover size).
 export class ApproximateRouteStrategy extends RouteStrategy {
     constructor(destX: number, destY: number) {
         super();
@@ -27,7 +47,7 @@ export class ApproximateRouteStrategy extends RouteStrategy {
         this.destSizeY = 1;
     }
 
-    hasArrived(tileX: number, tileY: number, _level: number): boolean {
+    hasArrived(tileX: number, tileY: number, _level: number, _size: number = 1): boolean {
         return tileX === this.approxDestX && tileY === this.approxDestY;
     }
 }
@@ -53,8 +73,11 @@ export class RectRouteStrategy extends RouteStrategy {
         this.approxDestY = this.minY;
     }
 
-    hasArrived(tileX: number, tileY: number, _level: number): boolean {
-        return tileX >= this.minX && tileX <= this.maxX && tileY >= this.minY && tileY <= this.maxY;
+    // OSRS (rsmod reachRectangle "collides"): a size-N mover stands on the area
+    // when its footprint overlaps the rect, not just its south-west tile.
+    hasArrived(tileX: number, tileY: number, _level: number, size: number = 1): boolean {
+        const s = Math.max(1, size | 0);
+        return footprintOverlaps(tileX, tileY, s, this.minX, this.minY, this.maxX, this.maxY);
     }
 }
 
@@ -111,83 +134,94 @@ export class RectAdjacentRouteStrategy extends RouteStrategy {
         this.plane = plane;
     }
 
-    hasArrived(tileX: number, tileY: number, _level: number): boolean {
+    hasArrived(tileX: number, tileY: number, _level: number, size: number = 1): boolean {
+        const s = Math.max(1, size | 0);
         const minX = this.rectX;
         const minY = this.rectY;
         const maxX = minX + this.destSizeX - 1;
         const maxY = minY + this.destSizeY - 1;
+        const srcMaxX = tileX + s - 1;
+        const srcMaxY = tileY + s - 1;
 
-        // OSRS: You cannot interact with an object if you are standing inside it
-        if (tileX >= minX && tileX <= maxX && tileY >= minY && tileY <= maxY) {
+        // OSRS: You cannot interact with an object if your footprint overlaps it
+        if (footprintOverlaps(tileX, tileY, s, minX, minY, maxX, maxY)) {
             return this.allowOverlap;
         }
 
-        const clampedX = Math.max(minX, Math.min(tileX, maxX));
-        const clampedY = Math.max(minY, Math.min(tileY, maxY));
+        // Which side of the target is the mover footprint flush against?
+        // (rsmod reachRectangleN: the rects must touch with axis overlap.)
+        const yOverlap = tileY <= maxY && srcMaxY >= minY;
+        const xOverlap = tileX <= maxX && srcMaxX >= minX;
+        const onWest = srcMaxX === minX - 1 && yOverlap;
+        const onEast = tileX === maxX + 1 && yOverlap;
+        const onSouth = srcMaxY === minY - 1 && xOverlap;
+        const onNorth = tileY === maxY + 1 && xOverlap;
 
-        const dx = Math.abs(tileX - clampedX);
-        const dy = Math.abs(tileY - clampedY);
+        if (!(onWest || onEast || onSouth || onNorth)) {
+            // OSRS: You cannot interact with ANY object from a diagonal position.
+            // Corner-only contact is allowed solely via the explicit opt-out.
+            if (this.allowLargeDiagonal) {
+                const xTouch = srcMaxX === minX - 1 || tileX === maxX + 1;
+                const yTouch = srcMaxY === minY - 1 || tileY === maxY + 1;
+                return xTouch && yTouch;
+            }
+            return false;
+        }
 
-        // Must be exactly 1 tile away (Chebyshev)
-        if (Math.max(dx, dy) !== 1) return false;
+        if (!this.collisionGetter) return true;
 
-        // OSRS: You cannot interact with ANY object from a diagonal position.
-        // Must be cardinally adjacent (N/S/E/W), not diagonally adjacent.
-        // A diagonal is present if both dx and dy are > 0.
-        const isDiagonal = dx > 0 && dy > 0;
-        if (isDiagonal && !this.allowLargeDiagonal) return false;
-
-        // Check that no wall blocks the interaction edge
-        if (this.collisionGetter) {
-            if (this.isWallBlocked(tileX, tileY, minX, minY, maxX, maxY)) {
-                return false;
+        // rsmod reachRectangleN: arrived if ANY tile along the shared edge is
+        // not separated from the target by a wall.
+        if (onWest || onEast) {
+            const fromY = Math.max(tileY, minY);
+            const toY = Math.min(srcMaxY, maxY);
+            const px = onWest ? srcMaxX : tileX;
+            const tx = onWest ? minX : maxX;
+            for (let y = fromY; y <= toY; y++) {
+                if (!isEdgeWallBlocked(this.collisionGetter, this.plane, px, y, tx, y, onWest ? "west" : "east")) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        const fromX = Math.max(tileX, minX);
+        const toX = Math.min(srcMaxX, maxX);
+        const py = onSouth ? srcMaxY : tileY;
+        const ty = onSouth ? minY : maxY;
+        for (let x = fromX; x <= toX; x++) {
+            if (!isEdgeWallBlocked(this.collisionGetter, this.plane, x, py, x, ty, onSouth ? "south" : "north")) {
+                return true;
             }
         }
-
-        return true;
-    }
-
-    /**
-     * Check if a wall blocks the edge between the player tile and the target rectangle.
-     */
-    private isWallBlocked(
-        tileX: number,
-        tileY: number,
-        minX: number,
-        minY: number,
-        maxX: number,
-        maxY: number,
-    ): boolean {
-        if (!this.collisionGetter) return false;
-
-        const plane = this.plane;
-        const playerFlag = this.collisionGetter(tileX, tileY, plane) ?? 0;
-
-        // Player is west of target
-        if (tileX === minX - 1 && tileY >= minY && tileY <= maxY) {
-            const targetFlag = this.collisionGetter(minX, tileY, plane) ?? 0;
-            return (playerFlag & WALL_EAST) !== 0 || (targetFlag & WALL_WEST) !== 0;
-        }
-
-        // Player is east of target
-        if (tileX === maxX + 1 && tileY >= minY && tileY <= maxY) {
-            const targetFlag = this.collisionGetter(maxX, tileY, plane) ?? 0;
-            return (playerFlag & WALL_WEST) !== 0 || (targetFlag & WALL_EAST) !== 0;
-        }
-
-        // Player is south of target
-        if (tileY === minY - 1 && tileX >= minX && tileX <= maxX) {
-            const targetFlag = this.collisionGetter(tileX, minY, plane) ?? 0;
-            return (playerFlag & WALL_NORTH) !== 0 || (targetFlag & WALL_SOUTH) !== 0;
-        }
-
-        // Player is north of target
-        if (tileY === maxY + 1 && tileX >= minX && tileX <= maxX) {
-            const targetFlag = this.collisionGetter(tileX, maxY, plane) ?? 0;
-            return (playerFlag & WALL_SOUTH) !== 0 || (targetFlag & WALL_NORTH) !== 0;
-        }
-
         return false;
+    }
+}
+
+/**
+ * Check if a wall blocks the shared edge between a mover edge tile and the
+ * adjacent target edge tile. `side` is where the mover stands relative to the
+ * target. Walls are flagged on both tiles of an edge, so either flag blocks.
+ */
+function isEdgeWallBlocked(
+    getter: CollisionFlagGetter,
+    plane: number,
+    px: number,
+    py: number,
+    tx: number,
+    ty: number,
+    side: "west" | "east" | "south" | "north",
+): boolean {
+    const playerFlag = getter(px, py, plane) ?? 0;
+    const targetFlag = getter(tx, ty, plane) ?? 0;
+    switch (side) {
+        case "west":
+            return (playerFlag & WALL_EAST) !== 0 || (targetFlag & WALL_WEST) !== 0;
+        case "east":
+            return (playerFlag & WALL_WEST) !== 0 || (targetFlag & WALL_EAST) !== 0;
+        case "south":
+            return (playerFlag & WALL_NORTH) !== 0 || (targetFlag & WALL_SOUTH) !== 0;
+        case "north":
+            return (playerFlag & WALL_SOUTH) !== 0 || (targetFlag & WALL_NORTH) !== 0;
     }
 }
 
@@ -240,20 +274,28 @@ export class CardinalAdjacentRouteStrategy extends RouteStrategy {
         this.plane = plane;
     }
 
-    hasArrived(tileX: number, tileY: number, _level: number): boolean {
+    hasArrived(tileX: number, tileY: number, _level: number, size: number = 1): boolean {
+        const s = Math.max(1, size | 0);
         const minX = this.rectX;
         const minY = this.rectY;
         const maxX = this.rectX + this.sizeX - 1;
         const maxY = this.rectY + this.sizeY - 1;
+        const srcMaxX = tileX + s - 1;
+        const srcMaxY = tileY + s - 1;
 
-        if (tileX >= minX && tileX <= maxX && tileY >= minY && tileY <= maxY) {
-            return this.allowOverlap;
+        if (footprintOverlaps(tileX, tileY, s, minX, minY, maxX, maxY)) {
+            // rsmod reachWall: a size-N mover whose footprint contains the wall
+            // tile has reached it; size-1 movers keep the explicit opt-in.
+            return s > 1 ? true : this.allowOverlap;
         }
 
-        const onNorth = tileY === maxY + 1 && tileX >= minX && tileX <= maxX;
-        const onSouth = tileY === minY - 1 && tileX >= minX && tileX <= maxX;
-        const onWest = tileX === minX - 1 && tileY >= minY && tileY <= maxY;
-        const onEast = tileX === maxX + 1 && tileY >= minY && tileY <= maxY;
+        // Flush side with axis overlap (footprint-based; no diagonal contact).
+        const yOverlap = tileY <= maxY && srcMaxY >= minY;
+        const xOverlap = tileX <= maxX && srcMaxX >= minX;
+        const onWest = srcMaxX === minX - 1 && yOverlap;
+        const onEast = tileX === maxX + 1 && yOverlap;
+        const onSouth = srcMaxY === minY - 1 && xOverlap;
+        const onNorth = tileY === maxY + 1 && xOverlap;
 
         if (!(onNorth || onSouth || onWest || onEast)) {
             return false;
@@ -265,56 +307,30 @@ export class CardinalAdjacentRouteStrategy extends RouteStrategy {
             return false;
         }
 
-        // Check that no wall blocks the interaction edge
-        if (this.collisionGetter) {
-            if (this.isWallBlocked(tileX, tileY, minX, minY, maxX, maxY)) {
-                return false;
+        if (!this.collisionGetter) return true;
+
+        // Arrived if ANY tile along the shared edge is not separated by a wall.
+        if (onWest || onEast) {
+            const fromY = Math.max(tileY, minY);
+            const toY = Math.min(srcMaxY, maxY);
+            const px = onWest ? srcMaxX : tileX;
+            const tx = onWest ? minX : maxX;
+            for (let y = fromY; y <= toY; y++) {
+                if (!isEdgeWallBlocked(this.collisionGetter, this.plane, px, y, tx, y, onWest ? "west" : "east")) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        const fromX = Math.max(tileX, minX);
+        const toX = Math.min(srcMaxX, maxX);
+        const py = onSouth ? srcMaxY : tileY;
+        const ty = onSouth ? minY : maxY;
+        for (let x = fromX; x <= toX; x++) {
+            if (!isEdgeWallBlocked(this.collisionGetter, this.plane, x, py, x, ty, onSouth ? "south" : "north")) {
+                return true;
             }
         }
-
-        return true;
-    }
-
-    /**
-     * Check if a wall blocks the edge between the player tile and the target rectangle.
-     */
-    private isWallBlocked(
-        tileX: number,
-        tileY: number,
-        minX: number,
-        minY: number,
-        maxX: number,
-        maxY: number,
-    ): boolean {
-        if (!this.collisionGetter) return false;
-
-        const plane = this.plane;
-        const playerFlag = this.collisionGetter(tileX, tileY, plane) ?? 0;
-
-        // Player is west of target
-        if (tileX === minX - 1 && tileY >= minY && tileY <= maxY) {
-            const targetFlag = this.collisionGetter(minX, tileY, plane) ?? 0;
-            return (playerFlag & WALL_EAST) !== 0 || (targetFlag & WALL_WEST) !== 0;
-        }
-
-        // Player is east of target
-        if (tileX === maxX + 1 && tileY >= minY && tileY <= maxY) {
-            const targetFlag = this.collisionGetter(maxX, tileY, plane) ?? 0;
-            return (playerFlag & WALL_WEST) !== 0 || (targetFlag & WALL_EAST) !== 0;
-        }
-
-        // Player is south of target
-        if (tileY === minY - 1 && tileX >= minX && tileX <= maxX) {
-            const targetFlag = this.collisionGetter(tileX, minY, plane) ?? 0;
-            return (playerFlag & WALL_NORTH) !== 0 || (targetFlag & WALL_SOUTH) !== 0;
-        }
-
-        // Player is north of target
-        if (tileY === maxY + 1 && tileX >= minX && tileX <= maxX) {
-            const targetFlag = this.collisionGetter(tileX, maxY, plane) ?? 0;
-            return (playerFlag & WALL_SOUTH) !== 0 || (targetFlag & WALL_NORTH) !== 0;
-        }
-
         return false;
     }
 }
@@ -342,25 +358,25 @@ export class RectWithinRangeRouteStrategy extends RouteStrategy {
         this.destSizeY = this.sizeY;
     }
 
-    hasArrived(tileX: number, tileY: number, _level: number): boolean {
+    hasArrived(tileX: number, tileY: number, _level: number, size: number = 1): boolean {
+        const s = Math.max(1, size | 0);
         const minX = this.rectX;
         const minY = this.rectY;
         const maxX = this.rectX + this.sizeX - 1;
         const maxY = this.rectY + this.sizeY - 1;
+        const srcMaxX = tileX + s - 1;
+        const srcMaxY = tileY + s - 1;
 
         // OSRS logic: Usually you cannot attack if you are standing underneath the NPC.
-        // You must move at least 1 tile out.
-        if (tileX >= minX && tileX <= maxX && tileY >= minY && tileY <= maxY) {
+        // For size-N movers this means any footprint overlap.
+        if (footprintOverlaps(tileX, tileY, s, minX, minY, maxX, maxY)) {
             return false;
         }
 
-        const clampedX = Math.max(minX, Math.min(tileX, maxX));
-        const clampedY = Math.max(minY, Math.min(tileY, maxY));
-
-        const dx = Math.abs(tileX - clampedX);
-        const dy = Math.abs(tileY - clampedY);
-
-        // OSRS pathfinding uses Chebyshev for range checks (square radius)
+        // Chebyshev distance between the mover footprint and the target rect
+        // (OSRS range checks are square-radius, rect-to-rect for size-N movers).
+        const dx = tileX > maxX ? tileX - maxX : minX > srcMaxX ? minX - srcMaxX : 0;
+        const dy = tileY > maxY ? tileY - maxY : minY > srcMaxY ? minY - srcMaxY : 0;
         return Math.max(dx, dy) <= this.range;
     }
 }
@@ -391,20 +407,22 @@ export class RectWithinRangeLineOfSightRouteStrategy extends RouteStrategy {
         this.projectileRaycast = getter;
     }
 
-    hasArrived(tileX: number, tileY: number, level: number): boolean {
+    hasArrived(tileX: number, tileY: number, level: number, size: number = 1): boolean {
+        const s = Math.max(1, size | 0);
         const minX = this.rectX;
         const minY = this.rectY;
         const maxX = this.rectX + this.sizeX - 1;
         const maxY = this.rectY + this.sizeY - 1;
+        const srcMaxX = tileX + s - 1;
+        const srcMaxY = tileY + s - 1;
 
-        if (tileX >= minX && tileX <= maxX && tileY >= minY && tileY <= maxY) {
+        if (footprintOverlaps(tileX, tileY, s, minX, minY, maxX, maxY)) {
             return false;
         }
 
-        const clampedX = Math.max(minX, Math.min(tileX, maxX));
-        const clampedY = Math.max(minY, Math.min(tileY, maxY));
-        const dx = Math.abs(tileX - clampedX);
-        const dy = Math.abs(tileY - clampedY);
+        // Rect-to-rect Chebyshev distance (see RectWithinRangeRouteStrategy).
+        const dx = tileX > maxX ? tileX - maxX : minX > srcMaxX ? minX - srcMaxX : 0;
+        const dy = tileY > maxY ? tileY - maxY : minY > srcMaxY ? minY - srcMaxY : 0;
         if (Math.max(dx, dy) > this.range) {
             return false;
         }
@@ -413,15 +431,26 @@ export class RectWithinRangeLineOfSightRouteStrategy extends RouteStrategy {
             return false;
         }
 
-        const from = { x: tileX, y: tileY, plane: level };
-        for (let x = minX; x <= maxX; x++) {
-            for (let y = minY; y <= maxY; y++) {
-                if (this.projectileRaycast(from, { x, y }).clear) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
+        // OSRS LoS (rsmod LineValidator.hasLineOfSight): a single ray from the
+        // source-footprint tile nearest the target to the target-rect tile
+        // nearest the source, clamped per axis.
+        const fromX = losCoordinate(tileX, this.rectX, s);
+        const fromY = losCoordinate(tileY, this.rectY, s);
+        const toX = losCoordinate(this.rectX, tileX, this.sizeX);
+        const toY = losCoordinate(this.rectY, tileY, this.sizeY);
+        return this.projectileRaycast(
+            { x: fromX, y: fromY, plane: level },
+            { x: toX, y: toY },
+        ).clear;
     }
+}
+
+/**
+ * rsmod LineValidator.coordinate: pick the edge tile of an entity (SW corner
+ * `a`, given size) facing the other entity's SW corner `b` on one axis.
+ */
+function losCoordinate(a: number, b: number, size: number): number {
+    if (a >= b) return a;
+    if (a + size - 1 <= b) return a + size - 1;
+    return b;
 }

@@ -340,7 +340,7 @@ export class Pathfinder {
             currentGraphX = currentX - graphBaseX;
             currentGraphY = currentY - graphBaseY;
 
-            if (routeStrategy.hasArrived(currentX, currentY, plane)) {
+            if (routeStrategy.hasArrived(currentX, currentY, plane, 1)) {
                 // we found a path!
                 this.exitX = currentX;
                 this.exitY = currentY;
@@ -579,7 +579,7 @@ export class Pathfinder {
             currentGraphX = currentX - graphBaseX;
             currentGraphY = currentY - graphBaseY;
 
-            if (routeStrategy.hasArrived(currentX, currentY, plane)) {
+            if (routeStrategy.hasArrived(currentX, currentY, plane, size)) {
                 // we found a path!
                 this.exitX = currentX;
                 this.exitY = currentY;

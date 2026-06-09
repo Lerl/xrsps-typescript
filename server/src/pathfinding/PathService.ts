@@ -489,7 +489,7 @@ export class PathService {
             }
 
             // If a route strategy is provided and we're already at the destination, bail early.
-            if (routeStrategy && routeStrategy.hasArrived(fromX, fromY, plane)) {
+            if (routeStrategy && routeStrategy.hasArrived(fromX, fromY, plane, size)) {
                 return { ok: true, waypoints: [] };
             }
 

@@ -670,7 +670,7 @@ export function walkToAttackRange(
         result.steps.length > 0
             ? result.end ?? result.steps[result.steps.length - 1]!
             : { x: px, y: pz };
-    if (!strategy.hasArrived(selectedEnd.x, selectedEnd.y, plane)) {
+    if (!strategy.hasArrived(selectedEnd.x, selectedEnd.y, plane, pawnSize)) {
         return false;
     }
 
