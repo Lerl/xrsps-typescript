@@ -557,6 +557,7 @@ export class MovementService {
                     targetPlayerIds: [player.id],
                 });
             }
+            this.sendAuthoritativeDestination(sock, undefined, "destination_clear_blocked_walk");
             return true;
         }
         this.services.interfaceManager.closeInterruptibleInterfaces(player);
@@ -564,7 +565,34 @@ export class MovementService {
             player.clearInteraction();
             player.stopAnimation();
         } catch (err) { logger.warn("[movement] failed to clear interaction state", err); }
-        const result = this.services.players?.routePlayer(sock, { x: command.to.x, y: command.to.y }, command.run);
+        const result = this.services.players?.routePlayer(
+            sock,
+            { x: command.to.x, y: command.to.y },
+            command.run,
+            currentTick,
+        );
+        const destination = result?.ok ? result.pathDestination : undefined;
+        this.sendAuthoritativeDestination(sock, destination, "destination_authoritative_walk");
         return true;
+    }
+
+    private sendAuthoritativeDestination(
+        sock: import("ws").WebSocket,
+        destination: { x: number; y: number } | undefined,
+        context: string,
+    ): void {
+        const payload = destination
+            ? { worldX: destination.x | 0, worldY: destination.y | 0 }
+            : { worldX: 0, worldY: 0 };
+        this.services.networkLayer.withDirectSendBypass(context, () =>
+            this.services.networkLayer.sendWithGuard(
+                sock,
+                encodeMessage({
+                    type: "destination",
+                    payload,
+                }),
+                context,
+            ),
+        );
     }
 }

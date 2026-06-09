@@ -7724,38 +7724,52 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         state.destTile = undefined;
         state.currentTile = undefined;
 
+        const destWorldX = ClientState.destinationWorldX | 0;
+        const destWorldY = ClientState.destinationWorldY | 0;
+        let activeDestX = destWorldX;
+        let activeDestY = destWorldY;
+        if (activeDestX === 0 && activeDestY === 0) {
+            const destLocalX = ClientState.destinationX | 0;
+            const destLocalY = ClientState.destinationY | 0;
+            if (destLocalX !== 0 || destLocalY !== 0) {
+                activeDestX = ClientState.localToWorldX(destLocalX) | 0;
+                activeDestY = ClientState.localToWorldY(destLocalY) | 0;
+            }
+        }
+        const hasActiveDestination = activeDestX !== 0 || activeDestY !== 0;
         const nativeTileHighlights = this.osrsClient.tileHighlightManager.getRenderEntries();
-        state.tileHighlights = nativeTileHighlights.length > 0 ? nativeTileHighlights : undefined;
+        const shouldOwnDestinationTile =
+            tileMarkersConfig.enabled &&
+            tileMarkersConfig.showDestinationTile &&
+            hasActiveDestination;
+        const destinationColor = tileMarkersConfig.destinationTileColor & 0xffffff;
+        const defaultNativeDestinationColor = 0xa9a753;
+        const visibleTileHighlights = shouldOwnDestinationTile
+            ? nativeTileHighlights.filter((highlight) => {
+                  if ((highlight.slot | 0) === 4) {
+                      return false;
+                  }
+                  const color = highlight.colorRgb & 0xffffff;
+                  return color !== destinationColor && color !== defaultNativeDestinationColor;
+              })
+            : nativeTileHighlights;
+        state.tileHighlights =
+            visibleTileHighlights.length > 0 ? visibleTileHighlights : undefined;
 
         if (!tileMarkersConfig.enabled) {
             return;
         }
 
-        const nativeHasCurrentTile = this.osrsClient.tileHighlightManager.hasRenderableSlot(3);
-        const nativeHasDestinationTile = this.osrsClient.tileHighlightManager.hasRenderableSlot(4);
-        if (tileMarkersConfig.showDestinationTile && !nativeHasDestinationTile) {
-            const destWorldX = ClientState.destinationWorldX | 0;
-            const destWorldY = ClientState.destinationWorldY | 0;
-            if (destWorldX !== 0 || destWorldY !== 0) {
-                if (!state.destTile) {
-                    state.destTile = { x: 0, y: 0 };
-                }
-                // Use stored world destination directly. Re-deriving from local destination
-                // against a changing scene base causes marker drift during movement sync.
-                state.destTile.x = destWorldX;
-                state.destTile.y = destWorldY;
-            } else {
-                // Fallback for older state where only local destination may be populated.
-                const destLocalX = ClientState.destinationX | 0;
-                const destLocalY = ClientState.destinationY | 0;
-                if (destLocalX !== 0 || destLocalY !== 0) {
-                    if (!state.destTile) {
-                        state.destTile = { x: 0, y: 0 };
-                    }
-                    state.destTile.x = ClientState.localToWorldX(destLocalX) | 0;
-                    state.destTile.y = ClientState.localToWorldY(destLocalY) | 0;
-                }
+        const nativeHasCurrentTile = visibleTileHighlights.some(
+            (highlight) => (highlight.slot | 0) === 3,
+        );
+        if (tileMarkersConfig.showDestinationTile && hasActiveDestination) {
+            if (!state.destTile) {
+                state.destTile = { x: 0, y: 0 };
             }
+            // Use the corrected client destination as the single source of truth.
+            state.destTile.x = activeDestX;
+            state.destTile.y = activeDestY;
         }
 
         if (!tileMarkersConfig.showCurrentTile || nativeHasCurrentTile) {

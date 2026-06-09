@@ -3,6 +3,7 @@ import type { PathService } from "../../pathfinding/PathService";
 import type { PlayerCombatManager } from "../combat";
 import { NpcManager } from "../npcManager";
 import { PlayerManager } from "../player";
+import type { PlayerState } from "../player";
 
 export class MovementSystem {
     private playerCombatManager?: PlayerCombatManager;
@@ -11,6 +12,7 @@ export class MovementSystem {
         private readonly players: PlayerManager,
         private readonly pathService?: PathService,
         private readonly npcManager?: NpcManager,
+        private readonly onCannotReachTarget?: (player: PlayerState) => void,
     ) {}
 
     setPlayerCombatManager(playerCombatManager: PlayerCombatManager | undefined): void {
@@ -42,6 +44,7 @@ export class MovementSystem {
                 tick,
                 pathService: this.pathService,
                 npcLookup: (npcId) => this.npcManager?.getById(npcId),
+                onCannotReachTarget: this.onCannotReachTarget,
             });
         } catch (err) { logger.warn("[movement-system] failed to update npc combat movement (pre)", err); }
         try {
@@ -71,6 +74,7 @@ export class MovementSystem {
                 tick,
                 pathService: this.pathService,
                 npcLookup: (npcId) => this.npcManager?.getById(npcId),
+                onCannotReachTarget: this.onCannotReachTarget,
             });
         } catch (err) { logger.warn("[movement-system] failed to update npc combat movement (post)", err); }
     }

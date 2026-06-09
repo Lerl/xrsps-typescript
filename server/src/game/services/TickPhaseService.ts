@@ -243,9 +243,9 @@ export class TickPhaseService {
             try {
                 const hadPath = player.hasPath();
                 const walkUpdate = players.continueWalkToDestination(player, frame.tick);
-                if (walkUpdate?.destinationCorrection) {
-                    const corrected = walkUpdate.destinationCorrection;
-                    this.svc.networkLayer.withDirectSendBypass("destination_correction_repath", () =>
+                if (walkUpdate?.pathDestination) {
+                    const corrected = walkUpdate.pathDestination;
+                    this.svc.networkLayer.withDirectSendBypass("destination_repath", () =>
                         this.svc.networkLayer.sendWithGuard(
                             sock,
                             encodeMessage({
@@ -255,7 +255,7 @@ export class TickPhaseService {
                                     worldY: corrected.y,
                                 },
                             }),
-                            "destination_correction_repath",
+                            "destination_repath",
                         ),
                     );
                 }

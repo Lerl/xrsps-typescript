@@ -468,7 +468,7 @@ export class PlayerManager implements PlayerRepository {
         to: Tile,
         run: boolean = false,
         currentTick?: number,
-    ): { ok: boolean; message?: string; destinationCorrection?: Tile } {
+    ): { ok: boolean; message?: string; destinationCorrection?: Tile; pathDestination?: Tile } {
         const p = this.players.get(ws);
         if (!p) return { ok: false, message: "player not found" };
         if (currentTick !== undefined && p.isMovementLocked(currentTick)) {
@@ -550,13 +550,14 @@ export class PlayerManager implements PlayerRepository {
         p.setPathPreservingWalkDestination(res.steps, shouldRun);
         this.interactionSystem.handleManualMovement(ws, { x: to.x, y: to.y });
 
-        return { ok: true, destinationCorrection };
+        const pathDestination = res.steps[res.steps.length - 1] ?? selectedEnd;
+        return { ok: true, destinationCorrection, pathDestination };
     }
 
     continueWalkToDestination(
         player: PlayerState,
         currentTick: number,
-    ): { destinationCorrection?: Tile } | void {
+    ): { destinationCorrection?: Tile; pathDestination?: Tile } | void {
         const target = player.getWalkDestination();
         if (!target) return;
         if (player.tileX === target.x && player.tileY === target.y) {
@@ -614,9 +615,8 @@ export class PlayerManager implements PlayerRepository {
 
         const shouldRun = player.energy.resolveRequestedRun(!!target.run);
         player.setPathPreservingWalkDestination(res.steps, shouldRun);
-        if (destinationCorrection) {
-            return { destinationCorrection };
-        }
+        const pathDestination = res.steps[res.steps.length - 1] ?? selectedEnd;
+        return { destinationCorrection, pathDestination };
     }
 
     routeBot(p: PlayerState, to: Tile, run: boolean = false): { ok: boolean; message?: string } {

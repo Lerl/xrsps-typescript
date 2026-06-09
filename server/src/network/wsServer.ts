@@ -901,6 +901,13 @@ export class WSServer {
                 this.players,
                 this.options.pathService,
                 this.npcManager,
+                (player) => {
+                    this.messagingService.queueChatMessage({
+                        messageType: "game",
+                        text: "I can't reach that.",
+                        targetPlayerIds: [player.id],
+                    });
+                },
             );
             // Set up loc change callback to broadcast to all clients
             this.players.setLocChangeCallback((oldId, newId, tile, level, opts) => {

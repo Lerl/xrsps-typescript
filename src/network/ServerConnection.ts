@@ -1694,6 +1694,13 @@ function processServerMessage(msg: any): void {
         }
         const worldX = rawWorldX | 0;
         const worldY = rawWorldY | 0;
+        if (worldX === 0 && worldY === 0) {
+            ClientState.destinationX = 0;
+            ClientState.destinationY = 0;
+            ClientState.destinationWorldX = 0;
+            ClientState.destinationWorldY = 0;
+            return;
+        }
         const localX = (worldX - (ClientState.baseX | 0)) | 0;
         const localY = (worldY - (ClientState.baseY | 0)) | 0;
         ClientState.setDestination(localX, localY);

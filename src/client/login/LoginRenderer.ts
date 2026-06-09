@@ -2280,17 +2280,6 @@ export class LoginRenderer {
 
         this.drawButton(ctx, this.loginBoxX + 180 - 80, 321, "Continue");
         this.drawButton(ctx, this.loginBoxX + 180 + 80, 321, "Cancel");
-
-        if (this.fontPlain11) {
-            this.drawCenteredText(
-                ctx,
-                this.fontPlain11,
-                "Can't login? Click here.",
-                this.loginBoxX + 180,
-                357,
-                0xffffff,
-            );
-        }
     }
 
     private drawForgotPassword(ctx: RenderContext, state: LoginState): void {
