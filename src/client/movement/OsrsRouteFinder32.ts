@@ -8,7 +8,8 @@ export type CollisionFlagAtFn = (plane: number, tileX: number, tileY: number) =>
 export class OsrsRouteFinder32 {
     static readonly GRID_SIZE = 32;
     static readonly GRID_HALF = OsrsRouteFinder32.GRID_SIZE >> 1;
-    static readonly MAX_ROUTE_POINTS = 50;
+    // OSRS routes are capped at 25 waypoints (rsmod RouteFinding: maxWaypoints = 25).
+    static readonly MAX_ROUTE_POINTS = 25;
 
     // Reference masks used by class232 for size=1 routing.
     private static readonly BLOCK_WEST = 19136776;
@@ -39,7 +40,7 @@ export class OsrsRouteFinder32 {
     private readonly qy = new Int32Array(256);
     private readonly qMask = 255;
 
-    // Scratch used for backtracking + output (max 50 route points).
+    // Scratch used for backtracking + output (max 25 route points).
     private readonly scratchX = new Int32Array(OsrsRouteFinder32.MAX_ROUTE_POINTS);
     private readonly scratchY = new Int32Array(OsrsRouteFinder32.MAX_ROUTE_POINTS);
     readonly outX = new Int32Array(OsrsRouteFinder32.MAX_ROUTE_POINTS);
@@ -713,11 +714,19 @@ export class OsrsRouteFinder32 {
             const dir = this.dirs[this.idx((currX - originX) | 0, (currY - originY) | 0)] | 0;
             if (dir !== prevDir) {
                 prevDir = dir;
-                if (count < OsrsRouteFinder32.MAX_ROUTE_POINTS) {
-                    this.scratchX[count] = currX;
-                    this.scratchY[count] = currY;
-                    count++;
+                // OSRS waypoint-cap semantics: on overflow drop the waypoint nearest
+                // the destination (scratch index 0) so the kept turns stay connected
+                // to the start and the route ends short of the destination.
+                if (count >= OsrsRouteFinder32.MAX_ROUTE_POINTS) {
+                    for (let i = 0; i < OsrsRouteFinder32.MAX_ROUTE_POINTS - 1; i++) {
+                        this.scratchX[i] = this.scratchX[i + 1];
+                        this.scratchY[i] = this.scratchY[i + 1];
+                    }
+                    count = OsrsRouteFinder32.MAX_ROUTE_POINTS - 1;
                 }
+                this.scratchX[count] = currX;
+                this.scratchY[count] = currY;
+                count++;
             }
 
             if ((dir & 2) !== 0) currX = (currX + 1) | 0;
