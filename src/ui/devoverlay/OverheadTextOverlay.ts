@@ -195,10 +195,13 @@ export class OverheadTextOverlay implements Overlay {
         this.app.disable(PicoGL.SCISSOR_TEST);
 
         for (const entry of entries) {
-            // Use the actor's actual plane directly for height calculation.
-            // getEffectivePlaneForTile would incorrectly promote plane 0 to 1 under bridges.
             const plane = entry.plane | 0;
-            const height = helpers.getTileHeightAtPlane(entry.worldX, entry.worldZ, plane);
+            const height = helpers.getMinTileHeightInRadius(
+                entry.worldX,
+                entry.worldZ,
+                plane,
+                entry.footprintRadius ?? 0,
+            );
             const tex = this.getTextTexture(entry, args);
             if (!tex) continue;
 

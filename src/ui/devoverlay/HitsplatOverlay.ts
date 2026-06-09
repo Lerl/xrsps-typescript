@@ -155,10 +155,12 @@ export class HitsplatOverlay implements Overlay {
             const worldX = entry.worldX;
             const worldZ = entry.worldZ;
             const basePlane = entry.plane | 0;
-            // Use the actor's actual plane directly for height calculation.
-            // getEffectivePlaneForTile would incorrectly promote plane 0 to 1 under bridges,
-            // causing hitsplats to render at the wrong height for actors under bridges.
-            const h = args.helpers.getTileHeightAtPlane(worldX, worldZ, basePlane);
+            const h = args.helpers.getMinTileHeightInRadius(
+                worldX,
+                worldZ,
+                basePlane,
+                entry.footprintRadius ?? 0,
+            );
             // Base hitsplat anchor above the actor in world space.
             const headOffsetTiles = entry.heightOffsetTiles ?? 0.5;
             const anchorY = h - headOffsetTiles;

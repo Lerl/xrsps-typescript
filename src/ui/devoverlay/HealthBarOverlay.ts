@@ -262,10 +262,12 @@ export class HealthBarOverlay implements Overlay {
             if (alpha <= 0) continue;
 
             const plane = entry.plane | 0;
-            // Use the actor's actual plane directly for height calculation.
-            // getEffectivePlaneForTile would incorrectly promote plane 0 to 1 under bridges,
-            // causing health bars to render at the wrong height for NPCs under bridges.
-            const height = helpers.getTileHeightAtPlane(entry.worldX, entry.worldZ, plane);
+            const height = helpers.getMinTileHeightInRadius(
+                entry.worldX,
+                entry.worldZ,
+                plane,
+                entry.footprintRadius ?? 0,
+            );
             const headOffset = entry.heightOffsetTiles ?? 0.5;
             center[0] = entry.worldX;
             center[1] = height - headOffset;
@@ -274,87 +276,25 @@ export class HealthBarOverlay implements Overlay {
             const definition = this.resolveDefinition(entry.defId);
             const back = this.textureFromSprite(definition?.backSpriteId);
             const front = this.textureFromSprite(definition?.frontSpriteId);
-            const fallback = this.ensureFallbackTexture();
-            const hasBackSprite = !!back;
-            const hasFrontSprite = !!front;
-            const hasBothSprites = hasBackSprite && hasFrontSprite;
-            const fallbackWidth = Math.max(36, fallback.w | 0);
-
-            const padRaw = Math.max(0, definition?.widthPadding ?? 0) | 0;
-            const frontW = hasFrontSprite ? Math.max(1, front!.w | 0) : 0;
-            const pad = hasBothSprites && padRaw * 2 < frontW ? padRaw : 0;
-            const totalWidth = Math.max(
-                1,
-                hasBothSprites
-                    ? frontW
-                    : (definition?.width ?? 0) > 0
-                    ? definition!.width | 0
-                    : fallbackWidth,
-            );
-            const heightPx = Math.max(front?.h ?? 0, back?.h ?? 0, 6) | 0;
-            const backSprite = (back ?? fallback) as any;
-            const barHeight = (hasBackSprite ? backSprite.h : heightPx) | 0;
             const groupKey = typeof entry.groupKey === "number" ? entry.groupKey | 0 : undefined;
             const stackOffset = groupKey !== undefined ? stackOffsets.get(groupKey) ?? 0 : 0;
-            const y = -(((barHeight + 2) | 0) + (stackOffset | 0));
-            const x = -Math.floor(totalWidth / 2);
+            const barWidth = Math.max(1, (definition?.width ?? 30) | 0);
 
-            const backWidth = hasBackSprite ? backSprite.w : totalWidth;
-            const backHeight = hasBackSprite ? backSprite.h : heightPx;
-            this.writeQuad(x, y, backWidth, backHeight);
-            this.resetFullUvs();
-            if (!hasBackSprite) {
-                this.tint[0] = 0.12;
-                this.tint[1] = 0.12;
-                this.tint[2] = 0.12;
-            } else {
+            let barAdvance: number;
+            if (back && front) {
+                const padRaw = Math.max(0, (definition?.widthPadding ?? 0) | 0);
+                const pad = padRaw * 2 < front.w ? padRaw : 0;
+                const usable = Math.max(1, front.w - pad * 2);
+                let fill = Math.floor(usable * ratio);
+                if (ratio > 0 && fill < 1) fill = 1;
+                fill += fill >= usable ? pad * 2 : pad;
+                // First element offset starts at -2; bars advance by sprite height then 2.
+                const y = -((back.h - 2 + stackOffset) | 0);
+                const x = -(usable >> 1) - pad;
+
+                this.writeQuad(x, y, back.w, back.h);
+                this.resetFullUvs();
                 this.tint[0] = this.tint[1] = this.tint[2] = 1.0;
-            }
-            this.tint[3] = alpha;
-            this.positions.data(this.quadVerts);
-            this.uvs.data(this.quadUvs);
-            this.drawCall
-                .uniform("u_screenSize", this.screenSize)
-                .uniform("u_centerWorld", center)
-                .uniform("u_tint", this.tint)
-                .texture("u_sprite", backSprite.tex)
-                .draw();
-
-            const frontSprite = front ?? fallback;
-            if (ratio > 0) {
-                const spriteWidth = Math.max(1, hasBothSprites ? frontSprite.w : totalWidth);
-                const usable = Math.max(0, spriteWidth - pad * 2);
-                let fillPixels = Math.floor(usable * ratio);
-                // ensure at least 1px when the target is non-zero.
-                if (fillPixels < 1) fillPixels = 1;
-                let widthClamped = fillPixels;
-                if (hasBothSprites) {
-                    widthClamped += fillPixels >= usable ? pad * 2 : pad;
-                }
-                const fillX = x;
-                const fillY = y;
-                this.writeQuad(fillX, fillY, widthClamped, heightPx || frontSprite.h);
-                const uScale = widthClamped / spriteWidth;
-                this.updateFillUvs(uScale);
-                if (!hasFrontSprite) {
-                    const colorHigh = ratio > 0.6;
-                    const colorMid = ratio > 0.3;
-                    if (colorHigh) {
-                        this.tint[0] = 0.1;
-                        this.tint[1] = 0.68;
-                        this.tint[2] = 0.18;
-                    } else if (colorMid) {
-                        this.tint[0] = 0.85;
-                        this.tint[1] = 0.52;
-                        this.tint[2] = 0.12;
-                    } else {
-                        this.tint[0] = 0.78;
-                        this.tint[1] = 0.12;
-                        this.tint[2] = 0.12;
-                    }
-                } else {
-                    this.tint[0] = this.tint[1] = this.tint[2] = 1.0;
-                }
                 this.tint[3] = alpha;
                 this.positions.data(this.quadVerts);
                 this.uvs.data(this.quadUvs);
@@ -362,13 +302,67 @@ export class HealthBarOverlay implements Overlay {
                     .uniform("u_screenSize", this.screenSize)
                     .uniform("u_centerWorld", center)
                     .uniform("u_tint", this.tint)
-                    .texture("u_sprite", frontSprite.tex)
+                    .texture("u_sprite", back.tex)
                     .draw();
+
+                if (fill > 0) {
+                    this.writeQuad(x, y, fill, front.h);
+                    this.updateFillUvs(fill / front.w);
+                    this.positions.data(this.quadVerts);
+                    this.uvs.data(this.quadUvs);
+                    this.drawCall
+                        .uniform("u_screenSize", this.screenSize)
+                        .uniform("u_centerWorld", center)
+                        .uniform("u_tint", this.tint)
+                        .texture("u_sprite", front.tex)
+                        .draw();
+                }
+                this.resetFullUvs();
+                barAdvance = back.h + 2;
+            } else {
+                // Sprite-less bars draw an opaque 5px green fill with red remainder.
+                let fill = Math.floor(barWidth * ratio);
+                if (ratio > 0 && fill < 1) fill = 1;
+                fill = Math.min(barWidth, fill);
+                const y = -((5 - 2 + stackOffset) | 0);
+                const x = -(barWidth >> 1);
+                const fallback = this.ensureFallbackTexture();
+                this.resetFullUvs();
+                if (fill > 0) {
+                    this.writeQuad(x, y, fill, 5);
+                    this.tint[0] = 0;
+                    this.tint[1] = 1;
+                    this.tint[2] = 0;
+                    this.tint[3] = 1;
+                    this.positions.data(this.quadVerts);
+                    this.uvs.data(this.quadUvs);
+                    this.drawCall
+                        .uniform("u_screenSize", this.screenSize)
+                        .uniform("u_centerWorld", center)
+                        .uniform("u_tint", this.tint)
+                        .texture("u_sprite", fallback.tex)
+                        .draw();
+                }
+                if (fill < barWidth) {
+                    this.writeQuad(x + fill, y, barWidth - fill, 5);
+                    this.tint[0] = 1;
+                    this.tint[1] = 0;
+                    this.tint[2] = 0;
+                    this.tint[3] = 1;
+                    this.positions.data(this.quadVerts);
+                    this.uvs.data(this.quadUvs);
+                    this.drawCall
+                        .uniform("u_screenSize", this.screenSize)
+                        .uniform("u_centerWorld", center)
+                        .uniform("u_tint", this.tint)
+                        .texture("u_sprite", fallback.tex)
+                        .draw();
+                }
+                barAdvance = 5 + 2;
             }
-            this.resetFullUvs();
 
             if (groupKey !== undefined) {
-                stackOffsets.set(groupKey, (stackOffset + barHeight + 2) | 0);
+                stackOffsets.set(groupKey, (stackOffset + barAdvance) | 0);
             }
         }
     }

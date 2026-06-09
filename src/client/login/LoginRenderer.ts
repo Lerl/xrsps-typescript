@@ -143,7 +143,13 @@ export interface ServerListEntry {
 }
 
 const FALLBACK_SERVERS: ServerListEntry[] = [
-    { name: "Local Development", address: "localhost:43594", secure: false, playerCount: null, maxPlayers: 2047 },
+    {
+        name: "Local Development",
+        address: "localhost:43594",
+        secure: false,
+        playerCount: null,
+        maxPlayers: 2047,
+    },
 ];
 
 const SERVER_LIST_URL = "https://xrsps.com/servers.json";
@@ -326,12 +332,15 @@ export class LoginRenderer {
                 });
                 if (res.ok) {
                     const data = await res.json();
-                    server.playerCount = typeof data.playerCount === "number" ? data.playerCount : null;
+                    server.playerCount =
+                        typeof data.playerCount === "number" ? data.playerCount : null;
                     if (typeof data.maxPlayers === "number") server.maxPlayers = data.maxPlayers;
                     if (typeof data.serverName === "string") server.name = data.serverName;
                     httpOk = true;
                 }
-            } catch { /* fall through to ws probe */ }
+            } catch {
+                /* fall through to ws probe */
+            }
 
             if (!httpOk) {
                 const wsProto = server.secure ? "wss" : "ws";
@@ -351,13 +360,26 @@ export class LoginRenderer {
             let settled = false;
             const ws = new WebSocket(url);
             const timer = setTimeout(() => {
-                if (!settled) { settled = true; ws.close(); resolve(false); }
+                if (!settled) {
+                    settled = true;
+                    ws.close();
+                    resolve(false);
+                }
             }, timeoutMs);
             ws.addEventListener("open", () => {
-                if (!settled) { settled = true; clearTimeout(timer); ws.close(); resolve(true); }
+                if (!settled) {
+                    settled = true;
+                    clearTimeout(timer);
+                    ws.close();
+                    resolve(true);
+                }
             });
             ws.addEventListener("error", () => {
-                if (!settled) { settled = true; clearTimeout(timer); resolve(false); }
+                if (!settled) {
+                    settled = true;
+                    clearTimeout(timer);
+                    resolve(false);
+                }
             });
         });
     }
@@ -1107,10 +1129,7 @@ export class LoginRenderer {
         }
 
         // Server list button (bottom left, replaces world select button)
-        if (
-            gameState >= GameState.LOGIN_SCREEN &&
-            this.worldSelectButtonSprite
-        ) {
+        if (gameState >= GameState.LOGIN_SCREEN && this.worldSelectButtonSprite) {
             const buttonX = this.containerX + 5;
             const buttonY = 463;
             const buttonW = this.worldSelectButtonSprite.subWidth || 100;
@@ -1738,6 +1757,7 @@ export class LoginRenderer {
                             buttonX + (this.worldSelectButtonSprite.subWidth >> 1),
                             buttonY + 22,
                             0xffffff,
+                            true,
                         );
                     }
 
@@ -1791,9 +1811,13 @@ export class LoginRenderer {
             state.password.length
         }|${state.otp.length}|${state.currentLoginField}|${state.onMobile}|${
             state.virtualKeyboardVisible
-        }|${state.serverListOpen}|${state.hoveredServerIndex}|${state.serverName}|${this.probing}|${this.probed}|${this.serverList.map(s => s.playerCount).join(",")}|${state.worldSelectOpen}|${state.worldSelectPage}|${state.loadingPercent}|${
-            state.rememberUsername
-        }|${state.isUsernameHidden}|${state.trustComputer}|${state.titleMusicDisabled}|${
+        }|${state.serverListOpen}|${state.hoveredServerIndex}|${state.serverName}|${this.probing}|${
+            this.probed
+        }|${this.serverList.map((s) => s.playerCount).join(",")}|${state.worldSelectOpen}|${
+            state.worldSelectPage
+        }|${state.loadingPercent}|${state.rememberUsername}|${state.isUsernameHidden}|${
+            state.trustComputer
+        }|${state.titleMusicDisabled}|${
             state.worldId
         }|${width}|${height}|${layoutWidth}|${layoutHeight}|${skipFire}|${this.worldSortOption}|${
             this.worldSortDirection
@@ -2011,6 +2035,7 @@ export class LoginRenderer {
             this.loginBoxX + 180,
             251,
             0xffff00,
+            true,
         );
         this.drawButton(ctx, this.loginBoxCenter - 80, 291, "New User");
         this.drawButton(ctx, this.loginBoxCenter + 80, 291, "Existing User");
@@ -2025,6 +2050,7 @@ export class LoginRenderer {
             this.loginBoxX + 180,
             201,
             0xffff00,
+            true,
         );
         this.drawCenteredText(
             ctx,
@@ -2033,6 +2059,7 @@ export class LoginRenderer {
             this.loginBoxX + 180,
             236,
             0xffffff,
+            true,
         );
         this.drawCenteredText(
             ctx,
@@ -2041,6 +2068,7 @@ export class LoginRenderer {
             this.loginBoxX + 180,
             251,
             0xffffff,
+            true,
         );
         this.drawCenteredText(
             ctx,
@@ -2049,6 +2077,7 @@ export class LoginRenderer {
             this.loginBoxX + 180,
             266,
             0xffffff,
+            true,
         );
         this.drawButton(ctx, this.loginBoxCenter - 80, 321, "Continue");
         this.drawButton(ctx, this.loginBoxCenter + 80, 321, "Cancel");
@@ -2068,6 +2097,7 @@ export class LoginRenderer {
             this.loginBoxX + 180,
             textY,
             0xffff00,
+            true,
         );
         textY += 15;
         this.drawCenteredText(
@@ -2077,6 +2107,7 @@ export class LoginRenderer {
             this.loginBoxX + 180,
             textY,
             0xffff00,
+            true,
         );
         textY += 15;
         this.drawCenteredText(
@@ -2086,6 +2117,7 @@ export class LoginRenderer {
             this.loginBoxX + 180,
             textY,
             0xffff00,
+            true,
         );
         textY += 10; // OSRS uses 10px gap before input fields
 
@@ -2102,6 +2134,7 @@ export class LoginRenderer {
             this.loginBoxX + 180 - 108,
             textY,
             0xffffff,
+            true,
         );
         textY += 15;
 
@@ -2114,6 +2147,7 @@ export class LoginRenderer {
             this.loginBoxX + 180 - 108,
             textY,
             0xffffff,
+            true,
         );
         textY += 30;
 
@@ -2132,6 +2166,7 @@ export class LoginRenderer {
                     checkboxX,
                     textY,
                     0xffff00,
+                    true,
                 );
                 const textWidth = this.measureText(this.fontBold12, "Remember username: ");
                 this.drawSprite(
@@ -2162,6 +2197,7 @@ export class LoginRenderer {
                 this.loginBoxX + 180,
                 357,
                 0xffffff,
+                true,
             );
         }
     }
@@ -2175,6 +2211,7 @@ export class LoginRenderer {
             this.loginBoxX + 180,
             201,
             0xffff00,
+            true,
         );
         this.drawCenteredText(
             ctx,
@@ -2183,6 +2220,7 @@ export class LoginRenderer {
             this.loginBoxX + 180,
             221,
             0xffff00,
+            true,
         );
         this.drawCenteredText(
             ctx,
@@ -2191,6 +2229,7 @@ export class LoginRenderer {
             this.loginBoxX + 180,
             241,
             0xffff00,
+            true,
         );
         this.drawButton(ctx, this.loginBoxX + 180, 276, "Try again");
         this.drawButton(ctx, this.loginBoxX + 180, 326, "Forgotten password?");
@@ -2206,6 +2245,7 @@ export class LoginRenderer {
             this.loginBoxX + 180,
             201,
             0xffff00,
+            true,
         );
 
         let textY = 236;
@@ -2216,6 +2256,7 @@ export class LoginRenderer {
             this.loginBoxX + 180,
             textY,
             0xffffff,
+            true,
         );
         textY += 15;
         this.drawCenteredText(
@@ -2225,6 +2266,7 @@ export class LoginRenderer {
             this.loginBoxX + 180,
             textY,
             0xffffff,
+            true,
         );
         textY += 15;
         this.drawCenteredText(
@@ -2234,6 +2276,7 @@ export class LoginRenderer {
             this.loginBoxX + 180,
             textY,
             0xffffff,
+            true,
         );
         textY += 15;
 
@@ -2246,6 +2289,7 @@ export class LoginRenderer {
             this.loginBoxX + 180 - 108,
             textY,
             0xffffff,
+            true,
         );
 
         // Trust checkbox
@@ -2257,6 +2301,7 @@ export class LoginRenderer {
             this.loginBoxX + 180 - 9,
             textY,
             0xffff00,
+            true,
         );
         textY += 15;
         this.drawText(
@@ -2266,6 +2311,7 @@ export class LoginRenderer {
             this.loginBoxX + 180 - 9,
             textY,
             0xffff00,
+            true,
         );
 
         const trustTextWidth = this.measureText(this.fontBold12, "for 30 days: ");
@@ -2292,6 +2338,7 @@ export class LoginRenderer {
             this.loginBoxX + 180,
             201,
             0xffff00,
+            true,
         );
 
         let textY = 221;
@@ -2302,6 +2349,7 @@ export class LoginRenderer {
             this.loginBoxX + 180,
             textY,
             0xffffff,
+            true,
         );
         textY += 15;
         this.drawCenteredText(
@@ -2311,6 +2359,7 @@ export class LoginRenderer {
             this.loginBoxX + 180,
             textY,
             0xffffff,
+            true,
         );
         textY += 15;
         this.drawCenteredText(
@@ -2320,6 +2369,7 @@ export class LoginRenderer {
             this.loginBoxX + 180,
             textY,
             0xffffff,
+            true,
         );
         textY += 15;
 
@@ -2332,6 +2382,7 @@ export class LoginRenderer {
             this.loginBoxX + 180 - 108,
             textY,
             0xffffff,
+            true,
         );
 
         this.drawButton(ctx, this.loginBoxX + 180 - 80, 321, "Recover");
@@ -2345,6 +2396,7 @@ export class LoginRenderer {
                 this.loginBoxCenter,
                 356,
                 0x0fffffff,
+                true,
             );
         }
     }
@@ -2358,6 +2410,7 @@ export class LoginRenderer {
             this.loginBoxX + 180,
             216,
             0xffffff,
+            true,
         );
         this.drawCenteredText(
             ctx,
@@ -2366,6 +2419,7 @@ export class LoginRenderer {
             this.loginBoxX + 180,
             231,
             0xffffff,
+            true,
         );
         this.drawCenteredText(
             ctx,
@@ -2374,6 +2428,7 @@ export class LoginRenderer {
             this.loginBoxX + 180,
             246,
             0xffffff,
+            true,
         );
         this.drawButton(ctx, this.loginBoxX + 180, 321, "Back");
     }
@@ -2391,6 +2446,7 @@ export class LoginRenderer {
                 this.loginBoxCenter,
                 textY,
                 0xffff00,
+                true,
             );
             textY += 15;
             this.drawCenteredText(
@@ -2400,6 +2456,7 @@ export class LoginRenderer {
                 this.loginBoxCenter,
                 textY,
                 0xffff00,
+                true,
             );
             textY += 15;
             this.drawCenteredText(
@@ -2409,6 +2466,7 @@ export class LoginRenderer {
                 this.loginBoxCenter,
                 textY,
                 0xffff00,
+                true,
             );
 
             // DOB fields would be drawn here
@@ -2423,6 +2481,7 @@ export class LoginRenderer {
                 this.loginBoxX + 180,
                 216,
                 0xffff00,
+                true,
             );
             this.drawButton(ctx, this.loginBoxX + 180 - 80, 321, "Set Date of Birth");
             this.drawButton(ctx, this.loginBoxX + 180 + 80, 321, "Back");
@@ -2438,6 +2497,7 @@ export class LoginRenderer {
             this.loginBoxX + 180,
             216,
             0xffff00,
+            true,
         );
         this.drawButton(ctx, this.loginBoxX + 180, 301, "Ok");
     }
@@ -2451,6 +2511,7 @@ export class LoginRenderer {
             this.loginBoxX + 180,
             216,
             0xffffff,
+            true,
         );
         this.drawCenteredText(
             ctx,
@@ -2459,6 +2520,7 @@ export class LoginRenderer {
             this.loginBoxX + 180,
             231,
             0xffffff,
+            true,
         );
         this.drawCenteredText(
             ctx,
@@ -2467,6 +2529,7 @@ export class LoginRenderer {
             this.loginBoxX + 180,
             246,
             0xffffff,
+            true,
         );
         this.drawButton(ctx, this.loginBoxX + 180, 311, "Try Again");
     }
@@ -2480,6 +2543,7 @@ export class LoginRenderer {
             this.loginBoxX + 180,
             209,
             0xffff00,
+            true,
         );
         this.drawCenteredText(
             ctx,
@@ -2488,6 +2552,7 @@ export class LoginRenderer {
             this.loginBoxX + 180,
             229,
             0xffffff,
+            true,
         );
         this.drawButton(ctx, this.loginBoxX + 180, 311, "Play");
     }
@@ -2501,6 +2566,7 @@ export class LoginRenderer {
             this.loginBoxX + 180,
             201,
             0xffff00,
+            true,
         );
         this.drawButton(ctx, this.loginBoxCenter - 80, 311, "Accept");
         this.drawButton(ctx, this.loginBoxCenter + 80, 311, "Decline");
@@ -2515,6 +2581,7 @@ export class LoginRenderer {
             this.loginBoxX + 180,
             216,
             0xffff00,
+            true,
         );
         this.drawButton(ctx, this.loginBoxX + 180, 311, "Back");
     }
@@ -2528,6 +2595,7 @@ export class LoginRenderer {
             this.loginBoxX + 180,
             201,
             0xffff00,
+            true,
         );
         this.drawButton(ctx, this.loginBoxX + 180, 276, "Appeal");
         this.drawButton(ctx, this.loginBoxX + 180, 326, "Back");
@@ -2542,6 +2610,7 @@ export class LoginRenderer {
             this.loginBoxX + 180,
             221,
             0xffffff,
+            true,
         );
         this.drawCenteredText(
             ctx,
@@ -2550,6 +2619,7 @@ export class LoginRenderer {
             this.loginBoxX + 180,
             236,
             0xffffff,
+            true,
         );
         this.drawCenteredText(
             ctx,
@@ -2558,6 +2628,7 @@ export class LoginRenderer {
             this.loginBoxX + 180,
             251,
             0xffffff,
+            true,
         );
         this.drawButton(ctx, this.loginBoxX + 180, 301, "Ok");
     }
@@ -2571,6 +2642,7 @@ export class LoginRenderer {
             this.loginBoxX + 180,
             216,
             0xffff00,
+            true,
         );
         this.drawButton(ctx, this.loginBoxX + 180 - 80, 321, "Set Date of Birth");
         this.drawButton(ctx, this.loginBoxX + 180 + 80, 321, "Back");
@@ -2585,6 +2657,7 @@ export class LoginRenderer {
             this.loginBoxX + 180,
             201,
             0xffff00,
+            true,
         );
         this.drawButton(ctx, this.loginBoxX + 180, 276, "Download Launcher");
         this.drawButton(ctx, this.loginBoxX + 180, 326, "Back");
@@ -2600,6 +2673,7 @@ export class LoginRenderer {
             this.loginBoxX + 180,
             201,
             0xffff00,
+            true,
         );
         this.drawCenteredText(
             ctx,
@@ -2608,6 +2682,7 @@ export class LoginRenderer {
             this.loginBoxX + 180,
             236,
             0xffffff,
+            true,
         );
         this.drawCenteredText(
             ctx,
@@ -2616,6 +2691,7 @@ export class LoginRenderer {
             this.loginBoxX + 180,
             251,
             0xffffff,
+            true,
         );
         this.drawCenteredText(
             ctx,
@@ -2624,6 +2700,7 @@ export class LoginRenderer {
             this.loginBoxX + 180,
             266,
             0xffffff,
+            true,
         );
         this.drawButton(ctx, this.loginBoxCenter - 80, 321, "Continue");
         this.drawButton(ctx, this.loginBoxCenter + 80, 321, "Cancel");
@@ -2665,7 +2742,15 @@ export class LoginRenderer {
         ctx.strokeRect(panelX + 1, panelY + 1, panelW - 2, panelH - 2);
 
         // Header background
-        this.drawGradientRect(ctx, panelX + 2, panelY + 2, panelW - 4, headerH - 2, 0x5c4a30, 0x3d2e1a);
+        this.drawGradientRect(
+            ctx,
+            panelX + 2,
+            panelY + 2,
+            panelW - 4,
+            headerH - 2,
+            0x5c4a30,
+            0x3d2e1a,
+        );
 
         // Column headers
         const col1X = panelX + 10;
@@ -2683,13 +2768,24 @@ export class LoginRenderer {
         if (!showRows) {
             // First probe not yet complete — show loading
             this.drawCenteredText(
-                ctx, this.fontPlain12, "Loading servers...",
-                panelX + panelW / 2, panelY + headerH + 18, 0xaaaaaa,
+                ctx,
+                this.fontPlain12,
+                "Loading servers...",
+                panelX + panelW / 2,
+                panelY + headerH + 18,
+                0xaaaaaa,
             );
         } else {
             // Refreshing indicator
             if (this.probing) {
-                this.drawText(ctx, this.fontPlain12, "Refreshing...", col3X - 30, panelY + panelH - 4, 0xffcc00);
+                this.drawText(
+                    ctx,
+                    this.fontPlain12,
+                    "Refreshing...",
+                    col3X - 30,
+                    panelY + panelH - 4,
+                    0xffcc00,
+                );
             }
 
             // Server rows
@@ -2713,8 +2809,22 @@ export class LoginRenderer {
                 const textY = ry + 16;
                 const nameMaxW = col2X - col1X - 4;
                 const addrMaxW = col3X - col2X - 4;
-                this.drawText(ctx, this.fontPlain12, this.ellipsis(server.name, nameMaxW), col1X, textY, 0xffffff);
-                this.drawText(ctx, this.fontPlain12, this.ellipsis(server.address, addrMaxW), col2X, textY, 0xaaaaaa);
+                this.drawText(
+                    ctx,
+                    this.fontPlain12,
+                    this.ellipsis(server.name, nameMaxW),
+                    col1X,
+                    textY,
+                    0xffffff,
+                );
+                this.drawText(
+                    ctx,
+                    this.fontPlain12,
+                    this.ellipsis(server.address, addrMaxW),
+                    col2X,
+                    textY,
+                    0xaaaaaa,
+                );
                 if (server.playerCount === null) {
                     this.drawText(ctx, this.fontPlain12, "Offline", col3X, textY, 0xff0000);
                 } else if (server.playerCount === -1) {
@@ -2730,8 +2840,12 @@ export class LoginRenderer {
 
         // Discord notice
         this.drawCenteredText(
-            ctx, this.fontPlain12!, "Get your server added through the Discord",
-            panelX + panelW / 2, panelY - 8, 0xaaaaaa,
+            ctx,
+            this.fontPlain12!,
+            "Get your server added through the Discord",
+            panelX + panelW / 2,
+            panelY - 8,
+            0xaaaaaa,
         );
 
         // Buttons below the panel
@@ -3775,7 +3889,7 @@ export class LoginRenderer {
         const buttonY = Math.floor(centerY - buttonH / 2);
 
         this.drawSprite(ctx, this.titlebuttonSprite, buttonX, buttonY);
-        this.drawCenteredText(ctx, font, text, centerX, centerY + 5, 0xffffff);
+        this.drawCenteredText(ctx, font, text, centerX, centerY + 5, 0xffffff, true);
     }
 
     private drawSprite(ctx: RenderContext, sprite: IndexedSprite, x: number, y: number): void {
@@ -3846,9 +3960,10 @@ export class LoginRenderer {
         x: number,
         y: number,
         color: number,
+        shadowed: boolean = false,
     ): void {
         const textWidth = this.measureText(font, text);
-        this.drawText(ctx, font, text, x - Math.floor(textWidth / 2), y, color);
+        this.drawText(ctx, font, text, x - Math.floor(textWidth / 2), y, color, shadowed);
     }
 
     /** Performance: cached text measurement to avoid repeated font.measure() calls */
@@ -3874,7 +3989,14 @@ export class LoginRenderer {
         x: number,
         y: number,
         color: number,
+        shadowed: boolean = false,
     ): void {
+        // The native title screen draws login-box text with a black +1,+1 shadow
+        // (AbstractFont.draw(..., color, 0)); world select and the loading bar
+        // pass -1 (no shadow).
+        if (shadowed) {
+            font.draw(ctx, text, x + 1, y + 1, "#000000");
+        }
         const colorStr = "#" + (color & 0xffffff).toString(16).padStart(6, "0");
         font.draw(ctx, text, x, y, colorStr);
     }

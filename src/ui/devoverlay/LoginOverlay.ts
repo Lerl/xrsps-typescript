@@ -48,6 +48,12 @@ export class LoginOverlay implements Overlay {
     private uiTextureHeight: number = 0;
     private layoutWidth: number = 765;
     private layoutHeight: number = 503;
+    // Snapped device pixels per layout pixel (integer DPR component); the UI quad's
+    // UVs are clamped so each layout pixel maps to exactly this many device pixels.
+    private deviceScaleX: number = 1;
+    private deviceScaleY: number = 1;
+    private uvMaxU: number = 1;
+    private uvMaxV: number = 1;
 
     // Current game state
     private gameState: GameState = GameState.LOADING;
@@ -175,29 +181,51 @@ export class LoginOverlay implements Overlay {
         }
 
         const { loginRenderer, loginState, inputManager } = this.osrsClient;
-        const rendererCanvas = this.osrsClient.renderer?.canvas;
-        const cssSize = rendererCanvas ? getCanvasCssSize(rendererCanvas) : undefined;
-        const rawCssWidth =
-            cssSize && Number.isFinite(cssSize.width) && cssSize.width > 0 ? cssSize.width : width;
-        const rawCssHeight =
-            cssSize && Number.isFinite(cssSize.height) && cssSize.height > 0
-                ? cssSize.height
-                : height;
-        const cssLayoutWidth = Math.max(1, Math.round(rawCssWidth));
-        const cssLayoutHeight = Math.max(1, Math.round(rawCssHeight));
-        // Login input is mapped in CSS/layout space before being projected into the backing
-        // store. The cached title texture must use that same space on desktop and mobile or
-        // button hitboxes drift away from the rendered positions on HiDPI displays.
-        const renderLayoutWidth = cssLayoutWidth;
-        const renderLayoutHeight = cssLayoutHeight;
+        const renderer = this.osrsClient.renderer as any;
+        // Author the title texture in the renderer's UI layout space — the same
+        // DPR-snapped space used for login input mapping and the widget surface —
+        // so bitmap fonts/sprites map 1:N onto device pixels and hitboxes stay
+        // aligned with the rendered positions on HiDPI displays.
+        const uiMetrics = renderer?.getUiRenderMetrics?.(width, height);
+        let renderLayoutWidth: number;
+        let renderLayoutHeight: number;
+        if (uiMetrics) {
+            renderLayoutWidth = uiMetrics.layoutW;
+            renderLayoutHeight = uiMetrics.layoutH;
+            this.deviceScaleX = uiMetrics.renderScaleX;
+            this.deviceScaleY = uiMetrics.renderScaleY;
+        } else {
+            const rendererCanvas = this.osrsClient.renderer?.canvas;
+            const cssSize = rendererCanvas ? getCanvasCssSize(rendererCanvas) : undefined;
+            const rawCssWidth =
+                cssSize && Number.isFinite(cssSize.width) && cssSize.width > 0
+                    ? cssSize.width
+                    : width;
+            const rawCssHeight =
+                cssSize && Number.isFinite(cssSize.height) && cssSize.height > 0
+                    ? cssSize.height
+                    : height;
+            renderLayoutWidth = Math.max(1, Math.round(rawCssWidth));
+            renderLayoutHeight = Math.max(1, Math.round(rawCssHeight));
+            this.deviceScaleX = width / renderLayoutWidth;
+            this.deviceScaleY = height / renderLayoutHeight;
+        }
 
         this.layoutWidth = renderLayoutWidth;
         this.layoutHeight = renderLayoutHeight;
+        // Layout uses ceil(buffer / scale), so layout × scale can overshoot the buffer
+        // by up to one device pixel per axis. Clamp the quad's UVs so texels map to
+        // exactly `deviceScale` device pixels and the overshoot is clipped instead of
+        // letting NEAREST resample the whole texture at a fractional ratio.
+        this.syncUvs(
+            Math.min(1, width / (renderLayoutWidth * this.deviceScaleX)),
+            Math.min(1, height / (renderLayoutHeight * this.deviceScaleY)),
+        );
 
         const keyboardFocused =
             (this.osrsClient.renderer as any)?.isMobileLoginInputActive?.() === true;
         loginRenderer.syncMobileViewportState(loginState, keyboardFocused);
-        loginRenderer.updateLayout(cssLayoutWidth, cssLayoutHeight, width, height);
+        loginRenderer.updateLayout(renderLayoutWidth, renderLayoutHeight, width, height);
 
         // Update mouse position for hover detection in world select
         const mouseX = inputManager?.mouseX ?? 0;
@@ -219,8 +247,9 @@ export class LoginOverlay implements Overlay {
             }
         }
 
-        // The cached login UI and separate fire overlay are authored in CSS/layout space, then
-        // the fullscreen quad scales that texture to the canvas backing store.
+        // The cached login UI and separate fire overlay are authored in the UI layout
+        // space, then the quad maps each layout pixel onto exactly `deviceScale`
+        // device pixels of the canvas backing store.
         loginRenderer.updateLayout(
             renderLayoutWidth,
             renderLayoutHeight,
@@ -327,6 +356,15 @@ export class LoginOverlay implements Overlay {
         }
     }
 
+    private syncUvs(u1: number, v1: number): void {
+        if (!this.uvs || (Math.abs(u1 - this.uvMaxU) < 1e-6 && Math.abs(v1 - this.uvMaxV) < 1e-6)) {
+            return;
+        }
+        this.uvMaxU = u1;
+        this.uvMaxV = v1;
+        this.uvs.data(new Float32Array([0, v1, u1, v1, u1, 0, 0, v1, u1, 0, 0, 0]));
+    }
+
     private updateUITexture(canvas: HTMLCanvasElement, width: number, height: number): void {
         // Recreate texture if size changed
         if (this.uiTextureWidth !== width || this.uiTextureHeight !== height) {
@@ -384,13 +422,17 @@ export class LoginOverlay implements Overlay {
             loginState.password.length
         }|${loginState.otp.length}|${loginState.currentLoginField}|${loginState.onMobile}|${
             loginState.virtualKeyboardVisible
-        }|${loginState.serverListOpen}|${loginState.serverName}|${loginRenderer.probing}|${loginRenderer.probed}|${loginRenderer.serverList.map(s => s.playerCount).join(",")}|${loginState.worldSelectOpen}|${loginState.worldSelectPage}|${
-            loginState.loadingPercent
-        }|${loginState.rememberUsername}|${loginState.isUsernameHidden}|${
-            loginState.trustComputer
-        }|${loginState.titleMusicDisabled}|${
-            loginState.worldId
-        }|${width}|${height}|${layoutWidth}|${layoutHeight}|${loginState.downloadCurrent}|${
+        }|${loginState.serverListOpen}|${loginState.serverName}|${loginRenderer.probing}|${
+            loginRenderer.probed
+        }|${loginRenderer.serverList.map((s) => s.playerCount).join(",")}|${
+            loginState.worldSelectOpen
+        }|${loginState.worldSelectPage}|${loginState.loadingPercent}|${
+            loginState.rememberUsername
+        }|${loginState.isUsernameHidden}|${loginState.trustComputer}|${
+            loginState.titleMusicDisabled
+        }|${loginState.worldId}|${width}|${height}|${layoutWidth}|${layoutHeight}|${
+            loginState.downloadCurrent
+        }|${
             loginState.downloadTotal
         }|${loginRenderer.getViewportTransformStateHash()}|${loginRenderer.getTitleAssetStateHash()}`;
     }
@@ -433,8 +475,10 @@ export class LoginOverlay implements Overlay {
             const { loginRenderer } = this.osrsClient;
             const firePos = loginRenderer.getFirePositions();
             const fireScale = loginRenderer.getRenderScale();
-            const layoutScaleX = this.layoutWidth > 0 ? this.width / this.layoutWidth : 1;
-            const layoutScaleY = this.layoutHeight > 0 ? this.height / this.layoutHeight : 1;
+            // Use the same snapped layout→device scale as the UI texture quad so the
+            // fire overlay stays registered with the title sprites behind it.
+            const layoutScaleX = this.deviceScaleX;
+            const layoutScaleY = this.deviceScaleY;
             const firePixelWidth = 128 * fireScale * layoutScaleX;
             const firePixelHeight = 264 * fireScale * layoutScaleY;
             const fireLeftX = firePos.leftX * layoutScaleX;

@@ -10,7 +10,9 @@ const DEFAULT_DISTANCE = 99999999;
 const ALTERNATIVE_ROUTE_MAX_DISTANCE = 100;
 const ALTERNATIVE_ROUTE_RANGE = 10;
 
-// OSRS routes are capped at 25 waypoints (rsmod RouteFinding: maxWaypoints = 25).
+// OSRS server-side routes are capped at 25 waypoints (rsmod RouteFinding:
+// maxWaypoints = 25). The client's preview buffer is larger (50 — deob
+// client.java routePathX), but this class plays the server-engine role.
 const MAX_PATH_CHECKPOINTS = 25;
 
 function nextPow2(i: number): number {

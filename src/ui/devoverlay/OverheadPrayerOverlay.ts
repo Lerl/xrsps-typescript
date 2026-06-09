@@ -234,10 +234,13 @@ export class OverheadPrayerOverlay implements Overlay {
             const sprite = this.getPrayerSprite(iconIndex);
             if (!sprite) continue;
 
-            // Use the actor's actual plane directly for height calculation.
-            // getEffectivePlaneForTile would incorrectly promote plane 0 to 1 under bridges.
             const plane = entry.plane | 0;
-            const height = helpers.getTileHeightAtPlane(entry.worldX, entry.worldZ, plane);
+            const height = helpers.getMinTileHeightInRadius(
+                entry.worldX,
+                entry.worldZ,
+                plane,
+                entry.footprintRadius ?? 0,
+            );
             const headOffset = entry.heightOffsetTiles ?? 0.9;
 
             center[0] = entry.worldX;

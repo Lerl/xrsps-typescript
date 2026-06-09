@@ -18,6 +18,8 @@ export interface HitsplatEntry {
     worldX: number;
     worldZ: number;
     plane: number;
+    /** Actor footprint size in fine units (128/tile) used for min-height anchoring. */
+    footprintRadius?: number;
     /** Height offset relative to tile units; defaults to 0.5 tiles. */
     heightOffsetTiles?: number;
     /** Damage number to render; falls back to overlay default when omitted. */
@@ -56,6 +58,8 @@ export interface HealthBarEntry {
     worldX: number;
     worldZ: number;
     plane: number;
+    /** Actor footprint size in fine units (128/tile) used for min-height anchoring. */
+    footprintRadius?: number;
     /** Height offset relative to tile units; defaults to 0.5 tiles (player head). */
     heightOffsetTiles?: number;
     /** Ratio of current health to maximum (0..1). */
@@ -72,6 +76,8 @@ export interface OverheadTextEntry {
     worldX: number;
     worldZ: number;
     plane: number;
+    /** Actor footprint size in fine units (128/tile) used for min-height anchoring. */
+    footprintRadius?: number;
     heightOffsetTiles: number;
     text: string;
     color: number;
@@ -89,6 +95,8 @@ export interface OverheadPrayerEntry {
     worldX: number;
     worldZ: number;
     plane: number;
+    /** Actor footprint size in fine units (128/tile) used for min-height anchoring. */
+    footprintRadius?: number;
     heightOffsetTiles: number;
     /** Prayer head icon index (0 = Protect from Melee, 1 = Protect from Missiles, 2 = Protect from Magic, etc.) */
     headIconPrayer: number;
@@ -143,6 +151,16 @@ export interface OverlayUpdateArgs {
     };
     helpers: {
         getTileHeightAtPlane: (worldX: number, worldY: number, plane: number) => number;
+        /**
+         * Bridge-aware actor anchor height: minimum (highest) terrain sample across the
+         * actor footprint, promoting the sample plane on bridge tiles.
+         */
+        getMinTileHeightInRadius: (
+            worldX: number,
+            worldZ: number,
+            plane: number,
+            radiusFine: number,
+        ) => number;
         sampleHeightAtExactPlane: (worldX: number, worldZ: number, plane: number) => number;
         getEffectivePlaneForTile: (tileX: number, tileY: number, basePlane: number) => number;
         getOccupancyPlaneForTile?: (tileX: number, tileY: number, basePlane: number) => number;
