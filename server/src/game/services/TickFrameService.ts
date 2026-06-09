@@ -1,10 +1,11 @@
 import { performance } from "perf_hooks";
+
+import { upsertNpcUpdateDelta } from "../../network/NpcExternalSync";
 import { logger } from "../../utils/logger";
-import type { TickFrame } from "../tick/TickPhaseOrchestrator";
 import type { ServerServices } from "../ServerServices";
 import type { PlayerState } from "../player";
-import { upsertNpcUpdateDelta } from "../../network/NpcExternalSync";
 import { buildPlayerSaveKey } from "../state/PlayerSessionKeys";
+import type { TickFrame } from "../tick/TickPhaseOrchestrator";
 
 export class TickFrameService {
     private autosaveIntervalTicks: number;

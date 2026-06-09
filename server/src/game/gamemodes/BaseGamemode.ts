@@ -2,12 +2,12 @@ import { PlayerType } from "../../../../src/rs/chat/PlayerType";
 import type { PlayerState } from "../player";
 import type { IScriptRegistry, ScriptServices } from "../scripts/types";
 import type {
+    GamemodeBridge,
     GamemodeDefinition,
     GamemodeInitContext,
     GamemodeUiBridge,
     GamemodeUiController,
     HandshakeBridge,
-    GamemodeBridge,
 } from "./GamemodeDefinition";
 
 const DEFAULT_SPAWN = { x: 3222, y: 3218, level: 0 };
@@ -72,7 +72,11 @@ export abstract class BaseGamemode implements GamemodeDefinition {
         return 1;
     }
 
-    transformDropItemId(_npcTypeId: number, itemId: number, _player: PlayerState | undefined): number {
+    transformDropItemId(
+        _npcTypeId: number,
+        itemId: number,
+        _player: PlayerState | undefined,
+    ): number {
         return itemId;
     }
 

@@ -1,6 +1,6 @@
-import type { GameEventBus } from "../events/GameEventBus";
 import type { InterfaceService } from "../../widgets/InterfaceService";
 import type { WidgetAction } from "../../widgets/WidgetManager";
+import type { GameEventBus } from "../events/GameEventBus";
 import type { PlayerState } from "../player";
 import type { IScriptRegistry, ScriptServices } from "../scripts/types";
 
@@ -72,20 +72,21 @@ export interface GamemodeServerServices {
         activePrayers: string[],
         combatSpellId?: number,
     ): void;
-    queueChatMessage(opts: {
-        messageType: string;
-        text: string;
-        targetPlayerIds: number[];
-    }): void;
+    queueChatMessage(opts: { messageType: string; text: string; targetPlayerIds: number[] }): void;
     queueVarbit(playerId: number, varbitId: number, value: number): void;
     queueWidgetEvent(playerId: number, event: unknown): void;
     queueGamemodeSnapshot(key: string, playerId: number, payload: unknown): void;
     registerSnapshotEncoder(
         key: string,
-        encoder: (playerId: number, payload: unknown) => {
-            message: string | Uint8Array;
-            context: string;
-        } | undefined,
+        encoder: (
+            playerId: number,
+            payload: unknown,
+        ) =>
+            | {
+                  message: string | Uint8Array;
+                  context: string;
+              }
+            | undefined,
         onSent?: (playerId: number, payload: unknown) => void,
     ): void;
     getObjType(itemId: number): unknown;
@@ -129,7 +130,12 @@ export interface GamemodeDefinition {
     getDefaultSkillXp?(skillId: number): number | undefined;
     getSkillXpMultiplier(player: PlayerState): number;
     /** Fine-grained XP adjustment. If defined, returns the final XP to award (not a multiplier). */
-    getSkillXpAward?(player: PlayerState, skillId: number, baseXp: number, context?: XpAwardContext): number;
+    getSkillXpAward?(
+        player: PlayerState,
+        skillId: number,
+        baseXp: number,
+        context?: XpAwardContext,
+    ): number;
 
     // === Drops ===
     getDropRateMultiplier(player: PlayerState | undefined): number;
@@ -137,9 +143,14 @@ export interface GamemodeDefinition {
     /** Override or provide a custom drop table for an NPC type. */
     getDropTable?(npcTypeId: number): import("../drops/types").NpcDropTableDefinition | undefined;
     /** Provide additional drops beyond the base table. */
-    getSupplementalDrops?(npcTypeId: number, player: PlayerState): import("../drops/types").NpcDropEntryDefinition[];
+    getSupplementalDrops?(
+        npcTypeId: number,
+        player: PlayerState,
+    ): import("../drops/types").NpcDropEntryDefinition[];
     /** Provide per-NPC loot distribution config (highest-damage, shared, etc.). */
-    getLootDistributionConfig?(npcTypeId: number): import("../combat/DamageTracker").NpcLootConfig | undefined;
+    getLootDistributionConfig?(
+        npcTypeId: number,
+    ): import("../combat/DamageTracker").NpcLootConfig | undefined;
 
     // === Player Rules ===
     canInteract(player: PlayerState): boolean;
@@ -168,7 +179,12 @@ export interface GamemodeDefinition {
     resolveAccountStage?(player: PlayerState): void;
 
     // === Varp / Widget Events ===
-    onVarpTransmit?(player: PlayerState, varpId: number, value: number, previousValue: number): void;
+    onVarpTransmit?(
+        player: PlayerState,
+        varpId: number,
+        value: number,
+        previousValue: number,
+    ): void;
     onWidgetOpen?(player: PlayerState, groupId: number): void;
     /** Handle a resume_pausebutton click. Return true if consumed. */
     onResumePauseButton?(player: PlayerState, widgetId: number, childIndex: number): boolean;
@@ -178,7 +194,10 @@ export interface GamemodeDefinition {
     onPlayerDisconnect?(playerId: number): void;
 
     // === Display ===
-    getPlayerTypes(player: PlayerState, isAdmin: boolean): import("../../../../src/rs/chat/PlayerType").PlayerType[];
+    getPlayerTypes(
+        player: PlayerState,
+        isAdmin: boolean,
+    ): import("../../../../src/rs/chat/PlayerType").PlayerType[];
 
     // === Scripts ===
     registerHandlers(registry: IScriptRegistry, services: ScriptServices): void;

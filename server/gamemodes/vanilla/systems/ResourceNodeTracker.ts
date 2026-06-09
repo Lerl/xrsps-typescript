@@ -1,6 +1,16 @@
-import type { IResourceNodeTracker, Vec2, TrackedNode } from "../../../src/game/systems/ResourceNodeTypes";
+import type {
+    IResourceNodeTracker,
+    TrackedNode,
+    Vec2,
+} from "../../../src/game/systems/ResourceNodeTypes";
 import { buildTileKey } from "../../../src/game/systems/ResourceNodeTypes";
-export { type Vec2, type TrackedNode, type IResourceNodeTracker, buildTileKey } from "../../../src/game/systems/ResourceNodeTypes";
+
+export {
+    type Vec2,
+    type TrackedNode,
+    type IResourceNodeTracker,
+    buildTileKey,
+} from "../../../src/game/systems/ResourceNodeTypes";
 
 export class ResourceNodeTracker<T = unknown> implements IResourceNodeTracker<T> {
     private nodes = new Map<string, TrackedNode<T>>();

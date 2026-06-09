@@ -21,14 +21,14 @@
  * - Server-side item values only
  * - Validate respawn location (no wilderness respawns)
  */
-import { logger } from "../../utils/logger";
-import { getItemDefinition } from "../../data/items";
 import { SKILL_IDS, SkillId } from "../../../../src/rs/skill/skills";
+import { getItemDefinition } from "../../data/items";
+import { logger } from "../../utils/logger";
+import type { ServerServices } from "../ServerServices";
 import { RUN_ENERGY_MAX } from "../actor";
 import { getWildernessLevel, isInWilderness } from "../combat/MultiCombatZones";
 import { LockState } from "../model/LockState";
 import type { PlayerState } from "../player";
-import type { ServerServices } from "../ServerServices";
 import { DeathHookRegistry } from "./DeathHookRegistry";
 import { ItemProtectionCalculator } from "./ItemProtectionCalculator";
 import {
@@ -180,7 +180,9 @@ export class PlayerDeathService {
             if (death.phase === "queued") {
                 try {
                     death.player.queueOneShotSeq(DEATH_ANIMATION_ID, 0);
-                } catch (err) { logger.warn("Failed to play death animation", err); }
+                } catch (err) {
+                    logger.warn("Failed to play death animation", err);
+                }
                 death.phase = "animation";
                 continue; // Don't decrement on the same tick we start the animation
             }
@@ -230,7 +232,9 @@ export class PlayerDeathService {
         // Clear animation
         try {
             player.queueOneShotSeq(-1, 0);
-        } catch (err) { logger.warn("Failed to clear death animation", err); }
+        } catch (err) {
+            logger.warn("Failed to clear death animation", err);
+        }
 
         // ========================================
         // Phase 6: Jingle, Message & Unlock
@@ -273,7 +277,9 @@ export class PlayerDeathService {
             death.player.lock = LockState.NONE;
             try {
                 death.player.queueOneShotSeq(-1, 0);
-            } catch (err) { logger.warn("Failed to clear death animation", err); }
+            } catch (err) {
+                logger.warn("Failed to clear death animation", err);
+            }
             this.pendingDeaths.delete(playerId);
         }
     }
@@ -512,10 +518,24 @@ export class PlayerDeathService {
             if (sock) {
                 this.svc.players?.clearAllInteractions(sock);
             }
-        } catch (err) { logger.warn("[death] failed to clear combat", err); }
-        try { player.resetInteractions(); } catch (err) { logger.warn("[death] failed to reset interactions", err); }
-        try { player.clearInteraction(); } catch (err) { logger.warn("[death] failed to clear interaction", err); }
-        try { player.clearPath(); } catch (err) { logger.warn("[death] failed to clear path", err); }
+        } catch (err) {
+            logger.warn("[death] failed to clear combat", err);
+        }
+        try {
+            player.resetInteractions();
+        } catch (err) {
+            logger.warn("[death] failed to reset interactions", err);
+        }
+        try {
+            player.clearInteraction();
+        } catch (err) {
+            logger.warn("[death] failed to clear interaction", err);
+        }
+        try {
+            player.clearPath();
+        } catch (err) {
+            logger.warn("[death] failed to clear path", err);
+        }
         // Clear any NPCs that are still targeting this player
         try {
             const nowTick = this.svc.ticker.currentTick();
@@ -525,9 +545,13 @@ export class PlayerDeathService {
                         npc.disengageCombat();
                         npc.scheduleNextAggressionCheck(nowTick, 10);
                     }
-                } catch (err) { logger.warn("Failed to clear NPC combat target for player", err); }
+                } catch (err) {
+                    logger.warn("Failed to clear NPC combat target for player", err);
+                }
             });
-        } catch (err) { logger.warn("[death] failed to clear npc targets", err); }
+        } catch (err) {
+            logger.warn("[death] failed to clear npc targets", err);
+        }
     }
 
     /**

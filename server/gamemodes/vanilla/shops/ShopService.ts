@@ -1,13 +1,12 @@
-import type { PlayerState } from "../../../src/game/player";
-import type { GamemodeServerServices } from "../../../src/game/gamemodes/GamemodeDefinition";
 import type { ObjType } from "../../../../src/rs/config/objtype/ObjType";
+import type { GamemodeServerServices } from "../../../src/game/gamemodes/GamemodeDefinition";
+import type { PlayerState } from "../../../src/game/player";
 import type { ShoppingServices } from "../../../src/game/scripts/types";
-import type { ShopStockEntry } from "./ShopManager";
+import { encodeMessage } from "../../../src/network/messages";
 import type { ShopOpenData } from "./ShopInterfaceHooks";
-
+import type { ShopStockEntry } from "./ShopManager";
 import { ShopManager } from "./ShopManager";
 import { SHOP_INTERFACE_ID } from "./shopConstants";
-import { encodeMessage } from "../../../src/network/messages";
 
 export interface ShopServiceOptions {
     serverServices: GamemodeServerServices;
@@ -37,7 +36,11 @@ export class ShopService {
                 this.ss.addItemToInventory(player, itemId, qty),
             snapshotInventory: snapshotInventoryFn,
             sendGameMessage: (player, text) =>
-                this.ss.queueChatMessage({ messageType: "game", text, targetPlayerIds: [player.id] }),
+                this.ss.queueChatMessage({
+                    messageType: "game",
+                    text,
+                    targetPlayerIds: [player.id],
+                }),
         });
 
         this.ss.registerSnapshotEncoder("shop", (_playerId, payload) => ({
@@ -53,10 +56,7 @@ export class ShopService {
         });
     }
 
-    openShop(
-        player: PlayerState,
-        opts?: { npcTypeId?: number; shopId?: string },
-    ): void {
+    openShop(player: PlayerState, opts?: { npcTypeId?: number; shopId?: string }): void {
         const sm = this.manager;
         const interfaceService = this.ss.getInterfaceService();
         if (!interfaceService) return;
@@ -150,11 +150,7 @@ export class ShopService {
         player: PlayerState,
         params: { inventorySlot: number; itemId: number; quantity?: number } | undefined,
     ): void {
-        if (
-            !params ||
-            !Number.isFinite(params.inventorySlot) ||
-            !Number.isFinite(params.itemId)
-        ) {
+        if (!params || !Number.isFinite(params.inventorySlot) || !Number.isFinite(params.itemId)) {
             return;
         }
 

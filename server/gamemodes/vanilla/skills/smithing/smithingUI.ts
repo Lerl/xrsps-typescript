@@ -1,7 +1,11 @@
 import { SkillId } from "../../../../../src/rs/skill/skills";
-import type { SmithingOptionMessage, SmithingServerPayload } from "../../../../src/game/scripts/types";
 import type { PlayerState } from "../../../../src/game/player";
+import type {
+    SmithingOptionMessage,
+    SmithingServerPayload,
+} from "../../../../src/game/scripts/types";
 import type { ScriptServices } from "../../../../src/game/scripts/types";
+import { shouldGuaranteeIronSmelt } from "./smithingBonuses";
 import {
     HAMMER_ITEM_ID,
     SMELTING_RECIPES,
@@ -12,16 +16,29 @@ import {
     getSmeltingRecipeById,
     getSmithingRecipeById,
 } from "./smithingData";
-import { shouldGuaranteeIronSmelt } from "./smithingBonuses";
 
 const SMITHING_GROUP_ID = 312;
 const SMITHING_BAR_TYPE_VARBIT_ID = 3216;
 const SMITHING_BAR_ENUM_ID = 1253;
 const SMITHING_BAR_TYPE_FALLBACK: ReadonlyArray<readonly [number, number]> = [
-    [1, 2349], [2, 2351], [3, 2353], [4, 2355], [5, 2357], [6, 2359], [7, 2361], [8, 2363],
+    [1, 2349],
+    [2, 2351],
+    [3, 2353],
+    [4, 2355],
+    [5, 2357],
+    [6, 2359],
+    [7, 2361],
+    [8, 2363],
 ];
 const SMITHING_BAR_MIN_LEVEL_BY_TYPE: Readonly<Record<number, number>> = {
-    1: 1, 2: 15, 3: 30, 4: 50, 5: 70, 6: 85, 7: 40, 8: 20,
+    1: 1,
+    2: 15,
+    3: 30,
+    4: 50,
+    5: 70,
+    6: 85,
+    7: 40,
+    8: 20,
 };
 
 function countInventoryItem(services: ScriptServices, player: PlayerState, itemId: number): number {
@@ -49,7 +66,10 @@ export class SmithingUI {
         const inventory = this.services.inventory.getInventoryItems(player);
         const smithLevel = player.skillSystem.getSkill(SkillId.Smithing).baseLevel;
         return SMELTING_RECIPES.map((recipe) => {
-            const available = Math.max(0, Math.min(28, computeSmeltingBatchCount(inventory, recipe)));
+            const available = Math.max(
+                0,
+                Math.min(28, computeSmeltingBatchCount(inventory, recipe)),
+            );
             return {
                 recipeId: recipe.id,
                 name: recipe.name,
@@ -85,7 +105,10 @@ export class SmithingUI {
                 available,
                 canMake: (!requiresHammer || hammerAvailable) && canLevel && available > 0,
                 xp: recipe.xp,
-                ingredientsLabel: `${recipe.barCount} x ${describeItem(this.services, recipe.barItemId)}`,
+                ingredientsLabel: `${recipe.barCount} x ${describeItem(
+                    this.services,
+                    recipe.barItemId,
+                )}`,
                 mode: "forge",
                 barItemId: recipe.barItemId,
                 barCount: recipe.barCount,
@@ -222,14 +245,18 @@ export class SmithingUI {
     resolveQuantity(mode: number, available: number, custom: number): number {
         const total = Math.max(0, available);
         switch (mode) {
-            case 1: return Math.min(5, Math.max(1, total));
-            case 2: return Math.min(10, Math.max(1, total));
+            case 1:
+                return Math.min(5, Math.max(1, total));
+            case 2:
+                return Math.min(10, Math.max(1, total));
             case 3: {
                 const desired = custom > 0 ? custom : total;
                 return Math.min(total, Math.max(1, desired));
             }
-            case 4: return total;
-            default: return total > 0 ? 1 : 0;
+            case 4:
+                return total;
+            default:
+                return total > 0 ? 1 : 0;
         }
     }
 
@@ -256,33 +283,47 @@ export class SmithingUI {
         }
         const smithLevel = player.skillSystem.getSkill(SkillId.Smithing).baseLevel;
         if (smithLevel < recipe.level) {
-            this.services.messaging.sendGameMessage(player, `You need Smithing level ${recipe.level} to smelt that.`);
+            this.services.messaging.sendGameMessage(
+                player,
+                `You need Smithing level ${recipe.level} to smelt that.`,
+            );
             return;
         }
         const inventory = this.services.inventory.getInventoryItems(player);
         const available = computeSmeltingBatchCount(inventory, recipe);
         if (available <= 0) {
-            this.services.messaging.sendGameMessage(player, "You need the proper ores to smelt that bar.");
+            this.services.messaging.sendGameMessage(
+                player,
+                "You need the proper ores to smelt that bar.",
+            );
             this.updateSmeltingInterface(player);
             return;
         }
         const currentMode = player.bank.getSmithingQuantityMode();
         const customAmount = player.bank.getSmithingCustomQuantity();
-        const desiredRaw = requestedCount && requestedCount > 0
-            ? requestedCount
-            : this.resolveQuantity(currentMode, available, customAmount);
+        const desiredRaw =
+            requestedCount && requestedCount > 0
+                ? requestedCount
+                : this.resolveQuantity(currentMode, available, customAmount);
         const desired = Math.max(1, Math.min(available, desiredRaw));
         const delay = recipe.delayTicks !== undefined ? Math.max(1, recipe.delayTicks) : 4;
         const tick = this.services.system.getCurrentTick() ?? 0;
-        const result = this.services.combat.requestAction(player, {
-            kind: "skill.smelt",
-            data: { recipeId: recipe.id, count: desired },
-            delayTicks: delay,
-            cooldownTicks: delay,
-            groups: ["skill.smelt"],
-        }, tick);
+        const result = this.services.combat.requestAction(
+            player,
+            {
+                kind: "skill.smelt",
+                data: { recipeId: recipe.id, count: desired },
+                delayTicks: delay,
+                cooldownTicks: delay,
+                groups: ["skill.smelt"],
+            },
+            tick,
+        );
         if (!result.ok) {
-            this.services.messaging.sendGameMessage(player, "You're too busy to do that right now.");
+            this.services.messaging.sendGameMessage(
+                player,
+                "You're too busy to do that right now.",
+            );
         }
     }
 
@@ -292,17 +333,26 @@ export class SmithingUI {
             this.services.messaging.sendGameMessage(player, "You can't smith that.");
             return;
         }
-        if (recipe.requireHammer !== false && !this.services.inventory.playerHasItem(player, HAMMER_ITEM_ID)) {
+        if (
+            recipe.requireHammer !== false &&
+            !this.services.inventory.playerHasItem(player, HAMMER_ITEM_ID)
+        ) {
             this.services.messaging.sendGameMessage(player, "You need a hammer to smith.");
             return;
         }
         const smithLevel = player.skillSystem.getSkill(SkillId.Smithing).baseLevel;
         if (smithLevel < recipe.level) {
-            this.services.messaging.sendGameMessage(player, `You need Smithing level ${recipe.level} to smith that.`);
+            this.services.messaging.sendGameMessage(
+                player,
+                `You need Smithing level ${recipe.level} to smith that.`,
+            );
             return;
         }
         const inventory = this.services.inventory.getInventoryItems(player);
-        const available = Math.max(0, Math.min(28, this.computeBatchCountFromInventory(inventory, recipe)));
+        const available = Math.max(
+            0,
+            Math.min(28, this.computeBatchCountFromInventory(inventory, recipe)),
+        );
         if (available <= 0) {
             this.services.messaging.sendGameMessage(player, "You need more bars to smith that.");
             this.updateSmithingInterface(player);
@@ -310,21 +360,29 @@ export class SmithingUI {
         }
         const currentMode = player.bank.getSmithingQuantityMode();
         const customAmount = player.bank.getSmithingCustomQuantity();
-        const desiredRaw = requestedCount && requestedCount > 0
-            ? requestedCount
-            : this.resolveQuantity(currentMode, available, customAmount);
+        const desiredRaw =
+            requestedCount && requestedCount > 0
+                ? requestedCount
+                : this.resolveQuantity(currentMode, available, customAmount);
         const desired = Math.max(1, Math.min(available, desiredRaw));
         const delay = recipe.delayTicks !== undefined ? Math.max(1, recipe.delayTicks) : 4;
         const tick = this.services.system.getCurrentTick() ?? 0;
-        const result = this.services.combat.requestAction(player, {
-            kind: "skill.smith",
-            data: { recipeId: recipe.id, count: desired },
-            delayTicks: delay,
-            cooldownTicks: delay,
-            groups: ["skill.smith"],
-        }, tick);
+        const result = this.services.combat.requestAction(
+            player,
+            {
+                kind: "skill.smith",
+                data: { recipeId: recipe.id, count: desired },
+                delayTicks: delay,
+                cooldownTicks: delay,
+                groups: ["skill.smith"],
+            },
+            tick,
+        );
         if (!result.ok) {
-            this.services.messaging.sendGameMessage(player, "You're too busy to do that right now.");
+            this.services.messaging.sendGameMessage(
+                player,
+                "You're too busy to do that right now.",
+            );
         }
         this.updateSmithingInterface(player);
     }

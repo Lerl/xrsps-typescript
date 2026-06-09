@@ -3,15 +3,15 @@ import type { WebSocket } from "ws";
 import { SkillId } from "../../../../src/rs/skill/skills";
 import { resolveSelectedSpellPayload } from "../../../../src/shared/spells/selectedSpellPayload";
 import { getItemDefinition } from "../../data/items";
+import { logger } from "../../utils/logger";
+import type { ServerServices } from "../ServerServices";
+import type { PlayerState } from "../player";
+import { SpellCaster } from "../spells/SpellCaster";
 import {
     type SpellDataEntry,
     getSpellData,
     getSpellDataByWidget,
 } from "../spells/SpellDataProvider";
-import type { PlayerState } from "../player";
-import { SpellCaster } from "../spells/SpellCaster";
-import { logger } from "../../utils/logger";
-import type { ServerServices } from "../ServerServices";
 
 export class SpellCastingService {
     constructor(private readonly svc: ServerServices) {}
@@ -146,7 +146,12 @@ export class SpellCastingService {
             }
 
             if (invSlot.quantity > 1) {
-                this.svc.inventoryService.setInventorySlot(player, slot, targetItemId, invSlot.quantity - 1);
+                this.svc.inventoryService.setInventorySlot(
+                    player,
+                    slot,
+                    targetItemId,
+                    invSlot.quantity - 1,
+                );
             } else {
                 this.svc.inventoryService.setInventorySlot(player, slot, 0, 0);
             }

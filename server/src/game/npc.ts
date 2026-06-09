@@ -1,4 +1,5 @@
 import { Actor } from "./actor";
+import { EntityType } from "./collision/EntityCollisionService";
 import type { AttackType } from "./combat/AttackType";
 import {
     DEFAULT_DISEASE_INTERVAL_TICKS,
@@ -12,7 +13,6 @@ import {
     StatusHitsplat,
 } from "./combat/HitEffects";
 import { AGGRESSION_TIMER_TICKS, TARGET_SEARCH_INTERVAL } from "./combat/NpcCombatAI";
-import { EntityType } from "./collision/EntityCollisionService";
 import { ACTIVE_COMBAT_TIMER_TICKS } from "./model/timer";
 
 /**
@@ -648,7 +648,10 @@ export class NpcState extends Actor {
             return false;
         }
         const interaction = this.getInteractionTarget();
-        if (interaction && (interaction.type === EntityType.Player || interaction.type === EntityType.Npc)) {
+        if (
+            interaction &&
+            (interaction.type === EntityType.Player || interaction.type === EntityType.Npc)
+        ) {
             return false;
         }
         if (this.isStationary()) {

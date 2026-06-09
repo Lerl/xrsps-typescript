@@ -1,8 +1,24 @@
-import { SpellbookName } from "../../../src/data/spellWidgetLoader";
 import { EquipmentSlot } from "../../../../src/rs/config/player/Equipment";
 import { SkillId } from "../../../../src/rs/skill/skills";
 import { VARP_LAST_HOME_TELEPORT } from "../../../../src/shared/vars";
+import { SpellbookName } from "../../../src/data/spellWidgetLoader";
 import { RUNE_IDS } from "../../../src/game/data/RuneDataProvider";
+import type { PlayerState } from "../../../src/game/player";
+import {
+    type SkillBoltEnchantActionData as BoltEnchantActionData,
+    HOME_TELEPORT_TIMER,
+    type IScriptRegistry,
+    type RuneInventoryItem as InventoryItem,
+    type RuneValidationResult,
+    RuneValidator,
+    type ScriptServices,
+    type TeleportSpellData,
+    WaitCondition,
+    type WidgetActionEvent,
+    applyAutocastState,
+    getSpellWidgetId,
+    getTeleportByWidgetId,
+} from "../../../src/game/scripts/types";
 import {
     canWeaponAutocastSpell,
     getAutocastCompatibilityMessage,
@@ -10,22 +26,6 @@ import {
     getSpellDataByWidget,
     isSpellAutocastable,
 } from "../../../src/game/spells/SpellDataProvider";
-import type { PlayerState } from "../../../src/game/player";
-import {
-    type TeleportSpellData,
-    type SkillBoltEnchantActionData as BoltEnchantActionData,
-    type RuneInventoryItem as InventoryItem,
-    type RuneValidationResult,
-    type IScriptRegistry,
-    type ScriptServices,
-    type WidgetActionEvent,
-    getTeleportByWidgetId,
-    getSpellWidgetId,
-    applyAutocastState,
-    WaitCondition,
-    HOME_TELEPORT_TIMER,
-    RuneValidator,
-} from "../../../src/game/scripts/types";
 
 const SPELLBOOK_GROUP_ID = 218;
 const BOLT_ENCHANT_CHATBOX_GROUP_ID = 270;
@@ -183,236 +183,236 @@ let _boltEnchantRecipes: BoltEnchantRecipe[] | undefined;
 function getBoltEnchantRecipes(): BoltEnchantRecipe[] {
     if (_boltEnchantRecipes) return _boltEnchantRecipes;
     _boltEnchantRecipes = [
-    {
-        key: "onyx",
-        levelRequired: 87,
-        xp: 97,
-        runeCosts: [
-            { runeId: RUNE_IDS.COSMIC, quantity: 1 },
-            { runeId: RUNE_IDS.FIRE, quantity: 20 },
-            { runeId: RUNE_IDS.DEATH, quantity: 1 },
-        ],
-        variants: [
-            { sourceItemId: 9342, enchantedItemId: 9245, enchantedName: "onyx bolts (e)" },
-            {
-                sourceItemId: 21973,
-                enchantedItemId: 21950,
-                enchantedName: "onyx dragon bolts (e)",
-            },
-            {
-                sourceItemId: 21974,
-                enchantedItemId: 21951,
-                enchantedName: "onyx dragon bolts (e)",
-            },
-        ],
-    },
-    {
-        key: "dragonstone",
-        levelRequired: 68,
-        xp: 78,
-        runeCosts: [
-            { runeId: RUNE_IDS.COSMIC, quantity: 1 },
-            { runeId: RUNE_IDS.EARTH, quantity: 15 },
-            { runeId: RUNE_IDS.SOUL, quantity: 1 },
-        ],
-        variants: [
-            { sourceItemId: 9341, enchantedItemId: 9244, enchantedName: "dragon bolts (e)" },
-            {
-                sourceItemId: 21971,
-                enchantedItemId: 21948,
-                enchantedName: "dragonstone dragon bolts (e)",
-            },
-            {
-                sourceItemId: 21972,
-                enchantedItemId: 21949,
-                enchantedName: "dragonstone dragon bolts (e)",
-            },
-        ],
-    },
-    {
-        key: "diamond",
-        levelRequired: 57,
-        xp: 67,
-        runeCosts: [
-            { runeId: RUNE_IDS.COSMIC, quantity: 1 },
-            { runeId: RUNE_IDS.EARTH, quantity: 10 },
-            { runeId: RUNE_IDS.LAW, quantity: 2 },
-        ],
-        variants: [
-            { sourceItemId: 9340, enchantedItemId: 9243, enchantedName: "diamond bolts (e)" },
-            {
-                sourceItemId: 21969,
-                enchantedItemId: 21946,
-                enchantedName: "diamond dragon bolts (e)",
-            },
-            {
-                sourceItemId: 21970,
-                enchantedItemId: 21947,
-                enchantedName: "diamond dragon bolts (e)",
-            },
-        ],
-    },
-    {
-        key: "ruby",
-        levelRequired: 49,
-        xp: 59,
-        runeCosts: [
-            { runeId: RUNE_IDS.COSMIC, quantity: 1 },
-            { runeId: RUNE_IDS.FIRE, quantity: 5 },
-            { runeId: RUNE_IDS.BLOOD, quantity: 1 },
-        ],
-        variants: [
-            { sourceItemId: 9339, enchantedItemId: 9242, enchantedName: "ruby bolts (e)" },
-            {
-                sourceItemId: 21967,
-                enchantedItemId: 21944,
-                enchantedName: "ruby dragon bolts (e)",
-            },
-            {
-                sourceItemId: 21968,
-                enchantedItemId: 21945,
-                enchantedName: "ruby dragon bolts (e)",
-            },
-        ],
-    },
-    {
-        key: "topaz",
-        levelRequired: 29,
-        xp: 33,
-        runeCosts: [
-            { runeId: RUNE_IDS.COSMIC, quantity: 1 },
-            { runeId: RUNE_IDS.FIRE, quantity: 2 },
-        ],
-        variants: [
-            { sourceItemId: 9336, enchantedItemId: 9239, enchantedName: "topaz bolts (e)" },
-            {
-                sourceItemId: 21961,
-                enchantedItemId: 21938,
-                enchantedName: "topaz dragon bolts (e)",
-            },
-            {
-                sourceItemId: 21962,
-                enchantedItemId: 21939,
-                enchantedName: "topaz dragon bolts (e)",
-            },
-        ],
-    },
-    {
-        key: "emerald",
-        levelRequired: 27,
-        xp: 37,
-        runeCosts: [
-            { runeId: RUNE_IDS.COSMIC, quantity: 1 },
-            { runeId: RUNE_IDS.AIR, quantity: 3 },
-            { runeId: RUNE_IDS.NATURE, quantity: 1 },
-        ],
-        variants: [
-            { sourceItemId: 9338, enchantedItemId: 9241, enchantedName: "emerald bolts (e)" },
-            {
-                sourceItemId: 21965,
-                enchantedItemId: 21942,
-                enchantedName: "emerald dragon bolts (e)",
-            },
-            {
-                sourceItemId: 21966,
-                enchantedItemId: 21943,
-                enchantedName: "emerald dragon bolts (e)",
-            },
-        ],
-    },
-    {
-        key: "pearl",
-        levelRequired: 24,
-        xp: 29,
-        runeCosts: [
-            { runeId: RUNE_IDS.COSMIC, quantity: 1 },
-            { runeId: RUNE_IDS.WATER, quantity: 2 },
-        ],
-        variants: [
-            { sourceItemId: 880, enchantedItemId: 9238, enchantedName: "pearl bolts (e)" },
-            {
-                sourceItemId: 21959,
-                enchantedItemId: 21936,
-                enchantedName: "pearl dragon bolts (e)",
-            },
-            {
-                sourceItemId: 21960,
-                enchantedItemId: 21937,
-                enchantedName: "pearl dragon bolts (e)",
-            },
-        ],
-    },
-    {
-        key: "jade",
-        levelRequired: 14,
-        xp: 19,
-        runeCosts: [
-            { runeId: RUNE_IDS.COSMIC, quantity: 1 },
-            { runeId: RUNE_IDS.EARTH, quantity: 2 },
-        ],
-        variants: [
-            { sourceItemId: 9335, enchantedItemId: 9237, enchantedName: "jade bolts (e)" },
-            {
-                sourceItemId: 21957,
-                enchantedItemId: 21934,
-                enchantedName: "jade dragon bolts (e)",
-            },
-            {
-                sourceItemId: 21958,
-                enchantedItemId: 21935,
-                enchantedName: "jade dragon bolts (e)",
-            },
-        ],
-    },
-    {
-        key: "sapphire",
-        levelRequired: 7,
-        xp: 17.5,
-        runeCosts: [
-            { runeId: RUNE_IDS.COSMIC, quantity: 1 },
-            { runeId: RUNE_IDS.WATER, quantity: 1 },
-            { runeId: RUNE_IDS.MIND, quantity: 1 },
-        ],
-        variants: [
-            {
-                sourceItemId: 9337,
-                enchantedItemId: 9240,
-                enchantedName: "sapphire bolts (e)",
-            },
-            {
-                sourceItemId: 21963,
-                enchantedItemId: 21940,
-                enchantedName: "sapphire dragon bolts (e)",
-            },
-            {
-                sourceItemId: 21964,
-                enchantedItemId: 21941,
-                enchantedName: "sapphire dragon bolts (e)",
-            },
-        ],
-    },
-    {
-        key: "opal",
-        levelRequired: 4,
-        xp: 9,
-        runeCosts: [
-            { runeId: RUNE_IDS.COSMIC, quantity: 1 },
-            { runeId: RUNE_IDS.AIR, quantity: 2 },
-        ],
-        variants: [
-            { sourceItemId: 879, enchantedItemId: 9236, enchantedName: "opal bolts (e)" },
-            {
-                sourceItemId: 21955,
-                enchantedItemId: 21932,
-                enchantedName: "opal dragon bolts (e)",
-            },
-            {
-                sourceItemId: 21956,
-                enchantedItemId: 21933,
-                enchantedName: "opal dragon bolts (e)",
-            },
-        ],
-    },
+        {
+            key: "onyx",
+            levelRequired: 87,
+            xp: 97,
+            runeCosts: [
+                { runeId: RUNE_IDS.COSMIC, quantity: 1 },
+                { runeId: RUNE_IDS.FIRE, quantity: 20 },
+                { runeId: RUNE_IDS.DEATH, quantity: 1 },
+            ],
+            variants: [
+                { sourceItemId: 9342, enchantedItemId: 9245, enchantedName: "onyx bolts (e)" },
+                {
+                    sourceItemId: 21973,
+                    enchantedItemId: 21950,
+                    enchantedName: "onyx dragon bolts (e)",
+                },
+                {
+                    sourceItemId: 21974,
+                    enchantedItemId: 21951,
+                    enchantedName: "onyx dragon bolts (e)",
+                },
+            ],
+        },
+        {
+            key: "dragonstone",
+            levelRequired: 68,
+            xp: 78,
+            runeCosts: [
+                { runeId: RUNE_IDS.COSMIC, quantity: 1 },
+                { runeId: RUNE_IDS.EARTH, quantity: 15 },
+                { runeId: RUNE_IDS.SOUL, quantity: 1 },
+            ],
+            variants: [
+                { sourceItemId: 9341, enchantedItemId: 9244, enchantedName: "dragon bolts (e)" },
+                {
+                    sourceItemId: 21971,
+                    enchantedItemId: 21948,
+                    enchantedName: "dragonstone dragon bolts (e)",
+                },
+                {
+                    sourceItemId: 21972,
+                    enchantedItemId: 21949,
+                    enchantedName: "dragonstone dragon bolts (e)",
+                },
+            ],
+        },
+        {
+            key: "diamond",
+            levelRequired: 57,
+            xp: 67,
+            runeCosts: [
+                { runeId: RUNE_IDS.COSMIC, quantity: 1 },
+                { runeId: RUNE_IDS.EARTH, quantity: 10 },
+                { runeId: RUNE_IDS.LAW, quantity: 2 },
+            ],
+            variants: [
+                { sourceItemId: 9340, enchantedItemId: 9243, enchantedName: "diamond bolts (e)" },
+                {
+                    sourceItemId: 21969,
+                    enchantedItemId: 21946,
+                    enchantedName: "diamond dragon bolts (e)",
+                },
+                {
+                    sourceItemId: 21970,
+                    enchantedItemId: 21947,
+                    enchantedName: "diamond dragon bolts (e)",
+                },
+            ],
+        },
+        {
+            key: "ruby",
+            levelRequired: 49,
+            xp: 59,
+            runeCosts: [
+                { runeId: RUNE_IDS.COSMIC, quantity: 1 },
+                { runeId: RUNE_IDS.FIRE, quantity: 5 },
+                { runeId: RUNE_IDS.BLOOD, quantity: 1 },
+            ],
+            variants: [
+                { sourceItemId: 9339, enchantedItemId: 9242, enchantedName: "ruby bolts (e)" },
+                {
+                    sourceItemId: 21967,
+                    enchantedItemId: 21944,
+                    enchantedName: "ruby dragon bolts (e)",
+                },
+                {
+                    sourceItemId: 21968,
+                    enchantedItemId: 21945,
+                    enchantedName: "ruby dragon bolts (e)",
+                },
+            ],
+        },
+        {
+            key: "topaz",
+            levelRequired: 29,
+            xp: 33,
+            runeCosts: [
+                { runeId: RUNE_IDS.COSMIC, quantity: 1 },
+                { runeId: RUNE_IDS.FIRE, quantity: 2 },
+            ],
+            variants: [
+                { sourceItemId: 9336, enchantedItemId: 9239, enchantedName: "topaz bolts (e)" },
+                {
+                    sourceItemId: 21961,
+                    enchantedItemId: 21938,
+                    enchantedName: "topaz dragon bolts (e)",
+                },
+                {
+                    sourceItemId: 21962,
+                    enchantedItemId: 21939,
+                    enchantedName: "topaz dragon bolts (e)",
+                },
+            ],
+        },
+        {
+            key: "emerald",
+            levelRequired: 27,
+            xp: 37,
+            runeCosts: [
+                { runeId: RUNE_IDS.COSMIC, quantity: 1 },
+                { runeId: RUNE_IDS.AIR, quantity: 3 },
+                { runeId: RUNE_IDS.NATURE, quantity: 1 },
+            ],
+            variants: [
+                { sourceItemId: 9338, enchantedItemId: 9241, enchantedName: "emerald bolts (e)" },
+                {
+                    sourceItemId: 21965,
+                    enchantedItemId: 21942,
+                    enchantedName: "emerald dragon bolts (e)",
+                },
+                {
+                    sourceItemId: 21966,
+                    enchantedItemId: 21943,
+                    enchantedName: "emerald dragon bolts (e)",
+                },
+            ],
+        },
+        {
+            key: "pearl",
+            levelRequired: 24,
+            xp: 29,
+            runeCosts: [
+                { runeId: RUNE_IDS.COSMIC, quantity: 1 },
+                { runeId: RUNE_IDS.WATER, quantity: 2 },
+            ],
+            variants: [
+                { sourceItemId: 880, enchantedItemId: 9238, enchantedName: "pearl bolts (e)" },
+                {
+                    sourceItemId: 21959,
+                    enchantedItemId: 21936,
+                    enchantedName: "pearl dragon bolts (e)",
+                },
+                {
+                    sourceItemId: 21960,
+                    enchantedItemId: 21937,
+                    enchantedName: "pearl dragon bolts (e)",
+                },
+            ],
+        },
+        {
+            key: "jade",
+            levelRequired: 14,
+            xp: 19,
+            runeCosts: [
+                { runeId: RUNE_IDS.COSMIC, quantity: 1 },
+                { runeId: RUNE_IDS.EARTH, quantity: 2 },
+            ],
+            variants: [
+                { sourceItemId: 9335, enchantedItemId: 9237, enchantedName: "jade bolts (e)" },
+                {
+                    sourceItemId: 21957,
+                    enchantedItemId: 21934,
+                    enchantedName: "jade dragon bolts (e)",
+                },
+                {
+                    sourceItemId: 21958,
+                    enchantedItemId: 21935,
+                    enchantedName: "jade dragon bolts (e)",
+                },
+            ],
+        },
+        {
+            key: "sapphire",
+            levelRequired: 7,
+            xp: 17.5,
+            runeCosts: [
+                { runeId: RUNE_IDS.COSMIC, quantity: 1 },
+                { runeId: RUNE_IDS.WATER, quantity: 1 },
+                { runeId: RUNE_IDS.MIND, quantity: 1 },
+            ],
+            variants: [
+                {
+                    sourceItemId: 9337,
+                    enchantedItemId: 9240,
+                    enchantedName: "sapphire bolts (e)",
+                },
+                {
+                    sourceItemId: 21963,
+                    enchantedItemId: 21940,
+                    enchantedName: "sapphire dragon bolts (e)",
+                },
+                {
+                    sourceItemId: 21964,
+                    enchantedItemId: 21941,
+                    enchantedName: "sapphire dragon bolts (e)",
+                },
+            ],
+        },
+        {
+            key: "opal",
+            levelRequired: 4,
+            xp: 9,
+            runeCosts: [
+                { runeId: RUNE_IDS.COSMIC, quantity: 1 },
+                { runeId: RUNE_IDS.AIR, quantity: 2 },
+            ],
+            variants: [
+                { sourceItemId: 879, enchantedItemId: 9236, enchantedName: "opal bolts (e)" },
+                {
+                    sourceItemId: 21955,
+                    enchantedItemId: 21932,
+                    enchantedName: "opal dragon bolts (e)",
+                },
+                {
+                    sourceItemId: 21956,
+                    enchantedItemId: 21933,
+                    enchantedName: "opal dragon bolts (e)",
+                },
+            ],
+        },
     ];
     return _boltEnchantRecipes;
 }
@@ -426,7 +426,10 @@ function getBoltEnchantRecipes(): BoltEnchantRecipe[] {
  * - Op2 = Autocast (normal)
  * - Op3 = Defensive Autocast
  */
-export function registerSpellbookWidgetHandlers(registry: IScriptRegistry, services: ScriptServices): void {
+export function registerSpellbookWidgetHandlers(
+    registry: IScriptRegistry,
+    services: ScriptServices,
+): void {
     // Register a general handler for the spellbook interface
     // This catches all spell button clicks regardless of which spell
     registry.registerWidgetAction({
@@ -482,7 +485,9 @@ function handleAutocast(
     // Look up spell data by widget child ID
     const spellData = getSpellDataByWidget(SPELLBOOK_GROUP_ID, childId);
     if (!spellData) {
-        services.system.logger.warn?.(`[script:spellbook] No spell data for widget childId=${childId}`);
+        services.system.logger.warn?.(
+            `[script:spellbook] No spell data for widget childId=${childId}`,
+        );
         return;
     }
 
@@ -823,7 +828,7 @@ function handleBoltEnchantQuantityWidgetAction(
     const requestedSets =
         session.hasExplicitSelection && session.selectedSets !== undefined
             ? session.selectedSets
-            : requestedFromSlot ?? 1;
+            : (requestedFromSlot ?? 1);
     const clampedRequestedSets = Math.max(1, Math.min(entry.maxSets, requestedSets));
 
     clearBoltEnchantUiSession(event.player, services, { closeInterface: true });
@@ -964,7 +969,11 @@ function executeBoltEnchant(
         return;
     }
 
-    const added = services.inventory.addItemToInventory(player, variant.enchantedItemId, boltsToEnchant);
+    const added = services.inventory.addItemToInventory(
+        player,
+        variant.enchantedItemId,
+        boltsToEnchant,
+    );
     if (added.added < boltsToEnchant) {
         services.messaging.sendGameMessage(player, "You don't have enough inventory space.");
         // Best-effort rollback for unexpected failure.
@@ -979,7 +988,10 @@ function executeBoltEnchant(
     }
     services.skills.addSkillXp(player, MAGIC_SKILL_ID, recipe.xp * finalSets);
     services.inventory.snapshotInventoryImmediate(player);
-    services.messaging.sendGameMessage(player, `You enchant ${boltsToEnchant} ${variant.enchantedName}.`);
+    services.messaging.sendGameMessage(
+        player,
+        `You enchant ${boltsToEnchant} ${variant.enchantedName}.`,
+    );
 }
 
 function handleCrossbowBoltEnchantments(player: PlayerState, services: ScriptServices): void {
@@ -1145,7 +1157,10 @@ function executeTeleport(
     });
     if (!teleportResult.ok) {
         if (teleportResult.reason === "cannot_teleport") {
-            services.messaging.sendGameMessage(player, "A magical force stops you from teleporting.");
+            services.messaging.sendGameMessage(
+                player,
+                "A magical force stops you from teleporting.",
+            );
         } else if (teleportResult.reason === "cooldown") {
             services.messaging.sendGameMessage(player, "You're already teleporting.");
         } else {
@@ -1174,7 +1189,10 @@ function executeTeleport(
         let gfxHeight = 92; // Standard default
         if (spell.spellbook === SpellbookName.Ancient) {
             gfxHeight = 0;
-        } else if (spell.spellbook === SpellbookName.Lunar || spell.spellbook === SpellbookName.Arceuus) {
+        } else if (
+            spell.spellbook === SpellbookName.Lunar ||
+            spell.spellbook === SpellbookName.Arceuus
+        ) {
             gfxHeight = 120;
         }
         services.animation.broadcastPlayerSpot(player, castSpotAnim, gfxHeight, 0);
@@ -1284,8 +1302,16 @@ function executeHomeTeleport(
 
         // Teleport: tick +24 — clear seq/spotanim, update cooldown varp/varbit, teleport
         player.timers.remove(HOME_TELEPORT_TIMER);
-        services.variables.queueVarbit?.(player.id, HOME_TELEPORT_VARBIT_COOLDOWN, HOME_TELEPORT_VARBIT_COOLDOWN_VALUE);
-        services.variables.queueVarp?.(player.id, VARP_LAST_HOME_TELEPORT, services.system.getCurrentTick() ?? 0);
+        services.variables.queueVarbit?.(
+            player.id,
+            HOME_TELEPORT_VARBIT_COOLDOWN,
+            HOME_TELEPORT_VARBIT_COOLDOWN_VALUE,
+        );
+        services.variables.queueVarp?.(
+            player.id,
+            VARP_LAST_HOME_TELEPORT,
+            services.system.getCurrentTick() ?? 0,
+        );
         services.movement.teleportPlayer(player, destination.x, destination.y, destination.level);
         services.animation.playPlayerSeq(player, -1);
         services.animation.broadcastPlayerSpot(player, -1, 0, 0);

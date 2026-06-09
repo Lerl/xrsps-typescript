@@ -166,10 +166,7 @@ function OsrsClientApp() {
         return 2;
     }, []);
 
-    const workerPool = useMemo(
-        () => RenderDataWorkerPool.create(workerCount),
-        [workerCount],
-    );
+    const workerPool = useMemo(() => RenderDataWorkerPool.create(workerCount), [workerCount]);
 
     useEffect(() => {
         return () => {

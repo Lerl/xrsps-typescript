@@ -16,11 +16,7 @@ export function registerPacksHandlers(registry: IScriptRegistry, services: Scrip
             ({ player, source, services: svc }) => {
                 const inventory = svc.inventory.getInventoryItems(player);
                 const slotEntry = inventory[source.slot];
-                if (
-                    !slotEntry ||
-                    slotEntry.itemId !== source.itemId ||
-                    slotEntry.quantity <= 0
-                ) {
+                if (!slotEntry || slotEntry.itemId !== source.itemId || slotEntry.quantity <= 0) {
                     return;
                 }
 

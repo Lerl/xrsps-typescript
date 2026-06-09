@@ -3,6 +3,16 @@
  * Handles all bank deposit, withdraw, tab management, and related operations.
  */
 import { EquipmentSlot } from "../../../../src/rs/config/player/Equipment";
+import { type BankEntry, type PlayerState } from "../../../src/game/player";
+import { getItemDefinition } from "../../../src/game/scripts/types";
+import { DEFAULT_BANK_CAPACITY } from "../../../src/game/state/PlayerBankSystem";
+import { BANK_INTERFACE_ID, type BankOpenData } from "./BankInterfaceHooks";
+import type {
+    BankOperationResult,
+    BankServerUpdate,
+    BankingProvider,
+    BankingProviderServices,
+} from "./BankingProvider";
 import {
     BankLimits,
     BankMainChild,
@@ -13,14 +23,6 @@ import {
     WidgetGroup,
     slotToTabIndex,
 } from "./bankConstants";
-import { getItemDefinition } from "../../../src/game/scripts/types";
-import { BANK_INTERFACE_ID, type BankOpenData } from "./BankInterfaceHooks";
-import type { BankingProvider, BankingProviderServices, BankOperationResult, BankServerUpdate } from "./BankingProvider";
-import {
-    type BankEntry,
-    type PlayerState,
-} from "../../../src/game/player";
-import { DEFAULT_BANK_CAPACITY } from "../../../src/game/state/PlayerBankSystem";
 
 const INVENTORY_SLOT_COUNT = 28;
 
@@ -528,7 +530,9 @@ export class BankingManager implements BankingProvider {
         let quantity = entry.quantity;
 
         if (placeholder && rawItemId > 0) {
-            const obj = this.services.getObjType(rawItemId) as { placeholderTemplate?: number; placeholder?: number } | undefined;
+            const obj = this.services.getObjType(rawItemId) as
+                | { placeholderTemplate?: number; placeholder?: number }
+                | undefined;
             if (obj && obj.placeholderTemplate === -1 && obj.placeholder >= 0) {
                 itemId = obj.placeholder;
             }
@@ -954,7 +958,11 @@ export class BankingManager implements BankingProvider {
             return { ok: false, message: resolved.message ?? "You can't withdraw that item." };
         }
 
-        const result = this.services.inventory.addItemToInventory(player, resolved.itemId, removal.quantity);
+        const result = this.services.inventory.addItemToInventory(
+            player,
+            resolved.itemId,
+            removal.quantity,
+        );
         if (result.added <= 0) {
             this.restoreBankSlot(player, serverSlot, removal.itemId, removal.quantity);
             return { ok: false, message: "You don't have enough inventory space." };

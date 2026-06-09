@@ -189,14 +189,14 @@ export function worldEntriesToSimple(
             npcServerId:
                 typeof e.npcServerId === "number"
                     ? e.npcServerId
-                    : (e.spellCast?.npcServerId as number | undefined) ?? undefined,
+                    : ((e.spellCast?.npcServerId as number | undefined) ?? undefined),
             actionIndex:
                 typeof e.actionIndex === "number" && e.actionIndex >= 0 ? e.actionIndex : undefined,
             opcode: typeof e.opcode === "number" ? e.opcode : undefined,
             playerServerId:
                 typeof e.playerServerId === "number"
                     ? e.playerServerId
-                    : (e.spellCast?.playerServerId as number | undefined) ?? undefined,
+                    : ((e.spellCast?.playerServerId as number | undefined) ?? undefined),
             onClick: (gx?: number, gy?: number, ctx?: MenuClickContext) => {
                 const evt = typeof toEvt === "function" ? toEvt(gx, gy) : undefined;
                 try {

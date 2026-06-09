@@ -10,26 +10,30 @@
  */
 import type { WebSocket } from "ws";
 
-import { logger } from "../../../utils/logger";
+import { faceAngleRs } from "../../../../../src/rs/utils/rotation";
 import { resolveSelectedSpellPayload } from "../../../../../src/shared/spells/selectedSpellPayload";
+import { logger } from "../../../utils/logger";
+import type { ServerServices } from "../../ServerServices";
+import { HITMARK_BLOCK, HITMARK_DAMAGE } from "../../combat/HitEffects";
+import { getSpellBaseXp } from "../../combat/SpellXpProvider";
 import type { ProjectileParams as CachedProjectileParams } from "../../data/ProjectileParamsProvider";
 import { getProjectileParams } from "../../data/ProjectileParamsProvider";
-import type { SpellDataEntry as CachedSpellDataEntry } from "../../spells/SpellDataProvider";
-import { getSpellData, getSpellDataByWidget, canWeaponAutocastSpell } from "../../spells/SpellDataProvider";
-import { getSpellBaseXp } from "../../combat/SpellXpProvider";
-import { SpellCaster } from "../../spells/SpellCaster";
-import { CombatEngine } from "../../systems/combat/CombatEngine";
-import { testRandFloat, TEST_HIT_FORCE } from "../../testing/TestRng";
-import { faceAngleRs } from "../../../../../src/rs/utils/rotation";
-import { HITMARK_BLOCK, HITMARK_DAMAGE } from "../../combat/HitEffects";
 import type { NpcState } from "../../npc";
 import type { PlayerState } from "../../player";
+import { SpellCaster } from "../../spells/SpellCaster";
 import type {
     SpellCastOutcome,
     SpellCastContext as SpellCasterContext,
 } from "../../spells/SpellCaster";
+import type { SpellDataEntry as CachedSpellDataEntry } from "../../spells/SpellDataProvider";
+import {
+    canWeaponAutocastSpell,
+    getSpellData,
+    getSpellDataByWidget,
+} from "../../spells/SpellDataProvider";
+import { CombatEngine } from "../../systems/combat/CombatEngine";
+import { TEST_HIT_FORCE, testRandFloat } from "../../testing/TestRng";
 import type { ActionRequest } from "../types";
-import type { ServerServices } from "../../ServerServices";
 
 // ============================================================================
 // Types
@@ -259,11 +263,15 @@ export class SpellActionHandler {
         try {
             const engine = new CombatEngine();
             const magicCaster = Object.create(attacker) as PlayerState;
-            (magicCaster as unknown as { combat: typeof attacker.combat }).combat = Object.create(attacker.combat);
+            (magicCaster as unknown as { combat: typeof attacker.combat }).combat = Object.create(
+                attacker.combat,
+            );
             magicCaster.combat.spellId = spellId;
             magicCaster.combat.autocastEnabled = false;
             magicCaster.combat.autocastMode = null;
-            (magicCaster as unknown as { getCurrentAttackType: () => string }).getCurrentAttackType = () => "magic";
+            (
+                magicCaster as unknown as { getCurrentAttackType: () => string }
+            ).getCurrentAttackType = () => "magic";
             const res = engine.planPlayerAttack({
                 player: magicCaster,
                 npc: target,
@@ -351,8 +359,14 @@ export class SpellActionHandler {
             };
             this.svc.broadcastService.queueSpellResult(player.id, failurePayload);
             try {
-                this.svc.spellCastingService!.enqueueSpellFailureChat(player, spellId, validation.reason);
-            } catch (err) { logger.warn("[spell] failed to enqueue spell failure chat", err); }
+                this.svc.spellCastingService!.enqueueSpellFailureChat(
+                    player,
+                    spellId,
+                    validation.reason,
+                );
+            } catch (err) {
+                logger.warn("[spell] failed to enqueue spell failure chat", err);
+            }
             this.svc.queueCombatState(player);
             return false;
         }
@@ -379,18 +393,27 @@ export class SpellActionHandler {
                     };
                     this.svc.broadcastService.queueSpellResult(player.id, failurePayload);
                     try {
-                        this.svc.spellCastingService!.enqueueSpellFailureChat(player, spellId, "immune_target");
-                    } catch (err) { logger.warn("[spell] failed to enqueue immune target chat", err); }
+                        this.svc.spellCastingService!.enqueueSpellFailureChat(
+                            player,
+                            spellId,
+                            "immune_target",
+                        );
+                    } catch (err) {
+                        logger.warn("[spell] failed to enqueue immune target chat", err);
+                    }
                     return false;
                 }
-            } catch (err) { logger.warn("[spell] failed to check crumble undead targeting", err); }
+            } catch (err) {
+                logger.warn("[spell] failed to check crumble undead targeting", err);
+            }
         }
 
         const execution = SpellCaster.execute(castContext, validation);
 
-        const projectileDefaults = spellData.projectileId !== undefined
-            ? getProjectileParams(spellData.projectileId)
-            : undefined;
+        const projectileDefaults =
+            spellData.projectileId !== undefined
+                ? getProjectileParams(spellData.projectileId)
+                : undefined;
         const targetEndHeight = this.svc.projectileTimingService!.computeProjectileEndHeight({
             projectileDefaults,
             spellData,
@@ -442,7 +465,9 @@ export class SpellActionHandler {
             if (xp > 0) {
                 this.svc.skillService.awardSkillXp(player, SkillId.Magic, xp);
             }
-        } catch (err) { logger.warn("[spell] failed to award autocast xp", err); }
+        } catch (err) {
+            logger.warn("[spell] failed to award autocast xp", err);
+        }
 
         const sock = this.svc.players?.getSocketByPlayerId(player.id);
         if (sock) {
@@ -457,19 +482,25 @@ export class SpellActionHandler {
                 const dxWorld = player.x - npc.x;
                 const dyWorld = player.y - npc.y;
                 if (dxWorld !== 0 || dyWorld !== 0) {
-                    player.setForcedOrientation(
-                        faceAngleRs(player.x, player.y, npc.x, npc.y),
-                    );
+                    player.setForcedOrientation(faceAngleRs(player.x, player.y, npc.x, npc.y));
                     player._pendingFace = { x: npc.x, y: npc.y };
                     player.pendingFaceTile = { x: npc.tileX, y: npc.tileY };
                     player.markSent();
                 }
-            } catch (err) { logger.warn("[spell] failed to face npc for autocast", err); }
-            const attackSeq = this.svc.playerCombatService!.pickSpellCastSequence(player, spellId, true);
+            } catch (err) {
+                logger.warn("[spell] failed to face npc for autocast", err);
+            }
+            const attackSeq = this.svc.playerCombatService!.pickSpellCastSequence(
+                player,
+                spellId,
+                true,
+            );
             if (attackSeq >= 0) {
                 player.queueOneShotSeq(attackSeq, 0);
             }
-        } catch (err) { logger.warn("[spell] failed to queue autocast animation", err); }
+        } catch (err) {
+            logger.warn("[spell] failed to queue autocast animation", err);
+        }
 
         player.combat.lastSpellCastTick = tick;
 
@@ -519,7 +550,9 @@ export class SpellActionHandler {
                     );
                 }
             }
-        } catch (err) { logger.warn("[spell] failed to queue autocast sound", err); }
+        } catch (err) {
+            logger.warn("[spell] failed to queue autocast sound", err);
+        }
 
         if (Number.isFinite(totalHitDelay as number) && (totalHitDelay as number) > plan.hitDelay) {
             plan.hitDelay = totalHitDelay as number;
@@ -624,9 +657,7 @@ export class SpellActionHandler {
 
         if (!(spellId > 0) || !spellData) {
             baseResult.reason = "invalid_spell";
-            logger.warn(
-                `[spell] Validation failed for spell=${spellId}: invalid_spell`,
-            );
+            logger.warn(`[spell] Validation failed for spell=${spellId}: invalid_spell`);
             return { ok: false, result: baseResult };
         }
 
@@ -756,20 +787,14 @@ export class SpellActionHandler {
             targetNpc = npc;
             targetTile = { x: npc.tileX, y: npc.tileY, plane: npc.level };
         } else if (request.target.type === "player") {
-            logger.info(
-                `[spell] Looking up player target: ${request.target.playerId}`,
-            );
+            logger.info(`[spell] Looking up player target: ${request.target.playerId}`);
             const opponent = this.svc.players?.getById(request.target.playerId);
             if (!opponent) {
-                logger.warn(
-                    `[spell] Target player ${request.target.playerId} not found`,
-                );
+                logger.warn(`[spell] Target player ${request.target.playerId} not found`);
                 base.reason = "invalid_target";
                 return base;
             }
-            logger.info(
-                `[spell] Found target player: id=${opponent.id}, name=${opponent.name}`,
-            );
+            logger.info(`[spell] Found target player: id=${opponent.id}, name=${opponent.name}`);
             if (opponent.id === player.id) {
                 logger.warn(`[spell] Cannot target self`);
                 base.reason = "invalid_target";
@@ -799,7 +824,9 @@ export class SpellActionHandler {
             request.modifiers?.castMode === "autocast" ||
             request.modifiers?.castMode === "defensive_autocast";
         const implicitAutocast =
-            !request.modifiers && player.combat.autocastEnabled && player.combat.spellId === spellId;
+            !request.modifiers &&
+            player.combat.autocastEnabled &&
+            player.combat.spellId === spellId;
         const isAutocast = explicitAutocast || implicitAutocast;
 
         const castContext: SpellCastContext = {
@@ -814,8 +841,14 @@ export class SpellActionHandler {
         if (!validation.success) {
             base.reason = validation.reason ?? "server_error";
             try {
-                this.svc.spellCastingService!.enqueueSpellFailureChat(player, spellId, validation.reason);
-            } catch (err) { logger.warn("[spell] failed to enqueue spell failure chat", err); }
+                this.svc.spellCastingService!.enqueueSpellFailureChat(
+                    player,
+                    spellId,
+                    validation.reason,
+                );
+            } catch (err) {
+                logger.warn("[spell] failed to enqueue spell failure chat", err);
+            }
             return base;
         }
 
@@ -836,7 +869,9 @@ export class SpellActionHandler {
             if (xp > 0) {
                 this.svc.skillService.awardSkillXp(player, SkillId.Magic, xp);
             }
-        } catch (err) { logger.warn("[spell] failed to award spell xp", err); }
+        } catch (err) {
+            logger.warn("[spell] failed to award spell xp", err);
+        }
 
         // Store pending player damage for scheduling
         if (targetPlayer) {
@@ -861,7 +896,9 @@ export class SpellActionHandler {
                 this.svc.actionScheduler.clearActionsInGroup(player.id, "combat.attack");
                 this.svc.actionScheduler.clearActionsInGroup(player.id, "combat.autocast");
             }
-        } catch (err) { logger.warn("[spell] failed to clear interactions after manual cast", err); }
+        } catch (err) {
+            logger.warn("[spell] failed to clear interactions after manual cast", err);
+        }
 
         // combat spells cast on NPCs enter the normal combat loop so the NPC can
         // retaliate on-hit, but manual spellbook casts remain one-shot and must not auto-repeat.
@@ -887,12 +924,7 @@ export class SpellActionHandler {
                 const dy = player.y - targetPlayer.y;
                 if (dx !== 0 || dy !== 0) {
                     player.setForcedOrientation(
-                        faceAngleRs(
-                            player.x,
-                            player.y,
-                            targetPlayer.x,
-                            targetPlayer.y,
-                        ),
+                        faceAngleRs(player.x, player.y, targetPlayer.x, targetPlayer.y),
                     );
                     player._pendingFace = { x: targetPlayer.x, y: targetPlayer.y };
                     player.pendingFaceTile = {
@@ -902,19 +934,26 @@ export class SpellActionHandler {
                     player.markSent();
                 }
             }
-            const attackSeq = this.svc.playerCombatService!.pickSpellCastSequence(player, spellId, isAutocast);
+            const attackSeq = this.svc.playerCombatService!.pickSpellCastSequence(
+                player,
+                spellId,
+                isAutocast,
+            );
             if (attackSeq >= 0) {
                 player.queueOneShotSeq(attackSeq, 0);
             }
-        } catch (err) { logger.warn("[spell] failed to queue spell cast animation", err); }
+        } catch (err) {
+            logger.warn("[spell] failed to queue spell cast animation", err);
+        }
 
         if (spellData.castSpotAnim !== undefined) base.castSpotAnim = spellData.castSpotAnim;
         if (spellData.impactSpotAnim !== undefined) base.impactSpotAnim = spellData.impactSpotAnim;
         if (spellData.splashSpotAnim !== undefined) base.splashSpotAnim = spellData.splashSpotAnim;
 
-        const projectileDefaults = spellData.projectileId !== undefined
-            ? getProjectileParams(spellData.projectileId)
-            : undefined;
+        const projectileDefaults =
+            spellData.projectileId !== undefined
+                ? getProjectileParams(spellData.projectileId)
+                : undefined;
         const resolvedTile = targetTile ?? base.tile;
 
         const targetEndHeight = this.svc.projectileTimingService!.computeProjectileEndHeight({
@@ -1036,9 +1075,7 @@ export class SpellActionHandler {
                         damage: Math.max(0, res.damage),
                     };
                 } catch {
-                    const damage = Math.floor(
-                        testRandFloat() * ((spellData.baseMaxHit ?? 0) + 1),
-                    );
+                    const damage = Math.floor(testRandFloat() * ((spellData.baseMaxHit ?? 0) + 1));
                     outcome = {
                         landed: damage > 0,
                         maxHit: spellData.baseMaxHit ?? 0,
@@ -1097,9 +1134,7 @@ export class SpellActionHandler {
                     damage: res.damage,
                 };
             } catch {
-                const dmg = Math.floor(
-                    testRandFloat() * ((spellData.baseMaxHit ?? 0) + 1),
-                );
+                const dmg = Math.floor(testRandFloat() * ((spellData.baseMaxHit ?? 0) + 1));
                 outcome = { landed: dmg > 0, maxHit: spellData.baseMaxHit ?? 0, damage: dmg };
             }
 

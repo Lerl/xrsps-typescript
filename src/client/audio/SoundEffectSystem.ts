@@ -214,8 +214,8 @@ export class SoundEffectSystem {
             forceResample && ctx
                 ? ctx.sampleRate
                 : typeof targetSampleRate === "number"
-                ? targetSampleRate
-                : 0;
+                  ? targetSampleRate
+                  : 0;
         const cacheKey = this.cacheKey(soundId, effectiveRate);
         const cached = this.decodedCache.get(cacheKey);
         if (cached) return cached;
@@ -273,9 +273,7 @@ export class SoundEffectSystem {
 
         // Compute loop boundaries in source samples
         const srcLoopStart = Math.max(0, Math.min(total, Math.floor(raw.start)));
-        const srcLoopEnd = raw.end > 0
-            ? Math.max(0, Math.min(total, Math.floor(raw.end)))
-            : 0;
+        const srcLoopEnd = raw.end > 0 ? Math.max(0, Math.min(total, Math.floor(raw.end))) : 0;
 
         let output: Float32Array = channel;
         let outputRate = raw.sampleRate;
@@ -416,9 +414,8 @@ export class SoundEffectSystem {
                     return;
                 }
                 const curveId = options.distanceFadeCurve ?? EasingCurveId.LINEAR;
-                gainMultiplier = radius > 0
-                    ? SoundEffectSystem.ease((radius - manhattan) / radius, curveId)
-                    : 1;
+                gainMultiplier =
+                    radius > 0 ? SoundEffectSystem.ease((radius - manhattan) / radius, curveId) : 1;
             }
         }
 
@@ -443,9 +440,8 @@ export class SoundEffectSystem {
             // Infinite loop (matches RawPcmStream.setNumLoopsInternal(-1))
             source.loop = true;
             source.loopStart = decoded.loopStartSec;
-            source.loopEnd = decoded.loopEndSec > decoded.loopStartSec
-                ? decoded.loopEndSec
-                : buffer.duration;
+            source.loopEnd =
+                decoded.loopEndSec > decoded.loopStartSec ? decoded.loopEndSec : buffer.duration;
             source.start(startTime);
         } else if (requestedLoops === 0) {
             // Play once (matches RawPcmStream.setNumLoopsInternal(0))
@@ -454,9 +450,8 @@ export class SoundEffectSystem {
             // Loop n times then stop
             source.loop = true;
             source.loopStart = decoded.loopStartSec;
-            source.loopEnd = decoded.loopEndSec > decoded.loopStartSec
-                ? decoded.loopEndSec
-                : buffer.duration;
+            source.loopEnd =
+                decoded.loopEndSec > decoded.loopStartSec ? decoded.loopEndSec : buffer.duration;
             source.start(startTime);
             source.stop(startTime + buffer.duration * (requestedLoops + 1));
         }
@@ -489,8 +484,8 @@ export class SoundEffectSystem {
                 radiusOverride !== undefined
                     ? radiusOverride
                     : radiusTiles > 0
-                    ? radiusTiles * 128
-                    : undefined;
+                      ? radiusTiles * 128
+                      : undefined;
 
             this.playSoundEffect(effect.id, {
                 loops,
@@ -557,9 +552,10 @@ export class SoundEffectSystem {
                             loopSource.buffer = loopBuffer;
                             loopSource.loop = true;
                             loopSource.loopStart = decodedLoop.loopStartSec;
-                            loopSource.loopEnd = decodedLoop.loopEndSec > decodedLoop.loopStartSec
-                                ? decodedLoop.loopEndSec
-                                : loopBuffer.duration;
+                            loopSource.loopEnd =
+                                decodedLoop.loopEndSec > decodedLoop.loopStartSec
+                                    ? decodedLoop.loopEndSec
+                                    : loopBuffer.duration;
                             loopSource.connect(existing.gainNode);
                             this.registerSource(loopSource);
                             loopSource.start(now);
@@ -660,9 +656,9 @@ export class SoundEffectSystem {
         if (progress >= 1) return 1;
         switch (curveId) {
             case EasingCurveId.EASE_IN_SINE:
-                return 1 - Math.cos(progress * Math.PI / 2);
+                return 1 - Math.cos((progress * Math.PI) / 2);
             case EasingCurveId.EASE_OUT_SINE:
-                return Math.sin(Math.PI * progress / 2);
+                return Math.sin((Math.PI * progress) / 2);
             case EasingCurveId.EASE_IN_OUT_SINE:
                 return -(Math.cos(progress * Math.PI) - 1) / 2;
             case EasingCurveId.EASE_IN_QUAD:
@@ -726,7 +722,8 @@ export class SoundEffectSystem {
                 const c2 = 1.70158 * 1.525;
                 return progress < 0.5
                     ? (Math.pow(2 * progress, 2) * ((c2 + 1) * 2 * progress - c2)) / 2
-                    : (Math.pow(2 * progress - 2, 2) * ((c2 + 1) * (progress * 2 - 2) + c2) + 2) / 2;
+                    : (Math.pow(2 * progress - 2, 2) * ((c2 + 1) * (progress * 2 - 2) + c2) + 2) /
+                          2;
             }
             case EasingCurveId.EASE_IN_ELASTIC: {
                 const c4 = (2 * Math.PI) / 3;
@@ -739,8 +736,11 @@ export class SoundEffectSystem {
             case EasingCurveId.EASE_IN_OUT_ELASTIC: {
                 const c5 = (2 * Math.PI) / 4.5;
                 return progress < 0.5
-                    ? -(Math.pow(2, 20 * progress - 10) * Math.sin((20 * progress - 11.125) * c5)) / 2
-                    : (Math.pow(2, -20 * progress + 10) * Math.sin((20 * progress - 11.125) * c5)) / 2 + 1;
+                    ? -(Math.pow(2, 20 * progress - 10) * Math.sin((20 * progress - 11.125) * c5)) /
+                          2
+                    : (Math.pow(2, -20 * progress + 10) * Math.sin((20 * progress - 11.125) * c5)) /
+                          2 +
+                          1;
             }
             case EasingCurveId.LINEAR:
             default:
@@ -753,9 +753,12 @@ export class SoundEffectSystem {
      * Computes manhattan distance from a point to a rectangle, minus half a tile (64 fine units).
      */
     private static distanceToRect(
-        px: number, py: number,
-        minX: number, minY: number,
-        maxX: number, maxY: number,
+        px: number,
+        py: number,
+        minX: number,
+        minY: number,
+        maxX: number,
+        maxY: number,
     ): number {
         let dist = 0;
         if (px < minX) dist += minX - px;
@@ -787,13 +790,18 @@ export class SoundEffectSystem {
         const maxY = minY + sy * 128;
 
         const dist = SoundEffectSystem.distanceToRect(
-            this.listenerX, this.listenerY,
-            minX, minY, maxX, maxY,
+            this.listenerX,
+            this.listenerY,
+            minX,
+            minY,
+            maxX,
+            maxY,
         );
 
-        const maxDistTiles = instance.distanceOverride !== undefined && instance.distanceOverride >= 0
-            ? instance.distanceOverride
-            : instance.maxDistance;
+        const maxDistTiles =
+            instance.distanceOverride !== undefined && instance.distanceOverride >= 0
+                ? instance.distanceOverride
+                : instance.maxDistance;
         const maxDist = maxDistTiles * 128;
         const minDist = Math.max(((instance.minDistance || 0) - 1) * 128, 0);
 
@@ -847,11 +855,13 @@ export class SoundEffectSystem {
         // Use fadeIn curve/duration when volume is increasing, fadeOut when decreasing
         const increasing = targetGain > current;
         const baseDuration = increasing
-            ? (active.fadeInDurationSec > 0 ? active.fadeInDurationSec : 0.05)
-            : (active.fadeOutDurationSec > 0 ? active.fadeOutDurationSec : 0.05);
-        const curveId = increasing
-            ? active.instance.fadeInCurve
-            : active.instance.fadeOutCurve;
+            ? active.fadeInDurationSec > 0
+                ? active.fadeInDurationSec
+                : 0.05
+            : active.fadeOutDurationSec > 0
+              ? active.fadeOutDurationSec
+              : 0.05;
+        const curveId = increasing ? active.instance.fadeInCurve : active.instance.fadeOutCurve;
 
         // Scale fade duration proportionally to the volume delta.
         // Matches reference scaleIntByRatio: smaller volume changes → shorter fades.
@@ -916,9 +926,10 @@ export class SoundEffectSystem {
                 loopSource.buffer = loopBuffer;
                 loopSource.loop = true;
                 loopSource.loopStart = decodedLoop.loopStartSec;
-                loopSource.loopEnd = decodedLoop.loopEndSec > decodedLoop.loopStartSec
-                    ? decodedLoop.loopEndSec
-                    : loopBuffer.duration;
+                loopSource.loopEnd =
+                    decodedLoop.loopEndSec > decodedLoop.loopStartSec
+                        ? decodedLoop.loopEndSec
+                        : loopBuffer.duration;
                 loopSource.connect(gainNode);
                 this.registerSource(loopSource);
                 loopSource.start(now);
@@ -927,15 +938,13 @@ export class SoundEffectSystem {
 
         const fadeInSec = Math.max(
             0,
-            (typeof instance.fadeInDurationMs === "number"
-                ? instance.fadeInDurationMs
-                : 300) / 1000,
+            (typeof instance.fadeInDurationMs === "number" ? instance.fadeInDurationMs : 300) /
+                1000,
         );
         const fadeOutSec = Math.max(
             0,
-            (typeof instance.fadeOutDurationMs === "number"
-                ? instance.fadeOutDurationMs
-                : 300) / 1000,
+            (typeof instance.fadeOutDurationMs === "number" ? instance.fadeOutDurationMs : 300) /
+                1000,
         );
 
         const targetGain = volume;

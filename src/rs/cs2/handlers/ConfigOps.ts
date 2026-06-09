@@ -10,8 +10,8 @@ import {
     getCustomEnumCountOverride,
     getCustomEnumValueOverride,
     getCustomStructParam,
-    getRelicOrMasteryStructParam,
     getLeagueTaskStructParam,
+    getRelicOrMasteryStructParam,
     getReplacedChallengeStructIds,
 } from "../../../shared/gamemode/GamemodeContentStore";
 import { Opcodes } from "../Opcodes";
@@ -345,7 +345,7 @@ export function registerConfigOps(handlers: HandlerMap): void {
             if (enumType.stringValues) {
                 const idx = enumType.keys?.indexOf(key) ?? -1;
                 const result =
-                    idx >= 0 ? enumType.stringValues[idx] : enumType.defaultString ?? "null";
+                    idx >= 0 ? enumType.stringValues[idx] : (enumType.defaultString ?? "null");
                 ctx.pushString(result);
             } else {
                 ctx.pushString(enumType.defaultString ?? "null");
@@ -353,7 +353,7 @@ export function registerConfigOps(handlers: HandlerMap): void {
         } else {
             if (enumType?.intValues) {
                 const idx = enumType.keys?.indexOf(key) ?? -1;
-                const result = idx >= 0 ? enumType.intValues[idx] : enumType.defaultInt ?? -1;
+                const result = idx >= 0 ? enumType.intValues[idx] : (enumType.defaultInt ?? -1);
                 ctx.pushInt(result);
             } else {
                 ctx.pushInt(enumType?.defaultInt ?? -1);
@@ -375,7 +375,7 @@ export function registerConfigOps(handlers: HandlerMap): void {
         if (enumType && enumType.stringValues) {
             const idx = enumType.keys?.indexOf(key) ?? -1;
             ctx.pushString(
-                idx >= 0 ? enumType.stringValues[idx] : enumType.defaultString ?? "null",
+                idx >= 0 ? enumType.stringValues[idx] : (enumType.defaultString ?? "null"),
             );
         } else {
             ctx.pushString(enumType?.defaultString ?? "null");

@@ -135,8 +135,7 @@ export class ActionScheduler {
             executeTick,
             data: req.data,
             groups,
-            cooldownTicks:
-                req.cooldownTicks !== undefined ? Math.max(0, req.cooldownTicks) : 0,
+            cooldownTicks: req.cooldownTicks !== undefined ? Math.max(0, req.cooldownTicks) : 0,
             requestTick: currentTick,
         };
         state.queue.push(scheduled);
@@ -185,7 +184,9 @@ export class ActionScheduler {
         const priorityOf = (p: PlayerState) => {
             try {
                 if (this.priorityProvider) return this.priorityProvider(p);
-            } catch (err) { logger.warn("[action-scheduler] priority provider failed", err); }
+            } catch (err) {
+                logger.warn("[action-scheduler] priority provider failed", err);
+            }
             return p.id;
         };
 
@@ -205,7 +206,9 @@ export class ActionScheduler {
             try {
                 const hp = player.skillSystem.getHitpointsCurrent();
                 if (hp <= 0) continue;
-            } catch (err) { logger.warn("[action-scheduler] failed to check player hp", err); }
+            } catch (err) {
+                logger.warn("[action-scheduler] failed to check player hp", err);
+            }
 
             const result = this.safeExecute(player, action, tick);
             this.applyResult(player, state, action, result, tick);

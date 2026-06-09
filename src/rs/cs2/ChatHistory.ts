@@ -71,7 +71,7 @@ class ChatHistoryStore {
         // Convert string type to number
         const type =
             typeof typeOrString === "string"
-                ? MESSAGE_TYPE_MAP[typeOrString.toLowerCase()] ?? 0
+                ? (MESSAGE_TYPE_MAP[typeOrString.toLowerCase()] ?? 0)
                 : typeOrString;
 
         const uid = this.nextUid++;

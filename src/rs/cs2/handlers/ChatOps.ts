@@ -169,7 +169,7 @@ export function registerChatOps(handlers: HandlerMap): void {
         ctx.pushString(
             typeof resolved === "string" && resolved.length > 0
                 ? resolved
-                : ctx.localPlayerName ?? "",
+                : (ctx.localPlayerName ?? ""),
         );
     });
 

@@ -1,6 +1,12 @@
 import { SkillId } from "../../../../../src/rs/skill/skills";
 import type { ActionEffect, ActionExecutionResult } from "../../../../src/game/actions/types";
 import type { PlayerState } from "../../../../src/game/player";
+import type {
+    IScriptRegistry,
+    ScriptActionHandlerContext,
+    ScriptServices,
+} from "../../../../src/game/scripts/types";
+import { ResourceNodeTracker, buildTileKey } from "../../systems/ResourceNodeTracker";
 import {
     type PickaxeDefinition,
     buildMiningLocMap,
@@ -8,8 +14,6 @@ import {
     getMiningRockFromMap,
     selectPickaxeByLevel,
 } from "./miningData";
-import type { IScriptRegistry, ScriptActionHandlerContext, ScriptServices } from "../../../../src/game/scripts/types";
-import { ResourceNodeTracker, buildTileKey } from "../../systems/ResourceNodeTracker";
 
 const MINING_ACTIONS = ["mine", "mine rocks"];
 const ECHO_PICKAXE_ITEM_IDS = [25112, 25063, 25369, 25376];
@@ -62,8 +66,8 @@ function executeMineAction(ctx: ScriptActionHandlerContext): ActionExecutionResu
 
     const locId = data.rockLocId;
     const rockId = data.rockId;
-    const rock = (rockId ? getMiningRockById(rockId) : undefined) ??
-        (services.getMiningRock?.(locId));
+    const rock =
+        (rockId ? getMiningRockById(rockId) : undefined) ?? services.getMiningRock?.(locId);
 
     if (!rock) {
         return failMiningPrecheck(player, services, "You can't mine that rock.");
@@ -86,18 +90,30 @@ function executeMineAction(ctx: ScriptActionHandlerContext): ActionExecutionResu
     const effectiveLevel = Math.max(1, (skill?.baseLevel ?? 1) + (skill?.boost ?? 0));
 
     if (effectiveLevel < rock.level) {
-        return failMiningPrecheck(player, services, `You need Mining level ${rock.level} to mine this rock.`);
+        return failMiningPrecheck(
+            player,
+            services,
+            `You need Mining level ${rock.level} to mine this rock.`,
+        );
     }
 
     const carriedIds = services.inventory.collectCarriedItemIds(player) ?? [];
     const pickaxe = selectPickaxeByLevel(carriedIds, effectiveLevel);
     if (!pickaxe) {
-        return failMiningPrecheck(player, services, "You need a pickaxe that you have the Mining level to use.");
+        return failMiningPrecheck(
+            player,
+            services,
+            "You need a pickaxe that you have the Mining level to use.",
+        );
     }
     const hasEchoPickaxePerk = hasAnyCarriedItem(carriedIds, ECHO_PICKAXE_ITEM_IDS);
 
     if (!hasEchoPickaxePerk && !services.inventory.hasInventorySlot(player)) {
-        return failMiningPrecheck(player, services, "Your inventory is too full to hold any more ore.");
+        return failMiningPrecheck(
+            player,
+            services,
+            "Your inventory is too full to hold any more ore.",
+        );
     }
 
     const swingTicks = Math.max(rock.swingTicks, pickaxe.swingTicks);
@@ -149,13 +165,21 @@ function executeMineAction(ctx: ScriptActionHandlerContext): ActionExecutionResu
         if (hasEchoPickaxePerk) {
             const banked = services.banking?.addItemToBank?.(player, rock.oreItemId, 1);
             if (!banked) {
-                return failMiningPrecheck(player, services, "Your bank is too full to hold any more ore.");
+                return failMiningPrecheck(
+                    player,
+                    services,
+                    "Your bank is too full to hold any more ore.",
+                );
             }
             bankSnapshot = true;
         } else {
             const result = services.inventory.addItemToInventory(player, rock.oreItemId, 1);
             if (result.added <= 0) {
-                return failMiningPrecheck(player, services, "Your inventory is too full to hold any more ore.");
+                return failMiningPrecheck(
+                    player,
+                    services,
+                    "Your inventory is too full to hold any more ore.",
+                );
             }
             inventorySnapshot = true;
         }
@@ -164,7 +188,12 @@ function executeMineAction(ctx: ScriptActionHandlerContext): ActionExecutionResu
         effects.push(buildMessageEffect(player, `You manage to mine some ${oreName}.`));
         if (hasEchoPickaxePerk) {
             const capitalizedOreName = oreName.charAt(0).toUpperCase() + oreName.slice(1);
-            effects.push(buildMessageEffect(player, `1x ${capitalizedOreName} were sent straight to your bank.`));
+            effects.push(
+                buildMessageEffect(
+                    player,
+                    `1x ${capitalizedOreName} were sent straight to your bank.`,
+                ),
+            );
         }
         services.skills.addSkillXp(player, SkillId.Mining, rock.xp);
 
@@ -177,10 +206,13 @@ function executeMineAction(ctx: ScriptActionHandlerContext): ActionExecutionResu
                         ? actionDepletedLocId
                         : undefined;
 
-                services.gathering?.getTracker<any>("mining")?.addWithRandomDuration(
-                    nodeKey, tile, plane, tick, rock.respawnTicks,
-                    { locId, depletedLocId, rockId: rock.id },
-                );
+                services.gathering
+                    ?.getTracker<any>("mining")
+                    ?.addWithRandomDuration(nodeKey, tile, plane, tick, rock.respawnTicks, {
+                        locId,
+                        depletedLocId,
+                        rockId: rock.id,
+                    });
 
                 if (depletedLocId !== undefined) {
                     services.location.emitLocChange(locId, depletedLocId, tile, plane);
@@ -202,7 +234,9 @@ function executeMineAction(ctx: ScriptActionHandlerContext): ActionExecutionResu
     if (continueMining) {
         if (!hasEchoPickaxePerk && !services.inventory.hasInventorySlot(player)) {
             continueMining = false;
-            effects.push(buildMessageEffect(player, "Your inventory is too full to hold any more ore."));
+            effects.push(
+                buildMessageEffect(player, "Your inventory is too full to hold any more ore."),
+            );
         } else if (!services.location.isAdjacentToLoc(player, locId, tile, plane)) {
             continueMining = false;
         }
@@ -239,10 +273,19 @@ function executeMineAction(ctx: ScriptActionHandlerContext): ActionExecutionResu
 export function register(registry: IScriptRegistry, services: ScriptServices): void {
     registry.registerActionHandler("skill.mine", executeMineAction);
 
-    const miningTracker = new ResourceNodeTracker<{ locId: number; depletedLocId?: number; rockId: string }>();
+    const miningTracker = new ResourceNodeTracker<{
+        locId: number;
+        depletedLocId?: number;
+        rockId: string;
+    }>();
     services.gathering?.registerTracker("mining", miningTracker, (node, gatheringSvc) => {
         if (node.data.depletedLocId && node.data.locId > 0) {
-            gatheringSvc.emitLocChange(node.data.depletedLocId, node.data.locId, node.tile, node.level);
+            gatheringSvc.emitLocChange(
+                node.data.depletedLocId,
+                node.data.locId,
+                node.tile,
+                node.level,
+            );
         }
     });
 
@@ -279,7 +322,10 @@ export function register(registry: IScriptRegistry, services: ScriptServices): v
                 event.tick,
             );
             if (!result.ok) {
-                services.messaging.sendGameMessage(event.player, "You're too busy to do that right now.");
+                services.messaging.sendGameMessage(
+                    event.player,
+                    "You're too busy to do that right now.",
+                );
             }
         });
     }

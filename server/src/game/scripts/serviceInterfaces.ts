@@ -1,17 +1,40 @@
 import type { PrayerName } from "../../../../src/rs/prayer/prayers";
+import type { ItemDefinition } from "../../data/items";
 import type { PathService } from "../../pathfinding/PathService";
 import type { InterfaceService } from "../../widgets/InterfaceService";
 import type { WidgetAction } from "../../widgets/WidgetManager";
+import type { InterfaceMount } from "../../widgets/viewport";
+import type {
+    DoorPartnerResult,
+    DoorToggleResult,
+    GateDef,
+    GateOpenStyle,
+    GatePair,
+} from "../../world/DoorDefinitions";
 import type { DoorStateManager } from "../../world/DoorStateManager";
-import type { DoorToggleResult, GateDef, GatePair, GateOpenStyle, DoorPartnerResult } from "../../world/DoorDefinitions";
 import type { ActionRequest } from "../actions";
 import type { Actor } from "../actor";
+import type { AmmoDataProvider } from "../combat/AmmoDataProvider";
+import type { CombatFormulaProvider } from "../combat/CombatFormulaProvider";
+import type { CombatStyleSequenceProvider } from "../combat/CombatStyleSequenceProvider";
 import type { DropEligibility } from "../combat/DamageTracker";
-import type { ItemDefinition } from "../../data/items";
+import type { EquipmentBonusProvider } from "../combat/EquipmentBonusProvider";
+import type { InstantUtilitySpecialProvider } from "../combat/InstantUtilitySpecialProvider";
+import type { SkillConfiguration } from "../combat/SkillConfigurationProvider";
+import type { SpecialAttackProvider } from "../combat/SpecialAttackProvider";
+import type { SpecialAttackVisualProvider } from "../combat/SpecialAttackVisualProvider";
+import type { SpellXpProvider } from "../combat/SpellXpProvider";
+// ============================================================================
+// Provider Registration (for gamemode/extrascript data provider registration)
+// ============================================================================
+import type { WeaponDataProvider } from "../combat/WeaponDataProvider";
+import type { ProjectileParamsProvider } from "../data/ProjectileParamsProvider";
+import type { RuneDataProvider } from "../data/RuneDataProvider";
 import type { GameEventBus } from "../events/GameEventBus";
 import type { OwnedItemLocation } from "../items/playerItemOwnership";
 import type { NpcSpawnConfig, NpcState } from "../npc";
 import type { PlayerState } from "../player";
+import type { SpellDataProvider } from "../spells/SpellDataProvider";
 import type { GatheringSystemManager } from "../systems/GatheringSystemManager";
 import type {
     ScriptActionRequestFn,
@@ -23,9 +46,7 @@ import type {
 
 export type { DoorToggleResult, GateDef, GatePair, GateOpenStyle, DoorPartnerResult };
 
-// ============================================================================
 // Messaging
-// ============================================================================
 
 export interface MessagingFacade {
     sendGameMessage(player: PlayerState, text: string): void;
@@ -49,7 +70,10 @@ export interface VariableFacade {
 
 export interface SkillFacade {
     addSkillXp(player: PlayerState, skillId: number, xp: number): void;
-    getSkill(player: PlayerState, skillId: number): { baseLevel: number; boost: number; xp?: number };
+    getSkill(
+        player: PlayerState,
+        skillId: number,
+    ): { baseLevel: number; boost: number; xp?: number };
 }
 
 // ============================================================================
@@ -79,10 +103,22 @@ export interface FollowerItemDefinition {
 }
 
 export interface FollowerServiceFacade {
-    summonFollowerFromItem: (player: PlayerState, itemId: number, npcTypeId: number) => { ok: true; npcId: number } | { ok: false; reason: string };
-    pickupFollower: (player: PlayerState, npcId: number) => { ok: true; itemId: number; npcTypeId: number } | { ok: false; reason: string };
-    metamorphFollower: (player: PlayerState, npcId: number) => { ok: true; npcId: number; npcTypeId: number } | { ok: false; reason: string };
-    callFollower: (player: PlayerState) => { ok: true; npcId: number } | { ok: false; reason: string };
+    summonFollowerFromItem: (
+        player: PlayerState,
+        itemId: number,
+        npcTypeId: number,
+    ) => { ok: true; npcId: number } | { ok: false; reason: string };
+    pickupFollower: (
+        player: PlayerState,
+        npcId: number,
+    ) => { ok: true; itemId: number; npcTypeId: number } | { ok: false; reason: string };
+    metamorphFollower: (
+        player: PlayerState,
+        npcId: number,
+    ) => { ok: true; npcId: number; npcTypeId: number } | { ok: false; reason: string };
+    callFollower: (
+        player: PlayerState,
+    ) => { ok: true; npcId: number } | { ok: false; reason: string };
     despawnFollowerForPlayer: (playerId: number, clearPersistentState?: boolean) => boolean;
     getItemDefinitions: () => readonly FollowerItemDefinition[];
     getDefinitionByItemId: (itemId: number) => FollowerItemDefinition | undefined;
@@ -97,9 +133,22 @@ export interface BankingServices {
     openBank?: (player: PlayerState, opts?: { mode?: "bank" | "collect" }) => void;
     depositInventoryToBank?: (player: PlayerState, tab?: number) => boolean;
     depositEquipmentToBank?: (player: PlayerState, tab?: number) => boolean;
-    depositInventoryItemToBank?: (player: PlayerState, slotIndex: number, quantity: number, opts?: { itemIdHint?: number; tab?: number }) => { ok: boolean; message?: string };
-    withdrawFromBankSlot?: (player: PlayerState, slotIndex: number, quantity: number, opts?: { noted?: boolean }) => { ok: boolean; message?: string };
-    getBankEntryAtClientSlot?: (player: PlayerState, clientSlot: number) => { itemId: number; quantity: number; tab?: number } | undefined;
+    depositInventoryItemToBank?: (
+        player: PlayerState,
+        slotIndex: number,
+        quantity: number,
+        opts?: { itemIdHint?: number; tab?: number },
+    ) => { ok: boolean; message?: string };
+    withdrawFromBankSlot?: (
+        player: PlayerState,
+        slotIndex: number,
+        quantity: number,
+        opts?: { noted?: boolean },
+    ) => { ok: boolean; message?: string };
+    getBankEntryAtClientSlot?: (
+        player: PlayerState,
+        clientSlot: number,
+    ) => { itemId: number; quantity: number; tab?: number } | undefined;
     queueBankSnapshot?: (player: PlayerState) => void;
     sendBankTabVarbits?: (player: PlayerState) => void;
     addItemToBank?: (player: PlayerState, itemId: number, quantity: number) => boolean;
@@ -113,7 +162,11 @@ export type WidgetCloseHandler = (player: PlayerState) => void;
 
 export type WidgetOpenHandler = (player: PlayerState) => void;
 
-export type ModalActionHandler = (player: PlayerState, componentId: number, option?: string) => boolean;
+export type ModalActionHandler = (
+    player: PlayerState,
+    componentId: number,
+    option?: string,
+) => boolean;
 
 // ============================================================================
 // Shopping (gamemode-contributed)
@@ -123,11 +176,20 @@ export interface ShoppingServices {
     openShop?: (player: PlayerState, opts?: { npcTypeId?: number; shopId?: string }) => void;
     closeShop?: (player: PlayerState) => void;
     buyFromShop?: (player: PlayerState, params: { slotIndex: number; quantity?: number }) => void;
-    sellToShop?: (player: PlayerState, params: { inventorySlot: number; itemId: number; quantity?: number }) => void;
+    sellToShop?: (
+        player: PlayerState,
+        params: { inventorySlot: number; itemId: number; quantity?: number },
+    ) => void;
     setShopBuyMode?: (player: PlayerState, mode: number) => void;
     setShopSellMode?: (player: PlayerState, mode: number) => void;
-    getShopSlotValue?: (player: PlayerState, slotIndex: number) => { itemId: number; itemName: string; buyPrice: number; sellPrice: number } | undefined;
-    getInventoryItemSellValue?: (player: PlayerState, itemId: number) => { itemId: number; itemName: string; sellPrice: number } | undefined;
+    getShopSlotValue?: (
+        player: PlayerState,
+        slotIndex: number,
+    ) => { itemId: number; itemName: string; buyPrice: number; sellPrice: number } | undefined;
+    getInventoryItemSellValue?: (
+        player: PlayerState,
+        itemId: number,
+    ) => { itemId: number; itemName: string; sellPrice: number } | undefined;
 }
 
 // ============================================================================
@@ -142,14 +204,25 @@ export interface GatheringServices {
     getFishingSpot?: (npcTypeId: number) => Record<string, unknown> | undefined;
     isFiremakingTileBlocked?: (tile: { x: number; y: number }, level: number) => boolean;
     lightFire?: (params: {
-        tile: { x: number; y: number }; level: number; logItemId: number;
-        currentTick: number; burnTicks: { min: number; max: number };
-        fireObjectId: number; previousLocId: number; ownerId: number;
+        tile: { x: number; y: number };
+        level: number;
+        logItemId: number;
+        currentTick: number;
+        burnTicks: { min: number; max: number };
+        fireObjectId: number;
+        previousLocId: number;
+        ownerId: number;
     }) => { fireObjectId: number };
     playerHasTinderbox?: (player: PlayerState) => boolean;
-    consumeFiremakingLog?: (player: PlayerState, logId: number, slotIndex?: number) => number | undefined;
+    consumeFiremakingLog?: (
+        player: PlayerState,
+        logId: number,
+        slotIndex?: number,
+    ) => number | undefined;
     walkPlayerAwayFromFire?: (player: PlayerState, fireTile: { x: number; y: number }) => void;
-    getCookingRecipeByRawItemId?: (itemId: number) => { cookedItemId: number; xp: number } | undefined;
+    getCookingRecipeByRawItemId?: (
+        itemId: number,
+    ) => { cookedItemId: number; xp: number } | undefined;
 }
 
 // ============================================================================
@@ -157,11 +230,25 @@ export interface GatheringServices {
 // ============================================================================
 
 export interface ProductionServiceFacade {
-    takeInventoryItems: (player: PlayerState, inputs: Array<{ itemId: number; quantity: number }>) => { ok: boolean; removed: Map<number, { itemId: number; quantity: number }> };
-    restoreInventoryRemovals: (player: PlayerState, removed: Map<number, { itemId: number; quantity: number }>) => void;
-    restoreInventoryItems: (player: PlayerState, itemId: number, removed: Map<number, number>) => void;
+    takeInventoryItems: (
+        player: PlayerState,
+        inputs: Array<{ itemId: number; quantity: number }>,
+    ) => { ok: boolean; removed: Map<number, { itemId: number; quantity: number }> };
+    restoreInventoryRemovals: (
+        player: PlayerState,
+        removed: Map<number, { itemId: number; quantity: number }>,
+    ) => void;
+    restoreInventoryItems: (
+        player: PlayerState,
+        itemId: number,
+        removed: Map<number, number>,
+    ) => void;
     queueSmithingMessage?: (playerId: number, payload: Record<string, unknown>) => void;
-    openSmithingModal?: (player: PlayerState, groupId: number, varbits?: Record<number, number>) => void;
+    openSmithingModal?: (
+        player: PlayerState,
+        groupId: number,
+        varbits?: Record<number, number>,
+    ) => void;
     closeSmithingModal?: (player: PlayerState) => void;
     isSmithingModalOpen?: (player: PlayerState, groupId: number) => boolean;
     openSmithingBarModal?: (player: PlayerState) => void;
@@ -181,24 +268,60 @@ export interface ProductionServiceFacade {
 
 export interface SailingServiceFacade {
     teleportToWorldEntity: (
-        player: PlayerState, x: number, y: number, level: number,
-        entityIndex: number, configId: number, sizeX: number, sizeZ: number,
+        player: PlayerState,
+        x: number,
+        y: number,
+        level: number,
+        entityIndex: number,
+        configId: number,
+        sizeX: number,
+        sizeZ: number,
         templateChunks: number[][][],
         buildAreas: import("../../../../src/shared/worldentity/WorldEntityTypes").WorldEntityBuildArea[],
-        extraLocs?: Array<{ id: number; x: number; y: number; level: number; shape: number; rotation: number }>,
+        extraLocs?: Array<{
+            id: number;
+            x: number;
+            y: number;
+            level: number;
+            shape: number;
+            rotation: number;
+        }>,
     ) => void;
     sendWorldEntity: (
-        player: PlayerState, entityIndex: number, configId: number, sizeX: number, sizeZ: number,
+        player: PlayerState,
+        entityIndex: number,
+        configId: number,
+        sizeX: number,
+        sizeZ: number,
         templateChunks: number[][][],
         buildAreas: import("../../../../src/shared/worldentity/WorldEntityTypes").WorldEntityBuildArea[],
-        extraLocs?: Array<{ id: number; x: number; y: number; level: number; shape: number; rotation: number }>,
+        extraLocs?: Array<{
+            id: number;
+            x: number;
+            y: number;
+            level: number;
+            shape: number;
+            rotation: number;
+        }>,
         extraNpcs?: Array<{ id: number; x: number; y: number; level: number }>,
         drawMode?: number,
     ) => void;
     removeWorldEntity: (playerId: number, entityIndex: number) => void;
-    queueWorldEntityPosition: (playerId: number, entityIndex: number, position: { x: number; y: number; z: number; orientation: number }) => void;
-    setWorldEntityPosition: (playerId: number, entityIndex: number, position: { x: number; y: number; z: number; orientation: number }) => void;
-    queueWorldEntityMask: (playerId: number, entityIndex: number, mask: { animationId?: number; sequenceFrame?: number; actionMask?: number }) => void;
+    queueWorldEntityPosition: (
+        playerId: number,
+        entityIndex: number,
+        position: { x: number; y: number; z: number; orientation: number },
+    ) => void;
+    setWorldEntityPosition: (
+        playerId: number,
+        entityIndex: number,
+        position: { x: number; y: number; z: number; orientation: number },
+    ) => void;
+    queueWorldEntityMask: (
+        playerId: number,
+        entityIndex: number,
+        mask: { animationId?: number; sequenceFrame?: number; actionMask?: number },
+    ) => void;
     initSailingInstance: (player: PlayerState) => void;
     disposeSailingInstance: (player: PlayerState) => void;
     isInSailingInstanceRegion: (player: PlayerState) => boolean;
@@ -213,8 +336,6 @@ export { DisplayMode } from "../../widgets/viewport";
 export type { InterfaceMount } from "../../widgets/viewport";
 export { BaseComponentUids } from "../../widgets/viewport/ViewportEnumService";
 
-import type { InterfaceMount } from "../../widgets/viewport";
-
 export type { WidgetAction } from "../../widgets/WidgetManager";
 
 // ============================================================================
@@ -224,22 +345,8 @@ export type { WidgetAction } from "../../widgets/WidgetManager";
 export type { SmithingOptionMessage, SmithingServerPayload } from "../../network/messages";
 
 // ============================================================================
-// Provider Registration (for gamemode/extrascript data provider registration)
-// ============================================================================
 
-import type { WeaponDataProvider } from "../combat/WeaponDataProvider";
-import type { CombatFormulaProvider } from "../combat/CombatFormulaProvider";
-import type { SpecialAttackProvider } from "../combat/SpecialAttackProvider";
-import type { CombatStyleSequenceProvider } from "../combat/CombatStyleSequenceProvider";
-import type { EquipmentBonusProvider } from "../combat/EquipmentBonusProvider";
-import type { SpellXpProvider } from "../combat/SpellXpProvider";
-import type { SpecialAttackVisualProvider } from "../combat/SpecialAttackVisualProvider";
-import type { InstantUtilitySpecialProvider } from "../combat/InstantUtilitySpecialProvider";
-import type { SkillConfiguration } from "../combat/SkillConfigurationProvider";
-import type { SpellDataProvider } from "../spells/SpellDataProvider";
-import type { RuneDataProvider } from "../data/RuneDataProvider";
-import type { ProjectileParamsProvider } from "../data/ProjectileParamsProvider";
-import type { AmmoDataProvider } from "../combat/AmmoDataProvider";
+// ============================================================================
 
 export interface ProviderRegistrationFacade {
     registerWeaponData(provider: WeaponDataProvider): void;
@@ -261,11 +368,22 @@ export interface ProviderRegistrationFacade {
 // Combat type re-exports (for gamemode consumption without reaching into impl)
 // ============================================================================
 
-export type { DropEligibility, NpcLootConfig, LootDistribution, DamageType } from "../combat/DamageTracker";
+export type {
+    DropEligibility,
+    NpcLootConfig,
+    LootDistribution,
+    DamageType,
+} from "../combat/DamageTracker";
 export { damageTracker } from "../combat/DamageTracker";
 export { multiCombatSystem } from "../combat/MultiCombatZones";
 export { getItemDefinition, loadItemDefinitions } from "../../data/items";
-export type { ItemDefinition, ItemBonuses, ItemRequirements, EquipmentType, WeaponInterface } from "../../data/items";
+export type {
+    ItemDefinition,
+    ItemBonuses,
+    ItemRequirements,
+    EquipmentType,
+    WeaponInterface,
+} from "../../data/items";
 
 // Emote and equipment helpers for gamemode consumption
 export { getEmoteSeq } from "../emotes";
@@ -310,7 +428,10 @@ export { HOME_TELEPORT_TIMER } from "../model/timer/Timers";
 
 // Rune validation types for gamemode consumption
 export { RuneValidator } from "../spells/RuneValidator";
-export type { InventoryItem as RuneInventoryItem, RuneValidationResult } from "../spells/RuneValidator";
+export type {
+    InventoryItem as RuneInventoryItem,
+    RuneValidationResult,
+} from "../spells/RuneValidator";
 
 // Skill action payload types for gamemode consumption
 export type { SkillBoltEnchantActionData } from "../actions/skillActionPayloads";
@@ -363,14 +484,29 @@ export interface EquipmentFacade {
     getEquippedItem(player: PlayerState, slot: number): number;
     getEquipArray(player: PlayerState): number[];
     unequipItem(player: PlayerState, slot: number): boolean;
-    computeTargetBonusPercentages?(player: PlayerState): { undeadPercent: number; slayerPercent: number };
+    computeTargetBonusPercentages?(player: PlayerState): {
+        undeadPercent: number;
+        slayerPercent: number;
+    };
 }
 
 export interface AnimationFacade {
     playPlayerSeq(player: PlayerState, seqId: number, delay?: number): void;
     playPlayerSeqImmediate(player: PlayerState, seqId: number): void;
-    broadcastPlayerSpot(player: PlayerState, spotId: number, height?: number, delay?: number, slot?: number): void;
-    playLocGraphic(opts: { spotId: number; tile: { x: number; y: number }; level?: number; height?: number; delayTicks?: number }): void;
+    broadcastPlayerSpot(
+        player: PlayerState,
+        spotId: number,
+        height?: number,
+        delay?: number,
+        slot?: number,
+    ): void;
+    playLocGraphic(opts: {
+        spotId: number;
+        tile: { x: number; y: number };
+        level?: number;
+        height?: number;
+        delayTicks?: number;
+    }): void;
     stopPlayerAnimation(player: PlayerState): void;
     getEmoteSeq(index: number): number | undefined;
     getSkillcapeSeqId(capeItemId: number | undefined): number | undefined;
@@ -378,13 +514,32 @@ export interface AnimationFacade {
 }
 
 export interface SoundFacade {
-    playLocSound(opts: { soundId: number; tile?: { x: number; y: number }; level?: number; loops?: number; delayMs?: number }): void;
-    playAreaSound(opts: { soundId: number; tile: { x: number; y: number }; level?: number; radius?: number; volume?: number; delay?: number }): void;
+    playLocSound(opts: {
+        soundId: number;
+        tile?: { x: number; y: number };
+        level?: number;
+        loops?: number;
+        delayMs?: number;
+    }): void;
+    playAreaSound(opts: {
+        soundId: number;
+        tile: { x: number; y: number };
+        level?: number;
+        radius?: number;
+        volume?: number;
+        delay?: number;
+    }): void;
     playSong(player: PlayerState, trackId: number, trackName?: string): void;
     skipMusicTrack(player: PlayerState): boolean;
     getMusicTrackId(trackName: string): number;
-    getMusicTrackBySlot(slot: number): { rowId: number; trackId: number; trackName: string } | undefined;
-    sendSound(player: PlayerState, soundId: number, opts?: { loops?: number; delayMs?: number }): void;
+    getMusicTrackBySlot(
+        slot: number,
+    ): { rowId: number; trackId: number; trackName: string } | undefined;
+    sendSound(
+        player: PlayerState,
+        soundId: number,
+        opts?: { loops?: number; delayMs?: number },
+    ): void;
     sendJingle(player: PlayerState, jingleId: number, delay?: number): void;
     enqueueSoundBroadcast(soundId: number, x: number, y: number, level: number): void;
     syncMusicInterface?(player: PlayerState): void;
@@ -425,69 +580,172 @@ export interface DialogFacade {
 }
 
 export interface MovementFacade {
-    teleportPlayer(player: PlayerState, x: number, y: number, level: number, forceRebuild?: boolean): void;
+    teleportPlayer(
+        player: PlayerState,
+        x: number,
+        y: number,
+        level: number,
+        forceRebuild?: boolean,
+    ): void;
     teleportToInstance(
-        player: PlayerState, x: number, y: number, level: number,
+        player: PlayerState,
+        x: number,
+        y: number,
+        level: number,
         templateChunks: number[][][],
-        extraLocs?: Array<{ id: number; x: number; y: number; level: number; shape: number; rotation: number }>,
+        extraLocs?: Array<{
+            id: number;
+            x: number;
+            y: number;
+            level: number;
+            shape: number;
+            rotation: number;
+        }>,
     ): void;
     requestTeleportAction(
         player: PlayerState,
         request: {
-            x: number; y: number; level: number;
-            delayTicks?: number; cooldownTicks?: number; forceRebuild?: boolean;
-            resetAnimation?: boolean; endSpotAnim?: number; endSpotHeight?: number; endSpotDelay?: number;
-            arriveSoundId?: number; arriveSoundRadius?: number; arriveSoundVolume?: number;
-            arriveMessage?: string; arriveSeqId?: number; arriveFaceTileX?: number; arriveFaceTileY?: number;
-            preserveAnimation?: boolean; requireCanTeleport?: boolean; rejectIfPending?: boolean; replacePending?: boolean;
+            x: number;
+            y: number;
+            level: number;
+            delayTicks?: number;
+            cooldownTicks?: number;
+            forceRebuild?: boolean;
+            resetAnimation?: boolean;
+            endSpotAnim?: number;
+            endSpotHeight?: number;
+            endSpotDelay?: number;
+            arriveSoundId?: number;
+            arriveSoundRadius?: number;
+            arriveSoundVolume?: number;
+            arriveMessage?: string;
+            arriveSeqId?: number;
+            arriveFaceTileX?: number;
+            arriveFaceTileY?: number;
+            preserveAnimation?: boolean;
+            requireCanTeleport?: boolean;
+            rejectIfPending?: boolean;
+            replacePending?: boolean;
         },
     ): { ok: boolean; reason?: string };
     queueForcedMovement(
         player: PlayerState,
-        params: { startTile: { x: number; y: number }; endTile: { x: number; y: number }; startTick?: number; endTick: number; direction?: number },
+        params: {
+            startTile: { x: number; y: number };
+            endTile: { x: number; y: number };
+            startTick?: number;
+            endTick: number;
+            direction?: number;
+        },
     ): void;
     getPathService(): PathService | undefined;
 }
 
 export interface LocationFacade {
     doorManager?: DoorStateManager;
-    resolveLocTransformId(player: PlayerState, locDef: Record<string, unknown> | undefined): number | undefined;
+    resolveLocTransformId(
+        player: PlayerState,
+        locDef: Record<string, unknown> | undefined,
+    ): number | undefined;
     emitLocChange(
-        oldId: number, newId: number, tile: { x: number; y: number }, level: number,
-        opts?: { oldTile?: { x: number; y: number }; newTile?: { x: number; y: number }; oldRotation?: number; newRotation?: number },
+        oldId: number,
+        newId: number,
+        tile: { x: number; y: number },
+        level: number,
+        opts?: {
+            oldTile?: { x: number; y: number };
+            newTile?: { x: number; y: number };
+            oldRotation?: number;
+            newRotation?: number;
+        },
     ): void;
-    sendLocChangeToPlayer(player: PlayerState, oldId: number, newId: number, tile: { x: number; y: number }, level: number): void;
-    spawnLoc?(locId: number, tile: { x: number; y: number }, level: number, shape: number, rotation: number): void;
-    spawnLocForPlayer(player: PlayerState, locId: number, tile: { x: number; y: number }, level: number, shape: number, rotation: number): void;
+    sendLocChangeToPlayer(
+        player: PlayerState,
+        oldId: number,
+        newId: number,
+        tile: { x: number; y: number },
+        level: number,
+    ): void;
+    spawnLoc?(
+        locId: number,
+        tile: { x: number; y: number },
+        level: number,
+        shape: number,
+        rotation: number,
+    ): void;
+    spawnLocForPlayer(
+        player: PlayerState,
+        locId: number,
+        tile: { x: number; y: number },
+        level: number,
+        shape: number,
+        rotation: number,
+    ): void;
     triggerLocEffect(locId: number, tile: { x: number; y: number }, level: number): boolean;
-    isAdjacentToLoc(player: PlayerState, locId: number, tile: { x: number; y: number }, level: number): boolean;
+    isAdjacentToLoc(
+        player: PlayerState,
+        locId: number,
+        tile: { x: number; y: number },
+        level: number,
+    ): boolean;
     isAdjacentToNpc(player: PlayerState, npc: NpcState): boolean;
     faceTile(player: PlayerState, tile: { x: number; y: number }): void;
 }
 
 export interface CombatFacade {
-    applyPrayers(player: PlayerState, prayers: PrayerName[]): { changed: boolean; errors: Array<{ message: string }>; activePrayers: string[] };
+    applyPrayers(
+        player: PlayerState,
+        prayers: PrayerName[],
+    ): { changed: boolean; errors: Array<{ message: string }>; activePrayers: string[] };
     setCombatSpell?(player: PlayerState, spellId: number | null): void;
     queueCombatState(player: PlayerState): void;
     requestAction: ScriptActionRequestFn;
     getNpc(id: number): NpcState | undefined;
     isPlayerStunned(player: PlayerState): boolean;
     isPlayerInCombat(player: PlayerState): boolean;
-    applyPlayerHitsplat(player: PlayerState, style: number, damage: number, tick: number): { amount: number; style: number; hpCurrent: number; hpMax: number };
+    applyPlayerHitsplat(
+        player: PlayerState,
+        style: number,
+        damage: number,
+        tick: number,
+    ): { amount: number; style: number; hpCurrent: number; hpMax: number };
     stunPlayer(player: PlayerState, ticks: number): void;
-    scheduleAction(playerId: number, request: ActionRequest, tick: number): { ok: boolean; reason?: string };
+    scheduleAction(
+        playerId: number,
+        request: ActionRequest,
+        tick: number,
+    ): { ok: boolean; reason?: string };
     clearPlayerFaceTarget(player: PlayerState): void;
     getDropEligibility(npc: NpcState): DropEligibility;
     clearNpcDamageRecords(npc: NpcState): void;
     getLastAttacker(actor: Actor, currentTick: number): Actor | null;
     isMultiCombat(x: number, y: number, plane: number): boolean;
-    applyAutocastState(player: PlayerState, spellId: number, autocastIndex: number, isDefensive: boolean, callbacks?: { sendVarbit?: (player: PlayerState, varbitId: number, value: number) => void; queueCombatState?: (player: PlayerState) => void }): void;
-    clearAutocastState(player: PlayerState, callbacks?: { sendVarbit?: (player: PlayerState, varbitId: number, value: number) => void; queueCombatState?: (player: PlayerState) => void }): void;
+    applyAutocastState(
+        player: PlayerState,
+        spellId: number,
+        autocastIndex: number,
+        isDefensive: boolean,
+        callbacks?: {
+            sendVarbit?: (player: PlayerState, varbitId: number, value: number) => void;
+            queueCombatState?: (player: PlayerState) => void;
+        },
+    ): void;
+    clearAutocastState(
+        player: PlayerState,
+        callbacks?: {
+            sendVarbit?: (player: PlayerState, varbitId: number, value: number) => void;
+            queueCombatState?: (player: PlayerState) => void;
+        },
+    ): void;
     validateRunes(
         runeCosts: Array<{ runeId: number; quantity: number }>,
         inventory: Array<{ itemId: number; quantity: number }>,
         equippedItems: number[],
-    ): { canCast: boolean; missingRunes?: Array<{ runeId: number; need: number; have: number }>; runesConsumed?: Array<{ runeId: number; quantity: number }> };
+    ): {
+        canCast: boolean;
+        missingRunes?: Array<{ runeId: number; need: number; have: number }>;
+        runesConsumed?: Array<{ runeId: number; quantity: number }>;
+    };
 }
 
 export interface NpcFacade {

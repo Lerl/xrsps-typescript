@@ -5,8 +5,8 @@ import {
     getClientClock as getClientClockFromCycles,
     markWidgetsLoaded,
 } from "../../../client/TransmitCycles";
-import type { WidgetNode } from "../../../ui/widgets/WidgetManager";
 import { markWidgetInteractionDirty } from "../../../ui/widgets/WidgetInteraction";
+import type { WidgetNode } from "../../../ui/widgets/WidgetManager";
 import { getViewportSize } from "../../../util/DeviceUtil";
 import { Opcodes } from "../Opcodes";
 import type { HandlerContext, HandlerMap } from "./HandlerTypes";
@@ -2439,7 +2439,7 @@ export function registerWidgetOps(handlers: HandlerMap): void {
         const isString = paramType?.isString?.() === true;
         const raw = w.params instanceof Map ? w.params.get(paramId) : undefined;
         if (isString) {
-            ctx.pushString(typeof raw === "string" ? raw : paramType?.defaultString ?? "");
+            ctx.pushString(typeof raw === "string" ? raw : (paramType?.defaultString ?? ""));
         } else {
             ctx.pushInt(typeof raw === "number" ? raw | 0 : (paramType?.defaultInt ?? 0) | 0);
         }
@@ -3155,7 +3155,8 @@ export function registerWidgetOps(handlers: HandlerMap): void {
         // resumePauseWidget
         const w = ctx.activeWidget;
         if (w && ctx.sendResumePauseButton) {
-            const widgetUid = (typeof (w as any).id === "number" ? (w as any).id : w.uid ?? 0) | 0;
+            const widgetUid =
+                (typeof (w as any).id === "number" ? (w as any).id : (w.uid ?? 0)) | 0;
             // Child index: dynamic children use runtime childIndex; static widgets use -1/default.
             const childIndex = (typeof w.childIndex === "number" ? w.childIndex : -1) | 0;
             ctx.sendResumePauseButton(widgetUid, childIndex);
@@ -3209,7 +3210,7 @@ export function registerWidgetOps(handlers: HandlerMap): void {
         const isString = paramType?.isString?.() === true;
         const raw = target.params instanceof Map ? target.params.get(paramId) : undefined;
         if (isString) {
-            ctx.pushString(typeof raw === "string" ? raw : paramType?.defaultString ?? "");
+            ctx.pushString(typeof raw === "string" ? raw : (paramType?.defaultString ?? ""));
         } else {
             ctx.pushInt(typeof raw === "number" ? raw | 0 : (paramType?.defaultInt ?? 0) | 0);
         }

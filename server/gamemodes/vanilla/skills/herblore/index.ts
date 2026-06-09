@@ -1,6 +1,10 @@
 import { SkillId } from "../../../../../src/rs/skill/skills";
-import type { IScriptRegistry, ItemOnItemEvent, ScriptServices } from "../../../../src/game/scripts/types";
 import type { PlayerState } from "../../../../src/game/player";
+import type {
+    IScriptRegistry,
+    ItemOnItemEvent,
+    ScriptServices,
+} from "../../../../src/game/scripts/types";
 
 // ---------------------------------------------------------------------------
 // Herblore Skill
@@ -56,15 +60,15 @@ const UNF_LIST: Unf[] = [
 ];
 
 const FINISHED_LIST: Finished[] = [
-    { product3: 121, unf: 91, secondary: 221, level: 1, xp: 25 },   // Attack
-    { product3: 175, unf: 93, secondary: 235, level: 5, xp: 38 },   // Antipoison
-    { product3: 115, unf: 95, secondary: 225, level: 12, xp: 50 },   // Strength
-    { product3: 127, unf: 97, secondary: 223, level: 22, xp: 63 },   // Restore
+    { product3: 121, unf: 91, secondary: 221, level: 1, xp: 25 }, // Attack
+    { product3: 175, unf: 93, secondary: 235, level: 5, xp: 38 }, // Antipoison
+    { product3: 115, unf: 95, secondary: 225, level: 12, xp: 50 }, // Strength
+    { product3: 127, unf: 97, secondary: 223, level: 22, xp: 63 }, // Restore
     { product3: 3010, unf: 97, secondary: 1975, level: 26, xp: 68 }, // Energy
-    { product3: 133, unf: 99, secondary: 239, level: 30, xp: 75 },   // Defence
+    { product3: 133, unf: 99, secondary: 239, level: 30, xp: 75 }, // Defence
     { product3: 3034, unf: 3002, secondary: 2152, level: 34, xp: 80 }, // Agility
     { product3: 9741, unf: 97, secondary: 9736, level: 36, xp: 84 }, // Combat
-    { product3: 139, unf: 99, secondary: 231, level: 38, xp: 88 },   // Prayer
+    { product3: 139, unf: 99, secondary: 231, level: 38, xp: 88 }, // Prayer
     { product3: 145, unf: 101, secondary: 221, level: 45, xp: 100 }, // Super attack
     { product3: 181, unf: 101, secondary: 231, level: 48, xp: 106 }, // Fishing potion
     { product3: 181, unf: 101, secondary: 235, level: 48, xp: 103 }, // Super antipoison
@@ -169,7 +173,10 @@ export function register(registry: IScriptRegistry, services: ScriptServices): v
             if (addSkillXp && f.xp > 0) {
                 addSkillXp(player, SkillId.Herblore, f.xp);
             }
-            services.messaging.sendGameMessage(player, "You combine the ingredients to make a potion.");
+            services.messaging.sendGameMessage(
+                player,
+                "You combine the ingredients to make a potion.",
+            );
             snapshotInventory(player);
         };
         registry.registerItemOnItem(f.unf, f.secondary, handler);

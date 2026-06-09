@@ -4,18 +4,20 @@ Get xRSPS running locally in a few minutes.
 
 ## Prerequisites
 
-| Tool | Version | Why |
-|------|---------|-----|
-| [Node.js](https://nodejs.org/) | v22.16+ | Runtime for both client and server |
-| [Yarn](https://classic.yarnpkg.com/en/docs/install) | v1 (Classic) | Package manager |
-| [Git](https://git-scm.com/) | Any recent | Clone the repo |
+| Tool                                                | Version      | Why                                |
+| --------------------------------------------------- | ------------ | ---------------------------------- |
+| [Node.js](https://nodejs.org/)                      | v22.16+      | Runtime for both client and server |
+| [Yarn](https://classic.yarnpkg.com/en/docs/install) | v1 (Classic) | Package manager                    |
+| [Git](https://git-scm.com/)                         | Any recent   | Clone the repo                     |
 
 ::: tip Node Version
 Use [nvm](https://github.com/nvm-sh/nvm) or [fnm](https://github.com/Schniz/fnm) to manage Node versions easily:
+
 ```bash
 nvm install 22
 nvm use 22
 ```
+
 :::
 
 ## 1. Clone the Repository
@@ -68,6 +70,7 @@ yarn server:start
 ```
 
 The server will:
+
 1. Automatically download the OSRS cache if it hasn't been fetched yet
 2. Load collision data, spells, and game scripts
 3. Start a WebSocket server on `0.0.0.0:43594`
@@ -109,6 +112,7 @@ Log in with any username. You should spawn into the game world.
 ### Cache download hangs or fails
 
 The cache is downloaded from the [OpenRS2 Archive](https://archive.openrs2.org/). If it stalls:
+
 - Check your internet connection
 - Delete the `caches/` folder and try again
 - The target cache version is defined in `target.txt` at the repo root
@@ -130,6 +134,7 @@ Another instance of the server is likely running. Kill it or change the port in 
 ### Node version errors
 
 Ensure you're on Node v22.16+:
+
 ```bash
 node -v
 ```
@@ -138,11 +143,11 @@ node -v
 
 ## Useful Commands
 
-| Command | Description |
-|---------|-------------|
-| `yarn start` | Start the client dev server |
-| `yarn server:start` | Start the game server |
-| `yarn server:build-collision` | Build collision cache (once) |
-| `yarn export-map-images` | Export world map images (once) |
-| `yarn download-caches` | Manually download the OSRS cache |
-| `yarn lint` | Format code with Prettier |
+| Command                       | Description                      |
+| ----------------------------- | -------------------------------- |
+| `yarn start`                  | Start the client dev server      |
+| `yarn server:start`           | Start the game server            |
+| `yarn server:build-collision` | Build collision cache (once)     |
+| `yarn export-map-images`      | Export world map images (once)   |
+| `yarn download-caches`        | Manually download the OSRS cache |
+| `yarn lint`                   | Format code with Prettier        |

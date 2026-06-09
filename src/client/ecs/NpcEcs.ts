@@ -818,7 +818,7 @@ export class NpcEcs {
                     const stepRot = this.getCurrentStepRot(id);
                     const turningIntoStep =
                         stepRot !== undefined &&
-                        ((stepRot | 0) !== (this.rotation[id] | 0)) &&
+                        (stepRot | 0) !== (this.rotation[id] | 0) &&
                         (this.interactionIndex[id] | 0) === NO_INTERACTION &&
                         (this.rotSpeed[id] | 0) !== 0;
                     const isClippedNpc = this.clipped[id] === 1;
@@ -846,7 +846,8 @@ export class NpcEcs {
                                 Math.max(0, (this.movementDelayCounter[id] | 0) - 1) & 0xff;
                         }
                     }
-                    if (rawStepSpeed >= 8) speed <<= 1; // run traversal
+                    if (rawStepSpeed >= 8)
+                        speed <<= 1; // run traversal
                     else if (rawStepSpeed <= 2) speed >>= 1; // crawl traversal
                     speed = Math.max(1, speed | 0);
 
@@ -1317,8 +1318,7 @@ export class NpcEcs {
         if (this.colorOverrideSat) this.colorOverrideSat[i] = (sat | 0) & 0x7f;
         if (this.colorOverrideLum) this.colorOverrideLum[i] = (lum | 0) & 0x7f;
         if (this.colorOverrideAmount) this.colorOverrideAmount[i] = (amount | 0) & 0xff;
-        if (this.colorOverrideStartCycle)
-            this.colorOverrideStartCycle[i] = startCycle | 0;
+        if (this.colorOverrideStartCycle) this.colorOverrideStartCycle[i] = startCycle | 0;
         if (this.colorOverrideEndCycle) this.colorOverrideEndCycle[i] = endCycle | 0;
     }
 

@@ -1,6 +1,14 @@
 import type { ProjectileArchetypeName, ProjectileLifeModel } from "../projectiles/ProjectileType";
+// =============================================================================
+// Provider Registration & Delegation
+// =============================================================================
+import { getProviderRegistry } from "../providers/ProviderRegistry";
+
 export type { ProjectileArchetypeName, ProjectileLifeModel } from "../projectiles/ProjectileType";
-export { PROJECTILE_ARCHETYPES, calculateProjectileLifeFrames } from "../projectiles/ProjectileType";
+export {
+    PROJECTILE_ARCHETYPES,
+    calculateProjectileLifeFrames,
+} from "../projectiles/ProjectileType";
 
 export interface ProjectileParams {
     startHeight: number;
@@ -31,15 +39,15 @@ export type ProjectileTarget = Partial<ProjectileParams> | ProjectileAliasTarget
 
 export interface ProjectileParamsProvider {
     getProjectileParams(projectileId: number | undefined): ProjectileParams | undefined;
-    applyProjectileDefaults<T extends ProjectileTarget>(projectileId: number | undefined, target: T): T;
-    buildProjectileParamsFromArchetype(archetype: ProjectileArchetypeName, overrides?: Partial<ProjectileParams>): ProjectileParams;
+    applyProjectileDefaults<T extends ProjectileTarget>(
+        projectileId: number | undefined,
+        target: T,
+    ): T;
+    buildProjectileParamsFromArchetype(
+        archetype: ProjectileArchetypeName,
+        overrides?: Partial<ProjectileParams>,
+    ): ProjectileParams;
 }
-
-// =============================================================================
-// Provider Registration & Delegation
-// =============================================================================
-
-import { getProviderRegistry } from "../providers/ProviderRegistry";
 
 export function registerProjectileParamsProvider(provider: ProjectileParamsProvider): void {
     getProviderRegistry().projectileParams = provider;
@@ -52,16 +60,23 @@ export function getProjectileParamsProvider(): ProjectileParamsProvider | undefi
 function ensureProvider(): ProjectileParamsProvider {
     const p = getProviderRegistry().projectileParams;
     if (!p) {
-        throw new Error("[projectileParams] ProjectileParamsProvider not registered. Ensure the gamemode has initialized.");
+        throw new Error(
+            "[projectileParams] ProjectileParamsProvider not registered. Ensure the gamemode has initialized.",
+        );
     }
     return p;
 }
 
-export function getProjectileParams(projectileId: number | undefined): ProjectileParams | undefined {
+export function getProjectileParams(
+    projectileId: number | undefined,
+): ProjectileParams | undefined {
     return ensureProvider().getProjectileParams(projectileId);
 }
 
-export function applyProjectileDefaults<T extends ProjectileTarget>(projectileId: number | undefined, target: T): T {
+export function applyProjectileDefaults<T extends ProjectileTarget>(
+    projectileId: number | undefined,
+    target: T,
+): T {
     return ensureProvider().applyProjectileDefaults(projectileId, target);
 }
 

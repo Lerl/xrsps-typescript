@@ -38,11 +38,7 @@ function rollDamage(max: number, random: number): number {
     return Math.floor(random * (max + 1));
 }
 
-function effectiveLevel(
-    level: number,
-    prayerMultiplier: number,
-    stanceBonus: number,
-): number {
+function effectiveLevel(level: number, prayerMultiplier: number, stanceBonus: number): number {
     const prayed = Math.floor(level * prayerMultiplier);
     return Math.max(1, prayed + stanceBonus + 8);
 }
@@ -63,10 +59,7 @@ function npcEffectiveDefence(defenceLevel: number): number {
     return defenceLevel + 8;
 }
 
-function getNpcAttackBonus(
-    profile: NpcAttackBonusProfile,
-    attackType: AttackType,
-): number {
+function getNpcAttackBonus(profile: NpcAttackBonusProfile, attackType: AttackType): number {
     switch (attackType) {
         case AttackType.Magic:
             return profile.magicBonus;

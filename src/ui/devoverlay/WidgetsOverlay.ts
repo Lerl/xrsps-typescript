@@ -1,16 +1,13 @@
-import {
-    App as PicoApp,
-    Program,
-} from "picogl";
+import { App as PicoApp, Program } from "picogl";
 
 import { profiler } from "../../client/webgl/PerformanceProfiler";
 import { CacheIndex } from "../../rs/cache/CacheIndex";
 import { CacheSystem } from "../../rs/cache/CacheSystem";
 import { BitmapFont } from "../../rs/font/BitmapFont";
 import { isTouchDevice } from "../../util/DeviceUtil";
-import { GLRenderer } from "../gl/renderer";
-import { getChooseOptionMenuRect } from "../gl/choose-option";
 import { getUiScale } from "../UiScale";
+import { getChooseOptionMenuRect } from "../gl/choose-option";
+import { GLRenderer } from "../gl/renderer";
 import {
     GLRenderOpts,
     beginWidgetUiFrame,
@@ -198,7 +195,7 @@ export class WidgetsOverlay implements Overlay {
         for (let i = 0; i < rootSources.length; i++) {
             const root = rootSources[i];
             if (i > 0) signature += ",";
-            signature += root && typeof root.uid === "number" ? root.uid : root?.groupId ?? "";
+            signature += root && typeof root.uid === "number" ? root.uid : (root?.groupId ?? "");
         }
         if (signature !== this.lastRootSignature) {
             this.lastRootSignature = signature;
@@ -400,7 +397,10 @@ export class WidgetsOverlay implements Overlay {
     private getOverlayRenderSize(): { width: number; height: number } {
         const hostCanvas = this.app?.gl?.canvas as HTMLCanvasElement | undefined;
         const cssWidth =
-            hostCanvas?.clientWidth || hostCanvas?.offsetWidth || hostCanvas?.getBoundingClientRect().width || 0;
+            hostCanvas?.clientWidth ||
+            hostCanvas?.offsetWidth ||
+            hostCanvas?.getBoundingClientRect().width ||
+            0;
         const cssHeight =
             hostCanvas?.clientHeight ||
             hostCanvas?.offsetHeight ||
@@ -495,8 +495,9 @@ export class WidgetsOverlay implements Overlay {
             if (i > 0) entriesSig += "\u0001";
             entriesSig += `${entry?.option ?? ""}\u0002${entry?.target ?? ""}`;
         }
-        const signature =
-            `open:${menu.follow ? 1 : 0}:${menu.x | 0}:${menu.y | 0}:${mx}:${my}:${clickMode3}:${saveClickX}:${saveClickY}:${entriesSig}`;
+        const signature = `open:${menu.follow ? 1 : 0}:${menu.x | 0}:${
+            menu.y | 0
+        }:${mx}:${my}:${clickMode3}:${saveClickX}:${saveClickY}:${entriesSig}`;
         return { signature, rect };
     }
 

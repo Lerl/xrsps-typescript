@@ -1,3 +1,7 @@
+// =============================================================================
+// Provider Registration & Delegation
+// =============================================================================
+import { getProviderRegistry } from "../providers/ProviderRegistry";
 import type { SkillEntry } from "../state/PlayerSkillSystem";
 
 export interface SkillConfiguration {
@@ -8,12 +12,6 @@ export interface SkillConfiguration {
     hitpointOverhealDecayIntervalTicks: number;
     preserveDecayMultiplier: number;
 }
-
-// =============================================================================
-// Provider Registration & Delegation
-// =============================================================================
-
-import { getProviderRegistry } from "../providers/ProviderRegistry";
 
 export function registerSkillConfiguration(config: SkillConfiguration): void {
     getProviderRegistry().skillConfiguration = config;
@@ -26,7 +24,9 @@ export function getSkillConfiguration(): SkillConfiguration | undefined {
 function ensureConfig(): SkillConfiguration {
     const c = getProviderRegistry().skillConfiguration;
     if (!c) {
-        throw new Error("[SkillConfiguration] SkillConfiguration not registered. Ensure the gamemode has initialized.");
+        throw new Error(
+            "[SkillConfiguration] SkillConfiguration not registered. Ensure the gamemode has initialized.",
+        );
     }
     return c;
 }

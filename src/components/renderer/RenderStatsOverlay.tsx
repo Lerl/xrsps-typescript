@@ -3,8 +3,8 @@ import React from "react";
 import type { GameRenderer } from "../../client/GameRenderer";
 import { RS_TO_DEGREES } from "../../rs/MathConstants";
 import type { CacheInfo } from "../../rs/cache/CacheInfo";
-import { checkIos, checkMobile } from "../../util/DeviceUtil";
 import { formatBytes } from "../../util/BytesUtil";
+import { checkIos, checkMobile } from "../../util/DeviceUtil";
 import { RenderStats } from "./RenderStats";
 
 export interface RenderStatsOverlayProps {
@@ -80,7 +80,8 @@ export function RenderStatsOverlay({
                         }}
                     >
                         <div>
-                            <strong>FPS:</strong> {fps} <span style={{ opacity: 0.7 }}>({jsMs} ms JS)</span>
+                            <strong>FPS:</strong> {fps}{" "}
+                            <span style={{ opacity: 0.7 }}>({jsMs} ms JS)</span>
                         </div>
                         <div>
                             <strong>Canvas:</strong> {size}{" "}
@@ -95,7 +96,9 @@ export function RenderStatsOverlay({
                         </div>
                         <div>
                             <strong>Batches:</strong> {formatNum(s.drawBatches)}{" "}
-                            <span style={{ opacity: 0.7 }}>Indices: {formatNum(s.indicesSubmitted)}</span>
+                            <span style={{ opacity: 0.7 }}>
+                                Indices: {formatNum(s.indicesSubmitted)}
+                            </span>
                         </div>
                         <div>
                             <strong>Geometry:</strong> {formatBytes(s.geometryGpuBytes)}

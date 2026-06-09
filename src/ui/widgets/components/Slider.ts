@@ -68,8 +68,8 @@ export function computeSlider(
         value <= 0
             ? bobbleTrackStart
             : value >= maxValue
-            ? bobbleTrackStart + bobbleTrackW - segW
-            : bobbleTrackStart + Math.floor((value / maxValue) * (bobbleTrackW - segW));
+              ? bobbleTrackStart + bobbleTrackW - segW
+              : bobbleTrackStart + Math.floor((value / maxValue) * (bobbleTrackW - segW));
 
     // Build segment rects for click detection
     const segments: SliderRects["segments"] = [];
@@ -78,14 +78,14 @@ export function computeSlider(
             i === 0
                 ? bobbleTrackStart
                 : i === maxValue
-                ? bobbleTrackStart + bobbleTrackW - segW
-                : bobbleTrackStart + Math.floor((i / maxValue) * (bobbleTrackW - segW));
+                  ? bobbleTrackStart + bobbleTrackW - segW
+                  : bobbleTrackStart + Math.floor((i / maxValue) * (bobbleTrackW - segW));
         const nextX =
             i === maxValue
                 ? bobbleTrackStart + bobbleTrackW
                 : i + 1 === maxValue
-                ? bobbleTrackStart + bobbleTrackW - segW
-                : bobbleTrackStart + Math.floor(((i + 1) / maxValue) * (bobbleTrackW - segW));
+                  ? bobbleTrackStart + bobbleTrackW - segW
+                  : bobbleTrackStart + Math.floor(((i + 1) / maxValue) * (bobbleTrackW - segW));
         segments.push({
             x: segX,
             y,
@@ -186,8 +186,8 @@ export function drawSlider(
         value <= 0
             ? bobbleAreaX
             : value >= maxValue
-            ? bobbleAreaX + bobbleRange
-            : bobbleAreaX + Math.floor((value / maxValue) * bobbleRange);
+              ? bobbleAreaX + bobbleRange
+              : bobbleAreaX + Math.floor((value / maxValue) * bobbleRange);
 
     // Draw bobble/knob - from CS2 settings_slider_choose_bobble:
     // 6=normal, 7=disabled, 12=muted

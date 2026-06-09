@@ -11,7 +11,10 @@ function mapFollowerFailure(reason: string): string {
     }
 }
 
-export function registerFollowerItemHandlers(registry: IScriptRegistry, services: ScriptServices): void {
+export function registerFollowerItemHandlers(
+    registry: IScriptRegistry,
+    services: ScriptServices,
+): void {
     const followerDefs = services.followers?.getItemDefinitions() ?? [];
     for (const definition of followerDefs) {
         registry.registerItemAction(
@@ -19,11 +22,7 @@ export function registerFollowerItemHandlers(registry: IScriptRegistry, services
             ({ player, source, services: svc }) => {
                 const inventory = svc.inventory.getInventoryItems(player);
                 const slotEntry = inventory[source.slot];
-                if (
-                    !slotEntry ||
-                    slotEntry.itemId !== source.itemId ||
-                    slotEntry.quantity <= 0
-                ) {
+                if (!slotEntry || slotEntry.itemId !== source.itemId || slotEntry.quantity <= 0) {
                     return;
                 }
 
@@ -183,7 +182,10 @@ export function registerFollowerItemHandlers(registry: IScriptRegistry, services
                 }
                 const metamorph = svc.followers?.metamorphFollower(player, npc.id);
                 if (!metamorph || !metamorph.ok) {
-                    svc.messaging.sendGameMessage(player, mapFollowerFailure(metamorph?.reason ?? ""));
+                    svc.messaging.sendGameMessage(
+                        player,
+                        mapFollowerFailure(metamorph?.reason ?? ""),
+                    );
                 }
             },
             "metamorphosis",

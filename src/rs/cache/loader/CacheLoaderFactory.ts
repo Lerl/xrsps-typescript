@@ -11,6 +11,7 @@ import { SpotAnimTypeLoader } from "../../config/spotanimtype/SpotAnimTypeLoader
 import { StructTypeLoader } from "../../config/structtype/StructTypeLoader";
 import { VarcIntTypeLoader } from "../../config/vartype/VarcIntTypeLoader";
 import { VarBitTypeLoader } from "../../config/vartype/bit/VarBitTypeLoader";
+import { WorldEntityTypeLoader } from "../../config/worldentitytype/WorldEntityTypeLoader";
 import { MapFileIndex } from "../../map/MapFileIndex";
 import { MapFileLoader } from "../../map/MapFileLoader";
 import { ModelLoader } from "../../model/ModelLoader";
@@ -18,7 +19,6 @@ import { SeqFrameLoader } from "../../model/seq/SeqFrameLoader";
 import { SkeletalSeqLoader } from "../../model/skeletal/SkeletalSeqLoader";
 import { IndexedSprite } from "../../sprite/IndexedSprite";
 import { TextureLoader } from "../../texture/TextureLoader";
-import { WorldEntityTypeLoader } from "../../config/worldentitytype/WorldEntityTypeLoader";
 import { CacheIndex } from "../CacheIndex";
 import { CacheInfo } from "../CacheInfo";
 import { CacheSystem } from "../CacheSystem";

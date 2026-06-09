@@ -3,8 +3,8 @@ import { CacheSystem } from "../../rs/cache/CacheSystem";
 import { IndexType } from "../../rs/cache/IndexType";
 import { ByteBuffer } from "../../rs/io/ByteBuffer";
 import { FONT_BOLD_12, FONT_PLAIN_11 } from "../fonts";
-import { loadCustomWidgetGroup } from "./custom/CustomWidgetGroups";
 import { markWidgetInteractionDirty } from "./WidgetInteraction";
+import { loadCustomWidgetGroup } from "./custom/CustomWidgetGroups";
 
 /**
  * Widget/interface loader for OSRS cache
@@ -647,7 +647,7 @@ export class WidgetLoader {
             }
 
             // Children order comes from cache structure and CC_CREATE at runtime
-            // No sorting needed - the natural order should be correct for 
+            // No sorting needed - the natural order should be correct for
             // (Previously sorted by fileId which caused background to render on top of foreground)
 
             // Find root widget (parentUid === -1)

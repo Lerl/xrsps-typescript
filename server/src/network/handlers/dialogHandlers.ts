@@ -1,7 +1,10 @@
 import type { MessageHandlerServices } from "../MessageHandlers";
 import type { MessageRouter } from "../MessageRouter";
 
-export function registerDialogHandlers(router: MessageRouter, services: MessageHandlerServices): void {
+export function registerDialogHandlers(
+    router: MessageRouter,
+    services: MessageHandlerServices,
+): void {
     router.register("resume_countdialog", (ctx) => {
         if (!ctx.player) return;
         const normalized = Math.max(

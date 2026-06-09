@@ -488,7 +488,7 @@ export function createAggressionStateLegacy(entryTick: number): PlayerAggression
 
 /**
  * Update aggression state each tick (without position tracking).
- * @deprecated Use updateAggressionStateWithPosition for full 
+ * @deprecated Use updateAggressionStateWithPosition for full
  */
 export function updateAggressionState(
     state: PlayerAggressionState,

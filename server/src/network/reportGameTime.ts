@@ -1,5 +1,5 @@
-import type { PlayerState } from "../game/player";
 import type { ServerServices } from "../game/ServerServices";
+import type { PlayerState } from "../game/player";
 
 export const REPORT_GAME_TIME_GROUP_ID = 162;
 const REPORT_GAME_TIME_TEXT_CHILD_ID = 33;
@@ -32,7 +32,12 @@ export class ReportGameTimeTracker {
 
     syncPlayer(player: PlayerState, nowMs: number = Date.now(), force: boolean = false): void {
         const playerId = player.id;
-        if (!this.svc.interfaceManager.isWidgetGroupOpenInLedger(playerId, REPORT_GAME_TIME_GROUP_ID)) {
+        if (
+            !this.svc.interfaceManager.isWidgetGroupOpenInLedger(
+                playerId,
+                REPORT_GAME_TIME_GROUP_ID,
+            )
+        ) {
             this.lastTextByPlayer.delete(playerId);
             return;
         }

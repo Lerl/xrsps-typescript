@@ -1,4 +1,8 @@
-import { type IScriptRegistry, type NpcInteractionEvent, type ScriptServices } from "../../../../src/game/scripts/types";
+import {
+    type IScriptRegistry,
+    type NpcInteractionEvent,
+    type ScriptServices,
+} from "../../../../src/game/scripts/types";
 
 export function registerRomeoHandlers(registry: IScriptRegistry, services: ScriptServices): void {
     const activeConvos = new Set<number>();
@@ -70,15 +74,11 @@ export function registerRomeoHandlers(registry: IScriptRegistry, services: Scrip
                                 },
                             );
                         } else if (choice === 1) {
-                            openPlayerDialog(
-                                `${convoId}_p_no`,
-                                ["No sign of her, sorry."],
-                                () => {
-                                    openNpcDialog(`${convoId}_n_no_reply`, [
-                                        "That's unfortunate. Let me know if you do.",
-                                    ]);
-                                },
-                            );
+                            openPlayerDialog(`${convoId}_p_no`, ["No sign of her, sorry."], () => {
+                                openNpcDialog(`${convoId}_n_no_reply`, [
+                                    "That's unfortunate. Let me know if you do.",
+                                ]);
+                            });
                         } else {
                             openPlayerDialog(
                                 `${convoId}_p_why`,

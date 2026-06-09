@@ -255,7 +255,7 @@ export function deriveMenuEntriesForWidget(
     // widget menus use configured ops (actions + flags + handlers).
     // Do not synthesize fallback Examine options for item widgets here.
     // Pause button widgets (flags & 1) show "Continue" with empty target
-    
+
     // This is added after ops are checked, only if no other actionable entries exist
     const hasActionableEntry = entries.some(
         (e) =>
@@ -387,8 +387,8 @@ export function findDropTarget(
 
         // Use visual position for dragged widgets
         const isDragActive = !!(w as any)._isDragActive;
-        const visualX = isDragActive ? (w as any)._dragVisualX ?? w.x : w.x;
-        const visualY = isDragActive ? (w as any)._dragVisualY ?? w.y : w.y;
+        const visualX = isDragActive ? ((w as any)._dragVisualX ?? w.x) : w.x;
+        const visualY = isDragActive ? ((w as any)._dragVisualY ?? w.y) : w.y;
         const x = ox + ((visualX as number) | 0);
         const y = oy + ((visualY as number) | 0);
         const width = Math.max(1, (w.width as number) | 0 || 0);
@@ -533,8 +533,8 @@ export function collectWidgetsAtPoint(
         if (!selfVisible) return;
         // Match rendering: widgets being dragged use their visual position for hit testing.
         const isDragActive = !!(w as any)._isDragActive;
-        const visualX = isDragActive ? (w as any)._dragVisualX ?? w.x : w.x;
-        const visualY = isDragActive ? (w as any)._dragVisualY ?? w.y : w.y;
+        const visualX = isDragActive ? ((w as any)._dragVisualX ?? w.x) : w.x;
+        const visualY = isDragActive ? ((w as any)._dragVisualY ?? w.y) : w.y;
         const x = ox + ((visualX as number) | 0);
         const y = oy + ((visualY as number) | 0);
         const width = Math.max(1, (w.width as number) | 0 || 0);
@@ -555,7 +555,7 @@ export function collectWidgetsAtPoint(
             w._absY = y;
             hits.push(w);
             // Check noClickThrough flag
-            
+
             // When noClickThrough is true on an IF3 widget, widgets behind it are blocked.
             // In OSRS, this clears pending script events for all widgets processed earlier.
             // We track the index so we can filter them out after traversal.

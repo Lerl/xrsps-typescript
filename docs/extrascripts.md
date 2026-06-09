@@ -53,12 +53,12 @@ Extrascripts support hot-reload during development. Set the `SCRIPT_HOT_RELOAD=1
 
 ## Gamemodes vs Extrascripts
 
-| Use case | System |
-|----------|--------|
-| Server-specific rules (XP rates, tutorials, progression) | [Gamemode](gamemodes.md) |
-| Universal tools (debug commands, admin utilities) | Extrascript |
-| Content that only matters for one server type | Gamemode `registerHandlers()` |
-| Content that should work on any server | Extrascript |
+| Use case                                                 | System                        |
+| -------------------------------------------------------- | ----------------------------- |
+| Server-specific rules (XP rates, tutorials, progression) | [Gamemode](gamemodes.md)      |
+| Universal tools (debug commands, admin utilities)        | Extrascript                   |
+| Content that only matters for one server type            | Gamemode `registerHandlers()` |
+| Content that should work on any server                   | Extrascript                   |
 
 **Rule of thumb:** if it makes sense on every server, it's an extrascript. If it defines or changes how the server plays, it's a gamemode.
 
@@ -76,7 +76,7 @@ import { CustomItemRegistry } from "../../src/custom/items/CustomItemRegistry";
 
 CustomItemRegistry.register(
     CustomItemBuilder.create(50100)
-        .basedOn(3834)               // clone properties from an existing cache item
+        .basedOn(3834) // clone properties from an existing cache item
         .name("My Custom Item")
         .inventoryActions("Activate", null, null, null, "Drop")
         .build(),
@@ -105,8 +105,8 @@ Gamemodes can send arbitrary data to the client by implementing `getContentDataP
 
 ## Bundled Extrascripts
 
-| Extrascript | Description |
-|-------------|-------------|
+| Extrascript    | Description                                                                                                                                                    |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `item-spawner` | Admin debug tool — custom widget for searching and spawning items. Uses `CustomItemBuilder` and `CustomWidgetRegistry` for custom UI. Command: `::itemspawner` |
 
 ## Skill Implementations

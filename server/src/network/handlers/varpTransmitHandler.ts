@@ -1,8 +1,7 @@
 import type { WebSocket } from "ws";
 
-import {
-    EquipmentSlot,
-} from "../../../../src/rs/config/player/Equipment";
+import { EquipmentSlot } from "../../../../src/rs/config/player/Equipment";
+import { decodeSideJournalTabFromStateVarp } from "../../../../src/shared/ui/sideJournal";
 import {
     VARP_ATTACK_STYLE,
     VARP_AUTO_RETALIATE,
@@ -12,26 +11,36 @@ import {
     VARP_SIDE_JOURNAL_STATE,
     VARP_SPECIAL_ATTACK,
 } from "../../../../src/shared/vars";
-import { decodeSideJournalTabFromStateVarp } from "../../../../src/shared/ui/sideJournal";
 import {
-    getInstantUtilitySpecial,
     applyInstantUtilitySpecialBoost,
+    getInstantUtilitySpecial,
     markInstantUtilitySpecialHandledAtTick,
     wasInstantUtilitySpecialHandledAtTick,
 } from "../../game/combat/InstantUtilitySpecialProvider";
 import type { PlayerState } from "../../game/player";
-import type { MessageHandler } from "../MessageRouter";
-import type { MessageHandlerServices } from "../MessageHandlers";
-import { encodeMessage } from "../messages";
 import { logger } from "../../utils/logger";
+import type { MessageHandlerServices } from "../MessageHandlers";
+import type { MessageHandler } from "../MessageRouter";
+import { encodeMessage } from "../messages";
 
-function sendVarpCorrection(services: MessageHandlerServices, ws: WebSocket, varpId: number, value: number): void {
+function sendVarpCorrection(
+    services: MessageHandlerServices,
+    ws: WebSocket,
+    varpId: number,
+    value: number,
+): void {
     services.withDirectSendBypass("varp", () =>
-        services.sendWithGuard(ws, encodeMessage({ type: "varp", payload: { varpId, value } }), "varp"),
+        services.sendWithGuard(
+            ws,
+            encodeMessage({ type: "varp", payload: { varpId, value } }),
+            "varp",
+        ),
     );
 }
 
-export function createVarpTransmitHandler(services: MessageHandlerServices): MessageHandler<"varp_transmit"> {
+export function createVarpTransmitHandler(
+    services: MessageHandlerServices,
+): MessageHandler<"varp_transmit"> {
     return (ctx) => {
         try {
             const p = services.getPlayer(ctx.ws);
@@ -63,7 +72,9 @@ export function createVarpTransmitHandler(services: MessageHandlerServices): Mes
             } else if (varpId === VARP_AUTO_RETALIATE) {
                 handleAutoRetaliateVarp(services, ctx.ws, p, value);
             }
-        } catch (err) { logger.warn("[varp] failed to handle varp transmit", err); }
+        } catch (err) {
+            logger.warn("[varp] failed to handle varp transmit", err);
+        }
     };
 }
 
@@ -142,13 +153,22 @@ function handleInstantUtilitySpecial(
 ): void {
     const currentTick = services.getCurrentTick();
 
-    if (wasInstantUtilitySpecialHandledAtTick(p as unknown as Record<string, number | undefined>, currentTick) || weaponCost === undefined) {
+    if (
+        wasInstantUtilitySpecialHandledAtTick(
+            p as unknown as Record<string, number | undefined>,
+            currentTick,
+        ) ||
+        weaponCost === undefined
+    ) {
         revertSpecialAttack(services, ws, p);
         return;
     }
 
     if (p.specEnergy.getUnits() < (weaponCost ?? 0) || !p.specEnergy.consume(weaponCost ?? 0)) {
-        markInstantUtilitySpecialHandledAtTick(p as unknown as Record<string, number | undefined>, currentTick);
+        markInstantUtilitySpecialHandledAtTick(
+            p as unknown as Record<string, number | undefined>,
+            currentTick,
+        );
         revertSpecialAttack(services, ws, p);
         services.queueChatMessage({
             messageType: "game",
@@ -158,8 +178,14 @@ function handleInstantUtilitySpecial(
         return;
     }
 
-    markInstantUtilitySpecialHandledAtTick(p as unknown as Record<string, number | undefined>, currentTick);
-    applyInstantUtilitySpecialBoost(p, special.kind as "rock_knocker" | "fishstabber" | "lumber_up");
+    markInstantUtilitySpecialHandledAtTick(
+        p as unknown as Record<string, number | undefined>,
+        currentTick,
+    );
+    applyInstantUtilitySpecialBoost(
+        p,
+        special.kind as "rock_knocker" | "fishstabber" | "lumber_up",
+    );
 
     p.specEnergy.setActivated(false);
     p.varps.setVarpValue(VARP_SPECIAL_ATTACK, 0);
@@ -173,7 +199,11 @@ function handleInstantUtilitySpecial(
     );
 }
 
-function revertSpecialAttack(services: MessageHandlerServices, ws: WebSocket, p: PlayerState): void {
+function revertSpecialAttack(
+    services: MessageHandlerServices,
+    ws: WebSocket,
+    p: PlayerState,
+): void {
     p.varps.setVarpValue(VARP_SPECIAL_ATTACK, 0);
     p.specEnergy.setActivated(false);
     services.queueCombatState(p);

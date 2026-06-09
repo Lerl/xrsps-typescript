@@ -1,15 +1,13 @@
 import type { BasType } from "../../../../src/rs/config/bastype/BasType";
-import { PlayerAppearance as CachePlayerAppearance } from "../../../../src/rs/config/player/PlayerAppearance";
-import {
-    EquipmentSlot,
-} from "../../../../src/rs/config/player/Equipment";
 import type { IdkType } from "../../../../src/rs/config/idktype/IdkType";
+import { EquipmentSlot } from "../../../../src/rs/config/player/Equipment";
+import { PlayerAppearance as CachePlayerAppearance } from "../../../../src/rs/config/player/PlayerAppearance";
+import { logger } from "../../utils/logger";
+import type { ServerServices } from "../ServerServices";
 import type { WeaponDataEntry } from "../combat/WeaponDataProvider";
 import { weaponDataEntries } from "../combat/WeaponDataProvider";
+import type { PlayerAppearance as PlayerAppearanceState, PlayerState } from "../player";
 import type { PlayerAnimSet } from "../systems/BroadcastScheduler";
-import type { PlayerState, PlayerAppearance as PlayerAppearanceState } from "../player";
-import type { ServerServices } from "../ServerServices";
-import { logger } from "../../utils/logger";
 
 const EQUIP_SLOT_COUNT = 14;
 
@@ -35,10 +33,7 @@ function buildAnimSetFromBas(bas: BasType | undefined): PlayerAnimSet | undefine
     return set;
 }
 
-function ensureCorePlayerAnimSet(
-    source: PlayerAnimSet,
-    fallback: PlayerAnimSet,
-): PlayerAnimSet {
+function ensureCorePlayerAnimSet(source: PlayerAnimSet, fallback: PlayerAnimSet): PlayerAnimSet {
     const result: PlayerAnimSet = { ...source };
     for (const key of PLAYER_ANIM_KEYS) {
         if (result[key] === undefined || result[key]! < 0) {
@@ -106,9 +101,7 @@ export class AppearanceService {
             if (!anim) continue;
             if (!best) best = anim;
             const prefers =
-                (anim.idle ?? -1) === 808 ||
-                (anim.walk ?? -1) === 819 ||
-                (anim.run ?? -1) === 824;
+                (anim.idle ?? -1) === 808 || (anim.walk ?? -1) === 819 || (anim.run ?? -1) === 824;
             if (prefers) {
                 best = anim;
                 break;
@@ -132,7 +125,11 @@ export class AppearanceService {
         return player.appearance ?? (player.appearance = this.createDefaultAppearance());
     }
 
-    sanitizeHandshakeAppearance(raw: { gender?: number; colors?: number[]; kits?: number[] }): PlayerAppearanceState {
+    sanitizeHandshakeAppearance(raw: {
+        gender?: number;
+        colors?: number[];
+        kits?: number[];
+    }): PlayerAppearanceState {
         const colors = raw.colors?.slice(0, 10);
         const kits = raw.kits?.slice(0, 12);
         return {
@@ -178,7 +175,9 @@ export class AppearanceService {
                         }
                     }
                 }
-            } catch (err) { logger.warn("[appearance] failed to resolve body kit from idk loader", err); }
+            } catch (err) {
+                logger.warn("[appearance] failed to resolve body kit from idk loader", err);
+            }
         }
 
         if (loader && (defaults[0] === -1 || defaults[1] === -1)) {
@@ -195,7 +194,9 @@ export class AppearanceService {
                         defaults[1] = fallback.kits[1] ?? -1;
                     }
                 }
-            } catch (err) { logger.warn("[appearance] failed to resolve fallback body kit", err); }
+            } catch (err) {
+                logger.warn("[appearance] failed to resolve fallback body kit", err);
+            }
         }
 
         this.defaultBodyKitCache.set(key, defaults.slice());
@@ -223,8 +224,8 @@ export class AppearanceService {
         const gender = appearance?.gender === 1 ? 1 : 0;
         const genderFallback =
             gender === 1
-                ? this.defaultPlayerAnimFemale ?? this.defaultPlayerAnim
-                : this.defaultPlayerAnimMale ?? this.defaultPlayerAnim;
+                ? (this.defaultPlayerAnimFemale ?? this.defaultPlayerAnim)
+                : (this.defaultPlayerAnimMale ?? this.defaultPlayerAnim);
 
         const basId = this.guessBasIdForAppearance(appearance);
         if (basId !== undefined) {
@@ -237,9 +238,7 @@ export class AppearanceService {
         return ensureCorePlayerAnimSet(genderFallback, this.defaultPlayerAnim);
     }
 
-    guessBasIdForAppearance(
-        appearance: { gender?: number } | undefined,
-    ): number | undefined {
+    guessBasIdForAppearance(appearance: { gender?: number } | undefined): number | undefined {
         if (!this.services.dataLoaderService.getBasTypeLoader()) return undefined;
         const gender = appearance?.gender === 1 ? 1 : 0;
         return gender === 1 ? 1 : 0;
@@ -254,12 +253,9 @@ export class AppearanceService {
         }
     }
 
-    applyWeaponAnimOverrides(
-        p: PlayerState,
-        animTarget: Record<string, number | undefined>,
-    ): void {
+    applyWeaponAnimOverrides(p: PlayerState, animTarget: Record<string, number | undefined>): void {
         const equip = Array.isArray(p.appearance?.equip) ? p.appearance.equip : undefined;
-        const itemId = Array.isArray(equip) ? equip[EquipmentSlot.WEAPON] ?? -1 : -1;
+        const itemId = Array.isArray(equip) ? (equip[EquipmentSlot.WEAPON] ?? -1) : -1;
         const overrides = this.weaponAnimOverrides.get(itemId);
         if (!overrides) return;
         for (const [key, value] of Object.entries(overrides)) {

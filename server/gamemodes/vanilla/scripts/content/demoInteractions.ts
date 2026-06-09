@@ -1,6 +1,9 @@
 import { type IScriptRegistry, type ScriptServices } from "../../../../src/game/scripts/types";
 
-export function registerDemoInteractionHandlers(registry: IScriptRegistry, _services: ScriptServices): void {
+export function registerDemoInteractionHandlers(
+    registry: IScriptRegistry,
+    _services: ScriptServices,
+): void {
     if (process.env.ENABLE_DEMO_SCRIPTS !== "1") return;
 
     registry.registerNpcScript({

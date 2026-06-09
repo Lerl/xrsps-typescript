@@ -94,8 +94,8 @@ function sanitizeEnumData(data: EnumData): EnumData {
         strValues: Array.isArray((data as any).strValues)
             ? ((data as any).strValues as string[])
             : Array.isArray((data as any).stringValues)
-            ? ((data as any).stringValues as string[])
-            : undefined,
+              ? ((data as any).stringValues as string[])
+              : undefined,
     };
 }
 

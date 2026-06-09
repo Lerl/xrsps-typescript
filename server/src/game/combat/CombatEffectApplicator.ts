@@ -13,8 +13,8 @@
 import { SkillId } from "../../../../src/rs/skill/skills";
 import type { NpcState } from "../npc";
 import type { PlayerState } from "../player";
-import type { HitsplatResult, SpecialAttackEffects } from "./CombatState";
 import { AttackType } from "./AttackType";
+import type { HitsplatResult, SpecialAttackEffects } from "./CombatState";
 import {
     type AttackType as CombatXpAttackType,
     type CombatXpAward,
@@ -174,7 +174,7 @@ export class CombatEffectApplicator {
                 return { style: HITMARK_BLOCK, amount: 0, hpCurrent: current, hpMax: max };
 
             case HitEffectType.Heal: {
-                const healAmount = amount > 0 ? amount : effect.defaultAmount ?? 0;
+                const healAmount = amount > 0 ? amount : (effect.defaultAmount ?? 0);
                 if (healAmount <= 0) {
                     return { style: HITMARK_HEAL, amount: 0, hpCurrent: current, hpMax: max };
                 }
@@ -189,7 +189,7 @@ export class CombatEffectApplicator {
             }
 
             case HitEffectType.Poison: {
-                const potency = amount > 0 ? amount : effect.defaultAmount ?? 1;
+                const potency = amount > 0 ? amount : (effect.defaultAmount ?? 1);
                 npc.inflictPoison(potency, tick, effect.interval ?? DEFAULT_POISON_INTERVAL_TICKS);
                 if (amount <= 0) {
                     return {
@@ -209,7 +209,7 @@ export class CombatEffectApplicator {
             }
 
             case HitEffectType.Venom: {
-                const stage = amount > 0 ? amount : effect.defaultAmount ?? 6;
+                const stage = amount > 0 ? amount : (effect.defaultAmount ?? 6);
                 npc.inflictVenom(
                     stage,
                     tick,
@@ -235,7 +235,7 @@ export class CombatEffectApplicator {
             }
 
             case HitEffectType.Disease: {
-                const potency = amount > 0 ? amount : effect.defaultAmount ?? 1;
+                const potency = amount > 0 ? amount : (effect.defaultAmount ?? 1);
                 npc.inflictDisease(
                     potency,
                     tick,
@@ -261,7 +261,7 @@ export class CombatEffectApplicator {
             }
 
             case HitEffectType.Regeneration: {
-                const healAmount = amount > 0 ? amount : effect.defaultAmount ?? 1;
+                const healAmount = amount > 0 ? amount : (effect.defaultAmount ?? 1);
                 if (healAmount <= 0) {
                     return {
                         style: HITMARK_REGEN,
@@ -339,7 +339,7 @@ export class CombatEffectApplicator {
                 return { style: HITMARK_BLOCK, amount: 0, hpCurrent: current, hpMax: max };
 
             case HitEffectType.Heal: {
-                const healAmount = amount > 0 ? amount : effect.defaultAmount ?? 0;
+                const healAmount = amount > 0 ? amount : (effect.defaultAmount ?? 0);
                 if (healAmount <= 0) {
                     return { style: HITMARK_HEAL, amount: 0, hpCurrent: current, hpMax: max };
                 }

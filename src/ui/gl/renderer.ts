@@ -376,7 +376,20 @@ void main(){
         const u1 = flipX ? 0 : uScale;
         const v0 = flipY ? vScale : 0;
         const v1 = flipY ? 0 : vScale;
-        this.appendTextureQuad(tex, x, y, x + w, y + h, u0, v0, u1, v1, tintStrength, tintColor, alpha);
+        this.appendTextureQuad(
+            tex,
+            x,
+            y,
+            x + w,
+            y + h,
+            u0,
+            v0,
+            u1,
+            v1,
+            tintStrength,
+            tintColor,
+            alpha,
+        );
     }
 
     drawTextureQuads(

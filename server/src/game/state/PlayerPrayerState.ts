@@ -40,10 +40,7 @@ export class PlayerPrayerState {
         if (!changed) return false;
         this.activePrayers = next;
         this.updateHeadIcon();
-        if (
-            this.quickPrayersEnabled &&
-            !this.areSetsEqual(this.quickPrayers, this.activePrayers)
-        ) {
+        if (this.quickPrayersEnabled && !this.areSetsEqual(this.quickPrayers, this.activePrayers)) {
             this.quickPrayersEnabled = false;
         }
         return true;
@@ -130,7 +127,7 @@ export class PlayerPrayerState {
     private setHeadIcon(icon: PrayerHeadIcon | null): void {
         if (this.headIcon === icon) return;
         this.headIcon = icon;
-        const index = icon != null ? PRAYER_HEAD_ICON_IDS[icon] ?? -1 : -1;
+        const index = icon != null ? (PRAYER_HEAD_ICON_IDS[icon] ?? -1) : -1;
         this.deps?.setHeadIconIndex(index);
     }
 }

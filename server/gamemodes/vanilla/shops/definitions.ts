@@ -194,13 +194,13 @@ const ZAFFS_SUPERIOR_STAFFS: ShopDefinition = {
     buyPriceMultiplier: 1,
     sellPriceMultiplier: 0.55,
     stock: [
-        { itemId: 1391, quantity: 5, price: 7000, restockTicks: 100 },   // Battlestaff
-        { itemId: 1379, quantity: 5, price: 15, restockTicks: 100 },     // Staff
-        { itemId: 1389, quantity: 5, price: 200, restockTicks: 200 },    // Magic staff
-        { itemId: 1381, quantity: 2, price: 1500, restockTicks: 1000 },  // Staff of air
-        { itemId: 1383, quantity: 2, price: 1500, restockTicks: 1000 },  // Staff of water
-        { itemId: 1385, quantity: 2, price: 1500, restockTicks: 1000 },  // Staff of earth
-        { itemId: 1387, quantity: 2, price: 1500, restockTicks: 1000 },  // Staff of fire
+        { itemId: 1391, quantity: 5, price: 7000, restockTicks: 100 }, // Battlestaff
+        { itemId: 1379, quantity: 5, price: 15, restockTicks: 100 }, // Staff
+        { itemId: 1389, quantity: 5, price: 200, restockTicks: 200 }, // Magic staff
+        { itemId: 1381, quantity: 2, price: 1500, restockTicks: 1000 }, // Staff of air
+        { itemId: 1383, quantity: 2, price: 1500, restockTicks: 1000 }, // Staff of water
+        { itemId: 1385, quantity: 2, price: 1500, restockTicks: 1000 }, // Staff of earth
+        { itemId: 1387, quantity: 2, price: 1500, restockTicks: 1000 }, // Staff of fire
     ],
 };
 

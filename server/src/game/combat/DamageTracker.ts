@@ -186,9 +186,8 @@ export class DamageTracker {
         const totalDamage = summaries.reduce((sum, s) => sum + s.totalDamage, 0);
 
         // Get NPC-specific loot configuration (gamemode resolver takes priority)
-        const config = this.lootConfigResolver?.(npc.typeId)
-            ?? NPC_LOOT_CONFIGS.get(npc.typeId)
-            ?? { distribution: LootDistribution.HighestDamage };
+        const config = this.lootConfigResolver?.(npc.typeId) ??
+            NPC_LOOT_CONFIGS.get(npc.typeId) ?? { distribution: LootDistribution.HighestDamage };
 
         const eligibleLooters: Player[] = [];
         let primaryLooter: Player | null = null;

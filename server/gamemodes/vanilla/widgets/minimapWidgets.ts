@@ -1,5 +1,9 @@
 import { VARBIT_XPDROPS_ENABLED } from "../../../../src/shared/vars";
-import { type IScriptRegistry, type ScriptServices, DisplayMode } from "../../../src/game/scripts/types";
+import {
+    DisplayMode,
+    type IScriptRegistry,
+    type ScriptServices,
+} from "../../../src/game/scripts/types";
 
 function getXpCounterMountUid(displayMode: number): number {
     // DisplayMode enum:
@@ -32,7 +36,10 @@ const XP_DROPS_ORB_WIDGET_ID = (MINIMAP_WIDGET_GROUP_ID << 16) | XP_DROPS_ORB_CO
  * - OP1: Show/Hide (toggle varbit 4702 + hide/show XP counter mount)
  * - OP2: Setup (open XP drops setup modal 137)
  */
-export function registerMinimapWidgetHandlers(registry: IScriptRegistry, services: ScriptServices): void {
+export function registerMinimapWidgetHandlers(
+    registry: IScriptRegistry,
+    services: ScriptServices,
+): void {
     // Prevent double-toggle when the same click is dispatched through both
     // primary and widget-action paths in the same server tick.
     const lastToggleTickByPlayerId = new Map<number, number>();

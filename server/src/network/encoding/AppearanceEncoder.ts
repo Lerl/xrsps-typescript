@@ -20,8 +20,8 @@
  * 14. final byte
  * 15. custom ammo quantity (signed int)
  */
-import type { PlayerAppearance } from "../../game/player";
 import { EquipmentSlot } from "../../../../src/rs/config/player/Equipment";
+import type { PlayerAppearance } from "../../game/player";
 import { encodeCp1252 } from "./Cp1252";
 import type { PlayerAnimSet, PlayerViewSnapshot } from "./types";
 
@@ -90,13 +90,13 @@ const wireToEquipSlot: Record<number, number> = {
  * Server kits array: 0=head/hair, 1=jaw, 2=torso, 3=arms, 4=hands, 5=legs, 6=feet
  */
 const wireToKitIndex: Record<number, number> = {
-    8: 0,   // hair wire slot → kits[0] (head/hair body part)
-    11: 1,  // jaw wire slot → kits[1] (jaw/beard body part)
-    4: 2,   // body wire slot → kits[2] (torso body part)
-    6: 3,   // arms wire slot → kits[3] (arms body part)
-    9: 4,   // hands wire slot → kits[4] (hands body part)
-    7: 5,   // legs wire slot → kits[5] (legs body part)
-    10: 6,  // feet wire slot → kits[6] (feet body part)
+    8: 0, // hair wire slot → kits[0] (head/hair body part)
+    11: 1, // jaw wire slot → kits[1] (jaw/beard body part)
+    4: 2, // body wire slot → kits[2] (torso body part)
+    6: 3, // arms wire slot → kits[3] (arms body part)
+    9: 4, // hands wire slot → kits[4] (hands body part)
+    7: 5, // legs wire slot → kits[5] (legs body part)
+    10: 6, // feet wire slot → kits[6] (feet body part)
 };
 
 function encodeEquipmentSlot(

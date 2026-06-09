@@ -3,9 +3,9 @@ import {
     SCRIPT_ACCOUNT_SUMMARY_SET_TIME_ID,
     buildAccountSummarySetTimeScriptArgs,
 } from "../../../src/shared/ui/accountSummary";
+import type { ServerServices } from "../game/ServerServices";
 import { getAccountSummaryTimeMinutes } from "../game/accountSummaryTime";
 import type { PlayerState } from "../game/player";
-import type { ServerServices } from "../game/ServerServices";
 
 export class AccountSummaryTracker {
     private readonly lastMinutesByPlayer = new Map<number, number>();
@@ -20,7 +20,9 @@ export class AccountSummaryTracker {
 
     syncPlayer(player: PlayerState, nowMs: number = Date.now(), force: boolean = false): void {
         const playerId = player.id;
-        if (!this.svc.interfaceManager.isWidgetGroupOpenInLedger(playerId, ACCOUNT_SUMMARY_GROUP_ID)) {
+        if (
+            !this.svc.interfaceManager.isWidgetGroupOpenInLedger(playerId, ACCOUNT_SUMMARY_GROUP_ID)
+        ) {
             this.lastMinutesByPlayer.delete(playerId);
             return;
         }

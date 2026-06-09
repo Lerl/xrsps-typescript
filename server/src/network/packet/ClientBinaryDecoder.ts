@@ -4,11 +4,11 @@
  * Replaces JSON.parse for client-to-server messages.
  * Returns the same message format as the JSON protocol for compatibility.
  */
-import { logger } from "../../utils/logger";
 import {
     CLIENT_PACKET_LENGTHS,
     ClientPacketId,
 } from "../../../../src/shared/packets/ClientPacketId";
+import { logger } from "../../utils/logger";
 import type { RoutedMessage } from "../MessageRouter";
 import type { Appearance, TradeActionClientPayload } from "../messages";
 
@@ -400,7 +400,10 @@ export function decodeClientPacket(data: Uint8Array | ArrayBuffer): DecodedClien
             const hasTile = reader.readBoolean();
             const tile = hasTile ? { x: reader.readShort(), y: reader.readShort() } : undefined;
             const plane = reader.readByte() || undefined;
-            const target: Extract<RoutedMessage, { type: "inventory_use_on" }>["payload"]["target"] =
+            const target: Extract<
+                RoutedMessage,
+                { type: "inventory_use_on" }
+            >["payload"]["target"] =
                 kind === "inv"
                     ? {
                           kind,
@@ -663,7 +666,9 @@ function parseDebugPayload(jsonStr: string): Extract<RoutedMessage, { type: "deb
                 varp: parsed.varp,
             };
         }
-    } catch (err) { logger.warn("[decoder] failed to decode client binary packet", err); }
+    } catch (err) {
+        logger.warn("[decoder] failed to decode client binary packet", err);
+    }
 
     return { kind: "raw", raw: jsonStr };
 }

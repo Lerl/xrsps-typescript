@@ -7,7 +7,13 @@
 import { EquipmentSlot } from "../../../../src/rs/config/player/Equipment";
 import type { ItemDefinition } from "../../data/items";
 import type { EquipmentSnapshotEntry, InventoryEntry, PlayerState } from "../player";
-import { DeathType, ItemSourceType, type ItemProtectionResult, type ItemSource, type ValuedItem } from "./types";
+import {
+    DeathType,
+    type ItemProtectionResult,
+    type ItemSource,
+    ItemSourceType,
+    type ValuedItem,
+} from "./types";
 
 /**
  * Item IDs that are always kept on death regardless of other rules
@@ -197,7 +203,7 @@ export class ItemProtectionCalculator {
         // In OSRS, GE price is used if available, falling back to high alch
         // For simplicity, we use high alch which is always server-side
         const highAlchValue = definition.highAlch;
-        const value = highAlchValue > 0 ? highAlchValue : definition.value ?? 0;
+        const value = highAlchValue > 0 ? highAlchValue : (definition.value ?? 0);
 
         return {
             itemId,

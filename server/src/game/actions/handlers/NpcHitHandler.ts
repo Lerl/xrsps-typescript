@@ -10,12 +10,12 @@
  * - playCombatSounds / pickResolvedMagicSound (sound helpers)
  */
 import { logger } from "../../../utils/logger";
-import { getPoweredStaffSpellData } from "../../spells/SpellDataProvider";
-import type { PoweredStaffSpellData } from "../../spells/SpellDataProvider";
 import { AttackType } from "../../combat/AttackType";
 import { HITMARK_DAMAGE } from "../../combat/HitEffects";
 import type { NpcState } from "../../npc";
 import type { PlayerState } from "../../player";
+import { getPoweredStaffSpellData } from "../../spells/SpellDataProvider";
+import type { PoweredStaffSpellData } from "../../spells/SpellDataProvider";
 import type {
     CombatAttackActionData,
     CombatNpcRetaliateActionData,
@@ -205,7 +205,7 @@ export class NpcHitHandler {
                 Number.isFinite(explicitSpellIdRaw) &&
                 explicitSpellIdRaw > 0
                     ? explicitSpellIdRaw
-                    : player.combat.spellId ?? -1;
+                    : (player.combat.spellId ?? -1);
             this.handleMagicNpcEffects(
                 player,
                 npc,
@@ -345,7 +345,9 @@ export class NpcHitHandler {
         const respawnTick = Math.max(tick + RESPAWN_DELAY_TICKS, despawnTick + 1);
         try {
             npc.markDeadUntil(despawnTick, tick);
-        } catch (err) { logger.warn("[combat] failed to mark npc dead", err); }
+        } catch (err) {
+            logger.warn("[combat] failed to mark npc dead", err);
+        }
         const queued = this.services.queueNpcDeath(npc.id, despawnTick, respawnTick, pendingDrops);
         if (!queued) {
             this.services.log(
@@ -497,7 +499,7 @@ export class NpcHitHandler {
         }
 
         // Spot animation
-        const spotId = landed ? impactSpotAnim : splashSpotAnim ?? impactSpotAnim;
+        const spotId = landed ? impactSpotAnim : (splashSpotAnim ?? impactSpotAnim);
         if (spotId !== undefined && spotId >= 0) {
             this.services.enqueueSpotAnimation({
                 tick: hitsplatTick,

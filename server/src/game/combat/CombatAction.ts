@@ -606,14 +606,14 @@ export function walkToAttackRange(
 
             const approachTile =
                 attackRange <= 1
-                    ? findNearestCardinalAttackTileFrom(
+                    ? (findNearestCardinalAttackTileFrom(
                           currentX,
                           currentY,
                           pawnSize,
                           tx,
                           tz,
                           targetSize,
-                      ) ?? { x: targetCenterX, y: targetCenterY }
+                      ) ?? { x: targetCenterX, y: targetCenterY })
                     : { x: targetCenterX, y: targetCenterY };
 
             const nextStep = pathService.findNpcPathStep(
@@ -643,15 +643,16 @@ export function walkToAttackRange(
     const strategy =
         attackRange <= 1
             ? new CardinalAdjacentRouteStrategy(tx, tz, targetSize, targetSize)
-            : pawn instanceof PlayerState && resolvePlayerAttackType(pawn.combat) !== AttackType.Melee
-            ? new RectWithinRangeLineOfSightRouteStrategy(
-                  tx,
-                  tz,
-                  targetSize,
-                  targetSize,
-                  attackRange,
-              )
-            : new RectWithinRangeRouteStrategy(tx, tz, targetSize, targetSize, attackRange);
+            : pawn instanceof PlayerState &&
+                resolvePlayerAttackType(pawn.combat) !== AttackType.Melee
+              ? new RectWithinRangeLineOfSightRouteStrategy(
+                    tx,
+                    tz,
+                    targetSize,
+                    targetSize,
+                    attackRange,
+                )
+              : new RectWithinRangeRouteStrategy(tx, tz, targetSize, targetSize, attackRange);
 
     if (strategy instanceof RectWithinRangeLineOfSightRouteStrategy) {
         strategy.setProjectileRaycast((from, to) => pathService.projectileRaycast(from, to));
@@ -668,7 +669,7 @@ export function walkToAttackRange(
 
     const selectedEnd =
         result.steps.length > 0
-            ? result.end ?? result.steps[result.steps.length - 1]!
+            ? (result.end ?? result.steps[result.steps.length - 1]!)
             : { x: px, y: pz };
     if (!strategy.hasArrived(selectedEnd.x, selectedEnd.y, plane, pawnSize)) {
         return false;

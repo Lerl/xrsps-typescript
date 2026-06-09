@@ -33,7 +33,9 @@
 
 /* features */
 .VPFeature {
-    transition: border-color 0.2s, transform 0.2s !important;
+    transition:
+        border-color 0.2s,
+        transform 0.2s !important;
 }
 
 .VPFeature:hover {

@@ -48,7 +48,14 @@ export function getSmeltingXpWithBonuses(recipe: SmeltingRecipe, equip: EquipArr
 }
 
 export function consumeRingOfForgingCharge(player: PlayerState, services: ScriptServices): void {
-    if (!player.equipment.hasEquippedItem(player.appearance, EquipmentSlot.RING, RING_OF_FORGING_ITEM_ID)) return;
+    if (
+        !player.equipment.hasEquippedItem(
+            player.appearance,
+            EquipmentSlot.RING,
+            RING_OF_FORGING_ITEM_ID,
+        )
+    )
+        return;
     let charges = player.equipment.getCharges(RING_OF_FORGING_ITEM_ID);
     if (charges <= 0) {
         player.equipment.setCharges(RING_OF_FORGING_ITEM_ID, RING_OF_FORGING_MAX_CHARGES);
@@ -76,4 +83,3 @@ export function consumeRingOfForgingCharge(player: PlayerState, services: Script
 export function getRingOfForgingCharges(player: PlayerState): number {
     return player.equipment.getCharges(RING_OF_FORGING_ITEM_ID);
 }
-

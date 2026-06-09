@@ -1,68 +1,73 @@
-import type { GamemodeDefinition, GamemodeInitContext, GamemodeServerServices } from "../../src/game/gamemodes/GamemodeDefinition";
-import type { IScriptRegistry, ScriptServices } from "../../src/game/scripts/types";
-import type { NpcLootConfig } from "../../src/game/combat/DamageTracker";
-import type { PlayerState } from "../../src/game/player";
-import type { BankingProviderServices } from "./banking/BankingProvider";
-
-import { BaseGamemode } from "../../src/game/gamemodes/BaseGamemode";
-import { getProviderRegistry, resetProviderRegistry } from "../../src/game/providers/ProviderRegistry";
-import { getWeaponDataProvider } from "../../src/game/combat/WeaponDataProvider";
 import { createDefaultAmmoDataProvider } from "../../src/game/combat/AmmoSystem";
+import type { NpcLootConfig } from "../../src/game/combat/DamageTracker";
+import { getWeaponDataProvider } from "../../src/game/combat/WeaponDataProvider";
+import { BaseGamemode } from "../../src/game/gamemodes/BaseGamemode";
+import type {
+    GamemodeDefinition,
+    GamemodeInitContext,
+    GamemodeServerServices,
+} from "../../src/game/gamemodes/GamemodeDefinition";
+import type { PlayerState } from "../../src/game/player";
+import {
+    getProviderRegistry,
+    resetProviderRegistry,
+} from "../../src/game/providers/ProviderRegistry";
+import type { IScriptRegistry, ScriptServices } from "../../src/game/scripts/types";
 import { encodeMessage } from "../../src/network/messages";
-
-import { BankingManager, registerBankingHandlers, registerBankInterfaceHooks } from "./banking";
+import { BankingManager, registerBankInterfaceHooks, registerBankingHandlers } from "./banking";
+import type { BankingProviderServices } from "./banking/BankingProvider";
+import "./combat/BossCombatScript";
+import { createCombatFormulaProvider } from "./combat/CombatFormulas";
+import { createCombatStyleSequenceProvider } from "./combat/CombatStyleSequences";
+import { createEquipmentBonusProvider } from "./combat/EquipmentBonuses";
+import { createInstantUtilitySpecialProvider } from "./combat/RockKnockerSpecial";
+import { createSkillConfiguration } from "./combat/SkillConfiguration";
+import { createSpecialAttackProvider } from "./combat/SpecialAttackRegistry";
+import { createSpecialAttackVisualProvider } from "./combat/SpecialAttackVisuals";
+import { createSpellXpProvider } from "./combat/SpellXpData";
+import { DEFAULT_LOGIN_VARBITS } from "./data/loginVarbits";
+import { DEFAULT_LOGIN_VARPS } from "./data/loginVarps";
+import { NPC_LOOT_CONFIGS } from "./data/lootDistribution";
+import { createProjectileParamsProvider } from "./data/projectileParams";
+import { createRuneDataProvider } from "./data/runes";
+import { createSpellDataProvider } from "./data/spells";
+import { createWeaponDataProvider } from "./data/weapons";
+import { registerEquipmentStatsInterfaceHooks } from "./equipment/EquipmentStatsInterfaceHooks";
+import { registerEquipmentHandlers } from "./equipment/equipment";
+import { registerEquipmentWidgetHandlers } from "./equipment/equipmentWidgets";
+import { computeTargetBonusPercentages } from "./equipment/targetBonuses";
+import { registerSmithingBarModalHandler } from "./modals/smithingBarModalHandler";
+import { registerWidgetCloseHandlers } from "./modals/widgetCloseHandlers";
+import { registerWidgetOpenHandlers } from "./modals/widgetOpenHandlers";
+import { registerAlKharidBorderHandlers } from "./scripts/content/alKharidBorder";
+import { registerClimbingHandlers } from "./scripts/content/climbing";
+import { registerDefaultTalkHandlers } from "./scripts/content/defaultTalk";
+import { registerDemoInteractionHandlers } from "./scripts/content/demoInteractions";
+import { registerDoorHandlers } from "./scripts/content/doors";
+import { registerPohPoolHandlers } from "./scripts/content/pohPools";
+import { registerRomeoHandlers } from "./scripts/content/romeo";
+import { registerWildernessAccessHandlers } from "./scripts/content/wildernessAccess";
+import { registerFollowerItemHandlers } from "./scripts/items/followers";
+import { registerPacksHandlers } from "./scripts/items/packs";
+import { handleDismiss, handleResumePauseButton, registerLevelUpHandlers } from "./scripts/levelup";
 import { registerShopInterfaceHooks } from "./shops";
 import { ShopService } from "./shops/ShopService";
 import { registerShopInteractionHandlers } from "./shops/shopInteractions";
 import { registerShopWidgetHandlers } from "./shops/shopWidgets";
 import { registerZaffHandlers } from "./shops/zaff";
-import { registerEquipmentHandlers } from "./equipment/equipment";
-import { registerEquipmentWidgetHandlers } from "./equipment/equipmentWidgets";
-import { registerEquipmentStatsInterfaceHooks } from "./equipment/EquipmentStatsInterfaceHooks";
-import { computeTargetBonusPercentages } from "./equipment/targetBonuses";
-import { createCombatFormulaProvider } from "./combat/CombatFormulas";
-import { createCombatStyleSequenceProvider } from "./combat/CombatStyleSequences";
-import { createEquipmentBonusProvider } from "./combat/EquipmentBonuses";
-import { createSpecialAttackProvider } from "./combat/SpecialAttackRegistry";
-import { createSpecialAttackVisualProvider } from "./combat/SpecialAttackVisuals";
-import { createInstantUtilitySpecialProvider } from "./combat/RockKnockerSpecial";
-import { createSpellXpProvider } from "./combat/SpellXpData";
-import { createSkillConfiguration } from "./combat/SkillConfiguration";
-import { createWeaponDataProvider } from "./data/weapons";
-import { createSpellDataProvider } from "./data/spells";
-import { createRuneDataProvider } from "./data/runes";
-import { createProjectileParamsProvider } from "./data/projectileParams";
-import { DEFAULT_LOGIN_VARBITS } from "./data/loginVarbits";
-import { DEFAULT_LOGIN_VARPS } from "./data/loginVarps";
-import { NPC_LOOT_CONFIGS } from "./data/lootDistribution";
-import { handleSailingPlayerRestore } from "./skills/sailing";
 import { register as registerSkillHandlers } from "./skills";
-import { registerClimbingHandlers } from "./scripts/content/climbing";
-import { registerDoorHandlers } from "./scripts/content/doors";
-import { registerDefaultTalkHandlers } from "./scripts/content/defaultTalk";
-import { registerPohPoolHandlers } from "./scripts/content/pohPools";
-import { registerWildernessAccessHandlers } from "./scripts/content/wildernessAccess";
-import { registerAlKharidBorderHandlers } from "./scripts/content/alKharidBorder";
-import { registerRomeoHandlers } from "./scripts/content/romeo";
-import { registerDemoInteractionHandlers } from "./scripts/content/demoInteractions";
-import { registerFollowerItemHandlers } from "./scripts/items/followers";
-import { registerPacksHandlers } from "./scripts/items/packs";
-import { registerLevelUpHandlers, handleResumePauseButton, handleDismiss } from "./scripts/levelup";
-import { registerCombatWidgetHandlers } from "./widgets/combatWidgets";
-import { registerMinimapWidgetHandlers } from "./widgets/minimapWidgets";
-import { registerPrayerWidgetHandlers } from "./widgets/prayerWidgets";
-import { registerMusicWidgetHandlers } from "./widgets/musicWidgets";
-import { registerEmoteWidgetHandlers } from "./widgets/emoteWidgets";
-import { registerSpellbookWidgetHandlers } from "./widgets/spellbookWidgets";
-import { registerSkillGuideWidgetHandlers } from "./widgets/skillGuideWidgets";
-import { registerSettingsWidgetHandlers } from "./widgets/settingsWidgets";
-import { registerQuestJournalWidgetHandlers } from "./widgets/questJournalWidgets";
+import { handleSailingPlayerRestore } from "./skills/sailing";
 import { registerAccountSummaryWidgetHandlers } from "./widgets/accountSummaryWidgets";
 import { registerCollectionLogWidgetHandlers } from "./widgets/collectionLogWidgets";
-import { registerWidgetCloseHandlers } from "./modals/widgetCloseHandlers";
-import { registerWidgetOpenHandlers } from "./modals/widgetOpenHandlers";
-import { registerSmithingBarModalHandler } from "./modals/smithingBarModalHandler";
-import "./combat/BossCombatScript";
+import { registerCombatWidgetHandlers } from "./widgets/combatWidgets";
+import { registerEmoteWidgetHandlers } from "./widgets/emoteWidgets";
+import { registerMinimapWidgetHandlers } from "./widgets/minimapWidgets";
+import { registerMusicWidgetHandlers } from "./widgets/musicWidgets";
+import { registerPrayerWidgetHandlers } from "./widgets/prayerWidgets";
+import { registerQuestJournalWidgetHandlers } from "./widgets/questJournalWidgets";
+import { registerSettingsWidgetHandlers } from "./widgets/settingsWidgets";
+import { registerSkillGuideWidgetHandlers } from "./widgets/skillGuideWidgets";
+import { registerSpellbookWidgetHandlers } from "./widgets/spellbookWidgets";
 
 export class VanillaGamemode extends BaseGamemode {
     override readonly id = "vanilla";

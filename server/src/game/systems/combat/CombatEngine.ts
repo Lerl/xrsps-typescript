@@ -1,34 +1,38 @@
-import { logger } from "../../../utils/logger";
 import { EquipmentSlot } from "../../../../../src/rs/config/player/Equipment";
 import { SkillId } from "../../../../../src/rs/skill/skills";
-import { XpMode } from "../../combat/WeaponDataProvider";
-import { getCombatStyle } from "../../combat/WeaponDataProvider";
 import { type ItemDefinition, getItemDefinition } from "../../../data/items";
+import { logger } from "../../../utils/logger";
 import {
-    ProjectileParams,
-    buildProjectileParamsFromArchetype,
-    getProjectileParams,
-} from "../../data/ProjectileParamsProvider";
-import {
-    calculatePoweredStaffBaseDamage,
-    getPoweredStaffSpellData,
-    getSpellData,
-} from "../../spells/SpellDataProvider";
-import { BoltEffectType, doesBoltEffectActivate, getEnchantedBoltEffect } from "../../combat/AmmoSystem";
+    BoltEffectType,
+    doesBoltEffectActivate,
+    getEnchantedBoltEffect,
+} from "../../combat/AmmoSystem";
 import { AttackType } from "../../combat/AttackType";
-import { MeleeStyle, MagicStyle, RangedStyle } from "../../combat/CombatXp";
-import type { MeleeStyleMode, RangedStyleMode, MagicStyleMode } from "../../combat/CombatXp";
 import * as CombatFormulas from "../../combat/CombatFormulaProvider";
+import { MagicStyle, MeleeStyle, RangedStyle } from "../../combat/CombatXp";
+import type { MagicStyleMode, MeleeStyleMode, RangedStyleMode } from "../../combat/CombatXp";
 import {
     type SlayerTaskInfo,
     type TargetInfo,
     calculateEquipmentBonuses,
 } from "../../combat/EquipmentBonusProvider";
 import { HITMARK_BLOCK, HITMARK_DAMAGE } from "../../combat/HitEffects";
+import { XpMode } from "../../combat/WeaponDataProvider";
+import { getCombatStyle } from "../../combat/WeaponDataProvider";
+import {
+    ProjectileParams,
+    buildProjectileParamsFromArchetype,
+    getProjectileParams,
+} from "../../data/ProjectileParamsProvider";
 import { type NpcCombatProfile as NpcCombatProfileResolved, NpcState } from "../../npc";
 import type { NpcCombatProfile } from "../../npc";
 import { PlayerState } from "../../player";
 import { PROJECTILE_ARCHETYPES, ProjectileArchetypeName } from "../../projectiles/ProjectileType";
+import {
+    calculatePoweredStaffBaseDamage,
+    getPoweredStaffSpellData,
+    getSpellData,
+} from "../../spells/SpellDataProvider";
 
 type RangedProjectileProfile = {
     archetype: ProjectileArchetypeName;
@@ -219,9 +223,24 @@ const MAGIC_WEAPON_CATEGORIES = new Set<number>([18, 24, 29]);
 const POWERED_STAFF_CATEGORIES = new Set<number>([24]); // POWERED_STAFF (includes Tumeken's Shadow)
 const RANGED_WEAPON_CATEGORIES = new Set<number>([3, 5, 6, 7, 8, 19]);
 const MAGIC_DART_SPELL_ID = 4176;
-const MELEE_STYLE_BY_SLOT: MeleeStyleMode[] = [MeleeStyle.Accurate, MeleeStyle.Aggressive, MeleeStyle.Controlled, MeleeStyle.Defensive];
-const RANGED_STYLE_BY_SLOT: RangedStyleMode[] = [RangedStyle.Accurate, RangedStyle.Rapid, RangedStyle.Longrange, RangedStyle.Longrange];
-const MAGIC_STYLE_BY_SLOT: MagicStyleMode[] = [MagicStyle.Accurate, MagicStyle.Defensive, MagicStyle.Defensive, MagicStyle.Defensive];
+const MELEE_STYLE_BY_SLOT: MeleeStyleMode[] = [
+    MeleeStyle.Accurate,
+    MeleeStyle.Aggressive,
+    MeleeStyle.Controlled,
+    MeleeStyle.Defensive,
+];
+const RANGED_STYLE_BY_SLOT: RangedStyleMode[] = [
+    RangedStyle.Accurate,
+    RangedStyle.Rapid,
+    RangedStyle.Longrange,
+    RangedStyle.Longrange,
+];
+const MAGIC_STYLE_BY_SLOT: MagicStyleMode[] = [
+    MagicStyle.Accurate,
+    MagicStyle.Defensive,
+    MagicStyle.Defensive,
+    MagicStyle.Defensive,
+];
 
 type PrayerStat = "attack" | "strength" | "defence" | "ranged" | "ranged_strength" | "magic";
 
@@ -263,7 +282,6 @@ const PRAYER_BONUS: Record<PrayerStat, Map<string, number>> = {
         ["augury", 1.25],
     ]),
 };
-
 
 type AttackStyle =
     | {
@@ -351,7 +369,9 @@ export class CombatEngine {
         const hp = this.getPlayerHitpoints(context.player);
         const playerMagicLevel = this.getBoostedLevel(context.player, SkillId.Magic);
         const activeSpellId =
-            baseProfile.style.kind === AttackType.Magic ? this.getActiveSpellId(context.player) : undefined;
+            baseProfile.style.kind === AttackType.Magic
+                ? this.getActiveSpellId(context.player)
+                : undefined;
         const equipmentBonuses = calculateEquipmentBonuses(
             equipment,
             baseProfile.style.kind,
@@ -363,7 +383,9 @@ export class CombatEngine {
             activeSpellId,
         );
         const accuracyMultiplierRaw = modifiers?.accuracyMultiplier;
-        const accuracyMultiplier = Number.isFinite(accuracyMultiplierRaw) ? accuracyMultiplierRaw : 1;
+        const accuracyMultiplier = Number.isFinite(accuracyMultiplierRaw)
+            ? accuracyMultiplierRaw
+            : 1;
         const maxHitMultiplierRaw = modifiers?.maxHitMultiplier;
         const maxHitMultiplier = Number.isFinite(maxHitMultiplierRaw) ? maxHitMultiplierRaw : 1;
         let attackRoll = Math.floor(
@@ -374,7 +396,8 @@ export class CombatEngine {
                 Math.max(0, equipmentBonuses.damageMultiplier),
         );
         attackRoll = Math.floor(
-            attackRoll * Math.max(0, typeof accuracyMultiplier === "number" ? accuracyMultiplier : 1),
+            attackRoll *
+                Math.max(0, typeof accuracyMultiplier === "number" ? accuracyMultiplier : 1),
         );
         maxHit = Math.floor(
             maxHit * Math.max(0, typeof maxHitMultiplier === "number" ? maxHitMultiplier : 1),
@@ -595,7 +618,9 @@ export class CombatEngine {
                     return overrideBlock;
                 }
             }
-        } catch (err) { logger.warn("[combat-engine] failed to resolve block animation", err); }
+        } catch (err) {
+            logger.warn("[combat-engine] failed to resolve block animation", err);
+        }
         return -1;
     }
 
@@ -651,7 +676,7 @@ export class CombatEngine {
      */
     private isThrownWeapon(weaponId: number | undefined): boolean {
         if (!weaponId || weaponId <= 0) return false;
-        // Complete list of thrown weapon IDs for 
+        // Complete list of thrown weapon IDs for
         const thrownWeapons = new Set([
             // Darts (bronze through amethyst)
             806, 807, 808, 809, 810, 811, 3093, 11230, 25849,
@@ -1251,9 +1276,9 @@ export class CombatEngine {
                 autocastMode === "defensive_autocast"
                     ? MagicStyle.Defensive
                     : autocastEnabled
-                    ? MAGIC_STYLE_BY_SLOT[Math.min(styleSlot, MAGIC_STYLE_BY_SLOT.length - 1)] ??
-                      MagicStyle.Accurate
-                    : MagicStyle.Accurate;
+                      ? (MAGIC_STYLE_BY_SLOT[Math.min(styleSlot, MAGIC_STYLE_BY_SLOT.length - 1)] ??
+                        MagicStyle.Accurate)
+                      : MagicStyle.Accurate;
             return { kind: AttackType.Magic, mode, bonusIndex: AttackBonusIndex.Magic };
         }
         if (mappedAttackType === AttackType.Ranged) {
@@ -1269,7 +1294,9 @@ export class CombatEngine {
             if (autocastEnabled && hasCombatSpell) {
                 const autocastMode = player.combat.autocastMode;
                 const mode: MagicStyleMode =
-                    autocastMode === "defensive_autocast" ? MagicStyle.Defensive : MagicStyle.Accurate;
+                    autocastMode === "defensive_autocast"
+                        ? MagicStyle.Defensive
+                        : MagicStyle.Accurate;
                 return { kind: AttackType.Magic, mode, bonusIndex: AttackBonusIndex.Magic };
             }
             // Use weapon-specific style data for correct XP mode
@@ -1288,14 +1315,17 @@ export class CombatEngine {
             if (POWERED_STAFF_CATEGORIES.has(category)) {
                 // Map style slot to magic mode for powered staves
                 // Style 0 = Accurate, Style 1 = Accurate, Style 2 = Longrange (defensive)
-                const mode: MagicStyleMode = styleSlot === 2 ? MagicStyle.Defensive : MagicStyle.Accurate;
+                const mode: MagicStyleMode =
+                    styleSlot === 2 ? MagicStyle.Defensive : MagicStyle.Accurate;
                 return { kind: AttackType.Magic, mode, bonusIndex: AttackBonusIndex.Magic };
             }
             // Only use magic if autocast is enabled with a valid spell
             if (autocastEnabled && hasCombatSpell) {
                 const autocastMode = player.combat.autocastMode;
                 const mode: MagicStyleMode =
-                    autocastMode === "defensive_autocast" ? MagicStyle.Defensive : MagicStyle.Accurate;
+                    autocastMode === "defensive_autocast"
+                        ? MagicStyle.Defensive
+                        : MagicStyle.Accurate;
                 return { kind: AttackType.Magic, mode, bonusIndex: AttackBonusIndex.Magic };
             }
             // Autocast disabled or no spell selected - fall through to melee (e.g., "pound" style)
@@ -1342,7 +1372,8 @@ export class CombatEngine {
         }
         // Fallback to generic mapping for unarmed or unknown weapons
         return (
-            MELEE_STYLE_BY_SLOT[Math.min(styleSlot, MELEE_STYLE_BY_SLOT.length - 1)] ?? MeleeStyle.Accurate
+            MELEE_STYLE_BY_SLOT[Math.min(styleSlot, MELEE_STYLE_BY_SLOT.length - 1)] ??
+            MeleeStyle.Accurate
         );
     }
 

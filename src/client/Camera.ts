@@ -296,7 +296,7 @@ export class Camera {
 
     getYaw(): number {
         // Return normalized yaw in RS units [0, 2048) as integer for debug/UI
-        return ((this.yaw % 2048) + 2048) % 2048 & 2047;
+        return (((this.yaw % 2048) + 2048) % 2048) & 2047;
     }
 
     setYaw(yaw: number): void {

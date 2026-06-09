@@ -1,5 +1,5 @@
-import { type IScriptRegistry, type ScriptServices } from "../../../src/game/scripts/types";
 import type { PlayerState } from "../../../src/game/player";
+import { type IScriptRegistry, type ScriptServices } from "../../../src/game/scripts/types";
 
 const AUBURY_NPC_TYPE_IDS = [2886, 11434];
 const COMBAT_PATH_VOUCHER_ITEM_ID = 24131;
@@ -82,7 +82,13 @@ function openAuburyStandardOptions(
                                     "Only people who have mastered a skill and reached level 99 can get their hands on them and gain the benefits they carry.",
                                     "The Cape of Runecrafting has been upgraded with each talisman, allowing you to access all Runecrafting altars. Is there anything else I can help you with?",
                                 ],
-                                () => openAuburyStandardOptions(player, services, npcTypeId, canTeleport),
+                                () =>
+                                    openAuburyStandardOptions(
+                                        player,
+                                        services,
+                                        npcTypeId,
+                                        canTeleport,
+                                    ),
                             );
                             break;
                         case "I'd like to view your store please.":
@@ -91,22 +97,54 @@ function openAuburyStandardOptions(
                             break;
                         case "No thank you.":
                         case "Oh, it's a rune shop. No thank you, then.":
-                            openPlayerDialog(player, services, `${dialogBaseId}_no_thanks`, [selected], () => {
-                                openNpcDialog(player, services, `${dialogBaseId}_send_others`, auburyDialogNpcId, "Aubury", [
-                                    "Well, if you find someone who does want runes, please send them my way.",
-                                ]);
-                            });
+                            openPlayerDialog(
+                                player,
+                                services,
+                                `${dialogBaseId}_no_thanks`,
+                                [selected],
+                                () => {
+                                    openNpcDialog(
+                                        player,
+                                        services,
+                                        `${dialogBaseId}_send_others`,
+                                        auburyDialogNpcId,
+                                        "Aubury",
+                                        [
+                                            "Well, if you find someone who does want runes, please send them my way.",
+                                        ],
+                                    );
+                                },
+                            );
                             break;
                         case "Can you teleport me to the Rune Essence?":
-                            openNpcDialog(player, services, `${dialogBaseId}_teleport_offer`, auburyDialogNpcId, "Aubury", [
-                                "Of course. By the way, if you end up making any runes from the essence you mine, I'll happily buy them from you.",
-                            ], () => {
-                                openNpcDialog(player, services, `${dialogBaseId}_teleport_spell`, auburyDialogNpcId, "Aubury", [
-                                    "Senventior Disthine Molenko!",
-                                ], () => {
-                                    services.movement.teleportPlayer(player, RUNE_ESSENCE_TELEPORT.x, RUNE_ESSENCE_TELEPORT.y, RUNE_ESSENCE_TELEPORT.level);
-                                });
-                            });
+                            openNpcDialog(
+                                player,
+                                services,
+                                `${dialogBaseId}_teleport_offer`,
+                                auburyDialogNpcId,
+                                "Aubury",
+                                [
+                                    "Of course. By the way, if you end up making any runes from the essence you mine, I'll happily buy them from you.",
+                                ],
+                                () => {
+                                    openNpcDialog(
+                                        player,
+                                        services,
+                                        `${dialogBaseId}_teleport_spell`,
+                                        auburyDialogNpcId,
+                                        "Aubury",
+                                        ["Senventior Disthine Molenko!"],
+                                        () => {
+                                            services.movement.teleportPlayer(
+                                                player,
+                                                RUNE_ESSENCE_TELEPORT.x,
+                                                RUNE_ESSENCE_TELEPORT.y,
+                                                RUNE_ESSENCE_TELEPORT.level,
+                                            );
+                                        },
+                                    );
+                                },
+                            );
                             break;
                         default:
                             openAuburyStandardOptions(player, services, npcTypeId, canTeleport);
@@ -136,7 +174,10 @@ function openPlayerDialog(
     });
 }
 
-export function registerShopInteractionHandlers(registry: IScriptRegistry, services: ScriptServices): void {
+export function registerShopInteractionHandlers(
+    registry: IScriptRegistry,
+    services: ScriptServices,
+): void {
     registry.registerActionHandler("npc.trade", ({ player, data, services }) => {
         const tradeData = data as { npcTypeId?: number; shopId?: string };
         services.shopping?.openShop?.(player, tradeData);
@@ -173,12 +214,19 @@ export function registerShopInteractionHandlers(registry: IScriptRegistry, servi
     });
 
     for (const auburyNpcTypeId of AUBURY_NPC_TYPE_IDS) {
-        const auburyHandler = ({ player, services }: { player: PlayerState; services: ScriptServices }) => {
+        const auburyHandler = ({
+            player,
+            services,
+        }: {
+            player: PlayerState;
+            services: ScriptServices;
+        }) => {
             const auburyDialogNpcId = 2886; // actual Aubury head model for dialog
             const hasVoucher = player.items.hasItem(COMBAT_PATH_VOUCHER_ITEM_ID);
             const claims = player.varps.getVarpValue(COMBAT_PATH_REWARD_VARP);
             const claimedCombatRewards = claims >= 1;
-            const hasRuneMysteries = player.varps.getVarpValue(RUNE_MYSTERIES_VARP) >= RUNE_MYSTERIES_COMPLETE_VALUE;
+            const hasRuneMysteries =
+                player.varps.getVarpValue(RUNE_MYSTERIES_VARP) >= RUNE_MYSTERIES_COMPLETE_VALUE;
             const isMembersWorld = false; // TODO: adapt to world type if available
 
             const continueToStandard = () =>
@@ -193,10 +241,17 @@ export function registerShopInteractionHandlers(registry: IScriptRegistry, servi
                     "Aubury",
                     ["Why yes, here are some air and mind runes."],
                     () => {
-                        const airResult = player.items.addItem(556, 200, { assureFullInsertion: false });
-                        const mindResult = player.items.addItem(558, 200, { assureFullInsertion: false });
+                        const airResult = player.items.addItem(556, 200, {
+                            assureFullInsertion: false,
+                        });
+                        const mindResult = player.items.addItem(558, 200, {
+                            assureFullInsertion: false,
+                        });
                         if (airResult.completed < 200 || mindResult.completed < 200) {
-                            services.messaging.sendGameMessage(player, "Not enough inventory space for the reward items.");
+                            services.messaging.sendGameMessage(
+                                player,
+                                "Not enough inventory space for the reward items.",
+                            );
                         }
                         player.varps.setVarpValue(COMBAT_PATH_REWARD_VARP, 1);
 

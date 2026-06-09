@@ -3,34 +3,33 @@
  * The only remaining function — all service factory functions have been
  * migrated to use ServerServices directly.
  */
-
-import { logger } from "../utils/logger";
-import {
-    VARBIT_SIDE_JOURNAL_TAB,
-    VARP_SIDE_JOURNAL_STATE,
-    VARP_OPTION_RUN,
-    VARP_SPECIAL_ATTACK,
-    VARP_ATTACK_STYLE,
-    VARP_AUTO_RETALIATE,
-    VARP_MAP_FLAGS_CACHED,
-} from "../../../src/shared/vars";
 import { EquipmentSlot } from "../../../src/rs/config/player/Equipment";
 import {
     SIDE_JOURNAL_CONTENT_GROUP_BY_TAB,
     SIDE_JOURNAL_TAB_CONTAINER_UID,
 } from "../../../src/shared/ui/sideJournal";
-import { encodeMessage } from "./messages";
-import { registerAllHandlers, type BinaryHandlerExtServices } from "./handlers";
 import {
-    resolveNpcOptionByOpNum,
-    resolveLocActionByOpNum,
-    resolveGroundItemOptionByOpNum,
-} from "./handlers/examineHandler";
-import type { PlayerState } from "../game/player";
-import type { NpcSpawnConfig } from "../game/npc";
-import type { MessageRouter } from "./MessageRouter";
-import type { WidgetAction } from "../widgets/WidgetManager";
+    VARBIT_SIDE_JOURNAL_TAB,
+    VARP_ATTACK_STYLE,
+    VARP_AUTO_RETALIATE,
+    VARP_MAP_FLAGS_CACHED,
+    VARP_OPTION_RUN,
+    VARP_SIDE_JOURNAL_STATE,
+    VARP_SPECIAL_ATTACK,
+} from "../../../src/shared/vars";
 import type { ServerServices } from "../game/ServerServices";
+import type { NpcSpawnConfig } from "../game/npc";
+import type { PlayerState } from "../game/player";
+import { logger } from "../utils/logger";
+import type { WidgetAction } from "../widgets/WidgetManager";
+import type { MessageRouter } from "./MessageRouter";
+import { type BinaryHandlerExtServices, registerAllHandlers } from "./handlers";
+import {
+    resolveGroundItemOptionByOpNum,
+    resolveLocActionByOpNum,
+    resolveNpcOptionByOpNum,
+} from "./handlers/examineHandler";
+import { encodeMessage } from "./messages";
 
 export function registerMessageHandlers(svc: ServerServices, router: MessageRouter): void {
     // Register extracted handlers from MessageHandlers.ts
@@ -51,7 +50,8 @@ export function registerMessageHandlers(svc: ServerServices, router: MessageRout
         },
 
         // Movement
-        setPendingWalkCommand: (ws, command) => svc.movementService.getPendingWalkCommands().set(ws, command),
+        setPendingWalkCommand: (ws, command) =>
+            svc.movementService.getPendingWalkCommands().set(ws, command),
         clearPendingWalkCommand: (ws) => svc.movementService.getPendingWalkCommands().delete(ws),
         clearActionsInGroup: (playerId, group) =>
             svc.actionScheduler.clearActionsInGroup(playerId, group),
@@ -60,23 +60,74 @@ export function registerMessageHandlers(svc: ServerServices, router: MessageRout
             svc.movementService.teleportPlayer(player, x, y, level, forceRebuild),
         teleportToInstance: (player, x, y, level, templateChunks, extraLocs) =>
             svc.movementService.teleportToInstance(player, x, y, level, templateChunks, extraLocs),
-        teleportToWorldEntity: (player, x, y, level, entityIndex, configId, sizeX, sizeZ, templateChunks, buildAreas, extraLocs) =>
-            svc.worldEntityService.teleportToWorldEntity(player, x, y, level, entityIndex, configId, sizeX, sizeZ, templateChunks, buildAreas, extraLocs),
-        sendWorldEntity: (player, entityIndex, configId, sizeX, sizeZ, templateChunks, buildAreas, extraLocs, extraNpcs, drawMode) =>
-            svc.worldEntityService.sendWorldEntity(player, entityIndex, configId, sizeX, sizeZ, templateChunks, buildAreas, extraLocs, extraNpcs, drawMode),
+        teleportToWorldEntity: (
+            player,
+            x,
+            y,
+            level,
+            entityIndex,
+            configId,
+            sizeX,
+            sizeZ,
+            templateChunks,
+            buildAreas,
+            extraLocs,
+        ) =>
+            svc.worldEntityService.teleportToWorldEntity(
+                player,
+                x,
+                y,
+                level,
+                entityIndex,
+                configId,
+                sizeX,
+                sizeZ,
+                templateChunks,
+                buildAreas,
+                extraLocs,
+            ),
+        sendWorldEntity: (
+            player,
+            entityIndex,
+            configId,
+            sizeX,
+            sizeZ,
+            templateChunks,
+            buildAreas,
+            extraLocs,
+            extraNpcs,
+            drawMode,
+        ) =>
+            svc.worldEntityService.sendWorldEntity(
+                player,
+                entityIndex,
+                configId,
+                sizeX,
+                sizeZ,
+                templateChunks,
+                buildAreas,
+                extraLocs,
+                extraNpcs,
+                drawMode,
+            ),
         spawnLocForPlayer: (player, locId, tile, level, shape, rotation) =>
             svc.locationService.spawnLocForPlayer(player, locId, tile, level, shape, rotation),
         spawnNpc: (config: NpcSpawnConfig) => svc.npcManager?.spawnTransientNpc(config),
         initSailingInstance: (player) => svc.sailingInstanceManager?.initInstance(player),
         disposeSailingInstance: (player) => svc.sailingInstanceManager?.disposeInstance(player),
-        removeWorldEntity: (playerId, entityIndex) => svc.worldEntityInfoEncoder.removeEntity(playerId, entityIndex),
-        queueWorldEntityPosition: (playerId, entityIndex, position) => svc.worldEntityInfoEncoder.queuePosition(playerId, entityIndex, position),
-        setWorldEntityPosition: (playerId, entityIndex, position) => svc.worldEntityInfoEncoder.setPosition(playerId, entityIndex, position),
-        queueWorldEntityMask: (playerId, entityIndex, mask) => svc.worldEntityInfoEncoder.queueMaskUpdate(playerId, entityIndex, mask),
+        removeWorldEntity: (playerId, entityIndex) =>
+            svc.worldEntityInfoEncoder.removeEntity(playerId, entityIndex),
+        queueWorldEntityPosition: (playerId, entityIndex, position) =>
+            svc.worldEntityInfoEncoder.queuePosition(playerId, entityIndex, position),
+        setWorldEntityPosition: (playerId, entityIndex, position) =>
+            svc.worldEntityInfoEncoder.setPosition(playerId, entityIndex, position),
+        queueWorldEntityMask: (playerId, entityIndex, mask) =>
+            svc.worldEntityInfoEncoder.queueMaskUpdate(playerId, entityIndex, mask),
         buildSailingDockedCollision: () => svc.sailingInstanceManager?.buildDockedCollision(),
         applySailingDeckCollision: () => svc.sailingInstanceManager?.buildDockedCollision(),
         clearSailingDeckCollision: () => svc.sailingInstanceManager?.clearDockedCollision(),
-        requestTeleportAction: (player, request) => svc.movementService.requestTeleportAction(player, request),
+        requestTeleportAction: (player, request) =>
+            svc.movementService.requestTeleportAction(player, request),
 
         // Combat/NPC
         getNpcById: (npcId) => svc.npcManager?.getById(npcId),
@@ -111,15 +162,10 @@ export function registerMessageHandlers(svc: ServerServices, router: MessageRout
             ) {
                 return;
             }
-            svc.spellActionHandler!.handleSpellCastMessage(
-                ws,
-                player,
-                payload,
-                targetType,
-                tick,
-            );
+            svc.spellActionHandler!.handleSpellCastMessage(ws, player, payload, targetType, tick);
         },
-        handleSpellCastOnItem: (ws, payload) => svc.spellCastingService!.handleSpellCastOnItem(ws, payload),
+        handleSpellCastOnItem: (ws, payload) =>
+            svc.spellCastingService!.handleSpellCastOnItem(ws, payload),
 
         // Widget/Interface
         handleIfButtonD: () => {},
@@ -130,8 +176,7 @@ export function registerMessageHandlers(svc: ServerServices, router: MessageRout
         },
         openModal: (player, interfaceId, data) =>
             svc.interfaceService?.openModal(player, interfaceId, data),
-        openIndexedMenu: (player, request) =>
-            svc.cs2ModalManager!.openIndexedMenu(player, request),
+        openIndexedMenu: (player, request) => svc.cs2ModalManager!.openIndexedMenu(player, request),
         openSubInterface: (player, targetUid, groupId, type = 0, opts) => {
             if (type === 0 || type === 1) {
                 const modal = opts?.modal ?? type === 0;
@@ -165,12 +210,18 @@ export function registerMessageHandlers(svc: ServerServices, router: MessageRout
             });
         },
         openDialog: (player, request) =>
-            svc.widgetDialogHandler!.openDialog(player, request as import("../game/actions/handlers/WidgetDialogHandler").ScriptDialogRequest),
-        queueWidgetEvent: (playerId, event) => svc.queueWidgetEvent(playerId, event as WidgetAction),
+            svc.widgetDialogHandler!.openDialog(
+                player,
+                request as import("../game/actions/handlers/WidgetDialogHandler").ScriptDialogRequest,
+            ),
+        queueWidgetEvent: (playerId, event) =>
+            svc.queueWidgetEvent(playerId, event as WidgetAction),
         queueClientScript: (playerId, scriptId, ...args) =>
             svc.broadcastService.queueClientScript(playerId, scriptId, ...args),
-        queueVarp: (playerId, varpId, value) => svc.variableService.queueVarp(playerId, varpId, value),
-        queueVarbit: (playerId, varbitId, value) => svc.variableService.queueVarbit(playerId, varbitId, value),
+        queueVarp: (playerId, varpId, value) =>
+            svc.variableService.queueVarp(playerId, varpId, value),
+        queueVarbit: (playerId, varbitId, value) =>
+            svc.variableService.queueVarbit(playerId, varbitId, value),
         queueNotification: (playerId, notification) =>
             svc.messagingService.queueNotification(playerId, notification),
         sendGameMessage: (player, text) => {
@@ -181,12 +232,15 @@ export function registerMessageHandlers(svc: ServerServices, router: MessageRout
             });
         },
         sendSound: (player, soundId, opts) => svc.soundService.sendSound(player, soundId, opts),
-        sendVarp: (player, varpId, value) => svc.variableService.queueVarp(player.id, varpId, value),
-        sendVarbit: (player, varbitId, value) => svc.variableService.queueVarbit(player.id, varbitId, value),
+        sendVarp: (player, varpId, value) =>
+            svc.variableService.queueVarp(player.id, varpId, value),
+        sendVarbit: (player, varbitId, value) =>
+            svc.variableService.queueVarbit(player.id, varbitId, value),
         trackCollectionLogItem: (player, itemId) =>
             svc.collectionLogService.trackCollectionLogItem(player, itemId),
         sendRunEnergyState: (ws, player) => svc.movementService.sendRunEnergyState(ws, player),
-        getWeaponSpecialCostPercent: (weaponId) => svc.combatDataService.getWeaponSpecialCostPercent(weaponId),
+        getWeaponSpecialCostPercent: (weaponId) =>
+            svc.combatDataService.getWeaponSpecialCostPercent(weaponId),
         queueCombatState: (player) => svc.queueCombatState(player),
         ensureEquipArray: (player) => svc.equipmentService.ensureEquipArray(player),
         gamemodeServices: svc.gamemode.getGamemodeServices?.() ?? {},
@@ -195,12 +249,22 @@ export function registerMessageHandlers(svc: ServerServices, router: MessageRout
         queueChatMessage: (msg) => svc.messagingService.queueChatMessage(msg),
         getPublicChatPlayerType: (player) => svc.authService.getPublicChatPlayerType(player),
         eventBus: svc.eventBus,
-        findScriptCommand: (name) => svc.scriptRegistry.findCommand(name) as ((event: { player: PlayerState; command: string; args: string[]; tick: number; services: Record<string, unknown> }) => string | void | Promise<string | void>) | undefined,
+        findScriptCommand: (name) =>
+            svc.scriptRegistry.findCommand(name) as
+                | ((event: {
+                      player: PlayerState;
+                      command: string;
+                      args: string[];
+                      tick: number;
+                      services: Record<string, unknown>;
+                  }) => string | void | Promise<string | void>)
+                | undefined,
         getCurrentTick: () => svc.ticker.currentTick(),
 
         // Debug
         broadcast: (message, context) => svc.broadcastService.broadcast(message, context),
-        sendWithGuard: (ws, message, context) => svc.networkLayer.sendWithGuard(ws, message, context),
+        sendWithGuard: (ws, message, context) =>
+            svc.networkLayer.sendWithGuard(ws, message, context),
         sendAdminResponse: (ws, message, context) =>
             svc.networkLayer.sendAdminResponse(ws, message, context),
         withDirectSendBypass: (context, fn) => svc.networkLayer.withDirectSendBypass(context, fn),
@@ -225,23 +289,27 @@ export function registerMessageHandlers(svc: ServerServices, router: MessageRout
             VARBIT_SIDE_JOURNAL_TAB,
         }),
         getSideJournalConstants: () => ({
-            SIDE_JOURNAL_CONTENT_GROUP_BY_TAB: Object.values(
-                SIDE_JOURNAL_CONTENT_GROUP_BY_TAB,
-            ),
+            SIDE_JOURNAL_CONTENT_GROUP_BY_TAB: Object.values(SIDE_JOURNAL_CONTENT_GROUP_BY_TAB),
             SIDE_JOURNAL_TAB_CONTAINER_UID,
         }),
 
         // --- Services for extracted handlers (logout, widget, varp_transmit, if_close) ---
-        completeLogout: (ws, player, source) => svc.loginHandshakeService.completeLogout(ws, player, source),
-        closeInterruptibleInterfaces: (player) => svc.interfaceManager.closeInterruptibleInterfaces(player),
-        noteWidgetEventForLedger: (playerId, event) => svc.interfaceManager.noteWidgetEventForLedger(playerId, event),
+        completeLogout: (ws, player, source) =>
+            svc.loginHandshakeService.completeLogout(ws, player, source),
+        closeInterruptibleInterfaces: (player) =>
+            svc.interfaceManager.closeInterruptibleInterfaces(player),
+        noteWidgetEventForLedger: (playerId, event) =>
+            svc.interfaceManager.noteWidgetEventForLedger(playerId, event),
         normalizeSideJournalState: (player, value?) =>
             svc.gamemodeUi.normalizeSideJournalState(player, value),
         queueSideJournalGamemodeUi: (player) => svc.gamemodeUi.applySideJournalUi(player),
         syncMusicInterface: (player) => svc.soundManager!.syncMusicInterfaceForPlayer(player),
-        getWidgetOpenHandler: (groupId) => svc.scriptRuntime.getServices().widgetOpenHandlers?.get(groupId),
-        handleCs2ModalCloseState: (player, groupId) => svc.cs2ModalManager!.handleWidgetCloseState(player, groupId),
-        handleDialogCloseState: (player, groupId) => svc.widgetDialogHandler!.handleWidgetCloseState(player, groupId),
+        getWidgetOpenHandler: (groupId) =>
+            svc.scriptRuntime.getServices().widgetOpenHandlers?.get(groupId),
+        handleCs2ModalCloseState: (player, groupId) =>
+            svc.cs2ModalManager!.handleWidgetCloseState(player, groupId),
+        handleDialogCloseState: (player, groupId) =>
+            svc.widgetDialogHandler!.handleWidgetCloseState(player, groupId),
         getInterfaceService: () => svc.interfaceService,
         getGamemodeUi: () => svc.gamemodeUi,
         getGamemode: () => svc.gamemode,
@@ -249,7 +317,8 @@ export function registerMessageHandlers(svc: ServerServices, router: MessageRout
         // --- Services for binary message handlers ---
         resolveGroundItemOptionByOpNum: (itemId, opNum) =>
             resolveGroundItemOptionByOpNum((id) => svc.objTypeLoader?.load(id), itemId, opNum),
-        handleGroundItemAction: (ws, payload) => svc.inventoryMessageService!.handleGroundItemAction(ws, payload),
+        handleGroundItemAction: (ws, payload) =>
+            svc.inventoryMessageService!.handleGroundItemAction(ws, payload),
         getScriptRegistry: () => svc.scriptRegistry,
         getScriptRuntime: () => svc.scriptRuntime,
         getCs2ModalManager: () => svc.cs2ModalManager!,
@@ -283,10 +352,10 @@ export function registerMessageHandlers(svc: ServerServices, router: MessageRout
             }
             // Also clear the interaction system's internal state map
             svc.players?.clearAllInteractions(ctx.ws);
-        } catch (err) { logger.warn("Failed to handle interact_stop message", err); }
+        } catch (err) {
+            logger.warn("Failed to handle interact_stop message", err);
+        }
     });
-
 
     // More handlers will be added incrementally...
 }
-

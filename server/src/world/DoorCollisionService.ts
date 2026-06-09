@@ -2,7 +2,6 @@
  * Handles wall collision flag operations for doors.
  * Updates the CollisionOverlayStore when doors open/close.
  */
-
 import { CollisionFlag } from "../pathfinding/legacy/pathfinder/flag/CollisionFlag";
 import { CollisionOverlayStore } from "./CollisionOverlayStore";
 
@@ -40,7 +39,8 @@ interface WallFlagInfo {
 }
 
 const WALL_FLAGS: Record<number, WallFlagInfo> = {
-    0: { // West wall
+    0: {
+        // West wall
         self: CollisionFlag.WALL_WEST,
         neighbor: CollisionFlag.WALL_EAST,
         selfProj: CollisionFlag.WALL_WEST_PROJECTILE_BLOCKER,
@@ -48,7 +48,8 @@ const WALL_FLAGS: Record<number, WallFlagInfo> = {
         dx: -1,
         dy: 0,
     },
-    1: { // North wall
+    1: {
+        // North wall
         self: CollisionFlag.WALL_NORTH,
         neighbor: CollisionFlag.WALL_SOUTH,
         selfProj: CollisionFlag.WALL_NORTH_PROJECTILE_BLOCKER,
@@ -56,7 +57,8 @@ const WALL_FLAGS: Record<number, WallFlagInfo> = {
         dx: 0,
         dy: 1,
     },
-    2: { // East wall
+    2: {
+        // East wall
         self: CollisionFlag.WALL_EAST,
         neighbor: CollisionFlag.WALL_WEST,
         selfProj: CollisionFlag.WALL_EAST_PROJECTILE_BLOCKER,
@@ -64,7 +66,8 @@ const WALL_FLAGS: Record<number, WallFlagInfo> = {
         dx: 1,
         dy: 0,
     },
-    3: { // South wall
+    3: {
+        // South wall
         self: CollisionFlag.WALL_SOUTH,
         neighbor: CollisionFlag.WALL_NORTH,
         selfProj: CollisionFlag.WALL_SOUTH_PROJECTILE_BLOCKER,
@@ -79,19 +82,23 @@ const WALL_FLAGS: Record<number, WallFlagInfo> = {
  * These affect two adjacent edges.
  */
 const WALL_CORNER_FLAGS: Record<number, { flags: number; projFlags: number }> = {
-    0: { // NW corner
+    0: {
+        // NW corner
         flags: CollisionFlag.WALL_NORTH_WEST,
         projFlags: CollisionFlag.WALL_NORTH_WEST_PROJECTILE_BLOCKER,
     },
-    1: { // NE corner
+    1: {
+        // NE corner
         flags: CollisionFlag.WALL_NORTH_EAST,
         projFlags: CollisionFlag.WALL_NORTH_EAST_PROJECTILE_BLOCKER,
     },
-    2: { // SE corner
+    2: {
+        // SE corner
         flags: CollisionFlag.WALL_SOUTH_EAST,
         projFlags: CollisionFlag.WALL_SOUTH_EAST_PROJECTILE_BLOCKER,
     },
-    3: { // SW corner
+    3: {
+        // SW corner
         flags: CollisionFlag.WALL_SOUTH_WEST,
         projFlags: CollisionFlag.WALL_SOUTH_WEST_PROJECTILE_BLOCKER,
     },
@@ -110,7 +117,7 @@ export class DoorCollisionService {
         level: number,
         rotation: number,
         locType: LocModelTypeValue,
-        blocksProjectile: boolean
+        blocksProjectile: boolean,
     ): void {
         const rot = rotation & 3;
 
@@ -157,7 +164,7 @@ export class DoorCollisionService {
         level: number,
         rotation: number,
         locType: LocModelTypeValue,
-        blocksProjectile: boolean
+        blocksProjectile: boolean,
     ): void {
         const rot = rotation & 3;
 
@@ -193,7 +200,13 @@ export class DoorCollisionService {
     // === Wall Corner (Type 2) ===
     // Blocks diagonal movement through a corner
 
-    private removeWallCornerCollision(x: number, y: number, level: number, rotation: number, blocksProjectile: boolean): void {
+    private removeWallCornerCollision(
+        x: number,
+        y: number,
+        level: number,
+        rotation: number,
+        blocksProjectile: boolean,
+    ): void {
         const info = WALL_CORNER_FLAGS[rotation];
         if (!info) return;
         this.overlayStore.removeFlags(x, y, level, info.flags);
@@ -202,7 +215,13 @@ export class DoorCollisionService {
         }
     }
 
-    private addWallCornerCollision(x: number, y: number, level: number, rotation: number, blocksProjectile: boolean): void {
+    private addWallCornerCollision(
+        x: number,
+        y: number,
+        level: number,
+        rotation: number,
+        blocksProjectile: boolean,
+    ): void {
         const info = WALL_CORNER_FLAGS[rotation];
         if (!info) return;
         this.overlayStore.addFlags(x, y, level, info.flags);
@@ -214,76 +233,176 @@ export class DoorCollisionService {
     // === Wall Tri-Corner (Type 1) ===
     // L-shaped wall segment affecting two adjacent walls
 
-    private removeWallTriCornerCollision(x: number, y: number, level: number, rotation: number, blocksProjectile: boolean): void {
+    private removeWallTriCornerCollision(
+        x: number,
+        y: number,
+        level: number,
+        rotation: number,
+        blocksProjectile: boolean,
+    ): void {
         // Tri-corner affects two adjacent cardinal directions
         switch (rotation) {
             case 0: // NW - blocks north and west
-                this.overlayStore.removeFlags(x, y, level, CollisionFlag.WALL_NORTH | CollisionFlag.WALL_WEST);
+                this.overlayStore.removeFlags(
+                    x,
+                    y,
+                    level,
+                    CollisionFlag.WALL_NORTH | CollisionFlag.WALL_WEST,
+                );
                 this.overlayStore.removeFlags(x, y + 1, level, CollisionFlag.WALL_SOUTH);
                 this.overlayStore.removeFlags(x - 1, y, level, CollisionFlag.WALL_EAST);
                 if (blocksProjectile) {
-                    this.overlayStore.removeFlags(x, y, level, CollisionFlag.WALL_NORTH_PROJECTILE_BLOCKER | CollisionFlag.WALL_WEST_PROJECTILE_BLOCKER);
+                    this.overlayStore.removeFlags(
+                        x,
+                        y,
+                        level,
+                        CollisionFlag.WALL_NORTH_PROJECTILE_BLOCKER |
+                            CollisionFlag.WALL_WEST_PROJECTILE_BLOCKER,
+                    );
                 }
                 break;
             case 1: // NE - blocks north and east
-                this.overlayStore.removeFlags(x, y, level, CollisionFlag.WALL_NORTH | CollisionFlag.WALL_EAST);
+                this.overlayStore.removeFlags(
+                    x,
+                    y,
+                    level,
+                    CollisionFlag.WALL_NORTH | CollisionFlag.WALL_EAST,
+                );
                 this.overlayStore.removeFlags(x, y + 1, level, CollisionFlag.WALL_SOUTH);
                 this.overlayStore.removeFlags(x + 1, y, level, CollisionFlag.WALL_WEST);
                 if (blocksProjectile) {
-                    this.overlayStore.removeFlags(x, y, level, CollisionFlag.WALL_NORTH_PROJECTILE_BLOCKER | CollisionFlag.WALL_EAST_PROJECTILE_BLOCKER);
+                    this.overlayStore.removeFlags(
+                        x,
+                        y,
+                        level,
+                        CollisionFlag.WALL_NORTH_PROJECTILE_BLOCKER |
+                            CollisionFlag.WALL_EAST_PROJECTILE_BLOCKER,
+                    );
                 }
                 break;
             case 2: // SE - blocks south and east
-                this.overlayStore.removeFlags(x, y, level, CollisionFlag.WALL_SOUTH | CollisionFlag.WALL_EAST);
+                this.overlayStore.removeFlags(
+                    x,
+                    y,
+                    level,
+                    CollisionFlag.WALL_SOUTH | CollisionFlag.WALL_EAST,
+                );
                 this.overlayStore.removeFlags(x, y - 1, level, CollisionFlag.WALL_NORTH);
                 this.overlayStore.removeFlags(x + 1, y, level, CollisionFlag.WALL_WEST);
                 if (blocksProjectile) {
-                    this.overlayStore.removeFlags(x, y, level, CollisionFlag.WALL_SOUTH_PROJECTILE_BLOCKER | CollisionFlag.WALL_EAST_PROJECTILE_BLOCKER);
+                    this.overlayStore.removeFlags(
+                        x,
+                        y,
+                        level,
+                        CollisionFlag.WALL_SOUTH_PROJECTILE_BLOCKER |
+                            CollisionFlag.WALL_EAST_PROJECTILE_BLOCKER,
+                    );
                 }
                 break;
             case 3: // SW - blocks south and west
-                this.overlayStore.removeFlags(x, y, level, CollisionFlag.WALL_SOUTH | CollisionFlag.WALL_WEST);
+                this.overlayStore.removeFlags(
+                    x,
+                    y,
+                    level,
+                    CollisionFlag.WALL_SOUTH | CollisionFlag.WALL_WEST,
+                );
                 this.overlayStore.removeFlags(x, y - 1, level, CollisionFlag.WALL_NORTH);
                 this.overlayStore.removeFlags(x - 1, y, level, CollisionFlag.WALL_EAST);
                 if (blocksProjectile) {
-                    this.overlayStore.removeFlags(x, y, level, CollisionFlag.WALL_SOUTH_PROJECTILE_BLOCKER | CollisionFlag.WALL_WEST_PROJECTILE_BLOCKER);
+                    this.overlayStore.removeFlags(
+                        x,
+                        y,
+                        level,
+                        CollisionFlag.WALL_SOUTH_PROJECTILE_BLOCKER |
+                            CollisionFlag.WALL_WEST_PROJECTILE_BLOCKER,
+                    );
                 }
                 break;
         }
     }
 
-    private addWallTriCornerCollision(x: number, y: number, level: number, rotation: number, blocksProjectile: boolean): void {
+    private addWallTriCornerCollision(
+        x: number,
+        y: number,
+        level: number,
+        rotation: number,
+        blocksProjectile: boolean,
+    ): void {
         switch (rotation) {
             case 0:
-                this.overlayStore.addFlags(x, y, level, CollisionFlag.WALL_NORTH | CollisionFlag.WALL_WEST);
+                this.overlayStore.addFlags(
+                    x,
+                    y,
+                    level,
+                    CollisionFlag.WALL_NORTH | CollisionFlag.WALL_WEST,
+                );
                 this.overlayStore.addFlags(x, y + 1, level, CollisionFlag.WALL_SOUTH);
                 this.overlayStore.addFlags(x - 1, y, level, CollisionFlag.WALL_EAST);
                 if (blocksProjectile) {
-                    this.overlayStore.addFlags(x, y, level, CollisionFlag.WALL_NORTH_PROJECTILE_BLOCKER | CollisionFlag.WALL_WEST_PROJECTILE_BLOCKER);
+                    this.overlayStore.addFlags(
+                        x,
+                        y,
+                        level,
+                        CollisionFlag.WALL_NORTH_PROJECTILE_BLOCKER |
+                            CollisionFlag.WALL_WEST_PROJECTILE_BLOCKER,
+                    );
                 }
                 break;
             case 1:
-                this.overlayStore.addFlags(x, y, level, CollisionFlag.WALL_NORTH | CollisionFlag.WALL_EAST);
+                this.overlayStore.addFlags(
+                    x,
+                    y,
+                    level,
+                    CollisionFlag.WALL_NORTH | CollisionFlag.WALL_EAST,
+                );
                 this.overlayStore.addFlags(x, y + 1, level, CollisionFlag.WALL_SOUTH);
                 this.overlayStore.addFlags(x + 1, y, level, CollisionFlag.WALL_WEST);
                 if (blocksProjectile) {
-                    this.overlayStore.addFlags(x, y, level, CollisionFlag.WALL_NORTH_PROJECTILE_BLOCKER | CollisionFlag.WALL_EAST_PROJECTILE_BLOCKER);
+                    this.overlayStore.addFlags(
+                        x,
+                        y,
+                        level,
+                        CollisionFlag.WALL_NORTH_PROJECTILE_BLOCKER |
+                            CollisionFlag.WALL_EAST_PROJECTILE_BLOCKER,
+                    );
                 }
                 break;
             case 2:
-                this.overlayStore.addFlags(x, y, level, CollisionFlag.WALL_SOUTH | CollisionFlag.WALL_EAST);
+                this.overlayStore.addFlags(
+                    x,
+                    y,
+                    level,
+                    CollisionFlag.WALL_SOUTH | CollisionFlag.WALL_EAST,
+                );
                 this.overlayStore.addFlags(x, y - 1, level, CollisionFlag.WALL_NORTH);
                 this.overlayStore.addFlags(x + 1, y, level, CollisionFlag.WALL_WEST);
                 if (blocksProjectile) {
-                    this.overlayStore.addFlags(x, y, level, CollisionFlag.WALL_SOUTH_PROJECTILE_BLOCKER | CollisionFlag.WALL_EAST_PROJECTILE_BLOCKER);
+                    this.overlayStore.addFlags(
+                        x,
+                        y,
+                        level,
+                        CollisionFlag.WALL_SOUTH_PROJECTILE_BLOCKER |
+                            CollisionFlag.WALL_EAST_PROJECTILE_BLOCKER,
+                    );
                 }
                 break;
             case 3:
-                this.overlayStore.addFlags(x, y, level, CollisionFlag.WALL_SOUTH | CollisionFlag.WALL_WEST);
+                this.overlayStore.addFlags(
+                    x,
+                    y,
+                    level,
+                    CollisionFlag.WALL_SOUTH | CollisionFlag.WALL_WEST,
+                );
                 this.overlayStore.addFlags(x, y - 1, level, CollisionFlag.WALL_NORTH);
                 this.overlayStore.addFlags(x - 1, y, level, CollisionFlag.WALL_EAST);
                 if (blocksProjectile) {
-                    this.overlayStore.addFlags(x, y, level, CollisionFlag.WALL_SOUTH_PROJECTILE_BLOCKER | CollisionFlag.WALL_WEST_PROJECTILE_BLOCKER);
+                    this.overlayStore.addFlags(
+                        x,
+                        y,
+                        level,
+                        CollisionFlag.WALL_SOUTH_PROJECTILE_BLOCKER |
+                            CollisionFlag.WALL_WEST_PROJECTILE_BLOCKER,
+                    );
                 }
                 break;
         }
@@ -292,12 +411,24 @@ export class DoorCollisionService {
     // === Wall Rect Corner (Type 3) ===
     // Rectangular corner - similar to tri-corner but takes full space
 
-    private removeWallRectCornerCollision(x: number, y: number, level: number, rotation: number, blocksProjectile: boolean): void {
+    private removeWallRectCornerCollision(
+        x: number,
+        y: number,
+        level: number,
+        rotation: number,
+        blocksProjectile: boolean,
+    ): void {
         // Same as tri-corner for collision purposes
         this.removeWallTriCornerCollision(x, y, level, rotation, blocksProjectile);
     }
 
-    private addWallRectCornerCollision(x: number, y: number, level: number, rotation: number, blocksProjectile: boolean): void {
+    private addWallRectCornerCollision(
+        x: number,
+        y: number,
+        level: number,
+        rotation: number,
+        blocksProjectile: boolean,
+    ): void {
         this.addWallTriCornerCollision(x, y, level, rotation, blocksProjectile);
     }
 

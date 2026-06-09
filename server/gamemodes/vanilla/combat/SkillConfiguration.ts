@@ -1,6 +1,6 @@
+import { SkillId } from "../../../../src/rs/skill/skills";
 import type { SkillConfiguration } from "../../../src/game/combat/SkillConfigurationProvider";
 import type { SkillEntry } from "../../../src/game/state/PlayerSkillSystem";
-import { SkillId } from "../../../../src/rs/skill/skills";
 
 function computeCombatLevel(skills: SkillEntry[]): number {
     const attack = skills[SkillId.Attack].baseLevel;

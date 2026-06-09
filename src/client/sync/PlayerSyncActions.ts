@@ -107,8 +107,8 @@ export function frameToActions(frame: PlayerSyncFrame): PlayerSyncActions {
         const spots = Array.isArray(block.spotAnimations)
             ? block.spotAnimations
             : block.spotAnimation
-            ? [block.spotAnimation]
-            : [];
+              ? [block.spotAnimation]
+              : [];
         if (spots.length > 0) spotAnimations.set(index, spots);
         if (block.forcedMovement) forcedMovements.set(index, block.forcedMovement);
         const normalizedFace = normalizeFaceEntity(block.faceEntity);

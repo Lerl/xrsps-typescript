@@ -17,14 +17,12 @@ export interface CollectionLogSnapshot {
     }>;
 }
 
-export class PlayerCollectionLogState
-    implements PersistentSubState<CollectionLogSnapshot | undefined>
-{
+export class PlayerCollectionLogState implements PersistentSubState<
+    CollectionLogSnapshot | undefined
+> {
     private obtained: Map<number, number> = new Map();
-    private categoryStats: Map<
-        number,
-        { count1: number; count2?: number; count3?: number }
-    > = new Map();
+    private categoryStats: Map<number, { count1: number; count2?: number; count3?: number }> =
+        new Map();
     private dirty: boolean = false;
     private itemUnlocks: Map<number, CollectionLogUnlockEntry> = new Map();
     private unlockSequence: number = 0;
@@ -101,12 +99,7 @@ export class PlayerCollectionLogState
         this.dirty = true;
     }
 
-    setCategoryStat(
-        structId: number,
-        count1: number,
-        count2?: number,
-        count3?: number,
-    ): void {
+    setCategoryStat(structId: number, count1: number, count2?: number, count3?: number): void {
         this.categoryStats.set(structId, { count1, count2, count3 });
         this.dirty = true;
     }
@@ -172,10 +165,7 @@ export class PlayerCollectionLogState
                 const existing = this.itemUnlocks.get(normalized.itemId);
                 if (!existing || normalized.sequence > existing.sequence) {
                     this.itemUnlocks.set(normalized.itemId, normalized);
-                    this.unlockSequence = Math.max(
-                        this.unlockSequence,
-                        normalized.sequence,
-                    );
+                    this.unlockSequence = Math.max(this.unlockSequence, normalized.sequence);
                 }
             }
         }

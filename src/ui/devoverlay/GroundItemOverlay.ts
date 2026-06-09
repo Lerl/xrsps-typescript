@@ -256,11 +256,23 @@ export class GroundItemOverlay implements Overlay {
         const baseline = V_PADDING + ascent;
         let penX = H_PADDING;
         if (baseLabel.length > 0) {
-            font.draw(ctx, baseLabel, penX, baseline, `#${(baseColor >>> 0).toString(16).padStart(6, "0")}`);
+            font.draw(
+                ctx,
+                baseLabel,
+                penX,
+                baseline,
+                `#${(baseColor >>> 0).toString(16).padStart(6, "0")}`,
+            );
             penX += baseWidth;
         }
         if (timerLabel.length > 0) {
-            font.draw(ctx, timerLabel, penX, baseline, `#${(timerColor >>> 0).toString(16).padStart(6, "0")}`);
+            font.draw(
+                ctx,
+                timerLabel,
+                penX,
+                baseline,
+                `#${(timerColor >>> 0).toString(16).padStart(6, "0")}`,
+            );
         }
 
         const tex = this.app.createTexture2D(canvas as any, {

@@ -1,5 +1,5 @@
-import { computeAutoScale, getUiScale, setUiScale } from "./UiScale";
 import { getCanvasCssSize, isMobileMode, isTouchDevice } from "../util/DeviceUtil";
+import { computeAutoScale, getUiScale, setUiScale } from "./UiScale";
 
 interface UiDiagWindow {
     osrsClient?: any;
@@ -74,11 +74,27 @@ export class UiScaleDiagnostic {
         const colorDepth = scr?.colorDepth ?? 0;
         const orientation = scr?.orientation?.type ?? "unknown";
         ln(
-            `[Screen] physical: ${physW}x${physH} | logical: ${scr?.width ?? 0}x${scr?.height ?? 0} | avail: ${scr?.availWidth ?? 0}x${scr?.availHeight ?? 0} | colorDepth: ${colorDepth} | orientation: ${orientation}\n` +
-            `[DPI] devicePixelRatio: ${dpr} | effective DPI: ${dpi} | OS scaling: ${(dpr * 100).toFixed(0)}%\n` +
-            `[Window] inner: ${window.innerWidth}x${window.innerHeight} | outer: ${outerW}x${outerH} | chrome: ${outerW - window.innerWidth}x${outerH - window.innerHeight}` +
-            (vp ? ` | visualViewport: ${vp.width.toFixed(1)}x${vp.height.toFixed(1)} scale:${vp.scale.toFixed(2)} offset:(${vp.offsetLeft.toFixed(1)},${vp.offsetTop.toFixed(1)})` : "") +
-            ` | mobile: ${isMobileMode} | touch: ${isTouchDevice}`
+            `[Screen] physical: ${physW}x${physH} | logical: ${scr?.width ?? 0}x${
+                scr?.height ?? 0
+            } | avail: ${scr?.availWidth ?? 0}x${
+                scr?.availHeight ?? 0
+            } | colorDepth: ${colorDepth} | orientation: ${orientation}\n` +
+                `[DPI] devicePixelRatio: ${dpr} | effective DPI: ${dpi} | OS scaling: ${(
+                    dpr * 100
+                ).toFixed(0)}%\n` +
+                `[Window] inner: ${window.innerWidth}x${
+                    window.innerHeight
+                } | outer: ${outerW}x${outerH} | chrome: ${outerW - window.innerWidth}x${
+                    outerH - window.innerHeight
+                }` +
+                (vp
+                    ? ` | visualViewport: ${vp.width.toFixed(1)}x${vp.height.toFixed(
+                          1,
+                      )} scale:${vp.scale.toFixed(2)} offset:(${vp.offsetLeft.toFixed(
+                          1,
+                      )},${vp.offsetTop.toFixed(1)})`
+                    : "") +
+                ` | mobile: ${isMobileMode} | touch: ${isTouchDevice}`,
         );
 
         if (canvas) {
@@ -87,13 +103,25 @@ export class UiScaleDiagnostic {
             const cssH = cssSize.height;
             const bufW = canvas.width;
             const bufH = canvas.height;
-            ln(`[Canvas] CSS: ${cssW.toFixed(1)}x${cssH.toFixed(1)} | Buffer: ${bufW}x${bufH} | Ratio: ${(bufW / cssW).toFixed(3)}x${(bufH / cssH).toFixed(3)}`);
+            ln(
+                `[Canvas] CSS: ${cssW.toFixed(1)}x${cssH.toFixed(
+                    1,
+                )} | Buffer: ${bufW}x${bufH} | Ratio: ${(bufW / cssW).toFixed(3)}x${(
+                    bufH / cssH
+                ).toFixed(3)}`,
+            );
 
             const baseW = 765;
             const baseH = 503;
             const autoScale = computeAutoScale(cssW, cssH);
             const effectiveScale = getUiScale(cssW, cssH);
-            ln(`[UI Scale] auto: ${autoScale} (floor(min(${(cssW / baseW).toFixed(2)}, ${(cssH / baseH).toFixed(2)}))) | effective: ${effectiveScale} | override: ${effectiveScale !== autoScale}`);
+            ln(
+                `[UI Scale] auto: ${autoScale} (floor(min(${(cssW / baseW).toFixed(2)}, ${(
+                    cssH / baseH
+                ).toFixed(2)}))) | effective: ${effectiveScale} | override: ${
+                    effectiveScale !== autoScale
+                }`,
+            );
 
             const actualRenderScale = (canvas as any).__uiRenderScale;
             const wmLayoutW = (client?.widgetManager as any)?.canvasWidth;
@@ -109,13 +137,23 @@ export class UiScaleDiagnostic {
                 const layoutH = Math.round(bufH / effectiveScale);
                 const rsX = bufW / layoutW;
                 const rsY = bufH / layoutH;
-                ln(`[Layout] ${layoutW}x${layoutH} (buf/${effectiveScale}) | renderScale: ${rsX.toFixed(4)}x${rsY.toFixed(4)} | widget-px-per-css-px: ${(rsX / (bufW / cssW)).toFixed(3)}x${(rsY / (bufH / cssH)).toFixed(3)}`);
+                ln(
+                    `[Layout] ${layoutW}x${layoutH} (buf/${effectiveScale}) | renderScale: ${rsX.toFixed(
+                        4,
+                    )}x${rsY.toFixed(4)} | widget-px-per-css-px: ${(rsX / (bufW / cssW)).toFixed(
+                        3,
+                    )}x${(rsY / (bufH / cssH)).toFixed(3)}`,
+                );
             } else {
                 ln(`[Layout] ${bufW}x${bufH} (1:1) | renderScale: 1x1`);
             }
 
             if (renderer && typeof renderer.getCanvasResolutionScale === "function") {
-                ln(`[ResolutionScale] ${renderer.getCanvasResolutionScale(cssW, cssH).toFixed(3)} (CSS * this = buffer)`);
+                ln(
+                    `[ResolutionScale] ${renderer
+                        .getCanvasResolutionScale(cssW, cssH)
+                        .toFixed(3)} (CSS * this = buffer)`,
+                );
             }
 
             const issues: string[] = [];
@@ -150,19 +188,33 @@ export class UiScaleDiagnostic {
                 ln(`[Issues] ${issues.map((s, i) => `${i + 1}. ${s}`).join(" | ")}`);
             }
 
-            const layoutArea = effectiveScale > 1
-                ? Math.round(bufW / effectiveScale) * Math.round(bufH / effectiveScale)
-                : bufW * bufH;
+            const layoutArea =
+                effectiveScale > 1
+                    ? Math.round(bufW / effectiveScale) * Math.round(bufH / effectiveScale)
+                    : bufW * bufH;
             const rsX = effectiveScale > 1 ? bufW / Math.round(bufW / effectiveScale) : 1;
             const rsY = effectiveScale > 1 ? bufH / Math.round(bufH / effectiveScale) : 1;
-            ln(`[] layout area: ${layoutArea}px² (${(layoutArea / (765 * 503)).toFixed(2)}x fixed) | 100px widget → ${(100 * rsX).toFixed(1)}x${(100 * rsY).toFixed(1)} buf px → ${(100 * rsX / (bufW / cssW)).toFixed(1)}x${(100 * rsY / (bufH / cssH)).toFixed(1)} CSS px`);
+            ln(
+                `[] layout area: ${layoutArea}px² (${(layoutArea / (765 * 503)).toFixed(
+                    2,
+                )}x fixed) | 100px widget → ${(100 * rsX).toFixed(1)}x${(100 * rsY).toFixed(
+                    1,
+                )} buf px → ${((100 * rsX) / (bufW / cssW)).toFixed(1)}x${(
+                    (100 * rsY) /
+                    (bufH / cssH)
+                ).toFixed(1)} CSS px`,
+            );
         } else {
             ln("[Canvas] Not found");
         }
 
         if (client?.widgetManager) {
             const wm = client.widgetManager;
-            ln(`[WidgetManager] root: ${wm.rootInterface ?? "none"} | canvasW: ${(wm as any).canvasWidth ?? "?"} | canvasH: ${(wm as any).canvasHeight ?? "?"}`);
+            ln(
+                `[WidgetManager] root: ${wm.rootInterface ?? "none"} | canvasW: ${
+                    (wm as any).canvasWidth ?? "?"
+                } | canvasH: ${(wm as any).canvasHeight ?? "?"}`,
+            );
         }
 
         ln("=== End Diagnostic ===");
@@ -175,13 +227,20 @@ export class UiScaleDiagnostic {
         if (renderer && typeof renderer.forceResize === "function") {
             renderer.forceResize();
         }
-        console.log(scale === null ? "UI scale reset to auto, resize applied." : `UI scale set to ${scale}, resize applied.`);
+        console.log(
+            scale === null
+                ? "UI scale reset to auto, resize applied."
+                : `UI scale set to ${scale}, resize applied.`,
+        );
         this.dump();
     }
 
     testScales(): void {
         const canvas = getCanvas();
-        if (!canvas) { console.log("No canvas found"); return; }
+        if (!canvas) {
+            console.log("No canvas found");
+            return;
+        }
         const cssSize = getCanvasCssSize(canvas);
         const cssW = cssSize.width;
         const cssH = cssSize.height;
@@ -190,7 +249,11 @@ export class UiScaleDiagnostic {
         const lines: string[] = [];
         const ln = (s: string) => lines.push(s);
 
-        ln(`=== Scale Comparison === viewport: CSS ${cssW.toFixed(0)}x${cssH.toFixed(0)}, Buffer ${bufW}x${bufH}`);
+        ln(
+            `=== Scale Comparison === viewport: CSS ${cssW.toFixed(0)}x${cssH.toFixed(
+                0,
+            )}, Buffer ${bufW}x${bufH}`,
+        );
         ln("Scale | Layout WxH      | RenderScale X/Y    | 100px widget → CSS px | Notes");
         ln("------+-----------------+--------------------+-----------------------+------");
 
@@ -206,7 +269,13 @@ export class UiScaleDiagnostic {
             if (layoutW < 765) notes.push("TOO NARROW");
             if (Math.abs(rsX - Math.round(rsX)) > 0.01) notes.push("NON-INT");
 
-            ln(`  ${s}   | ${String(layoutW).padStart(5)}x${String(layoutH).padEnd(5)} | ${rsX.toFixed(4)} / ${rsY.toFixed(4)}  | ${widgetCssPx.toFixed(1).padStart(8)} CSS px       | ${notes.join(", ")}`);
+            ln(
+                `  ${s}   | ${String(layoutW).padStart(5)}x${String(layoutH).padEnd(
+                    5,
+                )} | ${rsX.toFixed(4)} / ${rsY.toFixed(4)}  | ${widgetCssPx
+                    .toFixed(1)
+                    .padStart(8)} CSS px       | ${notes.join(", ")}`,
+            );
         }
 
         ln("------+-----------------+--------------------+-----------------------+------");
@@ -217,16 +286,29 @@ export class UiScaleDiagnostic {
     widgets(maxDepth: number = 2): void {
         const client = getOsrsClient();
         const wm = client?.widgetManager;
-        if (!wm) { console.log("No widget manager"); return; }
+        if (!wm) {
+            console.log("No widget manager");
+            return;
+        }
 
         const rootInterface = wm.rootInterface ?? -1;
-        if (rootInterface === -1) { console.log("No root interface open"); return; }
+        if (rootInterface === -1) {
+            console.log("No root interface open");
+            return;
+        }
 
         const roots = wm.getAllGroupRoots?.(rootInterface) ?? [];
         const lines: string[] = [];
         const ln = (s: string) => lines.push(s);
 
-        const typeNames: Record<number, string> = { 0: "CONTAINER", 3: "RECT", 4: "TEXT", 5: "SPRITE", 6: "MODEL", 9: "LINE" };
+        const typeNames: Record<number, string> = {
+            0: "CONTAINER",
+            3: "RECT",
+            4: "TEXT",
+            5: "SPRITE",
+            6: "MODEL",
+            9: "LINE",
+        };
 
         const canvas = getCanvas();
         const cssSize = canvas ? getCanvasCssSize(canvas) : { width: 0, height: 0 };
@@ -247,7 +329,10 @@ export class UiScaleDiagnostic {
             const height = w.height ?? 0;
             const cssPxW = (width * cssPxPerLogical).toFixed(1);
             const cssPxH = (height * cssPxPerLogical).toFixed(1);
-            const pct = cssSize.width > 0 ? ((width * cssPxPerLogical / cssSize.width) * 100).toFixed(1) : "?";
+            const pct =
+                cssSize.width > 0
+                    ? (((width * cssPxPerLogical) / cssSize.width) * 100).toFixed(1)
+                    : "?";
             const flags: string[] = [];
             if (w.hidden) flags.push("HIDDEN");
             if (w.filled) flags.push("FILLED");
@@ -255,9 +340,16 @@ export class UiScaleDiagnostic {
             if (w.text) flags.push(`"${String(w.text).slice(0, 20)}"`);
             if (w.name) flags.push(`name:"${w.name}"`);
 
-            ln(`${prefix}[${gid}:${cid}] ${typeName} pos(${w._absX ?? w.x ?? 0},${w._absY ?? w.y ?? 0}) size(${width}x${height}) → ${cssPxW}x${cssPxH}css (${pct}%W) ${flags.join(" ")}`);
+            ln(
+                `${prefix}[${gid}:${cid}] ${typeName} pos(${w._absX ?? w.x ?? 0},${
+                    w._absY ?? w.y ?? 0
+                }) size(${width}x${height}) → ${cssPxW}x${cssPxH}css (${pct}%W) ${flags.join(" ")}`,
+            );
 
-            const children = [...(w.children ?? []), ...(wm.getStaticChildrenByParentUid?.(uid) ?? [])];
+            const children = [
+                ...(w.children ?? []),
+                ...(wm.getStaticChildrenByParentUid?.(uid) ?? []),
+            ];
             for (const child of children) visit(child, depth + 1, prefix + "  ");
         };
 
@@ -269,7 +361,10 @@ export class UiScaleDiagnostic {
     large(thresholdPct: number = 20): void {
         const client = getOsrsClient();
         const wm = client?.widgetManager;
-        if (!wm) { console.log("No widget manager"); return; }
+        if (!wm) {
+            console.log("No widget manager");
+            return;
+        }
 
         const canvas = getCanvas();
         const cssSize = canvas ? getCanvasCssSize(canvas) : { width: 0, height: 0 };
@@ -280,10 +375,28 @@ export class UiScaleDiagnostic {
         const layoutH = effectiveScale > 1 ? Math.round(bufH / effectiveScale) : bufH;
 
         const rootInterface = wm.rootInterface ?? -1;
-        if (rootInterface === -1) { console.log("No root interface open"); return; }
+        if (rootInterface === -1) {
+            console.log("No root interface open");
+            return;
+        }
 
-        const results: Array<{ uid: string; type: string; logicalW: number; logicalH: number; pctW: number; pctH: number; text?: string }> = [];
-        const typeNames: Record<number, string> = { 0: "CONTAINER", 3: "RECT", 4: "TEXT", 5: "SPRITE", 6: "MODEL", 9: "LINE" };
+        const results: Array<{
+            uid: string;
+            type: string;
+            logicalW: number;
+            logicalH: number;
+            pctW: number;
+            pctH: number;
+            text?: string;
+        }> = [];
+        const typeNames: Record<number, string> = {
+            0: "CONTAINER",
+            3: "RECT",
+            4: "TEXT",
+            5: "SPRITE",
+            6: "MODEL",
+            9: "LINE",
+        };
 
         const roots = wm.getAllGroupRoots?.(rootInterface) ?? [];
         const visit = (w: any) => {
@@ -297,7 +410,10 @@ export class UiScaleDiagnostic {
                 results.push({
                     uid: `${(uid >>> 16) & 0xffff}:${uid & 0xffff}`,
                     type: typeNames[w.type ?? -1] ?? `TYPE_${w.type}`,
-                    logicalW: width, logicalH: height, pctW, pctH,
+                    logicalW: width,
+                    logicalH: height,
+                    pctW,
+                    pctH,
                     text: w.text ? String(w.text).slice(0, 30) : undefined,
                 });
             }
@@ -309,16 +425,25 @@ export class UiScaleDiagnostic {
         results.sort((a, b) => Math.max(b.pctW, b.pctH) - Math.max(a.pctW, a.pctH));
 
         const lines: string[] = [];
-        lines.push(`=== Widgets >= ${thresholdPct}% of layout (${results.length} found) | Layout: ${layoutW}x${layoutH} ===`);
+        lines.push(
+            `=== Widgets >= ${thresholdPct}% of layout (${results.length} found) | Layout: ${layoutW}x${layoutH} ===`,
+        );
         for (const r of results) {
-            lines.push(`  [${r.uid}] ${r.type} ${r.logicalW}x${r.logicalH} (${r.pctW.toFixed(1)}%W x ${r.pctH.toFixed(1)}%H)${r.text ? ` "${r.text}"` : ""}`);
+            lines.push(
+                `  [${r.uid}] ${r.type} ${r.logicalW}x${r.logicalH} (${r.pctW.toFixed(
+                    1,
+                )}%W x ${r.pctH.toFixed(1)}%H)${r.text ? ` "${r.text}"` : ""}`,
+            );
         }
         console.log(lines.join("\n"));
     }
 
     grid(): void {
         const canvas = getCanvas();
-        if (!canvas) { console.log("No canvas found"); return; }
+        if (!canvas) {
+            console.log("No canvas found");
+            return;
+        }
 
         if (this.gridOverlayCanvas) {
             this.gridOverlayCanvas.remove();
@@ -328,9 +453,13 @@ export class UiScaleDiagnostic {
         }
 
         const overlay = document.createElement("canvas");
-        overlay.style.cssText = "position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999";
+        overlay.style.cssText =
+            "position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999";
         const parent = canvas.parentElement;
-        if (!parent) { console.log("Canvas has no parent"); return; }
+        if (!parent) {
+            console.log("Canvas has no parent");
+            return;
+        }
         parent.style.position = "relative";
         parent.appendChild(overlay);
         this.gridOverlayCanvas = overlay;
@@ -358,22 +487,39 @@ export class UiScaleDiagnostic {
             ctx.lineWidth = 1;
             for (let lx = 0; lx <= layoutW; lx += 100) {
                 const cx = lx * cssPxPerLogical;
-                ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, overlay.height); ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(cx, 0);
+                ctx.lineTo(cx, overlay.height);
+                ctx.stroke();
             }
             for (let ly = 0; ly <= layoutH; ly += 100) {
                 const cy = ly * cssPxPerLogical;
-                ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(overlay.width, cy); ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(0, cy);
+                ctx.lineTo(overlay.width, cy);
+                ctx.stroke();
             }
 
             ctx.strokeStyle = "rgba(0, 255, 0, 0.5)";
             ctx.lineWidth = 2;
             ctx.setLineDash([4, 4]);
-            ctx.strokeRect(0, 0, Math.min(765, layoutW) * cssPxPerLogical, Math.min(503, layoutH) * cssPxPerLogical);
+            ctx.strokeRect(
+                0,
+                0,
+                Math.min(765, layoutW) * cssPxPerLogical,
+                Math.min(503, layoutH) * cssPxPerLogical,
+            );
             ctx.setLineDash([]);
 
             ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
             ctx.font = "12px monospace";
-            ctx.fillText(`Scale: ${effectiveScale} | Layout: ${layoutW}x${layoutH} | 1 logical = ${cssPxPerLogical.toFixed(2)} CSS px | Green = OSRS 765x503`, 4, 14);
+            ctx.fillText(
+                `Scale: ${effectiveScale} | Layout: ${layoutW}x${layoutH} | 1 logical = ${cssPxPerLogical.toFixed(
+                    2,
+                )} CSS px | Green = OSRS 765x503`,
+                4,
+                14,
+            );
 
             requestAnimationFrame(drawGrid);
         };
@@ -394,9 +540,21 @@ function waitForLogin(diag: UiScaleDiagnostic): void {
             dumped = true;
             setTimeout(() => {
                 console.log("[UiScaleDiagnostic] Login detected — auto-dumping diagnostics");
-                try { diag.dump(); } catch (e) { console.log("[UiScaleDiagnostic] dump() error:", e); }
-                try { diag.testScales(); } catch (e) { console.log("[UiScaleDiagnostic] testScales() error:", e); }
-                try { diag.large(20); } catch (e) { console.log("[UiScaleDiagnostic] large() error:", e); }
+                try {
+                    diag.dump();
+                } catch (e) {
+                    console.log("[UiScaleDiagnostic] dump() error:", e);
+                }
+                try {
+                    diag.testScales();
+                } catch (e) {
+                    console.log("[UiScaleDiagnostic] testScales() error:", e);
+                }
+                try {
+                    diag.large(20);
+                } catch (e) {
+                    console.log("[UiScaleDiagnostic] large() error:", e);
+                }
             }, 1500);
             return;
         }
@@ -409,6 +567,8 @@ export function installUiDiagnostic(): void {
     if (typeof window === "undefined") return;
     const diag = new UiScaleDiagnostic();
     (window as any).__uiDiag = diag;
-    console.log("[UiScaleDiagnostic] Installed: __uiDiag.dump() | .setScale(n) | .testScales() | .widgets(depth) | .large(pct) | .grid()");
+    console.log(
+        "[UiScaleDiagnostic] Installed: __uiDiag.dump() | .setScale(n) | .testScales() | .widgets(depth) | .large(pct) | .grid()",
+    );
     waitForLogin(diag);
 }

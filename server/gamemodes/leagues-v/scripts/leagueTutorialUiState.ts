@@ -1,6 +1,3 @@
-import type { PlayerState } from "../../../src/game/player";
-import type { ScriptServices } from "../../../src/game/scripts/types";
-import { DisplayMode, getQuestTabUid } from "../../../src/widgets/viewport";
 import {
     SIDE_JOURNAL_GROUP_ID,
     SIDE_JOURNAL_QUEST_TAB,
@@ -13,16 +10,19 @@ import {
     VARP_LEAGUE_GENERAL,
     VARP_SIDE_JOURNAL_STATE,
 } from "../../../../src/shared/vars";
+import type { PlayerState } from "../../../src/game/player";
+import type { ScriptServices } from "../../../src/game/scripts/types";
+import { DisplayMode, getQuestTabUid } from "../../../src/widgets/viewport";
 import { syncLeagueGeneralVarp } from "../leagueGeneral";
 import {
+    type LeagueWsUiBridge,
+    type LeagueWsUiPlayer,
     applyLeagueTutorialStepFiveUi,
     applyLeagueTutorialStepFourUi,
     applyLeagueTutorialStepNineUi,
     normalizeSideJournalLeagueState,
     queueLeagueTutorialOverlayUi,
     queueSideJournalLeagueOnlyUi,
-    type LeagueWsUiBridge,
-    type LeagueWsUiPlayer,
 } from "./leagueWidgets";
 
 export const LEAGUE_TUTORIAL_STEP_WELCOME = 0;
@@ -34,9 +34,8 @@ export const LEAGUE_TUTORIAL_STEP_OPEN_LEAGUES_PANEL = 5;
 const FLASHSIDE_QUEST_TAB = 3;
 const SCRIPT_JOURNAL_LIST_INIT = 2797; // [clientscript,journal_list_init]
 const JOURNAL_LIST_INIT_CHILD_IDS = [
-    0, 1, 10, 18, 2, 26, 34, 9, 4, 6, 8, 17, 12, 14, 16, 25, 20, 22, 24, 33,
-    28, 30, 32, 42, 37, 39, 41, 43, 3, 5, 7, 11, 13, 15, 19, 21, 23, 27, 29,
-    31, 36, 38, 40, 35,
+    0, 1, 10, 18, 2, 26, 34, 9, 4, 6, 8, 17, 12, 14, 16, 25, 20, 22, 24, 33, 28, 30, 32, 42, 37, 39,
+    41, 43, 3, 5, 7, 11, 13, 15, 19, 21, 23, 27, 29, 31, 36, 38, 40, 35,
 ] as const;
 
 function sideJournalUid(childId: number): number {
@@ -158,17 +157,13 @@ export function applyLeagueTutorialUiState(
         syncLeagueTutorialFlashside(player, bridge, opts);
     }
 
-    const sideJournalOpen = bridge.isWidgetGroupOpenInLedger(
-        player.id,
-        SIDE_JOURNAL_GROUP_ID,
-    );
+    const sideJournalOpen = bridge.isWidgetGroupOpenInLedger(player.id, SIDE_JOURNAL_GROUP_ID);
     if (
         opts.queueSideJournalContent !== false &&
         (sideJournalOpen || opts.forceQueueSideJournalContent === true)
     ) {
         const activateQuestSideTab =
-            opts.activateQuestSideTab ??
-            tutorialStep !== LEAGUE_TUTORIAL_STEP_OPEN_JOURNAL;
+            opts.activateQuestSideTab ?? tutorialStep !== LEAGUE_TUTORIAL_STEP_OPEN_JOURNAL;
         queueSideJournalLeagueOnlyUi(player, bridge, { activateQuestSideTab });
     }
 
@@ -212,10 +207,7 @@ export function startLeagueTutorialFromIntro(
     player: LeagueTutorialUiPlayer,
     bridge: LeagueWsUiBridge,
 ): number {
-    const sideJournalOpen = bridge.isWidgetGroupOpenInLedger(
-        player.id,
-        SIDE_JOURNAL_GROUP_ID,
-    );
+    const sideJournalOpen = bridge.isWidgetGroupOpenInLedger(player.id, SIDE_JOURNAL_GROUP_ID);
     const nextStep = sideJournalOpen
         ? LEAGUE_TUTORIAL_STEP_OPEN_LEAGUES_SUBTAB
         : LEAGUE_TUTORIAL_STEP_OPEN_JOURNAL;
@@ -246,10 +238,7 @@ export function advanceLeagueTutorialToLeaguesSubtabPrompt(
     player: LeagueTutorialUiPlayer,
     bridge: LeagueWsUiBridge,
 ): void {
-    const sideJournalOpen = bridge.isWidgetGroupOpenInLedger(
-        player.id,
-        SIDE_JOURNAL_GROUP_ID,
-    );
+    const sideJournalOpen = bridge.isWidgetGroupOpenInLedger(player.id, SIDE_JOURNAL_GROUP_ID);
     enterLeagueTutorialStep(player, bridge, LEAGUE_TUTORIAL_STEP_OPEN_LEAGUES_SUBTAB, {
         queueSideJournalContent: false,
         applyHighlights: false,
@@ -276,8 +265,7 @@ export function queueLeagueTutorialOverlayAndState(
     opts: { tutorialStep?: number; queueFlashsideVarbitOnStep3?: boolean } = {},
 ): void {
     const tutorialStep =
-        opts.tutorialStep ??
-        player.varps.getVarbitValue(VARBIT_LEAGUE_TUTORIAL_COMPLETED);
+        opts.tutorialStep ?? player.varps.getVarbitValue(VARBIT_LEAGUE_TUTORIAL_COMPLETED);
     applyLeagueTutorialUiState(player, bridge, {
         queueFlashsideVarbitOnStep3: opts.queueFlashsideVarbitOnStep3,
         queueSideJournalContent: false,

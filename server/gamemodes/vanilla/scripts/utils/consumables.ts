@@ -110,7 +110,7 @@ export function scheduleConsumableAction(options: ConsumableActionOptions): bool
             log("onExecute threw", {
                 itemId: normalizedItemId,
                 option: option ?? "",
-                error: err instanceof Error ? err.stack ?? err.message : String(err ?? "unknown"),
+                error: err instanceof Error ? (err.stack ?? err.message) : String(err ?? "unknown"),
             });
         }
         if (snapshot) {

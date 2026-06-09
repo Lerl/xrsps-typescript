@@ -442,11 +442,11 @@ export class OverheadTextOverlay implements Overlay {
 
             for (let j = 0; j < text.length; j++) {
                 const ch = text[j];
-                const xOff = style.xOffsets ? style.xOffsets[charIndex] ?? 0 : 0;
-                const yOff = style.yOffsets ? style.yOffsets[charIndex] ?? 0 : 0;
+                const xOff = style.xOffsets ? (style.xOffsets[charIndex] ?? 0) : 0;
+                const yOff = style.yOffsets ? (style.yOffsets[charIndex] ?? 0) : 0;
                 const colour =
                     style.perCharColours !== undefined
-                        ? style.perCharColours[charIndex] ?? style.colour
+                        ? (style.perCharColours[charIndex] ?? style.colour)
                         : style.colour;
                 const hex = `#${(colour >>> 0).toString(16).padStart(6, "0")}`;
                 font.draw(ctx, ch, penX + xOff, baseline + yOff, hex);

@@ -1,5 +1,5 @@
-import type { WidgetManager, WidgetNode } from "../../ui/widgets/WidgetManager";
 import { markWidgetInteractionDirty } from "../../ui/widgets/WidgetInteraction";
+import type { WidgetManager, WidgetNode } from "../../ui/widgets/WidgetManager";
 import type { TypeLoader } from "../config/TypeLoader";
 import type { DbRepository } from "../config/db/DbRepository";
 import type { EnumType } from "../config/enumtype/EnumType";
@@ -531,8 +531,8 @@ export class Cs2Vm {
             const has = Array.isArray(scripts)
                 ? scripts.includes(scriptId)
                 : scripts instanceof Set
-                ? scripts.has(scriptId)
-                : false;
+                  ? scripts.has(scriptId)
+                  : false;
             if (!has) return false;
         }
 
@@ -543,8 +543,8 @@ export class Cs2Vm {
             const has = Array.isArray(groups)
                 ? groups.includes(g)
                 : groups instanceof Set
-                ? groups.has(g)
-                : false;
+                  ? groups.has(g)
+                  : false;
             if (!has) return false;
         }
 

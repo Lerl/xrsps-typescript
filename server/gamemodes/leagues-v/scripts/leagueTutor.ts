@@ -3,9 +3,13 @@ import {
     VARBIT_LEAGUE_TUTORIAL_COMPLETED,
     VARBIT_LEAGUE_TYPE,
 } from "../../../../src/shared/vars";
-import { type IScriptRegistry, type NpcInteractionEvent, type ScriptServices } from "../../../src/game/scripts/types";
 import { OwnedItemLocation } from "../../../src/game/items/playerItemOwnership";
 import type { PlayerState } from "../../../src/game/player";
+import {
+    type IScriptRegistry,
+    type NpcInteractionEvent,
+    type ScriptServices,
+} from "../../../src/game/scripts/types";
 import {
     createLeagueTutorialScriptBridge,
     queueLeagueTutorialOverlayAndState,
@@ -80,7 +84,10 @@ function getCurrentTutorialGuidance(step: number, completeStep: number): string[
     ];
 }
 
-function findEnumIntValue(enumType: { keys?: number[]; intValues?: number[] } | undefined, key: number): number | undefined {
+function findEnumIntValue(
+    enumType: { keys?: number[]; intValues?: number[] } | undefined,
+    key: number,
+): number | undefined {
     const keys: number[] | undefined = enumType?.keys;
     const values: number[] | undefined = enumType?.intValues;
     if (!Array.isArray(keys) || !Array.isArray(values)) return undefined;
@@ -90,7 +97,10 @@ function findEnumIntValue(enumType: { keys?: number[]; intValues?: number[] } | 
     return undefined;
 }
 
-function resolveTierOneRelicRewardItemId(player: PlayerState, services: ScriptServices): number | undefined {
+function resolveTierOneRelicRewardItemId(
+    player: PlayerState,
+    services: ScriptServices,
+): number | undefined {
     const selectedRelicKey = player.varps.getVarbitValue?.(VARBIT_LEAGUE_RELIC_1) ?? 0;
     if (!(selectedRelicKey > 0)) return undefined;
 
@@ -114,7 +124,9 @@ function resolveTierOneRelicRewardItemId(player: PlayerState, services: ScriptSe
     if (!(tierOneStructId && tierOneStructId > 0)) return undefined;
 
     const tierOneStruct = asLeagueCacheStructType(structLoader.load(tierOneStructId));
-    const relicEnumId = tierOneStruct?.params?.get?.(PARAM_LEAGUE_RELICS_ENUM) as number | undefined;
+    const relicEnumId = tierOneStruct?.params?.get?.(PARAM_LEAGUE_RELICS_ENUM) as
+        | number
+        | undefined;
     if (!(relicEnumId && relicEnumId > 0)) return undefined;
 
     const relicEnum = asLeagueCacheEnumType(enumLoader.load(relicEnumId));
@@ -175,7 +187,10 @@ function reclaimLostEchoTool(player: PlayerState, services: ScriptServices): str
     ];
 }
 
-export function registerLeagueTutorHandlers(registry: IScriptRegistry, services: ScriptServices): void {
+export function registerLeagueTutorHandlers(
+    registry: IScriptRegistry,
+    services: ScriptServices,
+): void {
     const activeConvos = new Set<number>();
 
     const openTutorConversation = (event: NpcInteractionEvent) => {

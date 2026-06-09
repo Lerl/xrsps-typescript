@@ -550,8 +550,8 @@ export class GroundItemsPlugin {
                 pattern.exact !== undefined
                     ? pattern.exact === normalizedName
                     : pattern.regex
-                    ? pattern.regex.test(normalizedName)
-                    : false;
+                      ? pattern.regex.test(normalizedName)
+                      : false;
             if (!nameMatches) continue;
             if (!matchesQuantity(pattern, quantity)) continue;
             return true;

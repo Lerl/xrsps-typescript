@@ -1,6 +1,5 @@
 import type { PlayerState } from "../../../src/game/player";
 import type { ScriptServices } from "../../../src/game/scripts/types";
-
 import { getViewportTrackerFrontUid } from "../../../src/game/scripts/types";
 
 export const LEAGUE_TUTORIAL_MAIN_GROUP_ID = 677; // league_tutorial_main

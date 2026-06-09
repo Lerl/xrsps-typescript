@@ -29,12 +29,12 @@ scripts/                # Cache export and build tools
 
 ### Where code lives
 
-| Layer | Directory | Purpose |
-|-------|-----------|---------|
-| **Engine** | `server/src/` | Tick loop, networking, collision, pathfinding, packet routing, player sync. Never references a specific gamemode. |
-| **Gamemodes** | `server/gamemodes/{id}/` | Server identity — rules, progression, content handlers, providers. Each gamemode is a self-contained directory. |
-| **Extrascripts** | `server/extrascripts/{id}/` | Universal modules that work on any server regardless of gamemode. |
-| **Shared** | `src/shared/` | Types, constants, and utilities used by both client and server. |
+| Layer            | Directory                   | Purpose                                                                                                           |
+| ---------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| **Engine**       | `server/src/`               | Tick loop, networking, collision, pathfinding, packet routing, player sync. Never references a specific gamemode. |
+| **Gamemodes**    | `server/gamemodes/{id}/`    | Server identity — rules, progression, content handlers, providers. Each gamemode is a self-contained directory.   |
+| **Extrascripts** | `server/extrascripts/{id}/` | Universal modules that work on any server regardless of gamemode.                                                 |
+| **Shared**       | `src/shared/`               | Types, constants, and utilities used by both client and server.                                                   |
 
 ## Game Loop
 
@@ -99,6 +99,7 @@ The default implementation is `PlayerPersistence` — a JSON flat file provider 
 ### What gets persisted
 
 The `PlayerStateSerializer` (`server/src/game/state/PlayerStateSerializer.ts`) handles export/import of:
+
 - Skills, hitpoints, location, orientation
 - Inventory, equipment, bank (capacity, tabs, modes)
 - Varps/varbits, combat settings, prayer, autocast state
@@ -113,10 +114,18 @@ To implement a custom backend, create a class that implements `PersistenceProvid
 import type { PersistenceProvider } from "./game/state/PersistenceProvider";
 
 class SqlitePersistenceProvider implements PersistenceProvider {
-    applyToPlayer(player, key) { /* load from db */ }
-    hasKey(key) { /* check if exists */ }
-    saveSnapshot(key, player) { /* write to db */ }
-    savePlayers(entries) { /* bulk write */ }
+    applyToPlayer(player, key) {
+        /* load from db */
+    }
+    hasKey(key) {
+        /* check if exists */
+    }
+    saveSnapshot(key, player) {
+        /* write to db */
+    }
+    savePlayers(entries) {
+        /* bulk write */
+    }
 }
 ```
 
@@ -167,6 +176,7 @@ Most community gamemodes should extend `VanillaGamemode` and override what they 
 ### Script Loading
 
 At startup, the bootstrap pipeline:
+
 1. Resets the script registry
 2. Calls `gamemode.registerHandlers()` (registers all gamemode content)
 3. Discovers and loads all extrascripts (registers universal content)

@@ -4,13 +4,13 @@
  * Replaces JSON.parse for server-to-client messages.
  * Returns the same message format as the JSON protocol for compatibility.
  */
-import { SERVER_PACKET_LENGTHS, ServerPacketId } from "../../shared/packets/ServerPacketId";
 import {
     INSTANCE_CHUNK_COUNT,
     PLANE_COUNT,
     deriveRegionsFromCenter,
     deriveRegionsFromTemplates,
 } from "../../shared/instance/InstanceTypes";
+import { SERVER_PACKET_LENGTHS, ServerPacketId } from "../../shared/packets/ServerPacketId";
 import type { ProjectileLaunch } from "../../shared/projectiles/ProjectileLaunch";
 import type { WorldEntityBuildArea } from "../../shared/worldentity/WorldEntityTypes";
 
@@ -369,7 +369,12 @@ export function decodeServerPacket(data: Uint8Array | ArrayBuffer): DecodedServe
 
             const xteaKeys: number[][] = new Array(numXteaKeys);
             for (let i = 0; i < numXteaKeys; i++) {
-                xteaKeys[i] = [reader.readInt(), reader.readInt(), reader.readInt(), reader.readInt()];
+                xteaKeys[i] = [
+                    reader.readInt(),
+                    reader.readInt(),
+                    reader.readInt(),
+                    reader.readInt(),
+                ];
             }
 
             const mapRegions = deriveRegionsFromTemplates(templateChunks);
@@ -395,7 +400,12 @@ export function decodeServerPacket(data: Uint8Array | ArrayBuffer): DecodedServe
 
             const normalXteaKeys: number[][] = new Array(normalNumXtea);
             for (let i = 0; i < normalNumXtea; i++) {
-                normalXteaKeys[i] = [reader.readInt(), reader.readInt(), reader.readInt(), reader.readInt()];
+                normalXteaKeys[i] = [
+                    reader.readInt(),
+                    reader.readInt(),
+                    reader.readInt(),
+                    reader.readInt(),
+                ];
             }
 
             const normalMapRegions = deriveRegionsFromCenter(normalRegionX, normalRegionY);
@@ -452,7 +462,15 @@ export function decodeServerPacket(data: Uint8Array | ArrayBuffer): DecodedServe
                 const position = readPositionDelta(reader);
                 const drawMode = reader.readByte() & 0xff;
                 const mask = readMaskUpdate(reader);
-                weInfoNewSpawns.push({ entityIndex, sizeX, sizeZ, configId, drawMode, position, mask });
+                weInfoNewSpawns.push({
+                    entityIndex,
+                    sizeX,
+                    sizeZ,
+                    configId,
+                    drawMode,
+                    position,
+                    mask,
+                });
             }
             return {
                 type: "worldentity_info",
@@ -516,7 +534,12 @@ export function decodeServerPacket(data: Uint8Array | ArrayBuffer): DecodedServe
 
             const weXteaKeys: number[][] = new Array(weNumXteaKeys);
             for (let i = 0; i < weNumXteaKeys; i++) {
-                weXteaKeys[i] = [reader.readInt(), reader.readInt(), reader.readInt(), reader.readInt()];
+                weXteaKeys[i] = [
+                    reader.readInt(),
+                    reader.readInt(),
+                    reader.readInt(),
+                    reader.readInt(),
+                ];
             }
 
             const weMapRegions = deriveRegionsFromTemplates(weTemplateChunks);
@@ -697,7 +720,6 @@ export function decodeServerPacket(data: Uint8Array | ArrayBuffer): DecodedServe
                     running: reader.readBoolean(),
                 },
             };
-
 
         case ServerPacketId.SPOT_ANIM: {
             const spotId = reader.readShort();
@@ -1817,7 +1839,12 @@ export function decodeBatchedServerPackets(data: Uint8Array | ArrayBuffer): Deco
  * Flags byte packs encoding width (0=zero, 1=byte, 2=short, 3=int)
  * for x (bits 0-1), y (bits 2-3), z (bits 4-5), orientation (bits 6-7).
  */
-function readPositionDelta(reader: ServerPacketReader): { x: number; y: number; z: number; orientation: number } {
+function readPositionDelta(reader: ServerPacketReader): {
+    x: number;
+    y: number;
+    z: number;
+    orientation: number;
+} {
     const flags = reader.readSignedByte();
     if (flags === 0) return { x: 0, y: 0, z: 0, orientation: 0 };
     const x = readTypedValue(reader, flags, 0);
@@ -1835,7 +1862,9 @@ function readTypedValue(reader: ServerPacketReader, flags: number, bitShift: num
     return 0;
 }
 
-function readMaskUpdate(reader: ServerPacketReader): { animationId?: number; sequenceFrame?: number; actionMask?: number } | undefined {
+function readMaskUpdate(
+    reader: ServerPacketReader,
+): { animationId?: number; sequenceFrame?: number; actionMask?: number } | undefined {
     const maskByte = reader.readByte() & 0xff;
     if (maskByte === 0) return undefined;
     let animationId: number | undefined;

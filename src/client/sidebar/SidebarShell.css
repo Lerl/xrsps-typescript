@@ -142,7 +142,8 @@
     overflow: hidden;
     color: var(--sidebar-text);
     border: 1px solid var(--sidebar-line);
-    background: radial-gradient(circle at 10% 8%, rgba(233, 193, 134, 0.1), transparent 34%),
+    background:
+        radial-gradient(circle at 10% 8%, rgba(233, 193, 134, 0.1), transparent 34%),
         linear-gradient(160deg, rgba(30, 26, 21, 0.97) 0%, rgba(18, 16, 13, 0.98) 100%);
     box-shadow: 0 22px 48px rgba(0, 0, 0, 0.52);
     opacity: 0;
@@ -164,7 +165,8 @@
     position: absolute;
     inset: 0;
     pointer-events: none;
-    background: linear-gradient(180deg, rgba(255, 233, 188, 0.06), rgba(14, 12, 10, 0.2)),
+    background:
+        linear-gradient(180deg, rgba(255, 233, 188, 0.06), rgba(14, 12, 10, 0.2)),
         repeating-linear-gradient(
             0deg,
             rgba(240, 208, 151, 0.035) 0,

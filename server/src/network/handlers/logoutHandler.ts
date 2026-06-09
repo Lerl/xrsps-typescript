@@ -1,9 +1,9 @@
-import type { MessageHandler } from "../MessageRouter";
-import type { MessageHandlerServices } from "../MessageHandlers";
-import { ACTIVE_COMBAT_TIMER } from "../../game/model/timer/Timers";
 import { LockState } from "../../game/model/LockState";
-import { encodeMessage } from "../messages";
+import { ACTIVE_COMBAT_TIMER } from "../../game/model/timer/Timers";
 import { logger } from "../../utils/logger";
+import type { MessageHandlerServices } from "../MessageHandlers";
+import type { MessageHandler } from "../MessageRouter";
+import { encodeMessage } from "../messages";
 
 export function createLogoutHandler(services: MessageHandlerServices): MessageHandler<"logout"> {
     return (ctx) => {
@@ -27,7 +27,9 @@ export function createLogoutHandler(services: MessageHandlerServices): MessageHa
                             payload: { success: false, reason: logoutMessage },
                         });
                         ws.send(response);
-                    } catch (err) { logger.warn("[logout] failed to send logout denial", err); }
+                    } catch (err) {
+                        logger.warn("[logout] failed to send logout denial", err);
+                    }
                     return;
                 }
                 services.completeLogout(ws, player);
@@ -35,7 +37,11 @@ export function createLogoutHandler(services: MessageHandlerServices): MessageHa
             if (!player) services.completeLogout(ws);
         } catch (err) {
             logger.warn("[logout] Error during logout:", err);
-            try { ws.close(1000, "logout"); } catch (err) { logger.warn("[logout] failed to close websocket", err); }
+            try {
+                ws.close(1000, "logout");
+            } catch (err) {
+                logger.warn("[logout] failed to close websocket", err);
+            }
         }
     };
 }

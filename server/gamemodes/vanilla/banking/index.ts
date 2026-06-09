@@ -1,7 +1,14 @@
 import type { IScriptRegistry, ScriptServices } from "../../../src/game/scripts/types";
 import type { BankingProvider } from "./BankingProvider";
+import {
+    BankLimits,
+    BankMainChild,
+    BankSideChild,
+    TAB_SLOT_OFFSET,
+    WidgetGroup,
+    slotToTabIndex,
+} from "./bankConstants";
 import { registerBankWidgetHandlers } from "./bankWidgets";
-import { WidgetGroup, BankMainChild, BankSideChild, slotToTabIndex, BankLimits, TAB_SLOT_OFFSET } from "./bankConstants";
 
 export function registerBankingHandlers(registry: IScriptRegistry, services: ScriptServices): void {
     registry.registerNpcAction("bank", ({ player, services }) => {
@@ -36,9 +43,15 @@ export function registerBankingHandlers(registry: IScriptRegistry, services: Scr
         const slot = typeof payload.slot === "number" ? payload.slot : -1;
         const quantity = typeof payload.quantity === "number" ? payload.quantity : 0;
         const itemIdHint = payload.itemId as number | undefined;
-        const tab = payload.tab !== undefined && (payload.tab as number) > 0 ? (payload.tab as number) : undefined;
+        const tab =
+            payload.tab !== undefined && (payload.tab as number) > 0
+                ? (payload.tab as number)
+                : undefined;
         const result = event.services.banking?.depositInventoryItemToBank?.(
-            event.player, slot, quantity, { itemIdHint, tab },
+            event.player,
+            slot,
+            quantity,
+            { itemIdHint, tab },
         );
         if (result && !result.ok && result.message) {
             event.services.messaging.sendGameMessage(event.player, result.message);
@@ -56,8 +69,8 @@ export function registerBankingHandlers(registry: IScriptRegistry, services: Scr
             modeRaw === "insert"
                 ? true
                 : modeRaw === "swap"
-                ? false
-                : event.player.bank.getBankInsertMode();
+                  ? false
+                  : event.player.bank.getBankInsertMode();
         const entry = event.services.banking?.getBankEntryAtClientSlot?.(event.player, from);
         if (!entry) return;
         const banking = event.services.gamemodeServices?.banking as BankingProvider | undefined;
@@ -91,7 +104,11 @@ export {
     type BankServerUpdate,
     type IfButtonDPayload,
 } from "./BankingProvider";
-export { registerBankInterfaceHooks, BANK_INTERFACE_ID, type BankOpenData } from "./BankInterfaceHooks";
+export {
+    registerBankInterfaceHooks,
+    BANK_INTERFACE_ID,
+    type BankOpenData,
+} from "./BankInterfaceHooks";
 export {
     WidgetGroup,
     BankMainChild,

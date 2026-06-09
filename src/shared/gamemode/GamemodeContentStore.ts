@@ -79,7 +79,8 @@ export function loadFromPayload(payload: {
                 if (!customEnumOverrides) customEnumOverrides = new Map();
                 for (const row of dataset.rows as any[]) {
                     if (row.structId != null) customChallengesByStructId.set(row.structId | 0, row);
-                    if (row.replacesStructId != null) replacedCacheStructIds.add(row.replacesStructId | 0);
+                    if (row.replacesStructId != null)
+                        replacedCacheStructIds.add(row.replacesStructId | 0);
                 }
                 // Register challenges into enum 5695 overrides (prepended)
                 if (customChallengesByStructId.size > 0) {
@@ -101,7 +102,9 @@ export function loadFromPayload(payload: {
                         }
                         dynamicWidgetGroups.set(group.groupId | 0, { root, widgets });
                     }
-                    console.log(`[GamemodeContentStore] registered ${dynamicWidgetGroups.size} custom widget group(s)`);
+                    console.log(
+                        `[GamemodeContentStore] registered ${dynamicWidgetGroups.size} custom widget group(s)`,
+                    );
                 } catch (err) {
                     console.log("[GamemodeContentStore] failed to load custom widgets", err);
                 }
@@ -114,7 +117,9 @@ export function loadFromPayload(payload: {
                     for (const def of dataset.rows as any[]) {
                         if (!def || !def.id) continue;
                         if (def.baseItemId != null) {
-                            const builder = CustomItemBuilder.create(def.id).basedOn(def.baseItemId);
+                            const builder = CustomItemBuilder.create(def.id).basedOn(
+                                def.baseItemId,
+                            );
                             if (def.objType?.name) builder.name(def.objType.name);
                             if (def.objType?.recolorFrom && def.objType?.recolorTo) {
                                 builder.recolor(def.objType.recolorFrom, def.objType.recolorTo);
@@ -127,7 +132,9 @@ export function loadFromPayload(payload: {
                             CustomItemRegistry.register(def, def.objType?.name);
                         }
                     }
-                    console.log(`[GamemodeContentStore] registered ${dataset.rows.length} custom item(s)`);
+                    console.log(
+                        `[GamemodeContentStore] registered ${dataset.rows.length} custom item(s)`,
+                    );
                 } catch (err) {
                     console.log("[GamemodeContentStore] failed to register custom items", err);
                 }
@@ -136,7 +143,11 @@ export function loadFromPayload(payload: {
     }
     ready = true;
     console.log(
-        `[GamemodeContentStore] loaded: ${tasksByTaskId?.size ?? 0} tasks, ${relicsByStructId?.size ?? 0} relics, ${masteryNodesByStructId?.size ?? 0} mastery nodes, ${customTasksByStructId?.size ?? 0} custom tasks`,
+        `[GamemodeContentStore] loaded: ${tasksByTaskId?.size ?? 0} tasks, ${
+            relicsByStructId?.size ?? 0
+        } relics, ${masteryNodesByStructId?.size ?? 0} mastery nodes, ${
+            customTasksByStructId?.size ?? 0
+        } custom tasks`,
     );
 }
 
@@ -148,15 +159,26 @@ export function getLeagueTaskStructParam(
     if (!row) return undefined;
     const pid = paramId | 0;
     switch (pid) {
-        case 873: return row.taskId | 0;
-        case 874: return row.name ?? "";
-        case 875: return row.description ?? "";
-        case 1016: return typeof row.category === "number" ? row.category | 0 : 0;
-        case 1017: return typeof row.area === "number" ? row.area | 0 : 0;
-        case 1018: return typeof row.skill === "number" ? row.skill | 0 : 0;
-        case 2044: case 1849: case 1850: case 1851: case 1852:
+        case 873:
+            return row.taskId | 0;
+        case 874:
+            return row.name ?? "";
+        case 875:
+            return row.description ?? "";
+        case 1016:
+            return typeof row.category === "number" ? row.category | 0 : 0;
+        case 1017:
+            return typeof row.area === "number" ? row.area | 0 : 0;
+        case 1018:
+            return typeof row.skill === "number" ? row.skill | 0 : 0;
+        case 2044:
+        case 1849:
+        case 1850:
+        case 1851:
+        case 1852:
             return row.tier | 0;
-        default: return undefined;
+        default:
+            return undefined;
     }
 }
 
@@ -168,28 +190,38 @@ export function getRelicOrMasteryStructParam(
     if (relic) {
         const pid = paramId | 0;
         switch (pid) {
-            case 879: return relic.name ?? "";
-            case 880: return relic.description ?? "";
-            case 1855: return relic.hasItem ? 1 : 0;
-            default: return undefined;
+            case 879:
+                return relic.name ?? "";
+            case 880:
+                return relic.description ?? "";
+            case 1855:
+                return relic.hasItem ? 1 : 0;
+            default:
+                return undefined;
         }
     }
     const node = masteryNodesByStructId?.get(structId | 0);
     if (node) {
         const pid = paramId | 0;
         switch (pid) {
-            case 2026: return node.name ?? "";
-            case 2027: return node.category ?? 0;
-            case 2028: return node.description ?? "";
-            default: return undefined;
+            case 2026:
+                return node.name ?? "";
+            case 2027:
+                return node.category ?? 0;
+            case 2028:
+                return node.description ?? "";
+            default:
+                return undefined;
         }
     }
     const challenge = masteryChallengesByStructId?.get(structId | 0);
     if (challenge) {
         const pid = paramId | 0;
         switch (pid) {
-            case 2028: return challenge.description ?? "";
-            default: return undefined;
+            case 2028:
+                return challenge.description ?? "";
+            default:
+                return undefined;
         }
     }
     return undefined;

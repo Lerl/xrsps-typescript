@@ -1,5 +1,5 @@
-import { getSpellData } from "../spells/SpellDataProvider";
 import { SpellCaster } from "../spells/SpellCaster";
+import { getSpellData } from "../spells/SpellDataProvider";
 import { AttackType } from "./AttackType";
 
 export const RANGED_WEAPON_CATEGORIES = new Set<number>([3, 5, 6, 7, 8, 19]);
@@ -131,11 +131,19 @@ export function resolvePlayerAttackReach(
 }
 
 export function resolveNpcAttackType(state: NpcCombatRuleState, explicit?: AttackType): AttackType {
-    if (explicit === AttackType.Melee || explicit === AttackType.Ranged || explicit === AttackType.Magic) {
+    if (
+        explicit === AttackType.Melee ||
+        explicit === AttackType.Ranged ||
+        explicit === AttackType.Magic
+    ) {
         return explicit;
     }
     const direct = state.getAttackType?.();
-    if (direct === AttackType.Melee || direct === AttackType.Ranged || direct === AttackType.Magic) {
+    if (
+        direct === AttackType.Melee ||
+        direct === AttackType.Ranged ||
+        direct === AttackType.Magic
+    ) {
         return direct;
     }
     const rootAttackType = (state as { attackType?: AttackType }).attackType;
@@ -147,7 +155,11 @@ export function resolveNpcAttackType(state: NpcCombatRuleState, explicit?: Attac
         return rootAttackType;
     }
     const profile = state.combat?.attackType;
-    if (profile === AttackType.Melee || profile === AttackType.Ranged || profile === AttackType.Magic) {
+    if (
+        profile === AttackType.Melee ||
+        profile === AttackType.Ranged ||
+        profile === AttackType.Magic
+    ) {
         return profile;
     }
     return AttackType.Melee;

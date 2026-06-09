@@ -1,13 +1,16 @@
 import type { WebSocket } from "ws";
 
-import type { TickFrame } from "../../game/tick/TickPhaseOrchestrator";
 import type { ProjectileLaunch } from "../../../../src/shared/projectiles/ProjectileLaunch";
 import { adjustProjectileLaunchesForElapsedCycles } from "../../../../src/shared/projectiles/projectileDelivery";
+import type { TickFrame } from "../../game/tick/TickPhaseOrchestrator";
 import { encodeMessage } from "../messages";
 import type { BroadcastContext, BroadcastDomain } from "./BroadcastDomain";
 
 export interface GamemodeSnapshotEncoder {
-    encode(playerId: number, payload: unknown): { message: string | Uint8Array; context: string } | undefined;
+    encode(
+        playerId: number,
+        payload: unknown,
+    ): { message: string | Uint8Array; context: string } | undefined;
     onSent?(playerId: number, payload: unknown): void;
 }
 
@@ -35,10 +38,7 @@ export class MiscBroadcaster implements BroadcastDomain {
     flushLocChanges(frame: TickFrame, ctx: BroadcastContext): void {
         if (!frame.locChanges || frame.locChanges.length === 0) return;
         for (const change of frame.locChanges) {
-            ctx.broadcast(
-                encodeMessage({ type: "loc_change", payload: change }),
-                "loc_change",
-            );
+            ctx.broadcast(encodeMessage({ type: "loc_change", payload: change }), "loc_change");
         }
     }
 
@@ -151,9 +151,7 @@ export class MiscBroadcaster implements BroadcastDomain {
     }
 
     private flushProjectiles(frame: TickFrame, ctx: BroadcastContext): void {
-        const packets = frame.projectilePackets as
-            | Map<number, ProjectileLaunch[]>
-            | undefined;
+        const packets = frame.projectilePackets as Map<number, ProjectileLaunch[]> | undefined;
         if (!packets) return;
         const elapsedClientCycles = Math.max(0, Math.floor((Date.now() - frame.time) / 20));
         for (const [playerId, list] of packets.entries()) {

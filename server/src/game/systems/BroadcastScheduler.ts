@@ -1,7 +1,7 @@
-import type { PlayerAppearance, SkillSyncUpdate } from "../player";
-import type { HitsplatSourceType } from "../combat/OsrsHitsplatIds";
-import type { WidgetAction } from "../../widgets/WidgetManager";
 import type { SpellResultPayload } from "../../network/messages";
+import type { WidgetAction } from "../../widgets/WidgetManager";
+import type { HitsplatSourceType } from "../combat/OsrsHitsplatIds";
+import type { PlayerAppearance, SkillSyncUpdate } from "../player";
 
 /**
  * Widget event queued for broadcast.
@@ -196,7 +196,8 @@ export interface PlayerAnimSet {
 export class BroadcastScheduler {
     // Chat and notifications
     private pendingChatMessages: ChatMessageSnapshot[] = [];
-    private pendingNotifications: Array<{ playerId: number; payload: Record<string, unknown> }> = [];
+    private pendingNotifications: Array<{ playerId: number; payload: Record<string, unknown> }> =
+        [];
 
     // Game state updates
     private pendingVarps: VarpUpdate[] = [];
@@ -387,7 +388,9 @@ export class BroadcastScheduler {
         this.pendingChatMessages = messages.concat(this.pendingChatMessages);
     }
 
-    restoreNotifications(notifications: Array<{ playerId: number; payload: Record<string, unknown> }>): void {
+    restoreNotifications(
+        notifications: Array<{ playerId: number; payload: Record<string, unknown> }>,
+    ): void {
         this.pendingNotifications = notifications.concat(this.pendingNotifications);
     }
 
@@ -461,7 +464,10 @@ export class BroadcastScheduler {
 
     // ----- Keyed Message Queues (smithing, trade, etc.) -----
 
-    private keyedMessages = new Map<string, Array<{ playerId: number; payload: Record<string, unknown> }>>();
+    private keyedMessages = new Map<
+        string,
+        Array<{ playerId: number; payload: Record<string, unknown> }>
+    >();
 
     queueKeyedMessage(key: string, playerId: number, payload: Record<string, unknown>): void {
         let queue = this.keyedMessages.get(key);
@@ -478,18 +484,26 @@ export class BroadcastScheduler {
         return messages;
     }
 
-    restoreKeyedMessages(key: string, messages: Array<{ playerId: number; payload: Record<string, unknown> }>): void {
+    restoreKeyedMessages(
+        key: string,
+        messages: Array<{ playerId: number; payload: Record<string, unknown> }>,
+    ): void {
         const existing = this.keyedMessages.get(key) ?? [];
         this.keyedMessages.set(key, messages.concat(existing));
     }
 
-    drainAllKeyedMessages(): Map<string, Array<{ playerId: number; payload: Record<string, unknown> }>> {
+    drainAllKeyedMessages(): Map<
+        string,
+        Array<{ playerId: number; payload: Record<string, unknown> }>
+    > {
         const all = this.keyedMessages;
         this.keyedMessages = new Map();
         return all;
     }
 
-    restoreAllKeyedMessages(all: Map<string, Array<{ playerId: number; payload: Record<string, unknown> }>>): void {
+    restoreAllKeyedMessages(
+        all: Map<string, Array<{ playerId: number; payload: Record<string, unknown> }>>,
+    ): void {
         for (const [key, messages] of all.entries()) {
             this.restoreKeyedMessages(key, messages);
         }
@@ -596,7 +610,10 @@ export class BroadcastScheduler {
 
     // ----- Gamemode Snapshots -----
 
-    private pendingGamemodeSnapshots = new Map<string, Array<{ playerId: number; payload: unknown }>>();
+    private pendingGamemodeSnapshots = new Map<
+        string,
+        Array<{ playerId: number; payload: unknown }>
+    >();
 
     queueGamemodeSnapshot(key: string, playerId: number, payload: unknown): void {
         const queue = this.pendingGamemodeSnapshots.get(key) ?? [];
@@ -615,7 +632,9 @@ export class BroadcastScheduler {
         return snapshots;
     }
 
-    restoreGamemodeSnapshots(snapshots: Map<string, Array<{ playerId: number; payload: unknown }>>): void {
+    restoreGamemodeSnapshots(
+        snapshots: Map<string, Array<{ playerId: number; payload: unknown }>>,
+    ): void {
         for (const [key, entries] of snapshots) {
             if (entries.length > 0) {
                 const existing = this.pendingGamemodeSnapshots.get(key) ?? [];

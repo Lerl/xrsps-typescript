@@ -1,7 +1,7 @@
-import { encodeMessage } from "../../network/messages";
 import type { SoundBroadcastRequest } from "../../network/managers/SoundManager";
-import type { PlayerState } from "../player";
+import { encodeMessage } from "../../network/messages";
 import type { ServerServices } from "../ServerServices";
+import type { PlayerState } from "../player";
 
 export class SoundService {
     constructor(private readonly services: ServerServices) {}
@@ -83,7 +83,11 @@ export class SoundService {
         );
     }
 
-    sendSound(player: PlayerState, soundId: number, opts?: { delay?: number; loops?: number }): void {
+    sendSound(
+        player: PlayerState,
+        soundId: number,
+        opts?: { delay?: number; loops?: number },
+    ): void {
         this.services.soundManager!.sendSound(player, soundId, opts);
     }
 

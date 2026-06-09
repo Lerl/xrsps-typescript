@@ -4,7 +4,10 @@ import { type IScriptRegistry, type ScriptServices } from "../../../../src/game/
  * Fallback Talk-to handler so NPCs without bespoke scripts still respond.
  * This keeps client-side interactions working while content is fleshed out.
  */
-export function registerDefaultTalkHandlers(registry: IScriptRegistry, services: ScriptServices): void {
+export function registerDefaultTalkHandlers(
+    registry: IScriptRegistry,
+    services: ScriptServices,
+): void {
     registry.registerNpcAction("talk-to", (event) => {
         const npc = event.npc;
         const npcName =

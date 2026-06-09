@@ -1009,8 +1009,7 @@ export class Model2DRenderer {
                             sx2 = (centerX + ((vC.x * zoom3d) / vC.z) * k + dx) | 0;
                             sy2 = (centerY + (((vC.y * zoom3d) / vC.z) * k + dy) * yScaleFix) | 0;
                         }
-                        const orient2 =
-                            (sx1 - sx0) * (sy2 - sy0) - (sy1 - sy0) * (sx2 - sx0);
+                        const orient2 = (sx1 - sx0) * (sy2 - sy0) - (sy1 - sy0) * (sx2 - sx0);
                         if (orient2 >= 0) continue;
 
                         drawTexturedTri(
@@ -1107,8 +1106,7 @@ export class Model2DRenderer {
                             sx2 = (centerX + ((vC.x * zoom3d) / vC.z) * k + dx) | 0;
                             sy2 = (centerY + (((vC.y * zoom3d) / vC.z) * k + dy) * yScaleFix) | 0;
                         }
-                        const orient2 =
-                            (sx1 - sx0) * (sy2 - sy0) - (sy1 - sy0) * (sx2 - sx0);
+                        const orient2 = (sx1 - sx0) * (sy2 - sy0) - (sy1 - sy0) * (sx2 - sx0);
                         if (orient2 >= 0) continue;
 
                         drawFlatTri(

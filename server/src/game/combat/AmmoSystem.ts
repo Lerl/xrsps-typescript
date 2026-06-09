@@ -11,8 +11,8 @@
  * Reference: RSMod RangedCombatStrategy, OSRS Wiki
  */
 import { EquipmentSlot } from "../../../../src/rs/config/player/Equipment";
-import type { AmmoDataProvider } from "./AmmoDataProvider";
 import { getProviderRegistry } from "../providers/ProviderRegistry";
+import type { AmmoDataProvider } from "./AmmoDataProvider";
 
 // =============================================================================
 // Item ID Constants
@@ -688,7 +688,14 @@ export function createDefaultAmmoDataProvider(): AmmoDataProvider {
         isNoAmmoWeapon: (weaponId) => NO_AMMO_WEAPONS.has(weaponId),
         isDarkBow: (weaponId) => weaponId === DARK_BOW,
         getAvasDeviceType: (capeSlotItemId) => {
-            if (capeSlotItemId === AVAS_ASSEMBLER || capeSlotItemId === MASORI_ASSEMBLER || capeSlotItemId === MAX_CAPE || capeSlotItemId === RANGING_CAPE || capeSlotItemId === RANGING_CAPE_T) return "assembler";
+            if (
+                capeSlotItemId === AVAS_ASSEMBLER ||
+                capeSlotItemId === MASORI_ASSEMBLER ||
+                capeSlotItemId === MAX_CAPE ||
+                capeSlotItemId === RANGING_CAPE ||
+                capeSlotItemId === RANGING_CAPE_T
+            )
+                return "assembler";
             if (capeSlotItemId === AVAS_ACCUMULATOR) return "accumulator";
             if (capeSlotItemId === AVAS_ATTRACTOR) return "attractor";
             return null;
@@ -723,7 +730,9 @@ function defaultIsAmmoCompatible(weaponId: number, ammoId: number): boolean {
     if (BOW_WEAPONS.has(weaponId)) {
         const validArrows = BOW_ARROW_REQUIREMENTS.get(weaponId);
         if (validArrows) return validArrows.includes(ammoId);
-        return [BRONZE_ARROW, IRON_ARROW, STEEL_ARROW, MITHRIL_ARROW, BROAD_ARROWS].includes(ammoId);
+        return [BRONZE_ARROW, IRON_ARROW, STEEL_ARROW, MITHRIL_ARROW, BROAD_ARROWS].includes(
+            ammoId,
+        );
     }
     if (CROSSBOW_WEAPONS.has(weaponId)) {
         const validBolts = CROSSBOW_BOLT_REQUIREMENTS.get(weaponId);
@@ -739,7 +748,9 @@ function defaultIsAmmoCompatible(weaponId: number, ammoId: number): boolean {
  */
 export function isAmmoCompatible(weaponId: number, ammoId: number): boolean {
     const provider = getProviderRegistry().ammoData;
-    return provider ? provider.isAmmoCompatible(weaponId, ammoId) : defaultIsAmmoCompatible(weaponId, ammoId);
+    return provider
+        ? provider.isAmmoCompatible(weaponId, ammoId)
+        : defaultIsAmmoCompatible(weaponId, ammoId);
 }
 
 /**
@@ -941,7 +952,8 @@ export function doesBoltEffectActivate(
 function defaultGetValidAmmo(weaponId: number): number[] {
     if (NO_AMMO_WEAPONS.has(weaponId)) return [];
     if (BOW_WEAPONS.has(weaponId)) return BOW_ARROW_REQUIREMENTS.get(weaponId) ?? [];
-    if (CROSSBOW_WEAPONS.has(weaponId)) return CROSSBOW_BOLT_REQUIREMENTS.get(weaponId) ?? ALL_BOLTS;
+    if (CROSSBOW_WEAPONS.has(weaponId))
+        return CROSSBOW_BOLT_REQUIREMENTS.get(weaponId) ?? ALL_BOLTS;
     if (BALLISTA_WEAPONS.has(weaponId)) return ALL_JAVELINS;
     return [];
 }

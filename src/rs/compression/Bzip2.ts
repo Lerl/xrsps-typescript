@@ -22,9 +22,15 @@ export class Bzip2 {
             const decompressed = Bzip2.wasmBzip.decompress(compressedBzip, actualSize, {
                 small: false,
             });
-            return new Int8Array(decompressed.buffer);
+            return new Int8Array(
+                decompressed.buffer.slice(
+                    decompressed.byteOffset,
+                    decompressed.byteOffset + decompressed.byteLength,
+                ),
+            );
         }
 
-        return new Int8Array(bzip2.simple(bzip2.array(compressedBzip)).buffer);
+        const result = bzip2.simple(bzip2.array(compressedBzip));
+        return new Int8Array(result.buffer, result.byteOffset, result.byteLength);
     }
 }

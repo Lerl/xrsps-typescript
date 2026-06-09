@@ -127,7 +127,8 @@ export class WorldEntity {
             return true;
         }
 
-        const progress = (cycle - this.interpStartCycle) / (this.interpEndCycle - this.interpStartCycle);
+        const progress =
+            (cycle - this.interpStartCycle) / (this.interpEndCycle - this.interpStartCycle);
         interpolatePosition(this.interpStart, this.interpTarget, progress, this.position);
         return progress >= 1.0;
     }
@@ -146,16 +147,21 @@ export class WorldEntity {
     }
 }
 
-function interpolatePosition(start: Position, target: Position, progress: number, out: Position): void {
+function interpolatePosition(
+    start: Position,
+    target: Position,
+    progress: number,
+    out: Position,
+): void {
     const t = Math.max(0, Math.min(1, progress));
 
-    out.x = start.x + ((target.x - start.x) * t | 0);
-    out.z = start.z + ((target.z - start.z) * t | 0);
+    out.x = start.x + (((target.x - start.x) * t) | 0);
+    out.z = start.z + (((target.z - start.z) * t) | 0);
 
     // Orientation wraparound: find shortest path around the 2048-unit circle
     let angleDelta = (target.orientation - start.orientation) & 2047;
     if (angleDelta > 1024) {
         angleDelta = -(2048 - angleDelta);
     }
-    out.orientation = (start.orientation + (angleDelta * t | 0)) & 2047;
+    out.orientation = (start.orientation + ((angleDelta * t) | 0)) & 2047;
 }

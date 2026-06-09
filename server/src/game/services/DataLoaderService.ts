@@ -1,6 +1,7 @@
 import { ConfigType } from "../../../../src/rs/cache/ConfigType";
 import { IndexType } from "../../../../src/rs/cache/IndexType";
 import { getCacheLoaderFactory } from "../../../../src/rs/cache/loader/CacheLoaderFactory";
+import type { CacheLoaderFactory } from "../../../../src/rs/cache/loader/CacheLoaderFactory";
 import { Huffman, tryLoadOsrsHuffman } from "../../../../src/rs/chat/Huffman";
 import type { BasType } from "../../../../src/rs/config/bastype/BasType";
 import type { BasTypeLoader } from "../../../../src/rs/config/bastype/BasTypeLoader";
@@ -8,14 +9,13 @@ import { DbRepository } from "../../../../src/rs/config/db/DbRepository";
 import type { EnumTypeLoader } from "../../../../src/rs/config/enumtype/EnumTypeLoader";
 import { ArchiveHealthBarDefinitionLoader } from "../../../../src/rs/config/healthbar/HealthBarDefinitionLoader";
 import type { IdkTypeLoader } from "../../../../src/rs/config/idktype/IdkTypeLoader";
+import type { LocType } from "../../../../src/rs/config/loctype/LocType";
+import type { LocTypeLoader } from "../../../../src/rs/config/loctype/LocTypeLoader";
 import type { NpcTypeLoader } from "../../../../src/rs/config/npctype/NpcTypeLoader";
 import type { ObjType } from "../../../../src/rs/config/objtype/ObjType";
 import type { ObjTypeLoader } from "../../../../src/rs/config/objtype/ObjTypeLoader";
 import type { SeqTypeLoader } from "../../../../src/rs/config/seqtype/SeqTypeLoader";
-import type { LocType } from "../../../../src/rs/config/loctype/LocType";
-import type { LocTypeLoader } from "../../../../src/rs/config/loctype/LocTypeLoader";
 import type { StructTypeLoader } from "../../../../src/rs/config/structtype/StructTypeLoader";
-import type { CacheLoaderFactory } from "../../../../src/rs/cache/loader/CacheLoaderFactory";
 import { logger } from "../../utils/logger";
 import type { CacheEnv } from "../../world/CacheEnv";
 
@@ -39,10 +39,7 @@ export class DataLoaderService {
     private cacheFactory: CacheLoaderFactory;
 
     constructor(private readonly cacheEnv: CacheEnv) {
-        this.cacheFactory = getCacheLoaderFactory(
-            cacheEnv.info,
-            cacheEnv.cacheSystem,
-        );
+        this.cacheFactory = getCacheLoaderFactory(cacheEnv.info, cacheEnv.cacheSystem);
 
         this.huffman = tryLoadOsrsHuffman(cacheEnv.cacheSystem);
         if (!this.huffman) {
@@ -60,7 +57,9 @@ export class DataLoaderService {
                     archive,
                 );
             }
-        } catch (err) { logger.warn("[data-loader] failed to init healthbar loader", err); }
+        } catch (err) {
+            logger.warn("[data-loader] failed to init healthbar loader", err);
+        }
 
         this.initLoaders();
     }
@@ -71,28 +70,44 @@ export class DataLoaderService {
 
         try {
             this.locTypeLoader = factory.getLocTypeLoader();
-        } catch (err) { logger.warn("[data-loader] failed to init locTypeLoader", err); }
+        } catch (err) {
+            logger.warn("[data-loader] failed to init locTypeLoader", err);
+        }
         try {
             this.npcTypeLoader = factory.getNpcTypeLoader?.();
-        } catch (err) { logger.warn("[data-loader] failed to init npcTypeLoader", err); }
+        } catch (err) {
+            logger.warn("[data-loader] failed to init npcTypeLoader", err);
+        }
         try {
             this.seqTypeLoader = factory.getSeqTypeLoader?.();
-        } catch (err) { logger.warn("[data-loader] failed to init seqTypeLoader", err); }
+        } catch (err) {
+            logger.warn("[data-loader] failed to init seqTypeLoader", err);
+        }
         try {
             this.objTypeLoader = factory.getObjTypeLoader();
-        } catch (err) { logger.warn("[data-loader] failed to init objTypeLoader", err); }
+        } catch (err) {
+            logger.warn("[data-loader] failed to init objTypeLoader", err);
+        }
         try {
             this.idkTypeLoader = factory.getIdkTypeLoader();
-        } catch (err) { logger.warn("[data-loader] failed to init idkTypeLoader", err); }
+        } catch (err) {
+            logger.warn("[data-loader] failed to init idkTypeLoader", err);
+        }
         try {
             this.basTypeLoader = factory.getBasTypeLoader();
-        } catch (err) { logger.warn("[data-loader] failed to init basTypeLoader", err); }
+        } catch (err) {
+            logger.warn("[data-loader] failed to init basTypeLoader", err);
+        }
         try {
             this.enumTypeLoader = factory.getEnumTypeLoader?.();
-        } catch (err) { logger.warn("[data-loader] failed to init enumTypeLoader", err); }
+        } catch (err) {
+            logger.warn("[data-loader] failed to init enumTypeLoader", err);
+        }
         try {
             this.structTypeLoader = factory.getStructTypeLoader?.();
-        } catch (err) { logger.warn("[data-loader] failed to init structTypeLoader", err); }
+        } catch (err) {
+            logger.warn("[data-loader] failed to init structTypeLoader", err);
+        }
 
         if (this.cacheEnv) {
             try {

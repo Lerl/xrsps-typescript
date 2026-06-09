@@ -3,6 +3,8 @@
  *
  * Extracted from wsServer.ts for better organization and testability.
  */
+import type { WebSocket } from "ws";
+
 import {
     MUSIC_GROUP_ID,
     MUSIC_JUKEBOX_CHILD_ID,
@@ -11,12 +13,15 @@ import {
     MUSIC_NOW_PLAYING_TEXT_UID,
 } from "../../../../src/shared/ui/music";
 import { VARP_MUSICPLAY, VARP_MUSIC_CURRENT_TRACK } from "../../../../src/shared/vars";
-import { MISS_SOUND, getHitSoundForStyle, getMissSound } from "../../game/combat/WeaponDataProvider";
-import { encodeMessage } from "../messages";
-import type { WebSocket } from "ws";
 import type { NpcSoundType } from "../../audio/NpcSoundLookup";
-import type { PlayerState } from "../../game/player";
 import type { ServerServices } from "../../game/ServerServices";
+import {
+    MISS_SOUND,
+    getHitSoundForStyle,
+    getMissSound,
+} from "../../game/combat/WeaponDataProvider";
+import type { PlayerState } from "../../game/player";
+import { encodeMessage } from "../messages";
 
 /** Default sound IDs */
 const DEFAULT_HIT_SOUND = 1979;
@@ -824,7 +829,8 @@ export class SoundManager {
         }
 
         const def = this.svc.combatDataService.getNpcDeathSoundFromDefs(typeId);
-        const soundId = def?.deathSound ?? this.svc.combatDataService.getNpcCombatDefaultDeathSound();
+        const soundId =
+            def?.deathSound ?? this.svc.combatDataService.getNpcCombatDefaultDeathSound();
         return soundId > 0 ? soundId : undefined;
     }
 

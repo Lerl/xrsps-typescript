@@ -6,8 +6,8 @@
  * binary encoding.
  */
 import { ClientState, MOUSE_CROSS_YELLOW } from "../../client/ClientState";
-import { ClientPacket, createPacket, queuePacket } from "../../network/packet";
 import { sendNpcInteract } from "../../network/ServerConnection";
+import { ClientPacket, createPacket, queuePacket } from "../../network/packet";
 import { MenuTargetType } from "../../rs/MenuEntry";
 import { MODIFIER_FLAG_CTRL, MODIFIER_FLAG_CTRL_SHIFT } from "../../shared/input/modifierFlags";
 import { MenuOpcode } from "./MenuState";

@@ -2,7 +2,11 @@ import {
     VARBIT_SKILL_GUIDE_SKILL,
     VARBIT_SKILL_GUIDE_SUBSECTION,
 } from "../../../../src/shared/vars";
-import { type IScriptRegistry, type ScriptServices, BaseComponentUids } from "../../../src/game/scripts/types";
+import {
+    BaseComponentUids,
+    type IScriptRegistry,
+    type ScriptServices,
+} from "../../../src/game/scripts/types";
 
 /**
  * Skill guide widget handlers - opens skill guide overlay when skill tab is clicked.
@@ -55,7 +59,10 @@ const SKILL_GUIDE_ENTRIES: readonly SkillGuideEntry[] = [
     { childId: 24, skillVarbitValue: 24, skillName: "Sailing" },
 ];
 
-export function registerSkillGuideWidgetHandlers(registry: IScriptRegistry, services: ScriptServices): void {
+export function registerSkillGuideWidgetHandlers(
+    registry: IScriptRegistry,
+    services: ScriptServices,
+): void {
     // Register a handler for each skill in the skills tab (interface 320)
     // Uses onButton since binary IF_BUTTON packets don't send option strings
     for (const { childId, skillVarbitValue, skillName } of SKILL_GUIDE_ENTRIES) {

@@ -694,7 +694,9 @@ export interface RebuildWorldEntityPayload {
     buildAreas: import("../shared/worldentity/WorldEntityTypes").WorldEntityBuildArea[];
 }
 const rebuildWorldEntityListeners = new Set<(payload: RebuildWorldEntityPayload) => void>();
-export function subscribeRebuildWorldEntity(fn: (payload: RebuildWorldEntityPayload) => void): () => void {
+export function subscribeRebuildWorldEntity(
+    fn: (payload: RebuildWorldEntityPayload) => void,
+): () => void {
     rebuildWorldEntityListeners.add(fn);
     return () => rebuildWorldEntityListeners.delete(fn);
 }
@@ -727,7 +729,9 @@ export interface WorldEntityInfoPayload {
     newSpawns: WorldEntityNewSpawn[];
 }
 const worldEntityInfoListeners = new Set<(payload: WorldEntityInfoPayload) => void>();
-export function subscribeWorldEntityInfo(fn: (payload: WorldEntityInfoPayload) => void): () => void {
+export function subscribeWorldEntityInfo(
+    fn: (payload: WorldEntityInfoPayload) => void,
+): () => void {
     worldEntityInfoListeners.add(fn);
     return () => worldEntityInfoListeners.delete(fn);
 }
@@ -1541,7 +1545,11 @@ export function initServerConnection(url: string = DEFAULT_URL) {
                 console.log("[ws] Reconnected - attempting session resumption...");
                 send({
                     type: "login",
-                    payload: { username: sessionUsername, password: sessionPassword, revision: sessionRevision },
+                    payload: {
+                        username: sessionUsername,
+                        password: sessionPassword,
+                        revision: sessionRevision,
+                    },
                 } as any);
             }
             // Only auto-send handshake if flag is set (for backwards compatibility)
@@ -2066,7 +2074,7 @@ function processServerMessage(msg: any): void {
         const percentRaw = Number(raw?.percent);
         const percent = Number.isFinite(percentRaw)
             ? Math.max(0, Math.min(100, percentRaw | 0))
-            : lastRunEnergyState?.percent ?? 100;
+            : (lastRunEnergyState?.percent ?? 100);
         const unitsRaw = Number(raw?.units);
         const units = Number.isFinite(unitsRaw)
             ? Math.max(0, Math.min(RUN_ENERGY_MAX_UNITS, unitsRaw | 0))
@@ -2074,9 +2082,11 @@ function processServerMessage(msg: any): void {
         const running =
             raw && Object.prototype.hasOwnProperty.call(raw, "running")
                 ? !!raw?.running
-                : lastRunEnergyState?.running ?? true;
+                : (lastRunEnergyState?.running ?? true);
         const weightRaw = Number(raw?.weight);
-        const weight = Number.isFinite(weightRaw) ? weightRaw | 0 : lastRunEnergyState?.weight ?? 0;
+        const weight = Number.isFinite(weightRaw)
+            ? weightRaw | 0
+            : (lastRunEnergyState?.weight ?? 0);
         let stamina: RunEnergyState["stamina"] | undefined;
         const staminaTicksRaw = Number(raw?.staminaTicks);
         const staminaMultiplierRaw = Number(raw?.staminaMultiplier);
@@ -2495,7 +2505,7 @@ function send(msg: ClientToServer) {
     if (!socket || socket.readyState !== WebSocket.OPEN) return;
     // Use binary encoding for all client messages
     const binary = encodeClientMessage(msg as { type: string; payload: any });
-    socket.send(binary);
+    socket.send(binary as Uint8Array<ArrayBuffer>);
 }
 
 export function subscribeTick(cb: (tick: number, time: number) => void): () => void {
@@ -2978,7 +2988,7 @@ export function sendIfTriggerOpLocal(
     for (let i = 0; i < objectArgs.length; i++) {
         const arg = objectArgs[i];
         if (typeof arg === "number" && Number.isFinite(arg)) {
-// zigzag + LEB128-style varint.
+            // zigzag + LEB128-style varint.
             let v = (((arg | 0) << 1) ^ ((arg | 0) >> 31)) >>> 0;
             while ((v & ~0x7f) !== 0) {
                 buf.writeByte((v & 0x7f) | 0x80);
@@ -3062,7 +3072,6 @@ export function subscribePlayerSync(cb: (frame: PlayerSyncFrame) => void): () =>
     playerSyncListeners.add(cb);
     return () => playerSyncListeners.delete(cb);
 }
-
 
 export function subscribeNpcInfo(cb: (payload: NpcInfoPayload) => void): () => void {
     npcInfoListeners.add(cb);

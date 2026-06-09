@@ -3,7 +3,11 @@ import {
     VARP_OPTION_ATTACK_PRIORITY_NPC,
     VARP_OPTION_ATTACK_PRIORITY_PLAYER,
 } from "../../../../src/shared/vars";
-import { type IScriptRegistry, type ScriptServices, WidgetActionEvent } from "../../../src/game/scripts/types";
+import {
+    type IScriptRegistry,
+    type ScriptServices,
+    WidgetActionEvent,
+} from "../../../src/game/scripts/types";
 
 /**
  * Settings widget handlers - handles button clicks on the settings tab (widget 116)
@@ -39,7 +43,10 @@ const SETTINGS_SIDE_DROPDOWN_LIST_UIDS = new Set<number>([
 const MAX_PLAYER_ATTACK_OPTION = 4;
 const MAX_NPC_ATTACK_OPTION = 3;
 
-export function registerSettingsWidgetHandlers(registry: IScriptRegistry, services: ScriptServices): void {
+export function registerSettingsWidgetHandlers(
+    registry: IScriptRegistry,
+    services: ScriptServices,
+): void {
     // Track the last opened settings-side dropdown for this player.
     // The option list is rendered via shared dropdown list widgets, so the selection click alone
     // doesn't identify which setting row initiated it.
@@ -131,8 +138,8 @@ export function registerSettingsWidgetHandlers(registry: IScriptRegistry, servic
             setting === SETTINGS_DROPDOWN_PLAYER_ATTACK_OPTIONS
                 ? VARP_OPTION_ATTACK_PRIORITY_PLAYER
                 : setting === SETTINGS_DROPDOWN_NPC_ATTACK_OPTIONS
-                ? VARP_OPTION_ATTACK_PRIORITY_NPC
-                : undefined;
+                  ? VARP_OPTION_ATTACK_PRIORITY_NPC
+                  : undefined;
         if (varpId === undefined) return;
         const maxValue =
             setting === SETTINGS_DROPDOWN_PLAYER_ATTACK_OPTIONS

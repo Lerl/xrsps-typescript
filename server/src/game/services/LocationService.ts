@@ -2,11 +2,11 @@ import { WebSocket } from "ws";
 
 import { faceAngleRs } from "../../../../src/rs/utils/rotation";
 import { encodeMessage } from "../../network/messages";
-import type { NpcState } from "../npc";
-import type { PlayerState } from "../player";
-import type { ServerServices } from "../ServerServices";
 import { CollisionFlag } from "../../pathfinding/legacy/pathfinder/flag/CollisionFlag";
 import { logger } from "../../utils/logger";
+import type { ServerServices } from "../ServerServices";
+import type { NpcState } from "../npc";
+import type { PlayerState } from "../player";
 
 const TILE_UNIT = 128;
 
@@ -41,7 +41,8 @@ export class LocationService {
         const oldTile = opts?.oldTile ?? tile;
         const newTile = opts?.newTile ?? tile;
         const payload: LocChangePayload = {
-            oldId, newId,
+            oldId,
+            newId,
             tile: { x: tile.x, y: tile.y },
             level,
             oldTile: { x: oldTile.x, y: oldTile.y },
@@ -52,17 +53,24 @@ export class LocationService {
         };
         try {
             this.services.doorManager?.observeLocChange({
-                oldId: payload.oldId, newId: payload.newId, level: payload.level,
-                oldTile: payload.oldTile, newTile: payload.newTile,
+                oldId: payload.oldId,
+                newId: payload.newId,
+                level: payload.level,
+                oldTile: payload.oldTile,
+                newTile: payload.newTile,
             });
         } catch (err) {
             logger.warn("[Door] Failed to observe loc change for runtime mapping capture", err);
         }
         try {
             this.services.dynamicLocState.observeLocChange({
-                oldId: payload.oldId, newId: payload.newId, level: payload.level,
-                oldTile: payload.oldTile, newTile: payload.newTile,
-                oldRotation: payload.oldRotation, newRotation: payload.newRotation,
+                oldId: payload.oldId,
+                newId: payload.newId,
+                level: payload.level,
+                oldTile: payload.oldTile,
+                newTile: payload.newTile,
+                oldRotation: payload.oldRotation,
+                newRotation: payload.newRotation,
             });
         } catch (err) {
             logger.warn("[loc] Failed to update dynamic loc state store", err);
@@ -90,8 +98,10 @@ export class LocationService {
         level: number,
     ): void {
         const payload: LocChangePayload = {
-            oldId, newId,
-            tile: { x: tile.x, y: tile.y }, level,
+            oldId,
+            newId,
+            tile: { x: tile.x, y: tile.y },
+            level,
             oldTile: { x: tile.x, y: tile.y },
             newTile: { x: tile.x, y: tile.y },
         };
@@ -147,7 +157,9 @@ export class LocationService {
         const targetY = tile.y * TILE_UNIT + TILE_UNIT / 2;
         try {
             player.setForcedOrientation(faceAngleRs(player.x, player.y, targetX, targetY));
-        } catch (err) { logger.warn("[location] failed to set gathering face orientation", err); }
+        } catch (err) {
+            logger.warn("[location] failed to set gathering face orientation", err);
+        }
     }
 
     isAdjacentToLoc(
@@ -270,11 +282,7 @@ export class LocationService {
         };
     }
 
-    maybeReplayDynamicLocState(
-        ws: WebSocket,
-        player: PlayerState,
-        force: boolean = false,
-    ): void {
+    maybeReplayDynamicLocState(ws: WebSocket, player: PlayerState, force: boolean = false): void {
         if (!ws || ws.readyState !== WebSocket.OPEN) {
             return;
         }

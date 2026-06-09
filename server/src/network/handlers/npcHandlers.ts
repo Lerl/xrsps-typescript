@@ -1,7 +1,7 @@
+import { logger } from "../../utils/logger";
 import type { MessageHandlerServices } from "../MessageHandlers";
 import { normalizeModifierFlags, resolveRunWithModifier } from "../MessageHandlers";
 import type { MessageRouter } from "../MessageRouter";
-import { logger } from "../../utils/logger";
 
 export function registerNpcHandlers(router: MessageRouter, services: MessageHandlerServices): void {
     router.register("npc_attack", (ctx) => {
@@ -135,7 +135,9 @@ export function registerNpcHandlers(router: MessageRouter, services: MessageHand
                         if (canBankFromPos) {
                             try {
                                 services.startNpcInteraction(ctx.ws, npc, option, modifierFlags);
-                            } catch (err) { logger.warn("Failed to start NPC bank interaction", err); }
+                            } catch (err) {
+                                logger.warn("Failed to start NPC bank interaction", err);
+                            }
                             return;
                         } else {
                             const isCardinallyAligned =
@@ -183,7 +185,10 @@ export function registerNpcHandlers(router: MessageRouter, services: MessageHand
                                 res.waypoints.length > 0
                             ) {
                                 const run = player.energy.resolveRequestedRun(
-                                    resolveRunWithModifier(player.energy.wantsToRun(), modifierFlags),
+                                    resolveRunWithModifier(
+                                        player.energy.wantsToRun(),
+                                        modifierFlags,
+                                    ),
                                 );
                                 services.routePlayer(
                                     ctx.ws,
@@ -198,7 +203,9 @@ export function registerNpcHandlers(router: MessageRouter, services: MessageHand
                                         option,
                                         modifierFlags,
                                     );
-                                } catch (err) { logger.warn("Failed to start NPC interaction after walk", err); }
+                                } catch (err) {
+                                    logger.warn("Failed to start NPC interaction after walk", err);
+                                }
                                 routed = true;
                                 break;
                             }

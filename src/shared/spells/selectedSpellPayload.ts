@@ -67,8 +67,8 @@ export function resolveSelectedSpellPayload(
         selectedSpellWidgetId !== undefined
             ? (selectedSpellWidgetId >>> 16) & 0xffff
             : Number.isFinite(payload.spellbookGroupId) && (payload.spellbookGroupId as number) >= 0
-            ? (payload.spellbookGroupId as number) | 0
-            : undefined;
+              ? (payload.spellbookGroupId as number) | 0
+              : undefined;
     const selectedSpellItemId =
         Number.isFinite(payload.selectedSpellItemId) && (payload.selectedSpellItemId as number) >= 0
             ? (payload.selectedSpellItemId as number) | 0

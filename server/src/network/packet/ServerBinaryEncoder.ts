@@ -4,16 +4,13 @@
  * Replaces JSON.stringify for server-to-client messages.
  * Binary encoding helpers for server packets.
  */
+import { INSTANCE_CHUNK_COUNT, PLANE_COUNT } from "../../../../src/shared/instance/InstanceTypes";
 import {
     SERVER_PACKET_LENGTHS,
     ServerPacketId,
 } from "../../../../src/shared/packets/ServerPacketId";
-import {
-    INSTANCE_CHUNK_COUNT,
-    PLANE_COUNT,
-} from "../../../../src/shared/instance/InstanceTypes";
-import type { WorldEntityBuildArea } from "../../../../src/shared/worldentity/WorldEntityTypes";
 import type { ProjectileLaunch } from "../../../../src/shared/projectiles/ProjectileLaunch";
+import type { WorldEntityBuildArea } from "../../../../src/shared/worldentity/WorldEntityTypes";
 import { BitWriter } from "../BitWriter";
 
 /**
@@ -724,7 +721,7 @@ export class ServerBinaryEncoder {
     ): Uint8Array {
         this.buffer.reset();
         this.buffer.writeShort(trackId);
-        //  default 
+        //  default
         this.buffer.writeShort(fadeOutDelay ?? 0);
         this.buffer.writeShort(fadeOutDuration ?? 100);
         this.buffer.writeShort(fadeInDelay ?? 100);
@@ -921,16 +918,16 @@ export class ServerBinaryEncoder {
                 launch.source.actor?.kind === "player"
                     ? 1
                     : launch.source.actor?.kind === "npc"
-                    ? 2
-                    : 0,
+                      ? 2
+                      : 0,
             );
             this.buffer.writeShort(launch.source.actor?.serverId ?? 0);
             this.buffer.writeByte(
                 launch.target.actor?.kind === "player"
                     ? 1
                     : launch.target.actor?.kind === "npc"
-                    ? 2
-                    : 0,
+                      ? 2
+                      : 0,
             );
             this.buffer.writeShort(launch.target.actor?.serverId ?? 0);
         }
@@ -1722,7 +1719,12 @@ export class ServerBinaryEncoder {
      * A flags byte packs the encoding width (0=zero/absent, 1=byte, 2=short, 3=int)
      * for each of 4 components at bit shifts 0, 2, 4, 6 (x, y, z, orientation).
      */
-    private writePositionDelta(delta: { x: number; y: number; z: number; orientation: number }): void {
+    private writePositionDelta(delta: {
+        x: number;
+        y: number;
+        z: number;
+        orientation: number;
+    }): void {
         const vals = [delta.x | 0, delta.y | 0, delta.z | 0, delta.orientation | 0];
         let flags = 0;
         for (let i = 0; i < 4; i++) {
@@ -1738,7 +1740,11 @@ export class ServerBinaryEncoder {
         }
     }
 
-    private writeMaskUpdate(mask?: { animationId?: number; sequenceFrame?: number; actionMask?: number }): void {
+    private writeMaskUpdate(mask?: {
+        animationId?: number;
+        sequenceFrame?: number;
+        actionMask?: number;
+    }): void {
         let maskByte = 0;
         if (mask) {
             if (mask.animationId !== undefined) maskByte |= 1;

@@ -137,7 +137,9 @@ function collectSpellWidgetInfos(
         const resolvedSpellbook = SPELLBOOK_ENUM_KEY_TO_NAME[key] ?? spellbook;
         const spellWidget = buildSpellWidgetInfo(objLoader, value, resolvedSpellbook);
         if (spellWidget) {
-            const widgetKey = `${resolvedSpellbook ?? "unknown"}:${spellWidget.objectId}:${spellWidget.groupId}:${spellWidget.fileId}`;
+            const widgetKey = `${resolvedSpellbook ?? "unknown"}:${spellWidget.objectId}:${
+                spellWidget.groupId
+            }:${spellWidget.fileId}`;
             if (seenWidgets.has(widgetKey)) {
                 continue;
             }

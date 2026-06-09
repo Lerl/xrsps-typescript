@@ -1,3 +1,5 @@
+import { getProviderRegistry } from "../providers/ProviderRegistry";
+
 /**
  * Special Attack Visual Override Provider
  *
@@ -14,8 +16,6 @@ export interface SpecialAttackVisualOverride {
 export interface SpecialAttackVisualProvider {
     pickSpecialAttackVisualOverride(weaponItemId: number): SpecialAttackVisualOverride | undefined;
 }
-
-import { getProviderRegistry } from "../providers/ProviderRegistry";
 
 export function registerSpecialAttackVisualProvider(provider: SpecialAttackVisualProvider): void {
     getProviderRegistry().specialAttackVisual = provider;

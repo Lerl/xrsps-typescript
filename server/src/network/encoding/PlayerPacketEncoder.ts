@@ -12,15 +12,15 @@ import {
     deltaToRunDirection,
     directionToDelta,
 } from "../../../../src/shared/Direction";
+import type { ServerServices } from "../../game/ServerServices";
 import {
-    resolveHitsplatTypeForObserver,
     type HitsplatSourceType,
+    resolveHitsplatTypeForObserver,
 } from "../../game/combat/OsrsHitsplatIds";
 import type { PlayerAppearance, PlayerState } from "../../game/player";
-import type { ServerServices } from "../../game/ServerServices";
-import { encodeAppearanceBinary } from "./AppearanceEncoder";
 import { BitWriter } from "../BitWriter";
 import { PlayerSyncSession } from "../PlayerSyncSession";
+import { encodeAppearanceBinary } from "./AppearanceEncoder";
 import { encodeCp1252Bytes } from "./Cp1252";
 import {
     CHUNK_DIRECTION_DELTAS,
@@ -149,8 +149,12 @@ export class PlayerPacketEncoder {
     private getLivePlayers(): Map<number, PlayerState> {
         const liveById = new Map<number, PlayerState>();
         if (this.svc.players) {
-            this.svc.players.forEach((_, p) => { liveById.set(p.id, p); });
-            this.svc.players.forEachBot((p) => { liveById.set(p.id, p); });
+            this.svc.players.forEach((_, p) => {
+                liveById.set(p.id, p);
+            });
+            this.svc.players.forEachBot((p) => {
+                liveById.set(p.id, p);
+            });
         }
         return liveById;
     }
@@ -1351,26 +1355,26 @@ export class PlayerPacketEncoder {
         const targetSubX = useViewForPosition
             ? view!.x
             : finalStep
-            ? finalStep.x
-            : view
-            ? view.x
-            : (baseTileX << 7) + 64;
+              ? finalStep.x
+              : view
+                ? view.x
+                : (baseTileX << 7) + 64;
         const targetSubY = useViewForPosition
             ? view!.y
             : finalStep
-            ? finalStep.y
-            : view
-            ? view.y
-            : (baseTileY << 7) + 64;
+              ? finalStep.y
+              : view
+                ? view.y
+                : (baseTileY << 7) + 64;
         const targetTileX = targetSubX >> 7;
         const targetTileY = targetSubY >> 7;
         const level = useViewForPosition
             ? view!.level
             : finalStep
-            ? finalStep.level
-            : view
-            ? view.level
-            : 0;
+              ? finalStep.level
+              : view
+                ? view.level
+                : 0;
         const localOffsetX = (targetTileX - baseTileX + 128) & 0x7f & 0x7f;
         const localOffsetY = (targetTileY - baseTileY + 128) & 0x7f & 0x7f;
         const deltaX = targetTileX - baseTileX;

@@ -1,6 +1,6 @@
-import { BankLimits, BankMainChild, BankSideChild, WidgetGroup } from "./bankConstants";
 import type { PlayerState } from "../../../src/game/player";
 import type { InterfaceHookContext, InterfaceService } from "../../../src/widgets/InterfaceService";
+import { BankLimits, BankMainChild, BankSideChild, WidgetGroup } from "./bankConstants";
 
 export const BANK_INTERFACE_ID = WidgetGroup.BANK_MAIN;
 export const BANK_SIDE_INTERFACE_ID = WidgetGroup.BANK_SIDE;

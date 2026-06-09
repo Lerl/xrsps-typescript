@@ -42,16 +42,14 @@ export function getGamemodeDataDir(id: string): string {
 
 export function listAvailableGamemodes(): string[] {
     try {
-        return fs
-            .readdirSync(GAMEMODES_DIR)
-            .filter((entry) => {
-                const full = path.resolve(GAMEMODES_DIR, entry);
-                return (
-                    fs.statSync(full).isDirectory() &&
-                    (fs.existsSync(path.resolve(full, "index.ts")) ||
+        return fs.readdirSync(GAMEMODES_DIR).filter((entry) => {
+            const full = path.resolve(GAMEMODES_DIR, entry);
+            return (
+                fs.statSync(full).isDirectory() &&
+                (fs.existsSync(path.resolve(full, "index.ts")) ||
                     fs.existsSync(path.resolve(full, "index.js")))
-                );
-            });
+            );
+        });
     } catch {
         return [];
     }

@@ -256,15 +256,15 @@ export function getCanvasCssSize(canvas: HTMLCanvasElement): { width: number; he
             ? clientWidth
             : rectWidth
         : rectWidth > 0
-        ? rectWidth
-        : clientWidth;
+          ? rectWidth
+          : clientWidth;
     const height = preferClientSize
         ? clientHeight > 0
             ? clientHeight
             : rectHeight
         : rectHeight > 0
-        ? rectHeight
-        : clientHeight;
+          ? rectHeight
+          : clientHeight;
 
     return {
         width: width > 0 ? width : 0,

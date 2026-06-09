@@ -7,16 +7,13 @@
 import { WebSocket } from "ws";
 
 import type { ProjectileLaunch } from "../../../../../src/shared/projectiles/ProjectileLaunch";
+import { PLAYER_TAKE_DAMAGE_SOUND, PLAYER_ZERO_DAMAGE_SOUND } from "../../../network/wsServerTypes";
+import { logger } from "../../../utils/logger";
+import type { ServerServices } from "../../ServerServices";
 import { HITMARK_BLOCK, HITMARK_HEAL, HITMARK_REGEN } from "../../combat/HitEffects";
 import type { HitsplatSourceType } from "../../combat/OsrsHitsplatIds";
 import type { PlayerState } from "../../player";
-import type { ServerServices } from "../../ServerServices";
 import type { ActionEffect, HitsplatEffect } from "../types";
-import { logger } from "../../../utils/logger";
-import {
-    PLAYER_TAKE_DAMAGE_SOUND,
-    PLAYER_ZERO_DAMAGE_SOUND,
-} from "../../../network/wsServerTypes";
 
 const COMBAT_SOUND_DELAY_MS = 150;
 
@@ -112,8 +109,10 @@ export class EffectDispatcher {
                 const newLevel = effect.newLevel as number;
                 const levelIncrement = effect.levelIncrement as number;
                 this.svc.eventBus.emit("skill:levelUp", {
-                    player, skillId: skillId as any,
-                    oldLevel: newLevel - levelIncrement, newLevel,
+                    player,
+                    skillId: skillId as any,
+                    oldLevel: newLevel - levelIncrement,
+                    newLevel,
                 });
                 continue;
             }
@@ -123,7 +122,8 @@ export class EffectDispatcher {
                 const levelIncrement = effect.levelIncrement as number;
                 this.svc.eventBus.emit("combat:levelUp", {
                     player,
-                    oldLevel: newLevel - levelIncrement, newLevel,
+                    oldLevel: newLevel - levelIncrement,
+                    newLevel,
                 });
                 continue;
             }

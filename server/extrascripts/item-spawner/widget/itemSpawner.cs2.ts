@@ -270,22 +270,18 @@ export function buildItemSpawnerModalGroup(): WidgetGroupLoadResult {
     });
     widgets.set(resultsView.uid, resultsView);
 
-    const scrollbar = itemSpawnerWidget(
-        ITEM_SPAWNER_MODAL_COMPONENT_RESULTS_SCROLLBAR,
-        rootUid,
-        {
-            type: 0,
-            rawX: ITEM_SPAWNER_RESULTS_SCROLLBAR_RAW_X,
-            rawY: ITEM_SPAWNER_RESULTS_SCROLLBAR_RAW_Y,
-            rawWidth: ITEM_SPAWNER_RESULTS_SCROLLBAR_WIDTH,
-            rawHeight: ITEM_SPAWNER_RESULTS_SCROLLBAR_HEIGHT,
-            width: ITEM_SPAWNER_RESULTS_SCROLLBAR_WIDTH,
-            height: ITEM_SPAWNER_RESULTS_SCROLLBAR_HEIGHT,
-            scrollWidth: 0,
-            scrollHeight: 0,
-            noClickThrough: true,
-        },
-    );
+    const scrollbar = itemSpawnerWidget(ITEM_SPAWNER_MODAL_COMPONENT_RESULTS_SCROLLBAR, rootUid, {
+        type: 0,
+        rawX: ITEM_SPAWNER_RESULTS_SCROLLBAR_RAW_X,
+        rawY: ITEM_SPAWNER_RESULTS_SCROLLBAR_RAW_Y,
+        rawWidth: ITEM_SPAWNER_RESULTS_SCROLLBAR_WIDTH,
+        rawHeight: ITEM_SPAWNER_RESULTS_SCROLLBAR_HEIGHT,
+        width: ITEM_SPAWNER_RESULTS_SCROLLBAR_WIDTH,
+        height: ITEM_SPAWNER_RESULTS_SCROLLBAR_HEIGHT,
+        scrollWidth: 0,
+        scrollHeight: 0,
+        noClickThrough: true,
+    });
     widgets.set(scrollbar.uid, scrollbar);
 
     for (let slotIndex = 0; slotIndex < ITEM_SPAWNER_MODAL_RESULT_SLOT_COUNT; slotIndex++) {

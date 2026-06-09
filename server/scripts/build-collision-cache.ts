@@ -4,8 +4,6 @@ import { promises as fsp } from "fs";
 import path from "path";
 import { performance } from "perf_hooks";
 
-import { CollisionMap } from "../../src/rs/scene/CollisionMap";
-import { bitsetByteLength, bitsetSet } from "../src/utils/bitset";
 import { initCacheEnv } from "../src/world/CacheEnv";
 import { MapCollisionService } from "../src/world/MapCollisionService";
 
@@ -13,6 +11,7 @@ const MAX_MAP_X = 100; // Matches MapManager.MAX_MAP_X
 const MAX_MAP_Y = 200; // Matches MapManager.MAX_MAP_Y
 const LOG_INTERVAL_MS = 5_000;
 const LOG_INTERVAL_STEPS = 25;
+const GC_INTERVAL_STEPS = 32;
 
 interface CliOptions {
     cacheName?: string;
@@ -44,84 +43,25 @@ function parseArgs(argv: string[]): CliOptions {
     return opts;
 }
 
-function ensureBuffer(from: Int32Array): Buffer {
-    return Buffer.from(from.buffer, from.byteOffset, from.byteLength);
-}
-
-function encodePlane(map: CollisionMap): Buffer {
-    const header = Buffer.alloc(8);
-    header.writeUInt16LE(map.sizeX, 0);
-    header.writeUInt16LE(map.sizeY, 2);
-    header.writeUInt32LE(map.flags.length, 4);
-    const flags = ensureBuffer(map.flags);
-    return Buffer.concat([header, flags]);
-}
-
-function encodeSquare(square: ReturnType<MapCollisionService["getMapSquare"]>): Buffer {
-    if (!square) throw new Error("square is undefined");
-    const version = 2;
-    const planeCount = square.collisionMaps.length;
-    const header = Buffer.alloc(24);
-    header.writeUInt8(version, 0);
-    header.writeUInt8(square.borderSize & 0xff, 1);
-    header.writeUInt16LE(square.size & 0xffff, 2);
-    header.writeUInt8(planeCount & 0xff, 4);
-    header.writeUInt8(0, 5); // reserved
-    header.writeUInt16LE(square.mapX & 0xffff, 6);
-    header.writeUInt16LE(square.mapY & 0xffff, 8);
-    header.writeInt32LE(square.baseX, 10);
-    header.writeInt32LE(square.baseY, 14);
-    header.writeUInt16LE(square.size & 0xffff, 18); // duplicate for compatibility
-    header.writeUInt16LE(square.borderSize & 0xffff, 20);
-    header.writeUInt16LE(0, 22); // reserved padding
-
-    const planeBuffers = square.collisionMaps.map((cm) => encodePlane(cm));
-
-    // Extra  data: minimal bridge/min-plane flags needed to resolve collision plane without
-    // rebuilding scenes on the server.
-    //
-    // Layout (v2, after plane buffers):
-    // - uint32LE bitsetByteLen
-    // - linkBelowBitset (tileRenderFlags[1] & 0x2)
-    // - forceMin0Bitset[level=0..3] (tileRenderFlags[level] & 0x8)
-    const tileCount = square.size * square.size;
-    const bitsetLen = bitsetByteLength(tileCount);
-    const metaHeader = Buffer.alloc(4);
-    metaHeader.writeUInt32LE(bitsetLen >>> 0, 0);
-
-    const linkBelow = new Uint8Array(bitsetLen);
-    const forceMin0: Uint8Array[] = new Array(4);
-    for (let l = 0; l < 4; l++) forceMin0[l] = new Uint8Array(bitsetLen);
-
-    const flags = square.tileRenderFlags;
-    if (flags) {
-        for (let x = 0; x < square.size; x++) {
-            for (let y = 0; y < square.size; y++) {
-                const idx = x * square.size + y;
-                const link = ((flags[1]?.[x]?.[y] ?? 0) & 0x2) !== 0;
-                bitsetSet(linkBelow, idx, link);
-                for (let l = 0; l < 4; l++) {
-                    const fm0 = ((flags[l]?.[x]?.[y] ?? 0) & 0x8) !== 0;
-                    bitsetSet(forceMin0[l], idx, fm0);
-                }
-            }
-        }
-    }
-
-    const meta = Buffer.concat([
-        metaHeader,
-        Buffer.from(linkBelow.buffer, linkBelow.byteOffset, linkBelow.byteLength),
-        Buffer.from(forceMin0[0].buffer, forceMin0[0].byteOffset, forceMin0[0].byteLength),
-        Buffer.from(forceMin0[1].buffer, forceMin0[1].byteOffset, forceMin0[1].byteLength),
-        Buffer.from(forceMin0[2].buffer, forceMin0[2].byteOffset, forceMin0[2].byteLength),
-        Buffer.from(forceMin0[3].buffer, forceMin0[3].byteOffset, forceMin0[3].byteLength),
-    ]);
-
-    return Buffer.concat([header, ...planeBuffers, meta]);
-}
-
 async function ensureDir(dir: string): Promise<void> {
     await fsp.mkdir(dir, { recursive: true });
+}
+
+/**
+ * Best-effort GC hint. Only triggers when Node was started with
+ * --expose-gc, otherwise it's a no-op. We don't force-enable it because
+ * exposing the gc global changes the runtime contract.
+ */
+function maybeGc(processed: number): void {
+    if (processed % GC_INTERVAL_STEPS !== 0) return;
+    const g = (globalThis as { gc?: () => void }).gc;
+    if (typeof g === "function") {
+        try {
+            g();
+        } catch {
+            /* ignore */
+        }
+    }
 }
 
 async function fileExists(file: string): Promise<boolean> {
@@ -204,15 +144,26 @@ async function main(): Promise<void> {
                 progress();
                 continue;
             }
-            const square = mapService.getMapSquare(mapX, mapY);
-            if (!square) {
+            // buildCollisionBuffer builds the scene and encodes it without
+            // retaining the ServerMapSquare in the service cache. This keeps
+            // heap usage bounded to ~1 square at a time instead of accumulating
+            // every square built so far.
+            const buffer = mapService.buildCollisionBuffer(mapX, mapY);
+            if (!buffer) {
                 skippedMissing++;
                 progress();
                 continue;
             }
-            const buffer = encodeSquare(square);
-            await fsp.writeFile(outFile, buffer);
+            await fsp.writeFile(
+                outFile,
+                new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
+            );
             built++;
+            // After writing, the only remaining reference to the underlying
+            // typed arrays is gone. Hint V8 to reclaim memory before the next
+            // square. global.gc is only present when Node is started with
+            // --expose-gc, so the typeof check makes this safe to omit.
+            maybeGc(built + skippedExisting + skippedMissing);
             progress();
         }
     }

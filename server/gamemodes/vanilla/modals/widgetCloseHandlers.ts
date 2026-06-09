@@ -1,5 +1,5 @@
-import type { ScriptServices } from "../../../src/game/scripts/types";
 import type { PlayerState } from "../../../src/game/player";
+import type { ScriptServices } from "../../../src/game/scripts/types";
 
 const SHOP_GROUP_ID = 300;
 const BANK_GROUP_ID = 12;

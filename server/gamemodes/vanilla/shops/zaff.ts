@@ -1,5 +1,9 @@
-import { type IScriptRegistry, type NpcInteractionEvent, type ScriptServices } from "../../../src/game/scripts/types";
 import type { PlayerState } from "../../../src/game/player";
+import {
+    type IScriptRegistry,
+    type NpcInteractionEvent,
+    type ScriptServices,
+} from "../../../src/game/scripts/types";
 
 const ZAFF_NPC_ID = 2880;
 
@@ -88,7 +92,9 @@ export function registerZaffHandlers(registry: IScriptRegistry, services: Script
     function openMainOptions(player: PlayerState): void {
         const pid = player.id;
         const dialogBase = `zaff_${pid}`;
-        const onClose = () => { activeConvos.delete(pid); };
+        const onClose = () => {
+            activeConvos.delete(pid);
+        };
 
         const options: string[] = ["Yes, please!", "No, thank you."];
 
@@ -145,7 +151,9 @@ export function registerZaffHandlers(registry: IScriptRegistry, services: Script
                             services,
                             `${dialogBase}_diary_reply`,
                             ["For you, my friend, maybe. Take a look in the barrel in the corner."],
-                            () => { activeConvos.delete(pid); },
+                            () => {
+                                activeConvos.delete(pid);
+                            },
                         );
                     },
                 );
@@ -182,7 +190,9 @@ export function registerZaffHandlers(registry: IScriptRegistry, services: Script
                         services,
                         `${dialogBase}_ring_inv`,
                         [`There's still one in your inventory, ${playerName}!`],
-                        () => { activeConvos.delete(pid); },
+                        () => {
+                            activeConvos.delete(pid);
+                        },
                     );
                 } else if (hasItemInBank(player, BEACON_RING)) {
                     openNpcDialog(
@@ -190,7 +200,9 @@ export function registerZaffHandlers(registry: IScriptRegistry, services: Script
                         services,
                         `${dialogBase}_ring_bank`,
                         [`Go and get the one that's in your bank, ${playerName}!`],
-                        () => { activeConvos.delete(pid); },
+                        () => {
+                            activeConvos.delete(pid);
+                        },
                     );
                 } else if (player.items.isInventoryFull()) {
                     openNpcDialog(
@@ -200,7 +212,9 @@ export function registerZaffHandlers(registry: IScriptRegistry, services: Script
                         [
                             "I would be happy to give you another ring, but I'm afraid you don't have enough inventory space for it!",
                         ],
-                        () => { activeConvos.delete(pid); },
+                        () => {
+                            activeConvos.delete(pid);
+                        },
                     );
                 } else {
                     openNpcDialog(
@@ -213,7 +227,10 @@ export function registerZaffHandlers(registry: IScriptRegistry, services: Script
                         () => {
                             player.items.addItem(BEACON_RING, 1);
                             services.inventory.snapshotInventory(player);
-                            services.messaging.sendGameMessage(player, "Zaff gives you a beacon ring.");
+                            services.messaging.sendGameMessage(
+                                player,
+                                "Zaff gives you a beacon ring.",
+                            );
                             activeConvos.delete(pid);
                         },
                     );
@@ -262,19 +279,25 @@ export function registerZaffHandlers(registry: IScriptRegistry, services: Script
                                                     player,
                                                     services,
                                                     `${dialogBase}_bryo_interest`,
-                                                    ["Interesting, very interesting. This would indeed make a very nice staff."],
+                                                    [
+                                                        "Interesting, very interesting. This would indeed make a very nice staff.",
+                                                    ],
                                                     () => {
                                                         openNpcDialog(
                                                             player,
                                                             services,
                                                             `${dialogBase}_bryo_yourself`,
-                                                            ["You could make it yourself if you wanted. Just attach the essence to a battlestaff."],
+                                                            [
+                                                                "You could make it yourself if you wanted. Just attach the essence to a battlestaff.",
+                                                            ],
                                                             () => {
                                                                 openNpcDialog(
                                                                     player,
                                                                     services,
                                                                     `${dialogBase}_bryo_happy`,
-                                                                    ["Nevertheless, I'm happy to do it for you if you like."],
+                                                                    [
+                                                                        "Nevertheless, I'm happy to do it for you if you like.",
+                                                                    ],
                                                                     () => {
                                                                         openNpcDialog(
                                                                             player,
@@ -284,7 +307,9 @@ export function registerZaffHandlers(registry: IScriptRegistry, services: Script
                                                                                 "I'll attach it to a battlestaff for you if you are willing to pay me 50,000 coins. How does that sound?",
                                                                             ],
                                                                             () => {
-                                                                                showBryophytaConfirmation(player);
+                                                                                showBryophytaConfirmation(
+                                                                                    player,
+                                                                                );
                                                                             },
                                                                         );
                                                                     },
@@ -308,7 +333,9 @@ export function registerZaffHandlers(registry: IScriptRegistry, services: Script
     function showBryophytaConfirmation(player: PlayerState): void {
         const pid = player.id;
         const dialogBase = `zaff_${pid}`;
-        const onClose = () => { activeConvos.delete(pid); };
+        const onClose = () => {
+            activeConvos.delete(pid);
+        };
 
         services.dialog.openDialogOptions(player, {
             id: `${dialogBase}_bryo_confirm`,
@@ -334,7 +361,9 @@ export function registerZaffHandlers(registry: IScriptRegistry, services: Script
                                 services,
                                 `${dialogBase}_bryo_later`,
                                 ["I'll be here if you change your mind."],
-                                () => { activeConvos.delete(pid); },
+                                () => {
+                                    activeConvos.delete(pid);
+                                },
                             );
                         },
                     );
@@ -356,7 +385,9 @@ export function registerZaffHandlers(registry: IScriptRegistry, services: Script
                 services,
                 `${dialogBase}_bryo_broke`,
                 ["Oh, I don't have enough coins. I'll come back later."],
-                () => { activeConvos.delete(pid); },
+                () => {
+                    activeConvos.delete(pid);
+                },
             );
             return;
         }
@@ -366,45 +397,46 @@ export function registerZaffHandlers(registry: IScriptRegistry, services: Script
             return;
         }
 
-        openPlayerDialog(
-            player,
-            services,
-            `${dialogBase}_bryo_yes`,
-            ["Yes, please."],
-            () => {
-                // Remove materials
-                player.items.removeItem(BRYOPHYTAS_ESSENCE, 1, { assureFullRemoval: true });
-                player.items.removeItem(COINS, BRYOPHYTA_STAFF_COST, { assureFullRemoval: true });
+        openPlayerDialog(player, services, `${dialogBase}_bryo_yes`, ["Yes, please."], () => {
+            // Remove materials
+            player.items.removeItem(BRYOPHYTAS_ESSENCE, 1, { assureFullRemoval: true });
+            player.items.removeItem(COINS, BRYOPHYTA_STAFF_COST, { assureFullRemoval: true });
 
-                openNpcDialog(
-                    player,
-                    services,
-                    `${dialogBase}_bryo_handover`,
-                    ["You hand over Bryophyta's essence and 50,000 coins to Zaff."],
-                    () => {
-                        openNpcDialog(
-                            player,
-                            services,
-                            `${dialogBase}_bryo_done`,
-                            ["Thank you, here you go. I'm not sure what it does, but it feels pretty magical."],
-                            () => {
-                                player.items.addItem(BRYOPHYTAS_STAFF, 1);
-                                services.inventory.snapshotInventory(player);
-                                services.messaging.sendGameMessage(player, "Zaff hands you the new staff.");
+            openNpcDialog(
+                player,
+                services,
+                `${dialogBase}_bryo_handover`,
+                ["You hand over Bryophyta's essence and 50,000 coins to Zaff."],
+                () => {
+                    openNpcDialog(
+                        player,
+                        services,
+                        `${dialogBase}_bryo_done`,
+                        [
+                            "Thank you, here you go. I'm not sure what it does, but it feels pretty magical.",
+                        ],
+                        () => {
+                            player.items.addItem(BRYOPHYTAS_STAFF, 1);
+                            services.inventory.snapshotInventory(player);
+                            services.messaging.sendGameMessage(
+                                player,
+                                "Zaff hands you the new staff.",
+                            );
 
-                                openPlayerDialog(
-                                    player,
-                                    services,
-                                    `${dialogBase}_bryo_thanks`,
-                                    ["Thanks!"],
-                                    () => { activeConvos.delete(pid); },
-                                );
-                            },
-                        );
-                    },
-                );
-            },
-        );
+                            openPlayerDialog(
+                                player,
+                                services,
+                                `${dialogBase}_bryo_thanks`,
+                                ["Thanks!"],
+                                () => {
+                                    activeConvos.delete(pid);
+                                },
+                            );
+                        },
+                    );
+                },
+            );
+        });
     }
 
     function openMainGreeting(player: PlayerState): void {

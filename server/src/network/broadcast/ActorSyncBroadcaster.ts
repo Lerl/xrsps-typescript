@@ -28,17 +28,13 @@ export class ActorSyncBroadcaster implements BroadcastDomain {
     private forEachPlayer:
         | ((fn: (sock: WebSocket, player: PlayerState) => void) => void)
         | undefined;
-    private applyAppearanceSnapshots:
-        | ((frame: TickFrame) => void)
-        | undefined;
+    private applyAppearanceSnapshots: ((frame: TickFrame) => void) | undefined;
 
     setSyncCallback(callback: ActorSyncCallback): void {
         this.syncCallback = callback;
     }
 
-    setForEachPlayer(
-        fn: (callback: (sock: WebSocket, player: PlayerState) => void) => void,
-    ): void {
+    setForEachPlayer(fn: (callback: (sock: WebSocket, player: PlayerState) => void) => void): void {
         this.forEachPlayer = fn;
     }
 

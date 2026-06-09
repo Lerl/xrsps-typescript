@@ -15,7 +15,7 @@ const ITEM_ID_SALVE_AMULET_I = 12017;
 const ITEM_ID_SALVE_AMULET_EI = 12018;
 
 const SLAYER_HELM_IDS = new Set<number>([
-    8901,  // Black mask
+    8901, // Black mask
     11864, // Slayer helmet
     19639, // Black slayer helmet
     19643, // Green slayer helmet
@@ -75,7 +75,10 @@ export function computeTargetBonusPercentages(
     if (onSlayerTask && hasSlayerHelm) {
         if (attackType === AttackType.Melee) {
             slayerPercent = SLAYER_MELEE_PERCENT;
-        } else if ((attackType === AttackType.Ranged || attackType === AttackType.Magic) && hasImbuedSlayerHelm) {
+        } else if (
+            (attackType === AttackType.Ranged || attackType === AttackType.Magic) &&
+            hasImbuedSlayerHelm
+        ) {
             slayerPercent = SLAYER_IMBUED_PERCENT;
         }
     }

@@ -1,5 +1,3 @@
-import { LEAGUE_TASK_COMPLETION_VARPS } from "./data/leagueTaskVarps";
-import { getLeagueTaskByTaskId } from "./data/leagueTaskLookup";
 import {
     VARBIT_LEAGUE_AREA_SELECTION_0,
     VARBIT_LEAGUE_AREA_SELECTION_1,
@@ -12,6 +10,8 @@ import {
     VARP_LEAGUE_POINTS_COMPLETED,
     VARP_LEAGUE_POINTS_CURRENCY,
 } from "../../../src/shared/vars";
+import { getLeagueTaskByTaskId } from "./data/leagueTaskLookup";
+import { LEAGUE_TASK_COMPLETION_VARPS } from "./data/leagueTaskVarps";
 
 /**
  * Varp 2612 backs varbit 10046 (league_total_tasks_completed).
@@ -91,7 +91,11 @@ export function getChallengeProgress(player: LeagueTaskPlayer, customIndex: numb
     return map?.get(customIndex | 0) ?? 0;
 }
 
-export function setChallengeProgress(player: LeagueTaskPlayer, customIndex: number, value: number): void {
+export function setChallengeProgress(
+    player: LeagueTaskPlayer,
+    customIndex: number,
+    value: number,
+): void {
     const key = customIndex | 0;
     if (key < 0) return;
     const normalized = Math.max(0, Math.floor(Number.isFinite(value) ? value : 0));

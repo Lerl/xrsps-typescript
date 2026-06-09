@@ -1,9 +1,12 @@
+// =============================================================================
+// Provider Registration & Delegation
+// =============================================================================
+import { getProviderRegistry } from "../providers/ProviderRegistry";
 import type { AttackType } from "./AttackType";
+
 export type { AttackType } from "./AttackType";
 
-// =============================================================================
 // Types
-// =============================================================================
 
 export interface EquipmentBonusResult {
     accuracyMultiplier: number;
@@ -71,10 +74,8 @@ export interface EquipmentBonusProvider {
 }
 
 // =============================================================================
-// Provider Registration & Delegation
-// =============================================================================
 
-import { getProviderRegistry } from "../providers/ProviderRegistry";
+// =============================================================================
 
 export function registerEquipmentBonusProvider(provider: EquipmentBonusProvider): void {
     getProviderRegistry().equipmentBonus = provider;
@@ -87,7 +88,9 @@ export function getEquipmentBonusProvider(): EquipmentBonusProvider | undefined 
 function ensureProvider(): EquipmentBonusProvider {
     const p = getProviderRegistry().equipmentBonus;
     if (!p) {
-        throw new Error("[EquipmentBonuses] EquipmentBonusProvider not registered. Ensure the gamemode has initialized.");
+        throw new Error(
+            "[EquipmentBonuses] EquipmentBonusProvider not registered. Ensure the gamemode has initialized.",
+        );
     }
     return p;
 }
@@ -104,7 +107,15 @@ export function calculateEquipmentBonuses(
     isInsideToA: boolean = false,
 ): EquipmentBonusResult {
     return ensureProvider().calculateEquipmentBonuses(
-        equipment, attackType, target, slayerTask, playerHp, playerMaxHp, playerMagicLevel, spellId, isInsideToA,
+        equipment,
+        attackType,
+        target,
+        slayerTask,
+        playerHp,
+        playerMaxHp,
+        playerMagicLevel,
+        spellId,
+        isInsideToA,
     );
 }
 
@@ -112,15 +123,25 @@ export function isTumekensShadow(weaponId: number): boolean {
     return ensureProvider().isTumekensShadow(weaponId);
 }
 
-export function applyTumekenMagicAttackBonus(baseMagicAttackBonus: number, tumekenMultiplier: number | undefined): number {
+export function applyTumekenMagicAttackBonus(
+    baseMagicAttackBonus: number,
+    tumekenMultiplier: number | undefined,
+): number {
     return ensureProvider().applyTumekenMagicAttackBonus(baseMagicAttackBonus, tumekenMultiplier);
 }
 
-export function applyTumekenMagicDamageBonus(baseMagicDamagePercent: number, tumekenMultiplier: number | undefined): number {
+export function applyTumekenMagicDamageBonus(
+    baseMagicDamagePercent: number,
+    tumekenMultiplier: number | undefined,
+): number {
     return ensureProvider().applyTumekenMagicDamageBonus(baseMagicDamagePercent, tumekenMultiplier);
 }
 
-export function shouldUseSalveOverSlayer(equipment: number[], target: TargetInfo, slayerTask: SlayerTaskInfo): boolean {
+export function shouldUseSalveOverSlayer(
+    equipment: number[],
+    target: TargetInfo,
+    slayerTask: SlayerTaskInfo,
+): boolean {
     return ensureProvider().shouldUseSalveOverSlayer(equipment, target, slayerTask);
 }
 

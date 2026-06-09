@@ -1,19 +1,11 @@
 import { logger } from "../../../utils/logger";
 import { AttackType } from "../../combat/AttackType";
-import {
-    DegradationSystem,
-    getChargesUsed,
-    setChargesUsed,
-} from "../../combat/DegradationSystem";
+import { DegradationSystem, getChargesUsed, setChargesUsed } from "../../combat/DegradationSystem";
 import { HITMARK_DAMAGE } from "../../combat/HitEffects";
 import type { NpcState } from "../../npc";
 import type { PlayerState } from "../../player";
 import type { ActionEffect, ActionExecutionResult } from "../types";
-import type {
-    CombatActionServices,
-    HitPayload,
-    ProjectileParams,
-} from "./CombatActionHandler";
+import type { CombatActionServices, HitPayload, ProjectileParams } from "./CombatActionHandler";
 
 // Equipment slots (matches EquipmentSlot enum from Equipment.ts)
 // Note: AMMO is 10, not 13 - 13 is EquipmentDisplaySlot.AMMO for widget indices
@@ -301,8 +293,7 @@ export function awardMagicBaseXpOnCast(
     const baseXp = services.getSpellBaseXp(spellId);
     if (baseXp <= 0) return;
     const multiplierRaw = services.getSkillXpMultiplier?.(player) ?? 1;
-    const xpMultiplier =
-        Number.isFinite(multiplierRaw) && multiplierRaw > 0 ? multiplierRaw : 1;
+    const xpMultiplier = Number.isFinite(multiplierRaw) && multiplierRaw > 0 ? multiplierRaw : 1;
     const awardedXp = baseXp * xpMultiplier;
     if (awardedXp <= 0) return;
 
@@ -348,8 +339,12 @@ export function disableAutocast(
 ): void {
     try {
         services.resetAutocast(player);
-    } catch (err) { logger.warn("[combat] failed to reset autocast", err); }
+    } catch (err) {
+        logger.warn("[combat] failed to reset autocast", err);
+    }
     try {
         if (sock) services.stopPlayerCombat(sock);
-    } catch (err) { logger.warn("[combat] failed to stop combat after autocast disable", err); }
+    } catch (err) {
+        logger.warn("[combat] failed to stop combat after autocast disable", err);
+    }
 }

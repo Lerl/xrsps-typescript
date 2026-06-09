@@ -1,14 +1,14 @@
 import { SkillId } from "../../../../src/rs/skill/skills";
-import { encodeMessage } from "../../network/messages";
 import { getItemDefinition } from "../../data/items";
-import { RUN_ENERGY_MAX } from "../actor";
+import { encodeMessage } from "../../network/messages";
+import { logger } from "../../utils/logger";
+import { buildRebuildRegionPayload } from "../../world/InstanceManager";
+import type { ServerServices } from "../ServerServices";
 import type { EmotePlayActionData, MovementTeleportActionData } from "../actions/actionPayloads";
+import { RUN_ENERGY_MAX } from "../actor";
 import { getEmoteSeq } from "../emotes";
 import { LockState } from "../model/LockState";
 import type { PlayerState } from "../player";
-import type { ServerServices } from "../ServerServices";
-import { buildRebuildRegionPayload } from "../../world/InstanceManager";
-import { logger } from "../../utils/logger";
 
 export interface RunEnergyPayload {
     percent: number;
@@ -48,23 +48,41 @@ const TELEPORT_ACTION_GROUP = "movement.teleport";
 const SAILING_WORLD_ENTITY_INDEX = 0;
 
 // Graceful item ID sets for run energy calculation
-const GRACEFUL_HOODS = new Set([11850, 13579, 13591, 13603, 13615, 13627, 13667, 21061, 24743, 25069]);
-const GRACEFUL_TOPS = new Set([11854, 13583, 13595, 13607, 13619, 13631, 13671, 21067, 24749, 25075]);
-const GRACEFUL_LEGS = new Set([11856, 13585, 13597, 13609, 13621, 13633, 13673, 21070, 24752, 25078]);
-const GRACEFUL_GLOVES = new Set([11858, 13587, 13599, 13611, 13623, 13635, 13675, 21073, 24755, 25081]);
-const GRACEFUL_BOOTS = new Set([11860, 13589, 13601, 13613, 13625, 13637, 13677, 21076, 24758, 25084]);
-const GRACEFUL_CAPES = new Set([11852, 13581, 13593, 13605, 13617, 13629, 13669, 21064, 24746, 25072]);
+const GRACEFUL_HOODS = new Set([
+    11850, 13579, 13591, 13603, 13615, 13627, 13667, 21061, 24743, 25069,
+]);
+const GRACEFUL_TOPS = new Set([
+    11854, 13583, 13595, 13607, 13619, 13631, 13671, 21067, 24749, 25075,
+]);
+const GRACEFUL_LEGS = new Set([
+    11856, 13585, 13597, 13609, 13621, 13633, 13673, 21070, 24752, 25078,
+]);
+const GRACEFUL_GLOVES = new Set([
+    11858, 13587, 13599, 13611, 13623, 13635, 13675, 21073, 24755, 25081,
+]);
+const GRACEFUL_BOOTS = new Set([
+    11860, 13589, 13601, 13613, 13625, 13637, 13677, 21076, 24758, 25084,
+]);
+const GRACEFUL_CAPES = new Set([
+    11852, 13581, 13593, 13605, 13617, 13629, 13669, 21064, 24746, 25072,
+]);
 
 /**
  * Manages player movement: teleportation, run energy, walk commands, weight calculation.
  * Extracted from WSServer.
  */
 export class MovementService {
-    private pendingWalkCommands = new Map<import("ws").WebSocket, { to: { x: number; y: number }; run: boolean }>();
+    private pendingWalkCommands = new Map<
+        import("ws").WebSocket,
+        { to: { x: number; y: number }; run: boolean }
+    >();
 
     constructor(private readonly services: ServerServices) {}
 
-    getPendingWalkCommands(): Map<import("ws").WebSocket, { to: { x: number; y: number }; run: boolean }> {
+    getPendingWalkCommands(): Map<
+        import("ws").WebSocket,
+        { to: { x: number; y: number }; run: boolean }
+    > {
         return this.pendingWalkCommands;
     }
 
@@ -79,10 +97,16 @@ export class MovementService {
     ): void {
         if (
             player.worldViewId === SAILING_WORLD_ENTITY_INDEX &&
-            this.services.worldEntityInfoEncoder.isEntityActive(player.id, SAILING_WORLD_ENTITY_INDEX)
+            this.services.worldEntityInfoEncoder.isEntityActive(
+                player.id,
+                SAILING_WORLD_ENTITY_INDEX,
+            )
         ) {
             this.services.sailingInstanceManager?.disposeInstance(player);
-            this.services.worldEntityInfoEncoder.removeEntity(player.id, SAILING_WORLD_ENTITY_INDEX);
+            this.services.worldEntityInfoEncoder.removeEntity(
+                player.id,
+                SAILING_WORLD_ENTITY_INDEX,
+            );
             this.services.actionScheduler.clearActionsInGroup(player.id, "sailing.boarding");
 
             for (const groupId of [937, 345]) {
@@ -112,7 +136,9 @@ export class MovementService {
             player.clearInteraction();
             player.stopAnimation();
             player.clearWalkDestination();
-        } catch (err) { logger.warn("[movement] failed to clear interaction state", err); }
+        } catch (err) {
+            logger.warn("[movement] failed to clear interaction state", err);
+        }
 
         player.teleport(x, y, level);
 
@@ -142,7 +168,14 @@ export class MovementService {
         y: number,
         level: number,
         templateChunks: number[][][],
-        extraLocs?: Array<{ id: number; x: number; y: number; level: number; shape: number; rotation: number }>,
+        extraLocs?: Array<{
+            id: number;
+            x: number;
+            y: number;
+            level: number;
+            shape: number;
+            rotation: number;
+        }>,
     ): void {
         logger.info(`[teleportToInstance] Player ${player.id} -> (${x}, ${y}, ${level})`);
         const ws = this.services.players?.getSocketByPlayerId(player.id);
@@ -154,8 +187,16 @@ export class MovementService {
         const regionX = x >> 3;
         const regionY = y >> 3;
 
-        const payload = buildRebuildRegionPayload(regionX, regionY, templateChunks, this.services.cacheEnv, false);
-        const packet = encodeMessage({ type: "rebuild_region", payload } as unknown as Parameters<typeof encodeMessage>[0]);
+        const payload = buildRebuildRegionPayload(
+            regionX,
+            regionY,
+            templateChunks,
+            this.services.cacheEnv,
+            false,
+        );
+        const packet = encodeMessage({ type: "rebuild_region", payload } as unknown as Parameters<
+            typeof encodeMessage
+        >[0]);
         this.services.networkLayer.withDirectSendBypass("rebuild_region", () =>
             this.services.networkLayer.sendWithGuard(ws, packet, "rebuild_region"),
         );
@@ -164,7 +205,14 @@ export class MovementService {
 
         if (extraLocs) {
             for (const loc of extraLocs) {
-                this.services.locationService.spawnLocForPlayer(player, loc.id, { x: loc.x, y: loc.y }, loc.level, loc.shape, loc.rotation);
+                this.services.locationService.spawnLocForPlayer(
+                    player,
+                    loc.id,
+                    { x: loc.x, y: loc.y },
+                    loc.level,
+                    loc.shape,
+                    loc.rotation,
+                );
             }
         }
     }
@@ -182,7 +230,10 @@ export class MovementService {
         }
 
         const rejectIfPending = request.rejectIfPending !== false;
-        if (rejectIfPending && this.services.actionScheduler.hasPendingActionInGroup(playerId, TELEPORT_ACTION_GROUP)) {
+        if (
+            rejectIfPending &&
+            this.services.actionScheduler.hasPendingActionInGroup(playerId, TELEPORT_ACTION_GROUP)
+        ) {
             return { ok: false, reason: "cooldown" };
         }
 
@@ -192,7 +243,8 @@ export class MovementService {
         }
 
         const delayTicks = request.delayTicks !== undefined ? Math.max(0, request.delayTicks) : 0;
-        const cooldownTicks = request.cooldownTicks !== undefined ? Math.max(0, request.cooldownTicks) : 0;
+        const cooldownTicks =
+            request.cooldownTicks !== undefined ? Math.max(0, request.cooldownTicks) : 0;
         if (delayTicks > 0 && player.lock === LockState.NONE) {
             player.lock = LockState.DELAY_ACTIONS;
         }
@@ -209,9 +261,12 @@ export class MovementService {
         if (request.endSpotHeight !== undefined) data.endSpotHeight = request.endSpotHeight;
         if (request.endSpotDelay !== undefined) data.endSpotDelay = request.endSpotDelay;
         if (request.arriveSoundId !== undefined) data.arriveSoundId = request.arriveSoundId;
-        if (request.arriveSoundRadius !== undefined) data.arriveSoundRadius = request.arriveSoundRadius;
-        if (request.arriveSoundVolume !== undefined) data.arriveSoundVolume = request.arriveSoundVolume;
-        if (request.arriveMessage && request.arriveMessage.length > 0) data.arriveMessage = request.arriveMessage;
+        if (request.arriveSoundRadius !== undefined)
+            data.arriveSoundRadius = request.arriveSoundRadius;
+        if (request.arriveSoundVolume !== undefined)
+            data.arriveSoundVolume = request.arriveSoundVolume;
+        if (request.arriveMessage && request.arriveMessage.length > 0)
+            data.arriveMessage = request.arriveMessage;
         if (request.arriveSeqId !== undefined) data.arriveSeqId = request.arriveSeqId;
         if (request.arriveFaceTileX !== undefined) data.arriveFaceTileX = request.arriveFaceTileX;
         if (request.arriveFaceTileY !== undefined) data.arriveFaceTileY = request.arriveFaceTileY;
@@ -219,7 +274,13 @@ export class MovementService {
 
         const result = this.services.actionScheduler.requestAction(
             playerId,
-            { kind: "movement.teleport", data, delayTicks, cooldownTicks, groups: [TELEPORT_ACTION_GROUP] },
+            {
+                kind: "movement.teleport",
+                data,
+                delayTicks,
+                cooldownTicks,
+                groups: [TELEPORT_ACTION_GROUP],
+            },
             this.services.ticker.currentTick(),
         );
         if (!result.ok) {
@@ -231,7 +292,8 @@ export class MovementService {
 
     tryReleaseTeleportDelayLock(player: PlayerState, expected: LockState): void {
         if (player.lock !== expected) return;
-        if (this.services.actionScheduler.hasPendingActionInGroup(player.id, TELEPORT_ACTION_GROUP)) return;
+        if (this.services.actionScheduler.hasPendingActionInGroup(player.id, TELEPORT_ACTION_GROUP))
+            return;
         player.lock = LockState.NONE;
     }
 
@@ -267,7 +329,10 @@ export class MovementService {
         return 67 + Math.floor((67 * cappedWeight) / 64);
     }
 
-    computeRunEnergyRegenUnits(agilityLevel: number, opts: { resting: boolean; gracefulPieces?: number }): number {
+    computeRunEnergyRegenUnits(
+        agilityLevel: number,
+        opts: { resting: boolean; gracefulPieces?: number },
+    ): number {
         const clamped = Math.max(1, Math.min(99, agilityLevel));
         const base = Math.floor(clamped / 6) + 8;
         const gracefulPieces = opts.gracefulPieces ?? 0;
@@ -356,7 +421,10 @@ export class MovementService {
             player.energy.markRunEnergySynced();
             return;
         }
-        this.services.broadcastScheduler.queueRunEnergySnapshot({ playerId: player.id, ...payload });
+        this.services.broadcastScheduler.queueRunEnergySnapshot({
+            playerId: player.id,
+            ...payload,
+        });
         player.energy.markRunEnergySynced();
     }
 
@@ -364,7 +432,11 @@ export class MovementService {
         const payload = this.buildRunEnergyPayload(player);
         if (!payload) return;
         this.services.networkLayer.withDirectSendBypass("run_energy", () =>
-            this.services.networkLayer.sendWithGuard(sock, encodeMessage({ type: "run_energy", payload }), "run_energy"),
+            this.services.networkLayer.sendWithGuard(
+                sock,
+                encodeMessage({ type: "run_energy", payload }),
+                "run_energy",
+            ),
         );
         player.energy.markRunEnergySynced();
     }
@@ -401,7 +473,9 @@ export class MovementService {
             if (data.resetAnimation) {
                 try {
                     player.stopAnimation();
-                } catch (err) { logger.warn("[teleport] reset animation failed", err); }
+                } catch (err) {
+                    logger.warn("[teleport] reset animation failed", err);
+                }
             }
 
             if (data.endSpotAnim !== undefined && data.endSpotAnim > 0) {
@@ -546,7 +620,12 @@ export class MovementService {
         }
     }
 
-    routeOrRejectWalkCommand(sock: import("ws").WebSocket, command: { to: { x: number; y: number }; run: boolean }, currentTick: number, context: string): boolean {
+    routeOrRejectWalkCommand(
+        sock: import("ws").WebSocket,
+        command: { to: { x: number; y: number }; run: boolean },
+        currentTick: number,
+        context: string,
+    ): boolean {
         const player = this.services.players?.get(sock);
         if (!player) return true;
         if (!player.canMove()) {

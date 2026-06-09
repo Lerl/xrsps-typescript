@@ -51,7 +51,9 @@ export const ItemSourceType = {
 } as const;
 export type ItemSourceType = (typeof ItemSourceType)[keyof typeof ItemSourceType];
 
-export type ItemSource = { type: typeof ItemSourceType.Inventory; slot: number } | { type: typeof ItemSourceType.Equipment; slot: number };
+export type ItemSource =
+    | { type: typeof ItemSourceType.Inventory; slot: number }
+    | { type: typeof ItemSourceType.Equipment; slot: number };
 
 /**
  * Result of item protection calculation

@@ -51,7 +51,7 @@ export function nextIntJagex(random: JavaRandom, bound: number): number {
     if (isPowerOfTwo(bound)) {
         return Number((BigInt(bound) * (BigInt(random.nextInt()) & 0xffffffffn)) >> 32n);
     }
-    const maxValue = (-0x80000000 - (0x100000000 % bound | 0)) | 0;
+    const maxValue = (-0x80000000 - ((0x100000000 % bound) | 0)) | 0;
     let rndValue: number;
     do {
         rndValue = random.nextInt();

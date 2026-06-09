@@ -304,8 +304,7 @@ export function getMobileInterfaces(options?: MobileInterfaceOptions): Interface
 export function getMobileQuestTabUid(): number {
     const rootId = getRootInterfaceId(DisplayMode.MOBILE);
     return (
-        (rootId << 16) |
-        getMobileChildId(BaseComponentUids.TAB_QUEST, MobileContainers.TAB_QUEST)
+        (rootId << 16) | getMobileChildId(BaseComponentUids.TAB_QUEST, MobileContainers.TAB_QUEST)
     );
 }
 

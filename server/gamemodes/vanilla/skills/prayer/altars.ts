@@ -42,10 +42,7 @@ const getMultiplierForAltar = (locId: number): number => {
     return 2;
 };
 
-const resolveBoneName = (
-    services: ScriptServices,
-    itemId: number,
-): string => {
+const resolveBoneName = (services: ScriptServices, itemId: number): string => {
     try {
         const obj = services.data.getObjType(itemId);
         return (obj?.name as string) || "bones";

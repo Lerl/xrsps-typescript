@@ -1,6 +1,5 @@
 import { vec3 } from "gl-matrix";
 
-import { WorldViewManager } from "./worldview/WorldViewManager";
 import {
     type BankServerUpdate,
     getClientCycle,
@@ -34,6 +33,9 @@ import {
     subscribePlayJingle,
     subscribePlaySong,
     subscribePlayerSync,
+    subscribeRebuildNormal,
+    subscribeRebuildRegion,
+    subscribeRebuildWorldEntity,
     subscribeReconnectFailed,
     subscribeRunEnergy,
     subscribeServerPath,
@@ -45,9 +47,6 @@ import {
     subscribeTick,
     subscribeWelcome,
     subscribeWidgetEvents,
-    subscribeRebuildRegion,
-    subscribeRebuildNormal,
-    subscribeRebuildWorldEntity,
     subscribeWorldEntityInfo,
 } from "../network/ServerConnection";
 import type { WorldEntityInfoPayload } from "../network/ServerConnection";
@@ -71,7 +70,12 @@ import {
     subscribeLogoutResponse,
     suppressReconnection,
 } from "../network/ServerConnection";
-import { getLastUrl, setServerUrl, registerAnimDebugProvider, subscribeProjectiles } from "../network/ServerConnection";
+import {
+    getLastUrl,
+    registerAnimDebugProvider,
+    setServerUrl,
+    subscribeProjectiles,
+} from "../network/ServerConnection";
 import { ClientPacketId, createPacket, queuePacket } from "../network/packet";
 import { MenuTargetType, type OsrsMenuEntry } from "../rs/MenuEntry";
 import { SoundEffectLoader } from "../rs/audio/SoundEffectLoader";
@@ -116,8 +120,8 @@ import { TextureLoader } from "../rs/texture/TextureLoader";
 import { faceAngleRs } from "../rs/utils/rotation";
 import { directionToDelta } from "../shared/Direction";
 import {
-    CacheItemSearchIndex,
     type CacheItemSearchEntry,
+    CacheItemSearchIndex,
 } from "../shared/items/CacheItemSearchIndex";
 import type { ProjectileLaunch } from "../shared/projectiles/ProjectileLaunch";
 import { buildSelectedSpellPayload } from "../shared/spells/selectedSpellPayload";
@@ -139,7 +143,6 @@ import {
     ITEM_SPAWNER_MODAL_RESULT_SLOT_COUNT,
     ITEM_SPAWNER_MODAL_SLOT_COLUMNS,
 } from "../shared/ui/widgets";
-import { markWidgetInteractionDirty } from "../ui/widgets/WidgetInteraction";
 import {
     TRANSMIT_VARPS,
     VARBIT_COMBATLEVEL_TRANSMIT,
@@ -154,6 +157,7 @@ import {
     VARBIT_LEAGUE_RELIC_6,
     VARBIT_LEAGUE_RELIC_7,
     VARBIT_LEAGUE_RELIC_8,
+    VARBIT_ROOF_REMOVAL,
     VARBIT_STAMINA_ACTIVE,
     VARC_COMBAT_LEVEL,
     VARP_AREA_SOUNDS_VOLUME,
@@ -165,14 +169,10 @@ import {
     VARP_OPTION_ATTACK_PRIORITY_PLAYER,
     VARP_OPTION_RUN,
     VARP_SOUND_EFFECTS_VOLUME,
-    VARBIT_ROOF_REMOVAL,
 } from "../shared/vars";
+import { getOsrsInterfaceScalingPercent, setOsrsInterfaceScalingPercent } from "../ui/UiScale";
 import { ClickRegistry } from "../ui/gl/click-registry";
 import { cleanupInterfaceClickTargets } from "../ui/gl/widgets-gl";
-import {
-    getOsrsInterfaceScalingPercent,
-    setOsrsInterfaceScalingPercent,
-} from "../ui/UiScale";
 import { setNpcExamineIdResolver, setSpellSelectionClearHandler } from "../ui/menu/MenuAction";
 import {
     type DefaultChoiceState,
@@ -187,6 +187,7 @@ import {
     isWidgetUseTarget,
     shouldTransmitAction,
 } from "../ui/widgets/WidgetFlags";
+import { markWidgetInteractionDirty } from "../ui/widgets/WidgetInteraction";
 import { WidgetManager } from "../ui/widgets/WidgetManager";
 import { WidgetSessionManager } from "../ui/widgets/WidgetSessionManager";
 import { layoutWidgets } from "../ui/widgets/layout/WidgetLayout";
@@ -297,6 +298,7 @@ import type { PlayerSpotAnimationEvent } from "./sync/PlayerSyncTypes";
 import { WebGLMapSquare } from "./webgl/WebGLMapSquare";
 import type { NpcInstance } from "./webgl/npc/NpcRenderTemplate";
 import { RenderDataWorkerPool } from "./worker/RenderDataWorkerPool";
+import { WorldViewManager } from "./worldview/WorldViewManager";
 
 /** Spell info for setSelectedSpell (uses ClientState as single source of truth) */
 interface SelectedSpellInfo {
@@ -865,9 +867,10 @@ export class OsrsClient {
      * @param hideRoofs - true to hide roofs, false to show them normally
      */
     setHideRoofs(hideRoofs: boolean): void {
-
         if (this.removeRoofsAll !== !hideRoofs) {
-            console.log(`[OsrsClient] Hide roofs setting changed: ${hideRoofs} (removeRoofsAll=${this.removeRoofsAll})`);
+            console.log(
+                `[OsrsClient] Hide roofs setting changed: ${hideRoofs} (removeRoofsAll=${this.removeRoofsAll})`,
+            );
         }
 
         // When hideRoofs is true, we want removeRoofsAll to be false
@@ -1763,10 +1766,7 @@ export class OsrsClient {
                 ) {
                     w = (w as any).children[childIndex] as any;
                 }
-                if (
-                    self.widgetManager &&
-                    !self.widgetManager.canSendResumePauseButton(w ?? null)
-                ) {
+                if (self.widgetManager && !self.widgetManager.canSendResumePauseButton(w ?? null)) {
                     return;
                 }
 
@@ -1908,7 +1908,7 @@ export class OsrsClient {
                     this.cs2Vm.eventContext.componentId =
                         widget?.fileId === -1 && typeof widget?.parentUid === "number"
                             ? widget.parentUid
-                            : widget?.uid ?? -1;
+                            : (widget?.uid ?? -1);
                     this.cs2Vm.eventContext.componentIndex = widget?.childIndex ?? -1;
                     try {
                         const rawIntArgs: number[] = [];
@@ -2078,7 +2078,7 @@ export class OsrsClient {
                 try {
                     const ecsIndex = this.playerEcs.getIndexForServerId(serverId | 0);
                     const fromName =
-                        ecsIndex === undefined ? "" : this.playerEcs.getName(ecsIndex) ?? "";
+                        ecsIndex === undefined ? "" : (this.playerEcs.getName(ecsIndex) ?? "");
                     const icon =
                         typeof modIcon === "number" && modIcon >= 0 ? `<img=${modIcon | 0}>` : "";
                     const sender = `${icon}${fromName}`;
@@ -2217,7 +2217,9 @@ export class OsrsClient {
                 if (payload.groupId === SETTINGS_MODAL_GROUP_ID) {
                     this._settingsModalOpen = true;
                     this._settingsModalContainerUid = payload.targetUid | 0;
-                    console.log(`[OsrsClient] Settings modal opened, container UID: ${this._settingsModalContainerUid}`);
+                    console.log(
+                        `[OsrsClient] Settings modal opened, container UID: ${this._settingsModalContainerUid}`,
+                    );
                 }
                 // Apply varps/varbits BEFORE opening the interface so scripts can read them.
                 if (this.varManager) {
@@ -2239,7 +2241,7 @@ export class OsrsClient {
                         this._serverVarpSync = false;
                     }
                 }
-                
+
                 // Execute preScripts BEFORE mounting the interface.
                 if (Array.isArray(payload.preScripts) && this.cs2Vm) {
                     for (const ps of payload.preScripts) {
@@ -2288,23 +2290,26 @@ export class OsrsClient {
                 }
             } else if (payload?.action === "close_sub") {
                 const targetUid = Number(payload.targetUid) | 0;
-                console.log(`[OsrsClient] Server closing sub-interface at widget ${targetUid} (ESC or close button)`);
-                
+                console.log(
+                    `[OsrsClient] Server closing sub-interface at widget ${targetUid} (ESC or close button)`,
+                );
+
                 // Check if this is closing the settings modal using our tracked state
-                const isSettingsModalClosing = this._settingsModalOpen && this._settingsModalContainerUid === targetUid;
-                
+                const isSettingsModalClosing =
+                    this._settingsModalOpen && this._settingsModalContainerUid === targetUid;
+
                 // Try to get the closing parent normally
                 let closingParent = this.widgetManager?.getSubInterface(targetUid);
                 let closingGroupId = closingParent?.group ?? -1;
-                
+
                 // If normal detection failed but our tracking says it's settings, use that
                 if (closingGroupId === -1 && isSettingsModalClosing) {
                     closingGroupId = SETTINGS_MODAL_GROUP_ID;
                     console.log("[OsrsClient] Identified settings modal closing via tracked state");
                 }
-                
+
                 console.log(`[OsrsClient] Closing group ID: ${closingGroupId}`);
-                
+
                 if (this.widgetManager) {
                     // When closing an interface, any active text input should be cleared
                     if (closingGroupId === SETTINGS_MODAL_GROUP_ID) {
@@ -2312,14 +2317,16 @@ export class OsrsClient {
                         if (groupInstance) {
                             for (const widget of groupInstance.widgetsByUid.values()) {
                                 if (widget.type === 12) {
-                                    console.log(`[OsrsClient] Found text input widget ${widget.uid} in closing interface, invalidating`);
+                                    console.log(
+                                        `[OsrsClient] Found text input widget ${widget.uid} in closing interface, invalidating`,
+                                    );
                                     this.widgetManager.invalidateWidgetRender(widget);
                                     markWidgetInteractionDirty(widget);
                                 }
                             }
                         }
                     }
-                    
+
                     this.widgetManager.closeSubInterface(targetUid);
                     this.cs2Vm.clearHandlerCaches();
                     if (this.widgetManager.meslayerContinueWidget) {
@@ -2329,24 +2336,27 @@ export class OsrsClient {
                         this.widgetManager.meslayerContinueWidget = null;
                     }
                 }
-                
+
                 // CRITICAL FIX: When closing the settings modal, reset keyboard input mode
                 if (closingGroupId === SETTINGS_MODAL_GROUP_ID) {
-                    console.log("[OsrsClient] Settings modal closed - resetting keyboard input mode");
-                    
+                    console.log(
+                        "[OsrsClient] Settings modal closed - resetting keyboard input mode",
+                    );
+
                     // Clear our tracking flags
                     this._settingsModalOpen = false;
                     this._settingsModalContainerUid = -1;
-                    
+
                     // Find and invalidate the search bar widget
-                    const searchBarUid = (SETTINGS_MODAL_GROUP_ID << 16) | SETTINGS_MODAL_SEARCH_BAR_CHILD_ID;
+                    const searchBarUid =
+                        (SETTINGS_MODAL_GROUP_ID << 16) | SETTINGS_MODAL_SEARCH_BAR_CHILD_ID;
                     const searchBar = this.widgetManager?.getWidgetByUid(searchBarUid);
                     if (searchBar && searchBar.type === 12) {
                         this.widgetManager.invalidateWidgetRender(searchBar);
                         markWidgetInteractionDirty(searchBar);
                         console.log("[OsrsClient] Invalidated settings search bar widget");
                     }
-                    
+
                     // Reset input dialog state
                     this.cs2Vm.inputDialogType = 0;
                     this.cs2Vm.inputDialogWidgetId = -1;
@@ -2354,14 +2364,14 @@ export class OsrsClient {
                     this.varManager.setVarcString(335, "");
                     this.varManager.setVarcInt(416, 0);
                     this.varManager.setVarcInt(415, 0);
-                    
+
                     // Clear active widget to release keyboard focus
                     (this.cs2Vm as any).activeWidget = null;
                     (this.cs2Vm as any).dotWidget = null;
                     this.clickedWidget = null;
                     this.clickedWidgetParent = null;
                     this.dragSourceWidget = null;
-                    
+
                     // Make chatbox visible
                     const chatboxUid = 162 << 16;
                     const chatboxWidget = this.widgetManager?.getWidgetByUid(chatboxUid);
@@ -2370,7 +2380,7 @@ export class OsrsClient {
                         chatboxWidget.isHidden = false;
                         this.widgetManager?.invalidateWidgetRender(chatboxWidget);
                     }
-                    
+
                     // Set the key varbits that enable chat input
                     this.varManager.setVarbit(10662, 1);
                     this.varManager.setVarbit(10663, 2);
@@ -2378,16 +2388,16 @@ export class OsrsClient {
                     this.varManager.setVarbit(11584, 1);
                     this.varManager.setVarbit(11585, 1);
                     this.varManager.setVarbit(11693, 2);
-                    
+
                     // Trigger chatbox onLoad to reinitialize
                     if (chatboxWidget && chatboxWidget.onLoad) {
                         console.log("[OsrsClient] Triggering chatbox onLoad");
                         this.executeScriptListener(chatboxWidget, chatboxWidget.onLoad);
                     }
-                    
+
                     console.log("[OsrsClient] Chat input restored after close");
                 }
-                
+
                 if (targetUid === CHATBOX_MODAL_TARGET_UID) {
                     if (
                         typeof closingGroupId === "number" &&
@@ -3208,7 +3218,14 @@ export class OsrsClient {
                     const entityWorldY = 3193;
 
                     // Collect extra locs from addedLocs that fall in source region
-                    const extraLocs: Array<{ id: number; x: number; y: number; level: number; shape: number; rotation: number }> = [];
+                    const extraLocs: Array<{
+                        id: number;
+                        x: number;
+                        y: number;
+                        level: number;
+                        shape: number;
+                        rotation: number;
+                    }> = [];
 
                     if (this.renderer && "loadWorldEntityScene" in this.renderer) {
                         const weNpcs = (payload as any).extraNpcs;
@@ -3234,10 +3251,15 @@ export class OsrsClient {
 
                     // Set local player's worldViewId to this entity
                     if (this.controlledPlayerServerId >= 0) {
-                        const localEcsIdx = this.playerEcs.getIndexForServerId(this.controlledPlayerServerId);
+                        const localEcsIdx = this.playerEcs.getIndexForServerId(
+                            this.controlledPlayerServerId,
+                        );
                         if (localEcsIdx !== undefined) {
                             this.playerEcs.setWorldViewId(localEcsIdx, payload.entityIndex);
-                            this.worldViewManager.addPlayerToWorldView(payload.entityIndex, localEcsIdx);
+                            this.worldViewManager.addPlayerToWorldView(
+                                payload.entityIndex,
+                                localEcsIdx,
+                            );
                         }
                     }
                 } catch (err) {
@@ -3924,8 +3946,8 @@ export class OsrsClient {
             w?.fileId != null && w?.fileId >= 0
                 ? w.fileId
                 : typeof w?.childIndex === "number"
-                ? w.childIndex
-                : w?.uid & 0xffff;
+                  ? w.childIndex
+                  : w?.uid & 0xffff;
         const isItemSpawnerSearchClick =
             (groupId | 0) === ITEM_SPAWNER_MODAL_GROUP_ID &&
             this.isItemSpawnerSearchComponent(childId | 0);
@@ -4362,14 +4384,14 @@ export class OsrsClient {
                     const widgetUid =
                         (typeof (event.widget as any).id === "number"
                             ? (event.widget as any).id
-                            : event.widget.uid ?? 0) | 0;
+                            : (event.widget.uid ?? 0)) | 0;
                     const childIndex =
                         (typeof event.widget.childIndex === "number" &&
                         (event.widget.childIndex | 0) >= 0
                             ? event.widget.childIndex | 0
                             : typeof event.widget.fileId === "number" && event.widget.fileId >= 0
-                            ? event.widget.fileId | 0
-                            : widgetUid & 0xffff) | 0;
+                              ? event.widget.fileId | 0
+                              : widgetUid & 0xffff) | 0;
                     const pkt = createPacket(ClientPacketId.RESUME_PAUSEBUTTON);
                     pkt.packetBuffer.writeShortAddLE(childIndex);
                     pkt.packetBuffer.writeInt(widgetUid);
@@ -4615,7 +4637,7 @@ export class OsrsClient {
         this.cs2Vm.eventContext.componentId =
             widget?.fileId === -1 && typeof widget?.parentUid === "number"
                 ? widget.parentUid
-                : widget?.uid ?? -1;
+                : (widget?.uid ?? -1);
         this.cs2Vm.eventContext.componentIndex = widget?.childIndex ?? -1;
         try {
             console.log(`[${phase}_script] Running script ${scriptId} on widget ${widgetUid}`);
@@ -4657,11 +4679,15 @@ export class OsrsClient {
     }
 
     private getItemSpawnerSlotBackgroundWidgetUid(slotIndex: number): number {
-        return this.getItemSpawnerWidgetUid(ITEM_SPAWNER_MODAL_COMPONENT_SLOT_BACKGROUND_START + slotIndex);
+        return this.getItemSpawnerWidgetUid(
+            ITEM_SPAWNER_MODAL_COMPONENT_SLOT_BACKGROUND_START + slotIndex,
+        );
     }
 
     private getItemSpawnerSlotIconWidgetUid(slotIndex: number): number {
-        return this.getItemSpawnerWidgetUid(ITEM_SPAWNER_MODAL_COMPONENT_SLOT_ICON_START + slotIndex);
+        return this.getItemSpawnerWidgetUid(
+            ITEM_SPAWNER_MODAL_COMPONENT_SLOT_ICON_START + slotIndex,
+        );
     }
 
     private isItemSpawnerModalMounted(): boolean {
@@ -4786,7 +4812,9 @@ export class OsrsClient {
             return;
         }
 
-        const resultsView = this.widgetManager.getWidgetByUid(this.getItemSpawnerResultsViewWidgetUid()) as any;
+        const resultsView = this.widgetManager.getWidgetByUid(
+            this.getItemSpawnerResultsViewWidgetUid(),
+        ) as any;
         const scrollbar = this.widgetManager.getWidgetByUid(
             this.getItemSpawnerResultsScrollbarWidgetUid(),
         ) as any;
@@ -4822,7 +4850,9 @@ export class OsrsClient {
             return;
         }
 
-        const resultsView = this.widgetManager.getWidgetByUid(this.getItemSpawnerResultsViewWidgetUid()) as any;
+        const resultsView = this.widgetManager.getWidgetByUid(
+            this.getItemSpawnerResultsViewWidgetUid(),
+        ) as any;
         const scrollbar = this.widgetManager.getWidgetByUid(
             this.getItemSpawnerResultsScrollbarWidgetUid(),
         ) as any;
@@ -4845,7 +4875,9 @@ export class OsrsClient {
             return;
         }
 
-        const resultsView = this.widgetManager.getWidgetByUid(this.getItemSpawnerResultsViewWidgetUid()) as any;
+        const resultsView = this.widgetManager.getWidgetByUid(
+            this.getItemSpawnerResultsViewWidgetUid(),
+        ) as any;
         if (!resultsView) {
             return;
         }
@@ -4881,7 +4913,8 @@ export class OsrsClient {
 
             const backgroundRawY =
                 ITEM_SPAWNER_SLOT_BACKGROUND_BASE_RAW_Y + resultRow * ITEM_SPAWNER_SLOT_PITCH_Y;
-            const iconRawY = ITEM_SPAWNER_SLOT_ICON_BASE_RAW_Y + resultRow * ITEM_SPAWNER_SLOT_PITCH_Y;
+            const iconRawY =
+                ITEM_SPAWNER_SLOT_ICON_BASE_RAW_Y + resultRow * ITEM_SPAWNER_SLOT_PITCH_Y;
 
             backgroundWidget.rawY = backgroundRawY;
             backgroundWidget.y = backgroundRawY;
@@ -4921,13 +4954,16 @@ export class OsrsClient {
             return;
         }
 
-        const resultsView = this.widgetManager.getWidgetByUid(this.getItemSpawnerResultsViewWidgetUid()) as any;
+        const resultsView = this.widgetManager.getWidgetByUid(
+            this.getItemSpawnerResultsViewWidgetUid(),
+        ) as any;
         if (!resultsView) {
             return;
         }
 
         const query = this.escapeItemSpawnerSearchText(this.itemSpawnerSearchQuery);
-        const nextResults = query.length > 0 ? this.getItemSpawnerSearchIndex()?.search(query) ?? [] : [];
+        const nextResults =
+            query.length > 0 ? (this.getItemSpawnerSearchIndex()?.search(query) ?? []) : [];
         this.itemSpawnerSearchResults = nextResults;
         this.itemSpawnerSearchResultsVersion++;
 
@@ -4953,8 +4989,8 @@ export class OsrsClient {
             query.length === 0
                 ? "<col=c5b79b>Start typing to filter cache item names.</col>"
                 : nextResults.length > 0
-                ? `Matches: <col=40ff40>${nextResults.length}</col>`
-                : "<col=ff981f>No matches found in cache.</col>",
+                  ? `Matches: <col=40ff40>${nextResults.length}</col>`
+                  : "<col=ff981f>No matches found in cache.</col>",
         );
 
         this.itemSpawnerVisibleStartRow = -1;
@@ -6472,13 +6508,13 @@ export class OsrsClient {
                                 const widgetUid =
                                     (typeof (w as any).id === "number"
                                         ? (w as any).id
-                                        : w.uid ?? 0) | 0;
+                                        : (w.uid ?? 0)) | 0;
                                 const childIndex =
                                     (typeof w.childIndex === "number" && (w.childIndex | 0) >= 0
                                         ? w.childIndex | 0
                                         : typeof w.fileId === "number" && w.fileId >= 0
-                                        ? w.fileId | 0
-                                        : widgetUid & 0xffff) | 0;
+                                          ? w.fileId | 0
+                                          : widgetUid & 0xffff) | 0;
                                 // Send RESUME_PAUSEBUTTON packet to server
                                 const pkt = createPacket(ClientPacketId.RESUME_PAUSEBUTTON);
                                 pkt.packetBuffer.writeShortAddLE(childIndex);
@@ -6792,12 +6828,14 @@ export class OsrsClient {
                 const scriptParentAbsY = hasExplicitDragParent ? parentAbsY : actualParentAbsY;
                 const scriptParentScrollX = hasExplicitDragParent
                     ? parentScrollX
-                    : actualParent?.scrollX ?? 0;
+                    : (actualParent?.scrollX ?? 0);
                 const scriptParentScrollY = hasExplicitDragParent
                     ? parentScrollY
-                    : actualParent?.scrollY ?? 0;
-                const scriptX = ((targetAbsX - scriptParentAbsX) / renderScaleX + scriptParentScrollX) | 0;
-                const scriptY = ((targetAbsY - scriptParentAbsY) / renderScaleY + scriptParentScrollY) | 0;
+                    : (actualParent?.scrollY ?? 0);
+                const scriptX =
+                    ((targetAbsX - scriptParentAbsX) / renderScaleX + scriptParentScrollX) | 0;
+                const scriptY =
+                    ((targetAbsY - scriptParentAbsY) / renderScaleY + scriptParentScrollY) | 0;
 
                 // Store visual position for renderer to use
                 // The widget's actual .x/.y stays unchanged until dragComplete
@@ -6832,8 +6870,14 @@ export class OsrsClient {
                     const actualParentLogicalY = (actualParent as any)?._absLogicalY ?? 0;
                     const scriptParentLogicalX = (renderArea as any)?._absLogicalX ?? 0;
                     const actualParentLogicalX = (actualParent as any)?._absLogicalX ?? 0;
-                    logicalVisualX = scriptX - scriptParentScrollX + (scriptParentLogicalX - actualParentLogicalX);
-                    logicalVisualY = scriptY - scriptParentScrollY + (scriptParentLogicalY - actualParentLogicalY);
+                    logicalVisualX =
+                        scriptX -
+                        scriptParentScrollX +
+                        (scriptParentLogicalX - actualParentLogicalX);
+                    logicalVisualY =
+                        scriptY -
+                        scriptParentScrollY +
+                        (scriptParentLogicalY - actualParentLogicalY);
                 } else {
                     logicalVisualX = (visualPosX / renderScaleX) | 0;
                     logicalVisualY = (visualPosY / renderScaleY) | 0;
@@ -6842,7 +6886,8 @@ export class OsrsClient {
                 // PERF: Only invalidate render if position actually changed
                 const prevVisualX = (w as any)._dragVisualX;
                 const prevVisualY = (w as any)._dragVisualY;
-                const positionChanged = prevVisualX !== logicalVisualX || prevVisualY !== logicalVisualY;
+                const positionChanged =
+                    prevVisualX !== logicalVisualX || prevVisualY !== logicalVisualY;
 
                 (w as any)._dragVisualX = logicalVisualX;
                 (w as any)._dragVisualY = logicalVisualY;
@@ -6890,9 +6935,7 @@ export class OsrsClient {
                 } else if (w.onDrag) {
                     this.executeScriptListener(w, w.onDrag, dragCtx);
                 }
-
             }
-
         }
 
         // Fire onClickRepeat / onHold for ANY held widget, not just draggable ones.
@@ -7053,9 +7096,11 @@ export class OsrsClient {
                     const sourceIsDynamic = (w as any).fileId === -1;
                     const targetIsDynamic = (dragTarget as any).fileId === -1;
 
-                    const sourceWidgetId = sourceIsDynamic ? (w as any).parentUid ?? w.uid : w.uid;
+                    const sourceWidgetId = sourceIsDynamic
+                        ? ((w as any).parentUid ?? w.uid)
+                        : w.uid;
                     const targetWidgetId = targetIsDynamic
-                        ? (dragTarget as any).parentUid ?? dragTarget.uid
+                        ? ((dragTarget as any).parentUid ?? dragTarget.uid)
                         : dragTarget.uid;
 
                     const targetSlot = (dragTarget as any).childIndex ?? -1;
@@ -7471,8 +7516,8 @@ export class OsrsClient {
             explicitSlot !== undefined && explicitSlot >= 0
                 ? explicitSlot
                 : dynamicSlot !== undefined && dynamicSlot >= 0
-                ? dynamicSlot
-                : undefined;
+                  ? dynamicSlot
+                  : undefined;
         const recoverSlotByOptionTarget = (parent: any): number | undefined => {
             if (!parent || !Array.isArray(parent.children) || option.length === 0) return undefined;
             const optionLower = option.toLowerCase();
@@ -7625,8 +7670,8 @@ export class OsrsClient {
                 typeof widget.parentUid === "number"
                     ? widget.parentUid | 0
                     : typeof widget.id === "number"
-                    ? widget.id | 0
-                    : undefined;
+                      ? widget.id | 0
+                      : undefined;
             if (parentId === undefined) {
                 // Fall through to UID-derived identifiers (best-effort)
             } else {
@@ -7641,16 +7686,16 @@ export class OsrsClient {
             typeof widget.groupId === "number"
                 ? widget.groupId | 0
                 : hasUid
-                ? (widget.uid >>> 16) | 0
-                : undefined;
+                  ? (widget.uid >>> 16) | 0
+                  : undefined;
         if (groupId === undefined) return undefined;
         // fileId of -1 means "not set", so only use it if it's >= 0
         const childId =
             typeof widget.fileId === "number" && widget.fileId >= 0
                 ? widget.fileId | 0
                 : hasUid
-                ? widget.uid & 0xffff
-                : 0;
+                  ? widget.uid & 0xffff
+                  : 0;
         const widgetId = ((groupId & 0xffff) << 16) | (childId & 0xffff);
         return { widgetId, groupId, childId };
     }
@@ -7883,7 +7928,6 @@ export class OsrsClient {
         } catch (err) {
             console.warn?.("[OsrsClient] failed to send npc attack", err);
         }
-
     }
 
     private applyBitstreamAppearance(serverId: number, data: any): void {
@@ -8560,7 +8604,10 @@ export class OsrsClient {
                       Math.floor(
                           (Math.max(
                               0,
-                              Math.min(0.999, Number.isFinite(serverTiming.phase) ? serverTiming.phase : 0),
+                              Math.min(
+                                  0.999,
+                                  Number.isFinite(serverTiming.phase) ? serverTiming.phase : 0,
+                              ),
                           ) *
                               Math.max(1, serverTiming.tickMs | 0)) /
                               100,
@@ -8846,9 +8893,13 @@ export class OsrsClient {
             // Full reset when returning to login screen (clears chat, vars, transmit cycles)
             this.resetWorld(true);
             // Flush buffered keystrokes so in-game typing does not leak into login fields
-            try { this.inputManager.flushInput(); } catch {}
+            try {
+                this.inputManager.flushInput();
+            } catch {}
             // Apply persisted server URL so sendLogin connects to the right place
-            setServerUrl(`${this.loginState.serverSecure ? "wss" : "ws"}://${this.loginState.serverAddress}`);
+            setServerUrl(
+                `${this.loginState.serverSecure ? "wss" : "ws"}://${this.loginState.serverAddress}`,
+            );
         }
 
         if (newState === GameState.CONNECTING) {
@@ -9288,7 +9339,9 @@ export class OsrsClient {
             case "open_server_list":
                 this.loginState.serverListOpen = true;
                 this.loginState.virtualKeyboardVisible = false;
-                this.loginRenderer.fetchServerList().then(() => this.loginRenderer.refreshServerList());
+                this.loginRenderer
+                    .fetchServerList()
+                    .then(() => this.loginRenderer.refreshServerList());
                 return undefined;
 
             case "close_server_list":
@@ -9798,7 +9851,9 @@ export class OsrsClient {
                 const initialRoofVarbit = this.varManager.getVarbit(VARBIT_ROOF_REMOVAL);
                 if (initialRoofVarbit !== undefined) {
                     this.setHideRoofs(initialRoofVarbit === 1);
-                    console.log(`[OsrsClient] Initial roof state: hideRoofs=${initialRoofVarbit === 1}`);
+                    console.log(
+                        `[OsrsClient] Initial roof state: hideRoofs=${initialRoofVarbit === 1}`,
+                    );
                 }
             } catch (err) {
                 console.warn("[OsrsClient] Failed to init roof state", err);
@@ -9851,7 +9906,6 @@ export class OsrsClient {
             } catch (e) {
                 console.warn("[OsrsClient] Failed to load GraphicsDefaults:", e);
             }
-
 
             this.startClientTickLoop();
             this.renderer.initCache();
@@ -10198,12 +10252,7 @@ export class OsrsClient {
         }
     }
 
-    onLocDel(
-        tile: { x: number; y: number },
-        level: number,
-        shape: number,
-        rotation: number,
-    ): void {
+    onLocDel(tile: { x: number; y: number }, level: number, shape: number, rotation: number): void {
         try {
             console.log(
                 `[OsrsClient] Loc del at (${tile.x}, ${tile.y}, ${level}) shape=${shape} rot=${rotation}`,
@@ -10294,7 +10343,7 @@ export class OsrsClient {
 
         const decodeBase = localState
             ? { tileX: localState.tileX, tileY: localState.tileY, level: localState.level }
-            : this.lastNpcDecodeBase;  // use last known base regardless of localId
+            : this.lastNpcDecodeBase; // use last known base regardless of localId
         if (!decodeBase) return;
         this.lastNpcDecodeBase = {
             tileX: decodeBase.tileX | 0,
@@ -11252,9 +11301,10 @@ export class OsrsClient {
 
             const entity = this.worldViewManager.getWorldEntity(entityId);
             if (entity && upd.updateType >= 2 && upd.positionDelta) {
-                const target = entity.pendingPathStepCount === 0
-                    ? entity.position
-                    : entity.pathSteps[0].position;
+                const target =
+                    entity.pendingPathStepCount === 0
+                        ? entity.position
+                        : entity.pathSteps[0].position;
                 const newPos = {
                     x: target.x + upd.positionDelta.x,
                     y: target.y + upd.positionDelta.y,
@@ -11307,7 +11357,12 @@ export class OsrsClient {
 
             const animator = (this.renderer as any)?.worldEntityAnimator;
             if (animator && typeof animator.setSequenceAnimation === "function") {
-                animator.setSequenceAnimation(entityIndex, animId, entity.configId, getClientCycle());
+                animator.setSequenceAnimation(
+                    entityIndex,
+                    animId,
+                    entity.configId,
+                    getClientCycle(),
+                );
             }
         }
     }

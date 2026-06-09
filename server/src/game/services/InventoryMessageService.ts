@@ -2,14 +2,24 @@ import type { WebSocket } from "ws";
 
 import { getItemDefinition } from "../../data/items";
 import type { GroundItemActionPayload } from "../../network/managers/GroundItemHandler";
-import type { ChatMessageSnapshot } from "../systems/BroadcastScheduler";
-import { isInWilderness } from "../combat/MultiCombatZones";
-import { INVENTORY_SLOT_COUNT, type InventoryEntry, PlayerState } from "../player";
 import { logger } from "../../utils/logger";
 import type { ActionEnqueueResult, ActionRequest } from "../actions/types";
-import type { ScriptDialogRequest, ScriptDialogOptionRequest } from "../scripts/types";
+import { isInWilderness } from "../combat/MultiCombatZones";
+import { INVENTORY_SLOT_COUNT, type InventoryEntry, PlayerState } from "../player";
+import type { ScriptDialogOptionRequest, ScriptDialogRequest } from "../scripts/types";
+import type { ChatMessageSnapshot } from "../systems/BroadcastScheduler";
 
-const CONSUME_VERBS = ["eat", "drink", "quaff", "sip", "imbibe", "swig", "consume", "devour", "activate"];
+const CONSUME_VERBS = [
+    "eat",
+    "drink",
+    "quaff",
+    "sip",
+    "imbibe",
+    "swig",
+    "consume",
+    "devour",
+    "activate",
+];
 const ITEM_DROP_SOUND = 2739;
 
 interface ObjTypeView {
@@ -42,13 +52,23 @@ export interface InventoryMessageServiceDeps {
     closeInterruptibleInterfaces: (player: PlayerState) => void;
     openDialog: (player: PlayerState, request: ScriptDialogRequest) => void;
     openDialogOptions: (player: PlayerState, request: ScriptDialogOptionRequest) => void;
-    spawnGroundItem: (itemId: number, qty: number, tile: { x: number; y: number; level: number }, tick: number, opts?: GroundItemSpawnOpts, worldViewId?: number) => unknown;
+    spawnGroundItem: (
+        itemId: number,
+        qty: number,
+        tile: { x: number; y: number; level: number },
+        tick: number,
+        opts?: GroundItemSpawnOpts,
+        worldViewId?: number,
+    ) => unknown;
     withDirectSendBypass: <T>(ctx: string, fn: () => T) => T;
     sendSound: (player: PlayerState, soundId: number) => void;
     checkAndSendSnapshots: (player: PlayerState) => void;
     queueChatMessage: (msg: ChatMessageSnapshot) => void;
     getPendingWalkCommands: () => Map<WebSocket, Record<string, unknown>>;
-    handleGroundItemActionDelegate: (ws: WebSocket, payload: GroundItemActionPayload | undefined) => void;
+    handleGroundItemActionDelegate: (
+        ws: WebSocket,
+        payload: GroundItemActionPayload | undefined,
+    ) => void;
     getCurrentTick: () => number;
 }
 
@@ -60,9 +80,7 @@ export class InventoryMessageService {
     constructor(private readonly deps: InventoryMessageServiceDeps) {}
 
     isConsumable(
-        obj:
-            | { inventoryActions?: Array<string | null | undefined> }
-            | undefined,
+        obj: { inventoryActions?: Array<string | null | undefined> } | undefined,
         optionLower: string,
     ): boolean {
         if (optionLower && CONSUME_VERBS.includes(optionLower)) return true;
@@ -77,7 +95,9 @@ export class InventoryMessageService {
 
     handleInventoryUseMessage(
         ws: WebSocket,
-        payload: { slot: number; itemId: number; quantity?: number; option?: string; op?: number } | undefined,
+        payload:
+            | { slot: number; itemId: number; quantity?: number; option?: string; op?: number }
+            | undefined,
     ): void {
         if (!payload) return;
         const p = this.deps.getPlayer(ws);
@@ -111,7 +131,9 @@ export class InventoryMessageService {
                     option: optionLower,
                 });
                 if (handled) return; // Script claimed the action
-            } catch (err) { logger.warn("[item] script action dispatch failed", err); }
+            } catch (err) {
+                logger.warn("[item] script action dispatch failed", err);
+            }
         }
 
         const hasItemInInventory =
@@ -151,7 +173,9 @@ export class InventoryMessageService {
                     { ownerId: p.id, privateTicks: inWilderness ? 0 : undefined },
                     p.worldViewId,
                 );
-                this.deps.withDirectSendBypass("drop_sound", () => this.deps.sendSound(p, ITEM_DROP_SOUND));
+                this.deps.withDirectSendBypass("drop_sound", () =>
+                    this.deps.sendSound(p, ITEM_DROP_SOUND),
+                );
                 this.deps.checkAndSendSnapshots(p);
                 try {
                     logger.debug(
@@ -164,7 +188,9 @@ export class InventoryMessageService {
                         dropTile.y,
                         dropTile.level,
                     );
-                } catch (err) { logger.warn("[inventory] drop log failed", err); }
+                } catch (err) {
+                    logger.warn("[inventory] drop log failed", err);
+                }
             };
 
             // Total value = per-item value * quantity (for stackable items like coins)
@@ -174,8 +200,8 @@ export class InventoryMessageService {
                 payload.itemId === COINS_ITEM_ID
                     ? 1
                     : itemDef
-                    ? itemDef.dropValue || itemDef.value
-                    : 0;
+                      ? itemDef.dropValue || itemDef.value
+                      : 0;
             const totalValue = perItemValue * slotEntry.quantity;
             if (totalValue >= 30000) {
                 // Show sprite dialog with item first, then options dialog
@@ -298,10 +324,7 @@ export class InventoryMessageService {
         }
     }
 
-    handleGroundItemAction(
-        ws: WebSocket,
-        payload: GroundItemActionPayload | undefined,
-    ): void {
+    handleGroundItemAction(ws: WebSocket, payload: GroundItemActionPayload | undefined): void {
         // Interface closing handled centrally by INTERFACE_CLOSING_ACTIONS check
         // Ground item interaction supersedes any pending walk command from earlier clicks.
         this.deps.getPendingWalkCommands().delete(ws);
@@ -353,11 +376,15 @@ export class InventoryMessageService {
                             text: "Nothing interesting happens.",
                             targetPlayerIds: [p.id],
                         });
-                    } catch (err) { logger.warn("[item] chat message send failed", err); }
+                    } catch (err) {
+                        logger.warn("[item] chat message send failed", err);
+                    }
                 }
                 return;
             }
-        } catch (err) { logger.warn("[item] use validation failed", err); }
+        } catch (err) {
+            logger.warn("[item] use validation failed", err);
+        }
         // Schedule server-authoritative walk-to + interaction resolution (Elvarg-style WalkToTask).
         try {
             this.deps.requestAction(

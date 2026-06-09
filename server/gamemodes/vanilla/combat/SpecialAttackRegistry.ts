@@ -157,11 +157,7 @@ class SpecialAttackRegistryImpl implements SpecialAttackProvider {
         return hits;
     }
 
-    canGraniteMaulCombo(
-        weaponId: number,
-        lastAttackTick: number,
-        currentTick: number,
-    ): boolean {
+    canGraniteMaulCombo(weaponId: number, lastAttackTick: number, currentTick: number): boolean {
         const isGmaul = weaponId === 4153 || weaponId === 12848;
         return isGmaul && currentTick === lastAttackTick;
     }

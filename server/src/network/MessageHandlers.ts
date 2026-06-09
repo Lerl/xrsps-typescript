@@ -10,18 +10,21 @@ import {
     MODIFIER_FLAG_CTRL,
     MODIFIER_FLAG_CTRL_SHIFT,
 } from "../../../src/shared/input/modifierFlags";
-import type { NpcState, NpcSpawnConfig } from "../game/npc";
-import type { PlayerState } from "../game/player";
-import type { ScriptDialogRequest, WidgetOpenHandler } from "../game/scripts/types";
-import type { WidgetAction } from "../widgets/WidgetManager";
 import type { WorldEntityBuildArea } from "../../../src/shared/worldentity/WorldEntityTypes";
-import type { WorldEntityMaskUpdate, WorldEntityPosition } from "./encoding/WorldEntityInfoEncoder";
+import type {
+    GamemodeDefinition,
+    GamemodeUiController,
+} from "../game/gamemodes/GamemodeDefinition";
+import type { NpcSpawnConfig, NpcState } from "../game/npc";
+import type { PlayerState } from "../game/player";
 import type { BoatLoc } from "../game/sailing/SailingInstance";
+import type { ScriptDialogRequest, WidgetOpenHandler } from "../game/scripts/types";
+import type { InterfaceService } from "../widgets/InterfaceService";
+import type { WidgetAction } from "../widgets/WidgetManager";
 import type { MessagePayload, MessageRouter } from "./MessageRouter";
+import type { WorldEntityMaskUpdate, WorldEntityPosition } from "./encoding/WorldEntityInfoEncoder";
 import type { IndexedMenuRequest } from "./managers/Cs2ModalManager";
 import type { NotificationPayload, ServerToClient } from "./messages";
-import type { InterfaceService } from "../widgets/InterfaceService";
-import type { GamemodeDefinition, GamemodeUiController } from "../game/gamemodes/GamemodeDefinition";
 
 // ============================================================================
 // Payload Interfaces
@@ -112,7 +115,14 @@ export interface MessageHandlerServices {
         y: number,
         level: number,
         templateChunks: number[][][],
-        extraLocs?: Array<{ id: number; x: number; y: number; level: number; shape: number; rotation: number }>,
+        extraLocs?: Array<{
+            id: number;
+            x: number;
+            y: number;
+            level: number;
+            shape: number;
+            rotation: number;
+        }>,
     ) => void;
     teleportToWorldEntity?: (
         player: PlayerState,
@@ -152,9 +162,21 @@ export interface MessageHandlerServices {
     disposeSailingInstance?: (player: PlayerState) => void;
     buildSailingDockedCollision?: () => void;
     removeWorldEntity?: (playerId: number, entityIndex: number) => void;
-    queueWorldEntityPosition?: (playerId: number, entityIndex: number, position: WorldEntityPosition) => void;
-    setWorldEntityPosition?: (playerId: number, entityIndex: number, position: WorldEntityPosition) => void;
-    queueWorldEntityMask?: (playerId: number, entityIndex: number, mask: WorldEntityMaskUpdate) => void;
+    queueWorldEntityPosition?: (
+        playerId: number,
+        entityIndex: number,
+        position: WorldEntityPosition,
+    ) => void;
+    setWorldEntityPosition?: (
+        playerId: number,
+        entityIndex: number,
+        position: WorldEntityPosition,
+    ) => void;
+    queueWorldEntityMask?: (
+        playerId: number,
+        entityIndex: number,
+        mask: WorldEntityMaskUpdate,
+    ) => void;
     applySailingDeckCollision?: () => void;
     clearSailingDeckCollision?: () => void;
     requestTeleportAction: (
@@ -258,7 +280,17 @@ export interface MessageHandlerServices {
     }) => void;
     getPublicChatPlayerType: (player: PlayerState) => number;
     eventBus?: import("../game/events/GameEventBus").GameEventBus;
-    findScriptCommand: (name: string) => ((event: { player: PlayerState; command: string; args: string[]; tick: number; services: Record<string, unknown> }) => string | void | Promise<string | void>) | undefined;
+    findScriptCommand: (
+        name: string,
+    ) =>
+        | ((event: {
+              player: PlayerState;
+              command: string;
+              args: string[];
+              tick: number;
+              services: Record<string, unknown>;
+          }) => string | void | Promise<string | void>)
+        | undefined;
     getCurrentTick: () => number;
 
     // Debug
@@ -294,8 +326,14 @@ export interface MessageHandlerServices {
     // --- Services for extracted handlers (logout, widget, varp_transmit, if_close) ---
     completeLogout: (ws: WebSocket, player?: PlayerState, source?: string) => void;
     closeInterruptibleInterfaces: (player: PlayerState) => void;
-    noteWidgetEventForLedger: (playerId: number, event: { action: string; groupId?: number; modal?: boolean }) => void;
-    normalizeSideJournalState: (player: PlayerState, value?: number) => { tab: number; stateVarp: number };
+    noteWidgetEventForLedger: (
+        playerId: number,
+        event: { action: string; groupId?: number; modal?: boolean },
+    ) => void;
+    normalizeSideJournalState: (
+        player: PlayerState,
+        value?: number,
+    ) => { tab: number; stateVarp: number };
     queueSideJournalGamemodeUi: (player: PlayerState) => void;
     syncMusicInterface: (player: PlayerState) => void;
     getWidgetOpenHandler: (groupId: number) => WidgetOpenHandler | undefined;

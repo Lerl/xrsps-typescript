@@ -169,7 +169,8 @@ export class PlayerSyncManager {
             this.playerEcs.teleport(ecsIndex, spawn.tile.x, spawn.tile.y, effectiveLevel);
             this.playerEcs.setLevel(ecsIndex, effectiveLevel);
             this.playerEcs.setRunning(ecsIndex, false);
-            const wvId = (spawn.worldViewId !== undefined && spawn.worldViewId >= 0) ? spawn.worldViewId : -1;
+            const wvId =
+                spawn.worldViewId !== undefined && spawn.worldViewId >= 0 ? spawn.worldViewId : -1;
             this.playerEcs.setWorldViewId(ecsIndex, wvId);
             this.onWorldViewAssignment?.(ecsIndex, wvId);
 

@@ -786,8 +786,7 @@ export class PlayerEcs {
         if (this.colorOverrideSat) this.colorOverrideSat[i] = (sat | 0) & 0x7f;
         if (this.colorOverrideLum) this.colorOverrideLum[i] = (lum | 0) & 0x7f;
         if (this.colorOverrideAmount) this.colorOverrideAmount[i] = (amount | 0) & 0xff;
-        if (this.colorOverrideStartCycle)
-            this.colorOverrideStartCycle[i] = startCycle | 0;
+        if (this.colorOverrideStartCycle) this.colorOverrideStartCycle[i] = startCycle | 0;
         if (this.colorOverrideEndCycle) this.colorOverrideEndCycle[i] = endCycle | 0;
     }
     clearColorOverride(i: number): void {

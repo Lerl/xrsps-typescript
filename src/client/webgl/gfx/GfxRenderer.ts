@@ -79,7 +79,7 @@ export class GfxRenderer {
         const nowMs = (performance?.now?.() as number) || Date.now();
         const prog = transparent
             ? (this.renderer as any).npcProgram
-            : (this.renderer as any).npcProgramOpaque ?? (this.renderer as any).npcProgram;
+            : ((this.renderer as any).npcProgramOpaque ?? (this.renderer as any).npcProgram);
         if (!prog) return;
         const programKey = transparent ? "npc-alpha" : "npc-opaque";
 
@@ -175,7 +175,8 @@ export class GfxRenderer {
                 );
                 if (!vaoRec) continue;
 
-                const dc: DrawCall = this.renderer.configureDrawCall(vaoRec.drawCall)
+                const dc: DrawCall = this.renderer
+                    .configureDrawCall(vaoRec.drawCall)
                     .uniformBlock("SceneUniforms", (this.renderer as any).sceneUniformBuffer)
                     .uniform("u_timeLoaded", -1.0)
                     .texture("u_textures", (this.renderer as any).textureArray)

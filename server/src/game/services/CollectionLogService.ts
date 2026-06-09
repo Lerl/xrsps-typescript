@@ -1,5 +1,10 @@
 import type { WebSocket } from "ws";
 
+import { encodeMessage } from "../../network/messages";
+import { logger } from "../../utils/logger";
+import type { WidgetAction } from "../../widgets/WidgetManager";
+import { getMainmodalUid } from "../../widgets/viewport";
+import type { ServerServices } from "../ServerServices";
 import {
     COLLECTION_LOG_GROUP_ID,
     COLLECTION_OVERVIEW_GROUP_ID,
@@ -9,12 +14,7 @@ import {
     syncCollectionDisplayVarps,
     trackCollectionLogItem,
 } from "../collectionlog";
-import { encodeMessage } from "../../network/messages";
 import type { PlayerState } from "../player";
-import type { WidgetAction } from "../../widgets/WidgetManager";
-import { getMainmodalUid } from "../../widgets/viewport";
-import { logger } from "../../utils/logger";
-import type { ServerServices } from "../ServerServices";
 
 /**
  * Manages collection log snapshots, opening, category population, and item tracking.
@@ -56,7 +56,11 @@ export class CollectionLogService {
                 this.services.queueWidgetEvent(playerId, event),
             queueNotification: (playerId: number, payload: Record<string, unknown>) =>
                 this.services.messagingService.queueNotification(playerId, payload),
-            queueChatMessage: (request: { messageType: string; text: string; targetPlayerIds: number[] }) => this.services.messagingService.queueChatMessage(request),
+            queueChatMessage: (request: {
+                messageType: string;
+                text: string;
+                targetPlayerIds: number[];
+            }) => this.services.messagingService.queueChatMessage(request),
             sendCollectionLogSnapshot: (player: PlayerState) =>
                 this.sendCollectionLogSnapshot(player),
             getMainmodalUid,
@@ -80,15 +84,10 @@ export class CollectionLogService {
 
     openCollectionOverview(player: PlayerState): void {
         const openState = buildCollectionOverviewOpenState(player);
-        this.services.interfaceService?.openModal(
-            player,
-            COLLECTION_OVERVIEW_GROUP_ID,
-            undefined,
-            {
-                varps: openState.varps,
-                varbits: openState.varbits,
-            },
-        );
+        this.services.interfaceService?.openModal(player, COLLECTION_OVERVIEW_GROUP_ID, undefined, {
+            varps: openState.varps,
+            varbits: openState.varbits,
+        });
     }
 
     populateCollectionLogCategories(player: PlayerState, tabIndex: number): void {

@@ -109,14 +109,14 @@ export class PlayerMovementSync {
             typeof update.x === "number"
                 ? update.x | 0
                 : typeof update.subX === "number"
-                ? update.subX | 0
-                : undefined;
+                  ? update.subX | 0
+                  : undefined;
         let subY =
             typeof update.y === "number"
                 ? update.y | 0
                 : typeof update.subY === "number"
-                ? update.subY | 0
-                : undefined;
+                  ? update.subY | 0
+                  : undefined;
 
         const existingState = this.states.get(update.serverId);
         const isFirstAppearance = !existingState;
@@ -125,8 +125,8 @@ export class PlayerMovementSync {
             subX !== undefined && subY !== undefined
                 ? { x: toTileCoord(subX), y: toTileCoord(subY) }
                 : existingState
-                ? { x: existingState.tileX, y: existingState.tileY }
-                : { x: 0, y: 0 };
+                  ? { x: existingState.tileX, y: existingState.tileY }
+                  : { x: 0, y: 0 };
 
         const effectiveLevel = this.resolveTilePlane
             ? this.resolveTilePlane(initialTile.x, initialTile.y, update.level | 0)
@@ -242,16 +242,21 @@ export class PlayerMovementSync {
 
         // ── Apply to ECS ────────────────────────────────────────────────
 
-        this.applyPath(state, path, {
-            subX: finalSubX,
-            subY: finalSubY,
-            level: resolvedLevel,
-            running,
-            rotation: update.rotation,
-            orientation: update.orientation,
-            turned: !!update.turned,
-            moved: !!update.moved,
-        }, teleported);
+        this.applyPath(
+            state,
+            path,
+            {
+                subX: finalSubX,
+                subY: finalSubY,
+                level: resolvedLevel,
+                running,
+                rotation: update.rotation,
+                orientation: update.orientation,
+                turned: !!update.turned,
+                moved: !!update.moved,
+            },
+            teleported,
+        );
 
         return { path, teleported };
     }
@@ -274,7 +279,9 @@ export class PlayerMovementSync {
 
         // ── Teleport / first appearance ─────────────────────────────────
         if (teleport) {
-            try { this.playerEcs.clearServerQueue(ecsIndex); } catch {}
+            try {
+                this.playerEcs.clearServerQueue(ecsIndex);
+            } catch {}
             this.playerEcs.teleport(ecsIndex, path.to.x, path.to.y, resolvedLevel);
             this.playerEcs.setRunning(ecsIndex, false);
             state.setTile(path.to, opts.subX, opts.subY, resolvedLevel);
@@ -288,7 +295,9 @@ export class PlayerMovementSync {
                 state.lastOrientation = opts.rotation & 2047;
             }
             if (opts.moved) {
-                try { this.animController?.cancelSequenceOnMove?.(state.serverId); } catch {}
+                try {
+                    this.animController?.cancelSequenceOnMove?.(state.serverId);
+                } catch {}
             }
             return;
         }
@@ -323,12 +332,7 @@ export class PlayerMovementSync {
         const finalStep = path.steps[path.steps.length - 1];
         const finalSubX = (finalStep.tile.x << 7) + 64;
         const finalSubY = (finalStep.tile.y << 7) + 64;
-        state.setTile(
-            finalStep.tile,
-            finalSubX,
-            finalSubY,
-            resolvedLevel,
-        );
+        state.setTile(finalStep.tile, finalSubX, finalSubY, resolvedLevel);
 
         this.playerEcs.setRunning(ecsIndex, !!opts.running);
         state.lastRunning = anyRun;
@@ -342,7 +346,9 @@ export class PlayerMovementSync {
         }
 
         if (opts.moved) {
-            try { this.animController?.cancelSequenceOnMove?.(state.serverId); } catch {}
+            try {
+                this.animController?.cancelSequenceOnMove?.(state.serverId);
+            } catch {}
         }
     }
 
@@ -375,10 +381,7 @@ export class PlayerMovementSync {
 
     // ── Orientation helpers ──────────────────────────────────────────────
 
-    private applyOrientationOnly(
-        state: MovementState,
-        opts: MovementStateOptions,
-    ): void {
+    private applyOrientationOnly(state: MovementState, opts: MovementStateOptions): void {
         const ecsIndex = state.ecsIndex;
         if (!(ecsIndex >= 0)) return;
 
@@ -396,10 +399,10 @@ export class PlayerMovementSync {
                 interactionOrientation !== undefined
                     ? interactionOrientation
                     : typeof opts.orientation === "number"
-                    ? opts.orientation & 2047
-                    : typeof opts.rotation === "number"
-                    ? opts.rotation & 2047
-                    : undefined;
+                      ? opts.orientation & 2047
+                      : typeof opts.rotation === "number"
+                        ? opts.rotation & 2047
+                        : undefined;
             if (orientation !== undefined) {
                 this.playerEcs.setTargetRot(ecsIndex, orientation);
                 state.lastOrientation = orientation;
@@ -447,9 +450,7 @@ export class PlayerMovementSync {
         }
     }
 
-    private samplePlayerVisualPosition(
-        ecsIndex: number,
-    ): { x: number; y: number } | undefined {
+    private samplePlayerVisualPosition(ecsIndex: number): { x: number; y: number } | undefined {
         const x = this.playerEcs.getX(ecsIndex);
         const y = this.playerEcs.getY(ecsIndex);
         const sampleX = typeof x === "number" ? x | 0 : 0;
@@ -493,10 +494,7 @@ export class PlayerMovementSync {
             steps.push({ tile: { x: currX, y: currY }, direction: dir, run: true, traversal: 2 });
         }
 
-        const finalDir = deltaToDirection(
-            Math.sign(dest.x - currX),
-            Math.sign(dest.y - currY),
-        );
+        const finalDir = deltaToDirection(Math.sign(dest.x - currX), Math.sign(dest.y - currY));
         if (finalDir !== undefined) {
             steps.push({
                 tile: { x: dest.x | 0, y: dest.y | 0 },
@@ -529,8 +527,8 @@ export class PlayerMovementSync {
             traversalHintRaw === 0 || traversalHintRaw === 1 || traversalHintRaw === 2
                 ? traversalHintRaw
                 : running
-                ? 2
-                : 1;
+                  ? 2
+                  : 1;
 
         const direction = deltaToDirection(Math.sign(dx), Math.sign(dy));
         if (direction === undefined) {

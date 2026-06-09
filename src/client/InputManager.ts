@@ -47,11 +47,15 @@ export function getMousePos(container: HTMLElement, event: MouseEvent | Touch): 
     // Exception: iOS forced-landscape, where the rect is rotated so clientWidth gives
     // the unrotated dimension we need for the rotation remapping below.
     const baseW = isIosRotated
-        ? (container.clientWidth || container.offsetWidth || rect.width)
-        : (rect.width > 0 ? rect.width : (container.clientWidth || container.offsetWidth));
+        ? container.clientWidth || container.offsetWidth || rect.width
+        : rect.width > 0
+          ? rect.width
+          : container.clientWidth || container.offsetWidth;
     const baseH = isIosRotated
-        ? (container.clientHeight || container.offsetHeight || rect.height)
-        : (rect.height > 0 ? rect.height : (container.clientHeight || container.offsetHeight));
+        ? container.clientHeight || container.offsetHeight || rect.height
+        : rect.height > 0
+          ? rect.height
+          : container.clientHeight || container.offsetHeight;
 
     let cssX = event.clientX - rect.left;
     let cssY = event.clientY - rect.top;
@@ -406,7 +410,7 @@ export class InputManager {
     }
 
     getDeltaCameraX(): number {
-    return this._cameraDragDeltaX;
+        return this._cameraDragDeltaX;
     }
 
     getDeltaCameraY(): number {

@@ -40,14 +40,14 @@ export class SidebarStore<TData = unknown> {
             typeof persistedOpen === "boolean"
                 ? persistedOpen
                 : typeof defaultOpen === "boolean"
-                ? defaultOpen
-                : true;
+                  ? defaultOpen
+                  : true;
         this.selectedId =
             persisted?.selectedId !== undefined
                 ? persisted.selectedId
                 : options.defaultSelectedId !== undefined
-                ? options.defaultSelectedId
-                : null;
+                  ? options.defaultSelectedId
+                  : null;
         this.state = {
             open: this.open,
             selectedId: this.selectedId,

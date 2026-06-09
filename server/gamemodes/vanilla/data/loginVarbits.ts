@@ -2,10 +2,9 @@
  * Default varbit values applied during login for the vanilla gamemode.
  * Includes achievement diary unlocks, XP drop toggle, and music unlock toggle.
  */
-
 import {
-    VARBIT_XPDROPS_ENABLED,
     VARBIT_MUSIC_UNLOCK_TEXT_TOGGLE,
+    VARBIT_XPDROPS_ENABLED,
 } from "../../../../src/shared/vars";
 
 export const DIARY_VARBITS: Array<[number, number]> = [
@@ -215,7 +214,7 @@ export const DEFAULT_LOGIN_VARBITS: Array<[number, number]> = [
     [VARBIT_XPDROPS_ENABLED, 1],
     [VARBIT_MUSIC_UNLOCK_TEXT_TOGGLE, 1],
     // Quest journal defaults
-    [6347, 0],   // quests_completed_count
+    [6347, 0], // quests_completed_count
     [11877, 158], // quests_total_count (158 total quests in OSRS)
-    [1782, 300],  // qp_max
+    [1782, 300], // qp_max
 ];

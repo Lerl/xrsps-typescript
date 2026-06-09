@@ -1,9 +1,9 @@
 import type { PlayerFollowerPersistentEntry } from "../player";
 import type { PersistentSubState } from "./PersistentSubState";
 
-export class PlayerFollowerPersistState
-    implements PersistentSubState<PlayerFollowerPersistentEntry | undefined>
-{
+export class PlayerFollowerPersistState implements PersistentSubState<
+    PlayerFollowerPersistentEntry | undefined
+> {
     private state?: PlayerFollowerPersistentEntry;
     private activeNpcId?: number;
 

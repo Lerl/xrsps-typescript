@@ -524,7 +524,7 @@ export class PlayerRenderer {
 
         const rAny: any = this.renderer as any;
         const app = rAny.app;
-        const program = transparent ? rAny.npcProgram : rAny.npcProgramOpaque ?? rAny.npcProgram;
+        const program = transparent ? rAny.npcProgram : (rAny.npcProgramOpaque ?? rAny.npcProgram);
         const vb = app.createInterleavedBuffer(12, vertices);
         const ib = app.createIndexBuffer(PicoGL.UNSIGNED_INT as number, indices);
         const vao = app
@@ -739,7 +739,8 @@ export class PlayerRenderer {
                 const frameRecord = frameRecords.get(group.frameIdx | 0);
                 if (!frameRecord || !(frameRecord.indexCount > 0)) continue;
 
-                const dc = rAny.configureDrawCall(frameRecord.drawCall)
+                const dc = rAny
+                    .configureDrawCall(frameRecord.drawCall)
                     .uniformBlock("SceneUniforms", rAny.sceneUniformBuffer)
                     .uniform("u_timeLoaded", -1.0)
                     .texture("u_textures", rAny.textureArray)
@@ -1754,14 +1755,14 @@ export class PlayerRenderer {
                 forcedSeq !== undefined
                     ? forcedSeq.seqId | 0
                     : useActionSequence
-                    ? actionSeqId | 0
-                    : movementSeqId | 0;
+                      ? actionSeqId | 0
+                      : movementSeqId | 0;
             let frameIdx =
                 forcedSeq !== undefined
                     ? forcedSeq.frameIdx | 0
                     : useActionSequence
-                    ? actionFrameIdx | 0
-                    : movementFrameIdx | 0;
+                      ? actionFrameIdx | 0
+                      : movementFrameIdx | 0;
             let overlaySeqId: number | undefined;
             let overlayFrameIdx: number | undefined;
             if (useActionSequence) {
@@ -1909,9 +1910,12 @@ export class PlayerRenderer {
                 // inst.pid is the ECS index directly (from playerIndices)
                 const wvId = playerEcs?.getWorldViewId?.(inst.pid) ?? -1;
                 if (wvId >= 0) {
-                    const weTransform = r.worldEntityAnimator?.getTransform(wvId) ?? WebGLMapSquare.IDENTITY_MAT4;
-                    draw.uniform("u_modelYOffset", r.playerYOffset + playerDeckH)
-                        .uniform("u_worldEntityTransform", weTransform);
+                    const weTransform =
+                        r.worldEntityAnimator?.getTransform(wvId) ?? WebGLMapSquare.IDENTITY_MAT4;
+                    draw.uniform("u_modelYOffset", r.playerYOffset + playerDeckH).uniform(
+                        "u_worldEntityTransform",
+                        weTransform,
+                    );
                 }
 
                 // Use drawIdOverride since gl_DrawID will be 0 for single-range draws
@@ -1921,8 +1925,10 @@ export class PlayerRenderer {
 
                 // Restore overworld uniforms after WE player draw
                 if (wvId >= 0) {
-                    draw.uniform("u_modelYOffset", r.playerYOffset)
-                        .uniform("u_worldEntityTransform", WebGLMapSquare.IDENTITY_MAT4);
+                    draw.uniform("u_modelYOffset", r.playerYOffset).uniform(
+                        "u_worldEntityTransform",
+                        WebGLMapSquare.IDENTITY_MAT4,
+                    );
                 }
             }
             draw.uniform("u_drawIdOverride", -1); // Reset
@@ -2009,14 +2015,14 @@ export class PlayerRenderer {
                     forcedSeq !== undefined
                         ? forcedSeq.seqId | 0
                         : useActionSequence
-                        ? actionSeqId | 0
-                        : movementSeqId | 0;
+                          ? actionSeqId | 0
+                          : movementSeqId | 0;
                 let frameIdx =
                     forcedSeq !== undefined
                         ? forcedSeq.frameIdx | 0
                         : useActionSequence
-                        ? actionFrameIdx | 0
-                        : movementFrameIdx | 0;
+                          ? actionFrameIdx | 0
+                          : movementFrameIdx | 0;
                 let overlaySeqId: number | undefined;
                 let overlayFrameIdx: number | undefined;
                 if (useActionSequence) {
@@ -2140,9 +2146,13 @@ export class PlayerRenderer {
                     // Per-player WorldView: apply deck height + bobbing transform
                     const wvIdAlpha = playerEcsAlpha?.getWorldViewId?.(inst.pid) ?? -1;
                     if (wvIdAlpha >= 0) {
-                        const weTransform = r.worldEntityAnimator?.getTransform(wvIdAlpha) ?? WebGLMapSquare.IDENTITY_MAT4;
-                        draw.uniform("u_modelYOffset", r.playerYOffset + alphaDeckH)
-                            .uniform("u_worldEntityTransform", weTransform);
+                        const weTransform =
+                            r.worldEntityAnimator?.getTransform(wvIdAlpha) ??
+                            WebGLMapSquare.IDENTITY_MAT4;
+                        draw.uniform("u_modelYOffset", r.playerYOffset + alphaDeckH).uniform(
+                            "u_worldEntityTransform",
+                            weTransform,
+                        );
                     }
 
                     // Use drawIdOverride since gl_DrawID will be 0 for single-range draws
@@ -2152,8 +2162,10 @@ export class PlayerRenderer {
 
                     // Restore overworld uniforms after WE player draw
                     if (wvIdAlpha >= 0) {
-                        draw.uniform("u_modelYOffset", r.playerYOffset)
-                            .uniform("u_worldEntityTransform", WebGLMapSquare.IDENTITY_MAT4);
+                        draw.uniform("u_modelYOffset", r.playerYOffset).uniform(
+                            "u_worldEntityTransform",
+                            WebGLMapSquare.IDENTITY_MAT4,
+                        );
                     }
                 }
                 draw.uniform("u_drawIdOverride", -1); // Reset

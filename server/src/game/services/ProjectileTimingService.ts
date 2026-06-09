@@ -1,12 +1,12 @@
-import type { ProjectileParams } from "../data/ProjectileParamsProvider";
-import type { SpellDataEntry } from "../spells/SpellDataProvider";
 import type { ProjectileLaunch } from "../../../../src/shared/projectiles/ProjectileLaunch";
 import { PLAYER_CHEST_OFFSET_UNITS } from "../../../../src/shared/projectiles/projectileHeights";
 import type { PathService } from "../../pathfinding/PathService";
+import { logger } from "../../utils/logger";
+import type { ProjectileParams } from "../data/ProjectileParamsProvider";
+import type { NpcState } from "../npc";
 import type { NpcManager } from "../npcManager";
 import type { PlayerState } from "../player";
-import type { NpcState } from "../npc";
-import { logger } from "../../utils/logger";
+import type { SpellDataEntry } from "../spells/SpellDataProvider";
 
 const TILE_UNIT = 128;
 
@@ -34,7 +34,11 @@ export interface ProjectileTimingServiceDeps {
     getSeqTypeLoader: () => { load(id: number): SeqType | undefined } | undefined;
     getNpcManager: () => NpcManager | undefined;
     getProjectileSystem: () => ProjectileSystemView | undefined;
-    getPathService: () => (PathService & { sampleHeight?: (x: number, y: number, plane: number) => number | undefined }) | undefined;
+    getPathService: () =>
+        | (PathService & {
+              sampleHeight?: (x: number, y: number, plane: number) => number | undefined;
+          })
+        | undefined;
     pickSpellCastSequence: (player: PlayerState, spellId: number, isAutocast: boolean) => number;
     pickAttackSequence: (player: PlayerState) => number;
 }
@@ -136,7 +140,9 @@ export class ProjectileTimingService {
                 if (extra !== undefined && extra > 0) {
                     startDelay += extra;
                 }
-            } catch (err) { logger.warn("[combat] attack sequence estimation failed", err); }
+            } catch (err) {
+                logger.warn("[combat] attack sequence estimation failed", err);
+            }
         }
 
         const hitDelay = startDelay + travelTime;

@@ -41,7 +41,11 @@ export function resolveLocTransformId(
     }
 
     let transformId = transforms[transforms.length - 1];
-    if (transformIndex >= 0 && transformIndex < transforms.length - 1 && transforms[transformIndex] !== -1) {
+    if (
+        transformIndex >= 0 &&
+        transformIndex < transforms.length - 1 &&
+        transforms[transformIndex] !== -1
+    ) {
         transformId = transforms[transformIndex];
     }
 

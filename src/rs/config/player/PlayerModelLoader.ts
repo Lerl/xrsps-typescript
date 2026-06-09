@@ -159,8 +159,8 @@ export class PlayerModelLoader {
             equippedItemIdsBySlot && equippedItemIdsBySlot.length > 0
                 ? equippedItemIdsBySlot
                 : Array.isArray(workingAppearance.equip)
-                ? workingAppearance.equip
-                : [];
+                  ? workingAppearance.equip
+                  : [];
         for (let slot = 0; slot < equipSource.length; slot++) {
             const itemId = equipSource[slot];
             if (typeof itemId !== "number" || itemId < 0) continue;

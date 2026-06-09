@@ -1,12 +1,12 @@
 import type { ActionEffect, ActionExecutionResult } from "../../../../src/game/actions/types";
 import type { PlayerState } from "../../../../src/game/player";
-import {
-    FLAX_LOC_IDS,
-    FLAX_PICK_DELAY_TICKS,
-    isFlaxLocId,
-} from "./flaxData";
-import type { IScriptRegistry, ScriptActionHandlerContext, ScriptServices } from "../../../../src/game/scripts/types";
+import type {
+    IScriptRegistry,
+    ScriptActionHandlerContext,
+    ScriptServices,
+} from "../../../../src/game/scripts/types";
 import { ResourceNodeTracker, buildTileKey } from "../../systems/ResourceNodeTracker";
+import { FLAX_LOC_IDS, FLAX_PICK_DELAY_TICKS, isFlaxLocId } from "./flaxData";
 
 const FLAX_ACTIONS = ["pick", "pick-flax"];
 const FLAX_GROUP = "skill.flax";
@@ -41,7 +41,12 @@ function executeFlaxAction(ctx: ScriptActionHandlerContext): ActionExecutionResu
 
     if (!services.inventory.hasInventorySlot(player)) {
         services.stopGatheringInteraction?.(player);
-        return { ok: true, effects: [buildMessageEffect(player, "Your inventory is too full to hold any more flax.")] };
+        return {
+            ok: true,
+            effects: [
+                buildMessageEffect(player, "Your inventory is too full to hold any more flax."),
+            ],
+        };
     }
 
     const effects: ActionEffect[] = [];

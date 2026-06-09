@@ -1,4 +1,3 @@
-import { AttackType } from "../../../src/game/combat/AttackType";
 import { VARBIT_MASTERY_POINT_UNLOCK_BASE } from "../../../../src/shared/gamemode/GamemodeDataTypes";
 import {
     ACCOUNT_SUMMARY_COLLECTION_LOG_CHILD_INDEX,
@@ -10,8 +9,8 @@ import { LEAGUE_SUMMARY_GROUP_ID } from "../../../../src/shared/ui/leagueSummary
 import {
     SIDE_JOURNAL_CONTENT_GROUP_BY_TAB,
     SIDE_JOURNAL_GROUP_ID,
-    SIDE_JOURNAL_LEAGUE_TAB_ICON_UID,
     SIDE_JOURNAL_LEAGUES_TAB,
+    SIDE_JOURNAL_LEAGUE_TAB_ICON_UID,
     SIDE_JOURNAL_QUEST_TAB,
     SIDE_JOURNAL_TAB_CONTAINER_UID,
     decodeSideJournalTabFromStateVarp,
@@ -19,6 +18,7 @@ import {
     getSideJournalLeaguesContentGroupId,
 } from "../../../../src/shared/ui/sideJournal";
 import {
+    FEATURE_FLAG_LEAGUES,
     MAP_FLAGS_LEAGUE_WORLD,
     VARBIT_FLASHSIDE,
     VARBIT_LEAGUE_AREA_LAST_VIEWED,
@@ -45,33 +45,36 @@ import {
     VARBIT_LEAGUE_TUTORIAL_COMPLETED,
     VARBIT_LEAGUE_TYPE,
     VARBIT_SIDE_JOURNAL_TAB,
+    VARP_FEATURE_FLAGS_CACHED,
     VARP_LEAGUE_GENERAL,
     VARP_LEAGUE_POINTS_CLAIMED,
     VARP_LEAGUE_POINTS_COMPLETED,
     VARP_LEAGUE_POINTS_CURRENCY,
     VARP_MAP_FLAGS_CACHED,
-    VARP_FEATURE_FLAGS_CACHED,
-    FEATURE_FLAG_LEAGUES,
     VARP_SIDE_JOURNAL_STATE,
 } from "../../../../src/shared/vars";
-import { type WidgetAction, type DisplayMode, getMainmodalUid, getViewportTrackerFrontUid } from "../../../src/game/scripts/types";
-import { syncLeagueGeneralVarp } from "../leagueGeneral";
-import {
-    getLeaguePackedVarpsForPlayer,
-    syncLeaguePackedVarps,
-} from "../leaguePackedVarps";
-import { type IScriptRegistry, type ScriptServices, type WidgetActionEvent } from "../../../src/game/scripts/types";
+import { AttackType } from "../../../src/game/combat/AttackType";
 import type { PlayerState } from "../../../src/game/player";
 import {
-    closeLeagueTutorialOverlay,
-    LEAGUE_TUTORIAL_MAIN_GROUP_ID,
-} from "./leagueTutorialOverlay";
+    type DisplayMode,
+    type WidgetAction,
+    getMainmodalUid,
+    getViewportTrackerFrontUid,
+} from "../../../src/game/scripts/types";
+import {
+    type IScriptRegistry,
+    type ScriptServices,
+    type WidgetActionEvent,
+} from "../../../src/game/scripts/types";
+import { syncLeagueGeneralVarp } from "../leagueGeneral";
+import { getLeaguePackedVarpsForPlayer, syncLeaguePackedVarps } from "../leaguePackedVarps";
 import {
     advanceLeagueTutorialHintTo,
     closeLeagueTutorialHints,
     registerLeagueTutorialHintWidgetHandlers,
     startLeagueTutorialHints,
 } from "./leagueTutorialHints";
+import { LEAGUE_TUTORIAL_MAIN_GROUP_ID, closeLeagueTutorialOverlay } from "./leagueTutorialOverlay";
 
 export type LeagueWsUiPlayer = {
     id: number;
@@ -95,7 +98,9 @@ export type LeagueWsUiBridge = {
 };
 
 function queueLeaguePackedVarpUpdates(
-    services: { variables?: { queueVarp?: (playerId: number, varpId: number, value: number) => void } },
+    services: {
+        variables?: { queueVarp?: (playerId: number, varpId: number, value: number) => void };
+    },
     playerId: number,
     updates: Array<{ id: number; value: number }>,
 ): void {
@@ -336,7 +341,10 @@ function asLeagueCacheStructType(value: unknown): LeagueCacheStructType | undefi
 
 const leagueRelicIndexCache: Map<number, LeagueRelicIndexEntry[]> = new Map();
 
-function findEnumIntValue(enumType: { keys?: number[]; intValues?: number[] } | undefined, key: number): number | null {
+function findEnumIntValue(
+    enumType: { keys?: number[]; intValues?: number[] } | undefined,
+    key: number,
+): number | null {
     const keys: number[] | undefined = enumType?.keys;
     const values: number[] | undefined = enumType?.intValues;
     if (!Array.isArray(keys) || !Array.isArray(values)) return null;
@@ -351,7 +359,10 @@ function getEnumOutputCount(enumType: { keys?: number[] } | undefined): number {
     return Array.isArray(keys) ? keys.length : 0;
 }
 
-function getLeagueRelicIndexMap(services: ScriptServices, leagueType: number): LeagueRelicIndexEntry[] | null {
+function getLeagueRelicIndexMap(
+    services: ScriptServices,
+    leagueType: number,
+): LeagueRelicIndexEntry[] | null {
     const lt = leagueType;
     const cached = leagueRelicIndexCache.get(lt);
     if (cached) return cached;
@@ -643,7 +654,9 @@ function isLeagueAreaUnlocked(
     const normalized = normalizeLeagueAreaSelectionValue(regionId);
     if (!(normalized > 0)) return false;
     for (const varbit of AREA_SELECTION_VARBITS) {
-        const stored = normalizeLeagueAreaSelectionValue(player.varps.getVarbitValue?.(varbit) ?? 0);
+        const stored = normalizeLeagueAreaSelectionValue(
+            player.varps.getVarbitValue?.(varbit) ?? 0,
+        );
         if (stored === normalized) return true;
     }
     return false;
@@ -680,10 +693,7 @@ export function normalizeSideJournalLeagueState(
     const decodedTab = decodeSideJournalTabFromStateVarp(baseStateVarp);
     const tutorialStep = player.varps.getVarbitValue(VARBIT_LEAGUE_TUTORIAL_COMPLETED);
     let tab = decodedTab >= 0 && decodedTab <= 4 ? decodedTab : 0;
-    if (
-        (tutorialStep === 3 || tutorialStep === 4) &&
-        tab !== SIDE_JOURNAL_LEAGUES_TAB
-    ) {
+    if ((tutorialStep === 3 || tutorialStep === 4) && tab !== SIDE_JOURNAL_LEAGUES_TAB) {
         tab = SIDE_JOURNAL_QUEST_TAB;
     }
     const stateVarp = encodeSideJournalTabInStateVarp(baseStateVarp, tab);
@@ -720,7 +730,7 @@ export function queueSideJournalLeagueOnlyUi(
     const contentGroup =
         tab === 4
             ? getSideJournalLeaguesContentGroupId(leagueType)
-            : SIDE_JOURNAL_CONTENT_GROUP_BY_TAB[tab] ?? SIDE_JOURNAL_CONTENT_GROUP_BY_TAB[0] ?? 0;
+            : (SIDE_JOURNAL_CONTENT_GROUP_BY_TAB[tab] ?? SIDE_JOURNAL_CONTENT_GROUP_BY_TAB[0] ?? 0);
     const sideJournalOpen = bridge.isWidgetGroupOpenInLedger(playerId, SIDE_JOURNAL_GROUP_ID);
 
     if (contentGroup > 0) {
@@ -1074,9 +1084,12 @@ export function getLeagueVarbits(player: {
         [VARBIT_LEAGUE_RELIC_8]: player.varps.getVarbitValue?.(VARBIT_LEAGUE_RELIC_8) ?? 0,
 
         // Combat mastery UIs and the buff bar both read these directly.
-        [VARBIT_LEAGUE_MELEE_MASTERY]: player.varps.getVarbitValue?.(VARBIT_LEAGUE_MELEE_MASTERY) ?? 0,
-        [VARBIT_LEAGUE_RANGED_MASTERY]: player.varps.getVarbitValue?.(VARBIT_LEAGUE_RANGED_MASTERY) ?? 0,
-        [VARBIT_LEAGUE_MAGIC_MASTERY]: player.varps.getVarbitValue?.(VARBIT_LEAGUE_MAGIC_MASTERY) ?? 0,
+        [VARBIT_LEAGUE_MELEE_MASTERY]:
+            player.varps.getVarbitValue?.(VARBIT_LEAGUE_MELEE_MASTERY) ?? 0,
+        [VARBIT_LEAGUE_RANGED_MASTERY]:
+            player.varps.getVarbitValue?.(VARBIT_LEAGUE_RANGED_MASTERY) ?? 0,
+        [VARBIT_LEAGUE_MAGIC_MASTERY]:
+            player.varps.getVarbitValue?.(VARBIT_LEAGUE_MAGIC_MASTERY) ?? 0,
         [VARBIT_LEAGUE_MASTERY_POINTS_TO_SPEND]:
             player.varps.getVarbitValue?.(VARBIT_LEAGUE_MASTERY_POINTS_TO_SPEND) ?? 0,
         [VARBIT_LEAGUE_MASTERY_POINTS_EARNED]:
@@ -1102,8 +1115,10 @@ function getLeagueVarpsForPlayer(player: {
         [VARP_FEATURE_FLAGS_CACHED]: FEATURE_FLAG_LEAGUES,
         [VARP_LEAGUE_GENERAL]: player?.varps.getVarpValue?.(VARP_LEAGUE_GENERAL) ?? 0,
         [VARP_LEAGUE_POINTS_CLAIMED]: player?.varps.getVarpValue?.(VARP_LEAGUE_POINTS_CLAIMED) ?? 0,
-        [VARP_LEAGUE_POINTS_COMPLETED]: player?.varps.getVarpValue?.(VARP_LEAGUE_POINTS_COMPLETED) ?? 0,
-        [VARP_LEAGUE_POINTS_CURRENCY]: player?.varps.getVarpValue?.(VARP_LEAGUE_POINTS_CURRENCY) ?? 0,
+        [VARP_LEAGUE_POINTS_COMPLETED]:
+            player?.varps.getVarpValue?.(VARP_LEAGUE_POINTS_COMPLETED) ?? 0,
+        [VARP_LEAGUE_POINTS_CURRENCY]:
+            player?.varps.getVarpValue?.(VARP_LEAGUE_POINTS_CURRENCY) ?? 0,
         [VARP_LEAGUE_TASK_COUNT]: player?.varps.getVarpValue?.(VARP_LEAGUE_TASK_COUNT) ?? 0,
         ...getLeaguePackedVarpsForPlayer(player),
     };
@@ -1149,11 +1164,7 @@ function setLeagueTutorialStepAndQueue(
 ): void {
     player.varps.setVarbitValue(VARBIT_LEAGUE_TUTORIAL_COMPLETED, tutorialStep);
     syncLeagueGeneralVarpAndQueue(player, services);
-    services.variables.queueVarbit?.(
-        player.id,
-        VARBIT_LEAGUE_TUTORIAL_COMPLETED,
-        tutorialStep,
-    );
+    services.variables.queueVarbit?.(player.id, VARBIT_LEAGUE_TUTORIAL_COMPLETED, tutorialStep);
 }
 
 function getLeagueWidgetUiBridge(player: PlayerState, services: ScriptServices): LeagueWsUiBridge {
@@ -1231,14 +1242,8 @@ export function advanceLeagueTutorialAfterTasksClose(
     if (leagueType === 3) {
         setLeagueTutorialStepAndQueue(player, services, LEAGUE_TUTORIAL_STEP_L3_UNLOCKS);
         const unlocksUid =
-            ((LEAGUE_SIDE_PANEL_L3_GROUP_ID & 0xffff) << 16) |
-            (L3_COMP_VIEW_UNLOCKS & 0xffff);
-        queueLeagueTutorialUiHighlight(
-            player,
-            services,
-            UI_HIGHLIGHT_ID_UNLOCK_BUTTON,
-            unlocksUid,
-        );
+            ((LEAGUE_SIDE_PANEL_L3_GROUP_ID & 0xffff) << 16) | (L3_COMP_VIEW_UNLOCKS & 0xffff);
+        queueLeagueTutorialUiHighlight(player, services, UI_HIGHLIGHT_ID_UNLOCK_BUTTON, unlocksUid);
         queueLeagueTutorialOverlayForStep(player, services, LEAGUE_TUTORIAL_STEP_L3_UNLOCKS);
         return true;
     }
@@ -1326,10 +1331,7 @@ export function advanceLeagueTutorialAfterRelicsClose(
     return true;
 }
 
-function advanceLeague3TutorialToFragments(
-    player: PlayerState,
-    services: ScriptServices,
-): void {
+function advanceLeague3TutorialToFragments(player: PlayerState, services: ScriptServices): void {
     const tutorial = player.varps.getVarbitValue?.(VARBIT_LEAGUE_TUTORIAL_COMPLETED) ?? 0;
     if (tutorial !== LEAGUE_TUTORIAL_STEP_L3_UNLOCKS) {
         return;
@@ -1339,20 +1341,11 @@ function advanceLeague3TutorialToFragments(
     setLeagueTutorialStepAndQueue(player, services, LEAGUE_TUTORIAL_STEP_L3_FRAGMENTS);
 
     const fragmentsUid =
-        ((LEAGUE_SIDE_PANEL_L3_GROUP_ID & 0xffff) << 16) |
-        (L3_COMP_VIEW_FRAGMENTS & 0xffff);
-    queueLeagueTutorialUiHighlight(
-        player,
-        services,
-        UI_HIGHLIGHT_ID_RELICS_BUTTON,
-        fragmentsUid,
-    );
+        ((LEAGUE_SIDE_PANEL_L3_GROUP_ID & 0xffff) << 16) | (L3_COMP_VIEW_FRAGMENTS & 0xffff);
+    queueLeagueTutorialUiHighlight(player, services, UI_HIGHLIGHT_ID_RELICS_BUTTON, fragmentsUid);
 }
 
-function advanceLeague3TutorialToFinishing(
-    player: PlayerState,
-    services: ScriptServices,
-): void {
+function advanceLeague3TutorialToFinishing(player: PlayerState, services: ScriptServices): void {
     const tutorial = player.varps.getVarbitValue?.(VARBIT_LEAGUE_TUTORIAL_COMPLETED) ?? 0;
     if (tutorial !== LEAGUE_TUTORIAL_STEP_L3_FRAGMENTS) {
         return;
@@ -1399,7 +1392,10 @@ function ensureLeagueBasicsInitialized(player: PlayerState, services: ScriptServ
     }
 }
 
-function ensureLeagueAreaSelectionsInitialized(player: PlayerState, services: ScriptServices): void {
+function ensureLeagueAreaSelectionsInitialized(
+    player: PlayerState,
+    services: ScriptServices,
+): void {
     const raw = AREA_SELECTION_VARBITS.map((id) => player.varps.getVarbitValue?.(id) ?? 0);
     const values = raw.map((v) => normalizeLeagueAreaSelectionValue(v));
 
@@ -1472,7 +1468,10 @@ function ensureLeagueAreaSelectionsInitialized(player: PlayerState, services: Sc
     }
 }
 
-export function registerLeagueWidgetHandlers(registry: IScriptRegistry, services: ScriptServices): void {
+export function registerLeagueWidgetHandlers(
+    registry: IScriptRegistry,
+    services: ScriptServices,
+): void {
     console.log("[leagueWidgets] Registering league widget handlers (pure CS2 approach)");
     registerLeagueTutorialHintWidgetHandlers(registry, services);
 
@@ -1624,8 +1623,7 @@ export function registerLeagueWidgetHandlers(registry: IScriptRegistry, services
         // internally calls closeSubInterface which clears all flags for the group.
         {
             const leagueType = event.player.varps.getVarbitValue?.(VARBIT_LEAGUE_TYPE) ?? 0;
-            const indexMap =
-                leagueType === 3 ? null : getLeagueRelicIndexMap(services, leagueType);
+            const indexMap = leagueType === 3 ? null : getLeagueRelicIndexMap(services, leagueType);
             const maxIndex = indexMap ? indexMap.length : 256;
             const toSlot = Math.max(0, maxIndex - 1);
             queueWidgetFlagsRange(
@@ -1777,7 +1775,11 @@ export function registerLeagueWidgetHandlers(registry: IScriptRegistry, services
             }
 
             player.varps.setVarbitValue(VARBIT_LEAGUE_AREA_LAST_VIEWED, area.regionId);
-            services.variables.queueVarbit?.(player.id, VARBIT_LEAGUE_AREA_LAST_VIEWED, area.regionId);
+            services.variables.queueVarbit?.(
+                player.id,
+                VARBIT_LEAGUE_AREA_LAST_VIEWED,
+                area.regionId,
+            );
 
             const buttonState = getLeagueAreaButtonState(player, services, area.regionId);
             const varbits: Record<number, number> = {
@@ -1835,7 +1837,6 @@ export function registerLeagueWidgetHandlers(registry: IScriptRegistry, services
             if (tutorial === 7 && area.regionId === 2) {
                 advanceLeagueTutorialHintTo(player, services.dialog, "areas", 2);
             }
-
         };
         registry.onButton(LEAGUE_AREAS_GROUP_ID, area.shieldChildId, onClick);
         registry.onButton(LEAGUE_AREAS_GROUP_ID, area.nameChildId, onClick);
@@ -1844,7 +1845,8 @@ export function registerLeagueWidgetHandlers(registry: IScriptRegistry, services
     // Select/Unlock button - unlock the area if valid
     registry.onButton(LEAGUE_AREAS_GROUP_ID, COMP_SELECT_BUTTON, (event) => {
         const player = event.player;
-        const currentRegionRaw = player.varps.getVarbitValue?.(VARBIT_LEAGUE_AREA_LAST_VIEWED) ?? -1;
+        const currentRegionRaw =
+            player.varps.getVarbitValue?.(VARBIT_LEAGUE_AREA_LAST_VIEWED) ?? -1;
         const currentRegion = normalizeLeagueAreaSelectionValue(currentRegionRaw);
         const unlocked = isLeagueAreaUnlocked(player, currentRegion);
         console.log(
@@ -1945,7 +1947,8 @@ export function registerLeagueWidgetHandlers(registry: IScriptRegistry, services
     // This is where OSRS performs the irreversible unlock, not on the initial Unlock click.
     registry.onButton(LEAGUE_AREAS_GROUP_ID, COMP_AREAS_CONFIRM_BUTTON, (event) => {
         const player = event.player;
-        const currentRegionRaw = player.varps.getVarbitValue?.(VARBIT_LEAGUE_AREA_LAST_VIEWED) ?? -1;
+        const currentRegionRaw =
+            player.varps.getVarbitValue?.(VARBIT_LEAGUE_AREA_LAST_VIEWED) ?? -1;
         const currentRegion = normalizeLeagueAreaSelectionValue(currentRegionRaw);
         console.log(`[league] Confirm unlock clicked: regionId=${currentRegion}`);
 
@@ -2064,7 +2067,9 @@ export function registerLeagueWidgetHandlers(registry: IScriptRegistry, services
     // ========== League Relics (655) ==========
 
     const getPendingRelicSelection = (player: PlayerState): LeagueRelicIndexEntry | undefined =>
-        player.gamemodeState.get("leagueRelicPendingSelection") as LeagueRelicIndexEntry | undefined;
+        player.gamemodeState.get("leagueRelicPendingSelection") as
+            | LeagueRelicIndexEntry
+            | undefined;
     const clearPendingRelicSelection = (player: PlayerState): void => {
         try {
             player.gamemodeState.delete("leagueRelicPendingSelection");
@@ -2082,9 +2087,7 @@ export function registerLeagueWidgetHandlers(registry: IScriptRegistry, services
             `[league] onRelicClickzoneView: widgetId=${event.widgetId} slot=${event.slot} childId=${event.childId} leagueType=${leagueType}`,
         );
         if (!(leagueType > 0) || leagueType === 3) {
-            console.log(
-                `[league] Relic view rejected: leagueType=${leagueType} (need >0 and !=3)`,
-            );
+            console.log(`[league] Relic view rejected: leagueType=${leagueType} (need >0 and !=3)`);
             return;
         }
 
@@ -2109,9 +2112,7 @@ export function registerLeagueWidgetHandlers(registry: IScriptRegistry, services
             } indexMapLen=${indexMap.length}`,
         );
         if (!entry || entry.globalIndex !== globalIndex) {
-            console.log(
-                `[league] Relic view rejected: no entry for globalIndex=${globalIndex}`,
-            );
+            console.log(`[league] Relic view rejected: no entry for globalIndex=${globalIndex}`);
             return;
         }
 
@@ -2384,7 +2385,9 @@ export function registerLeagueWidgetHandlers(registry: IScriptRegistry, services
     }
 
     const getPendingMasterySelection = (player: PlayerState): PendingMasterySelection | undefined =>
-        player.gamemodeState.get("leagueMasteryPendingSelection") as PendingMasterySelection | undefined;
+        player.gamemodeState.get("leagueMasteryPendingSelection") as
+            | PendingMasterySelection
+            | undefined;
     const clearPendingMasterySelection = (player: PlayerState): void => {
         try {
             player.gamemodeState.delete("leagueMasteryPendingSelection");
@@ -2392,8 +2395,7 @@ export function registerLeagueWidgetHandlers(registry: IScriptRegistry, services
     };
 
     const MASTERY_CLICKZONES_WIDGET_UID =
-        ((LEAGUE_COMBAT_MASTERY_GROUP_ID & 0xffff) << 16) |
-        (L5_MASTERY_CLICKZONES_CHILD & 0xffff);
+        ((LEAGUE_COMBAT_MASTERY_GROUP_ID & 0xffff) << 16) | (L5_MASTERY_CLICKZONES_CHILD & 0xffff);
 
     const onMasteryClickzoneView = (event: WidgetActionEvent): void => {
         const player = event.player;
@@ -2528,266 +2530,248 @@ export function registerLeagueWidgetHandlers(registry: IScriptRegistry, services
     });
 
     // Close button for mastery interface
-    registry.onButton(
-        LEAGUE_COMBAT_MASTERY_GROUP_ID,
-        L5_MASTERY_CLOSE_BUTTON_CHILD,
-        (event) => {
-            const player = event.player;
-            clearPendingMasterySelection(player);
-            const mainmodalUid = getMainmodalUid(player.displayMode);
-            services.dialog.closeSubInterface(player, mainmodalUid, LEAGUE_COMBAT_MASTERY_GROUP_ID);
-        },
-    );
+    registry.onButton(LEAGUE_COMBAT_MASTERY_GROUP_ID, L5_MASTERY_CLOSE_BUTTON_CHILD, (event) => {
+        const player = event.player;
+        clearPendingMasterySelection(player);
+        const mainmodalUid = getMainmodalUid(player.displayMode);
+        services.dialog.closeSubInterface(player, mainmodalUid, LEAGUE_COMBAT_MASTERY_GROUP_ID);
+    });
 
     // Select button for mastery - directly applies the selection (skipping broken confirm popup)
-    registry.onButton(
-        LEAGUE_COMBAT_MASTERY_GROUP_ID,
-        L5_MASTERY_SELECT_BUTTON_CHILD,
-        (event) => {
-            const player = event.player;
-            const pending = getPendingMasterySelection(player);
-            if (!pending) {
-                console.log(`[league] Mastery select rejected: no pending selection`);
-                return;
-            }
+    registry.onButton(LEAGUE_COMBAT_MASTERY_GROUP_ID, L5_MASTERY_SELECT_BUTTON_CHILD, (event) => {
+        const player = event.player;
+        const pending = getPendingMasterySelection(player);
+        if (!pending) {
+            console.log(`[league] Mastery select rejected: no pending selection`);
+            return;
+        }
 
+        console.log(
+            `[league] Mastery select button clicked: type=${pending.masteryType} tier=${pending.tier}`,
+        );
+
+        // Directly apply the selection (skip confirm popup since it's not working)
+        // This mimics what the Confirm button handler does
+
+        // Shared masteries are unlocked passively when selecting combat masteries
+        if (pending.masteryType === "shared") {
             console.log(
-                `[league] Mastery select button clicked: type=${pending.masteryType} tier=${pending.tier}`,
+                `[league] Mastery select rejected: cannot directly select shared masteries`,
             );
+            clearPendingMasterySelection(player);
+            return;
+        }
 
-            // Directly apply the selection (skip confirm popup since it's not working)
-            // This mimics what the Confirm button handler does
-
-            // Shared masteries are unlocked passively when selecting combat masteries
-            if (pending.masteryType === "shared") {
-                console.log(
-                    `[league] Mastery select rejected: cannot directly select shared masteries`,
-                );
-                clearPendingMasterySelection(player);
-                return;
-            }
-
-            const masteryVarbitId =
-                pending.masteryType === AttackType.Melee
-                    ? VARBIT_LEAGUE_MELEE_MASTERY
-                    : pending.masteryType === AttackType.Ranged
-                    ? VARBIT_LEAGUE_RANGED_MASTERY
-                    : pending.masteryType === AttackType.Magic
+        const masteryVarbitId =
+            pending.masteryType === AttackType.Melee
+                ? VARBIT_LEAGUE_MELEE_MASTERY
+                : pending.masteryType === AttackType.Ranged
+                  ? VARBIT_LEAGUE_RANGED_MASTERY
+                  : pending.masteryType === AttackType.Magic
                     ? VARBIT_LEAGUE_MAGIC_MASTERY
                     : 0;
 
-            const currentLevel = player.varps.getVarbitValue?.(masteryVarbitId) ?? 0;
-            const pointsToSpend =
-                player.varps.getVarbitValue?.(VARBIT_LEAGUE_MASTERY_POINTS_TO_SPEND) ?? 0;
+        const currentLevel = player.varps.getVarbitValue?.(masteryVarbitId) ?? 0;
+        const pointsToSpend =
+            player.varps.getVarbitValue?.(VARBIT_LEAGUE_MASTERY_POINTS_TO_SPEND) ?? 0;
 
-            // Validate: must select tiers in order
-            if (pending.tier !== currentLevel + 1) {
-                console.log(
-                    `[league] Mastery select rejected: must select tier ${
-                        currentLevel + 1
-                    }, not tier ${pending.tier}`,
-                );
-                clearPendingMasterySelection(player);
-                return;
-            }
-
-            // Validate: need at least 1 point
-            if (pointsToSpend < 1) {
-                console.log(`[league] Mastery select rejected: no points to spend`);
-                clearPendingMasterySelection(player);
-                return;
-            }
-
-            // Apply the selection
-            const newLevel = currentLevel + 1;
-            player.varps.setVarbitValue(masteryVarbitId, newLevel);
-            player.varps.setVarbitValue(VARBIT_LEAGUE_MASTERY_POINTS_TO_SPEND, pointsToSpend - 1);
-            const packedVarpUpdates = syncLeaguePackedVarps(player);
-            queueLeaguePackedVarpUpdates(services, player.id, packedVarpUpdates);
-
-            // Sync to client
-            services.variables.queueVarbit?.(player.id, masteryVarbitId, newLevel);
-            services.variables.queueVarbit?.(
-                player.id,
-                VARBIT_LEAGUE_MASTERY_POINTS_TO_SPEND,
-                pointsToSpend - 1,
-            );
-
+        // Validate: must select tiers in order
+        if (pending.tier !== currentLevel + 1) {
             console.log(
-                `[league] Mastery ${pending.masteryType} upgraded to tier ${newLevel}, ${
-                    pointsToSpend - 1
-                } points remaining`,
+                `[league] Mastery select rejected: must select tier ${currentLevel + 1}, not tier ${
+                    pending.tier
+                }`,
             );
-
-            // OSRS parity: Script 7673 is a tab-switching proc that calls
-            // league_combat_mastery_draw_content (7662) which deletes all dynamic
-            // CCs and recreates them based on current varbits.
-            // Args: (int $tab, int $flag) — matching cc_setonop("script7673(0, 1)")
-            // from league_combat_mastery_tabs_draw.
-            services.dialog.queueWidgetEvent(player.id, {
-                action: "run_script",
-                scriptId: 7673,
-                args: [
-                    0, // tab 0 = Masteries
-                    1, // redraw flag
-                ],
-                varps: getLeagueVarpsForPlayer(player),
-                varbits: getLeagueVarbits(player),
-            });
-
-            // Re-enable clickzone transmit so masteries remain clickable after purchase
-            queueWidgetFlagsRange(
-                player,
-                services,
-                (LEAGUE_COMBAT_MASTERY_GROUP_ID << 16) | L5_MASTERY_CLICKZONES_CHILD,
-                0,
-                255,
-                IF_SETEVENTS_TRANSMIT_OP1,
-            );
-
             clearPendingMasterySelection(player);
-        },
-    );
+            return;
+        }
+
+        // Validate: need at least 1 point
+        if (pointsToSpend < 1) {
+            console.log(`[league] Mastery select rejected: no points to spend`);
+            clearPendingMasterySelection(player);
+            return;
+        }
+
+        // Apply the selection
+        const newLevel = currentLevel + 1;
+        player.varps.setVarbitValue(masteryVarbitId, newLevel);
+        player.varps.setVarbitValue(VARBIT_LEAGUE_MASTERY_POINTS_TO_SPEND, pointsToSpend - 1);
+        const packedVarpUpdates = syncLeaguePackedVarps(player);
+        queueLeaguePackedVarpUpdates(services, player.id, packedVarpUpdates);
+
+        // Sync to client
+        services.variables.queueVarbit?.(player.id, masteryVarbitId, newLevel);
+        services.variables.queueVarbit?.(
+            player.id,
+            VARBIT_LEAGUE_MASTERY_POINTS_TO_SPEND,
+            pointsToSpend - 1,
+        );
+
+        console.log(
+            `[league] Mastery ${pending.masteryType} upgraded to tier ${newLevel}, ${
+                pointsToSpend - 1
+            } points remaining`,
+        );
+
+        // OSRS parity: Script 7673 is a tab-switching proc that calls
+        // league_combat_mastery_draw_content (7662) which deletes all dynamic
+        // CCs and recreates them based on current varbits.
+        // Args: (int $tab, int $flag) — matching cc_setonop("script7673(0, 1)")
+        // from league_combat_mastery_tabs_draw.
+        services.dialog.queueWidgetEvent(player.id, {
+            action: "run_script",
+            scriptId: 7673,
+            args: [
+                0, // tab 0 = Masteries
+                1, // redraw flag
+            ],
+            varps: getLeagueVarpsForPlayer(player),
+            varbits: getLeagueVarbits(player),
+        });
+
+        // Re-enable clickzone transmit so masteries remain clickable after purchase
+        queueWidgetFlagsRange(
+            player,
+            services,
+            (LEAGUE_COMBAT_MASTERY_GROUP_ID << 16) | L5_MASTERY_CLICKZONES_CHILD,
+            0,
+            255,
+            IF_SETEVENTS_TRANSMIT_OP1,
+        );
+
+        clearPendingMasterySelection(player);
+    });
 
     // Cancel button for mastery confirm overlay
-    registry.onButton(
-        LEAGUE_COMBAT_MASTERY_GROUP_ID,
-        L5_MASTERY_CANCEL_BUTTON_CHILD,
-        (event) => {
-            console.log(`[league] Mastery cancel button clicked`);
-            const player = event.player;
+    registry.onButton(LEAGUE_COMBAT_MASTERY_GROUP_ID, L5_MASTERY_CANCEL_BUTTON_CHILD, (event) => {
+        console.log(`[league] Mastery cancel button clicked`);
+        const player = event.player;
 
-            const uidForMastery = (childId: number): number =>
-                ((LEAGUE_COMBAT_MASTERY_GROUP_ID & 0xffff) << 16) | (childId & 0xffff);
+        const uidForMastery = (childId: number): number =>
+            ((LEAGUE_COMBAT_MASTERY_GROUP_ID & 0xffff) << 16) | (childId & 0xffff);
 
-            // Hide the confirm overlay
-            services.dialog.queueWidgetEvent(player.id, {
-                action: "set_hidden",
-                uid: uidForMastery(13), // confirm overlay container
-                hidden: true,
-            });
+        // Hide the confirm overlay
+        services.dialog.queueWidgetEvent(player.id, {
+            action: "set_hidden",
+            uid: uidForMastery(13), // confirm overlay container
+            hidden: true,
+        });
 
-            clearPendingMasterySelection(player);
-        },
-    );
+        clearPendingMasterySelection(player);
+    });
 
     // Confirm button for mastery selection
-    registry.onButton(
-        LEAGUE_COMBAT_MASTERY_GROUP_ID,
-        L5_MASTERY_CONFIRM_BUTTON_CHILD,
-        (event) => {
-            const player = event.player;
-            const pending = getPendingMasterySelection(player);
-            if (!pending) {
-                console.log(`[league] Mastery confirm rejected: no pending selection`);
-                return;
-            }
+    registry.onButton(LEAGUE_COMBAT_MASTERY_GROUP_ID, L5_MASTERY_CONFIRM_BUTTON_CHILD, (event) => {
+        const player = event.player;
+        const pending = getPendingMasterySelection(player);
+        if (!pending) {
+            console.log(`[league] Mastery confirm rejected: no pending selection`);
+            return;
+        }
 
-            console.log(
-                `[league] Mastery confirm: type=${pending.masteryType} tier=${pending.tier}`,
-            );
+        console.log(`[league] Mastery confirm: type=${pending.masteryType} tier=${pending.tier}`);
 
-            // Get current mastery level and points
-            const masteryVarbitId =
-                pending.masteryType === AttackType.Melee
-                    ? VARBIT_LEAGUE_MELEE_MASTERY
-                    : pending.masteryType === AttackType.Ranged
-                    ? VARBIT_LEAGUE_RANGED_MASTERY
-                    : pending.masteryType === AttackType.Magic
+        // Get current mastery level and points
+        const masteryVarbitId =
+            pending.masteryType === AttackType.Melee
+                ? VARBIT_LEAGUE_MELEE_MASTERY
+                : pending.masteryType === AttackType.Ranged
+                  ? VARBIT_LEAGUE_RANGED_MASTERY
+                  : pending.masteryType === AttackType.Magic
                     ? VARBIT_LEAGUE_MAGIC_MASTERY
                     : 0; // shared doesn't have its own varbit
 
-            // Shared masteries are unlocked passively when selecting combat masteries
-            if (pending.masteryType === "shared") {
-                console.log(
-                    `[league] Mastery confirm rejected: cannot directly select shared masteries`,
-                );
-                clearPendingMasterySelection(player);
-                return;
-            }
-
-            const currentLevel = player.varps.getVarbitValue?.(masteryVarbitId) ?? 0;
-            const pointsToSpend =
-                player.varps.getVarbitValue?.(VARBIT_LEAGUE_MASTERY_POINTS_TO_SPEND) ?? 0;
-
-            // Validate: must select tiers in order
-            if (pending.tier !== currentLevel + 1) {
-                console.log(
-                    `[league] Mastery confirm rejected: must select tier ${
-                        currentLevel + 1
-                    }, not tier ${pending.tier}`,
-                );
-                clearPendingMasterySelection(player);
-                return;
-            }
-
-            // Validate: need at least 1 point
-            if (pointsToSpend < 1) {
-                console.log(`[league] Mastery confirm rejected: no points to spend`);
-                clearPendingMasterySelection(player);
-                return;
-            }
-
-            // Apply the selection
-            const newLevel = currentLevel + 1;
-            player.varps.setVarbitValue(masteryVarbitId, newLevel);
-            player.varps.setVarbitValue(VARBIT_LEAGUE_MASTERY_POINTS_TO_SPEND, pointsToSpend - 1);
-            const packedVarpUpdates = syncLeaguePackedVarps(player);
-            queueLeaguePackedVarpUpdates(services, player.id, packedVarpUpdates);
-
-            // Sync to client
-            services.variables.queueVarbit?.(player.id, masteryVarbitId, newLevel);
-            services.variables.queueVarbit?.(
-                player.id,
-                VARBIT_LEAGUE_MASTERY_POINTS_TO_SPEND,
-                pointsToSpend - 1,
-            );
-
+        // Shared masteries are unlocked passively when selecting combat masteries
+        if (pending.masteryType === "shared") {
             console.log(
-                `[league] Mastery ${pending.masteryType} upgraded to tier ${newLevel}, ${
-                    pointsToSpend - 1
-                } points remaining`,
+                `[league] Mastery confirm rejected: cannot directly select shared masteries`,
             );
-
-            const uidForMastery = (childId: number): number =>
-                ((LEAGUE_COMBAT_MASTERY_GROUP_ID & 0xffff) << 16) | (childId & 0xffff);
-
-            // Hide the confirm overlay
-            services.dialog.queueWidgetEvent(player.id, {
-                action: "set_hidden",
-                uid: uidForMastery(13), // confirm overlay container
-                hidden: true,
-            });
-
-            // OSRS parity: Script 7673 is a tab-switching proc that calls
-            // league_combat_mastery_draw_content (7662) which deletes all dynamic
-            // CCs and recreates them based on current varbits.
-            // This also hides the confirm overlay via draw_content's
-            // if_sethide(true, $confirm).
-            services.dialog.queueWidgetEvent(player.id, {
-                action: "run_script",
-                scriptId: 7673,
-                args: [
-                    0, // tab 0 = Masteries
-                    1, // redraw flag
-                ],
-                varps: getLeagueVarpsForPlayer(player),
-                varbits: getLeagueVarbits(player),
-            });
-
-            // Re-enable clickzone transmit so masteries remain clickable after purchase
-            queueWidgetFlagsRange(
-                player,
-                services,
-                (LEAGUE_COMBAT_MASTERY_GROUP_ID << 16) | L5_MASTERY_CLICKZONES_CHILD,
-                0,
-                255,
-                IF_SETEVENTS_TRANSMIT_OP1,
-            );
-
             clearPendingMasterySelection(player);
-        },
-    );
+            return;
+        }
+
+        const currentLevel = player.varps.getVarbitValue?.(masteryVarbitId) ?? 0;
+        const pointsToSpend =
+            player.varps.getVarbitValue?.(VARBIT_LEAGUE_MASTERY_POINTS_TO_SPEND) ?? 0;
+
+        // Validate: must select tiers in order
+        if (pending.tier !== currentLevel + 1) {
+            console.log(
+                `[league] Mastery confirm rejected: must select tier ${
+                    currentLevel + 1
+                }, not tier ${pending.tier}`,
+            );
+            clearPendingMasterySelection(player);
+            return;
+        }
+
+        // Validate: need at least 1 point
+        if (pointsToSpend < 1) {
+            console.log(`[league] Mastery confirm rejected: no points to spend`);
+            clearPendingMasterySelection(player);
+            return;
+        }
+
+        // Apply the selection
+        const newLevel = currentLevel + 1;
+        player.varps.setVarbitValue(masteryVarbitId, newLevel);
+        player.varps.setVarbitValue(VARBIT_LEAGUE_MASTERY_POINTS_TO_SPEND, pointsToSpend - 1);
+        const packedVarpUpdates = syncLeaguePackedVarps(player);
+        queueLeaguePackedVarpUpdates(services, player.id, packedVarpUpdates);
+
+        // Sync to client
+        services.variables.queueVarbit?.(player.id, masteryVarbitId, newLevel);
+        services.variables.queueVarbit?.(
+            player.id,
+            VARBIT_LEAGUE_MASTERY_POINTS_TO_SPEND,
+            pointsToSpend - 1,
+        );
+
+        console.log(
+            `[league] Mastery ${pending.masteryType} upgraded to tier ${newLevel}, ${
+                pointsToSpend - 1
+            } points remaining`,
+        );
+
+        const uidForMastery = (childId: number): number =>
+            ((LEAGUE_COMBAT_MASTERY_GROUP_ID & 0xffff) << 16) | (childId & 0xffff);
+
+        // Hide the confirm overlay
+        services.dialog.queueWidgetEvent(player.id, {
+            action: "set_hidden",
+            uid: uidForMastery(13), // confirm overlay container
+            hidden: true,
+        });
+
+        // OSRS parity: Script 7673 is a tab-switching proc that calls
+        // league_combat_mastery_draw_content (7662) which deletes all dynamic
+        // CCs and recreates them based on current varbits.
+        // This also hides the confirm overlay via draw_content's
+        // if_sethide(true, $confirm).
+        services.dialog.queueWidgetEvent(player.id, {
+            action: "run_script",
+            scriptId: 7673,
+            args: [
+                0, // tab 0 = Masteries
+                1, // redraw flag
+            ],
+            varps: getLeagueVarpsForPlayer(player),
+            varbits: getLeagueVarbits(player),
+        });
+
+        // Re-enable clickzone transmit so masteries remain clickable after purchase
+        queueWidgetFlagsRange(
+            player,
+            services,
+            (LEAGUE_COMBAT_MASTERY_GROUP_ID << 16) | L5_MASTERY_CLICKZONES_CHILD,
+            0,
+            255,
+            IF_SETEVENTS_TRANSMIT_OP1,
+        );
+
+        clearPendingMasterySelection(player);
+    });
 
     // ========== League 3 Side Panel (736) ==========
 
@@ -2888,7 +2872,7 @@ export function registerLeagueWidgetHandlers(registry: IScriptRegistry, services
         // Check tutorial state before opening interface
         const tutorial =
             leagueType !== 3
-                ? player.varps.getVarbitValue?.(VARBIT_LEAGUE_TUTORIAL_COMPLETED) ?? 0
+                ? (player.varps.getVarbitValue?.(VARBIT_LEAGUE_TUTORIAL_COMPLETED) ?? 0)
                 : 0;
 
         if (tutorial === 9) {

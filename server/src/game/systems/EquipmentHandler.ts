@@ -1,4 +1,5 @@
 import { EquipmentSlot } from "../../../../src/rs/config/player/Equipment";
+import type { ServerServices } from "../ServerServices";
 import {
     ensureEquipArrayOn,
     ensureEquipQtyArrayOn,
@@ -8,7 +9,6 @@ import {
     unequipItemApply,
 } from "../equipment";
 import type { PlayerAppearance, PlayerState } from "../player";
-import type { ServerServices } from "../ServerServices";
 
 const EQUIP_SLOT_COUNT = 14;
 
@@ -49,7 +49,8 @@ export class EquipmentHandler {
             itemId,
             equipSlot,
             getObjType: (id) => this.svc.dataLoaderService.getObjType(id),
-            addItemToInventory: (id, qty) => this.svc.inventoryService.addItemToInventory(player, id, qty),
+            addItemToInventory: (id, qty) =>
+                this.svc.inventoryService.addItemToInventory(player, id, qty),
             slotCount: EQUIP_SLOT_COUNT,
         });
 
@@ -109,7 +110,8 @@ export class EquipmentHandler {
         const result = unequipItemApply({
             appearance,
             equipSlot,
-            addItemToInventory: (id, qty) => this.svc.inventoryService.addItemToInventory(player, id, qty),
+            addItemToInventory: (id, qty) =>
+                this.svc.inventoryService.addItemToInventory(player, id, qty),
             slotCount: EQUIP_SLOT_COUNT,
         });
 

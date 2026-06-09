@@ -1,8 +1,5 @@
 import type { WebSocket } from "ws";
 
-import { encodeMessage } from "../../network/messages";
-import type { PlayerState } from "../player";
-import type { ServerServices } from "../ServerServices";
 import {
     MUSIC_UNLOCK_VARPS,
     VARBIT_ACTIVE_SPELLBOOK,
@@ -42,6 +39,9 @@ import {
     VARP_WATCHTOWER,
     XPDROPS_TRANSMIT_VARPS,
 } from "../../../../src/shared/vars";
+import { encodeMessage } from "../../network/messages";
+import type { ServerServices } from "../ServerServices";
+import type { PlayerState } from "../player";
 
 export class VarpSyncService {
     constructor(private readonly services: ServerServices) {}
@@ -65,7 +65,11 @@ export class VarpSyncService {
         }
 
         player.varps.setVarpValue(VARP_COMBAT_TARGET_PLAYER_INDEX, nextValue);
-        this.services.variableService.queueVarp(player.id, VARP_COMBAT_TARGET_PLAYER_INDEX, nextValue);
+        this.services.variableService.queueVarp(
+            player.id,
+            VARP_COMBAT_TARGET_PLAYER_INDEX,
+            nextValue,
+        );
     }
 
     syncAccountTypeVarbit(sock: WebSocket, player: PlayerState): void {
@@ -121,9 +125,19 @@ export class VarpSyncService {
 
         const SCRIPT_MAGIC_SPELLBOOK_REDRAW = 2610;
         const SPELLBOOK_REDRAW_ARGS: (number | string)[] = [
-            14286851, 14287045, 14287054, 14286849, 14287051,
-            14287052, 14287053, 14286850, 14287047, 14287050,
-            0, "Info", "Filters",
+            14286851,
+            14287045,
+            14287054,
+            14286849,
+            14287051,
+            14287052,
+            14287053,
+            14286850,
+            14287047,
+            14287050,
+            0,
+            "Info",
+            "Filters",
         ];
         this.services.queueWidgetEvent(player.id, {
             action: "run_script",

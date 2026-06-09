@@ -1,5 +1,5 @@
-import type { IResourceNodeTracker, TrackedNode } from "./ResourceNodeTypes";
 import type { ServerServices } from "../ServerServices";
+import type { IResourceNodeTracker, TrackedNode } from "./ResourceNodeTypes";
 
 export interface GatheringSystemServices {
     emitLocChange: (
@@ -18,7 +18,10 @@ export interface GatheringSystemServices {
     ) => void;
 }
 
-export type TrackerExpireCallback<T = unknown> = (node: TrackedNode<T>, services: GatheringSystemServices) => void;
+export type TrackerExpireCallback<T = unknown> = (
+    node: TrackedNode<T>,
+    services: GatheringSystemServices,
+) => void;
 
 interface RegisteredTracker {
     tracker: IResourceNodeTracker<any>;
@@ -30,7 +33,11 @@ export class GatheringSystemManager {
 
     constructor(private readonly svc: ServerServices) {}
 
-    registerTracker<T>(name: string, tracker: IResourceNodeTracker<T>, onExpire: TrackerExpireCallback<T>): void {
+    registerTracker<T>(
+        name: string,
+        tracker: IResourceNodeTracker<T>,
+        onExpire: TrackerExpireCallback<T>,
+    ): void {
         this.registeredTrackers.set(name, { tracker, onExpire });
     }
 

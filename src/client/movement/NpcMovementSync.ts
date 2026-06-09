@@ -50,14 +50,14 @@ export class NpcMovementSync {
             typeof update.subX === "number"
                 ? update.subX | 0
                 : typeof existingState?.subX === "number"
-                ? existingState.subX | 0
-                : (update.localX | 0) + (update.mapBaseX | 0);
+                  ? existingState.subX | 0
+                  : (update.localX | 0) + (update.mapBaseX | 0);
         let resolvedSubY =
             typeof update.subY === "number"
                 ? update.subY | 0
                 : typeof existingState?.subY === "number"
-                ? existingState.subY | 0
-                : (update.localY | 0) + (update.mapBaseY | 0);
+                  ? existingState.subY | 0
+                  : (update.localY | 0) + (update.mapBaseY | 0);
 
         let resolvedTileX: number | undefined;
         let resolvedTileY: number | undefined;
@@ -230,8 +230,8 @@ export class NpcMovementSync {
             !teleported && nextStep
                 ? undefined
                 : nextStep
-                ? directionToOrientation(nextStep.direction)
-                : undefined;
+                  ? directionToOrientation(nextStep.direction)
+                  : undefined;
         const orientation = this.resolveOrientation(
             {
                 orientation: update.orientation,

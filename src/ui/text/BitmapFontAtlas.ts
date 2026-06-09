@@ -75,7 +75,7 @@ export function getBitmapFontAtlas(glr: GLRenderer, font: BitmapFont): BitmapFon
                 h,
                 lb: font.leftBearings[ch] | 0,
                 tb: font.topBearings[ch] | 0,
-                adv: (font.advances[ch] | 0) || w,
+                adv: font.advances[ch] | 0 || w,
                 drawable: false,
             };
             continue;
@@ -97,7 +97,7 @@ export function getBitmapFontAtlas(glr: GLRenderer, font: BitmapFont): BitmapFon
             h,
             lb: font.leftBearings[ch] | 0,
             tb: font.topBearings[ch] | 0,
-            adv: (font.advances[ch] | 0) || w,
+            adv: font.advances[ch] | 0 || w,
             drawable: true,
         };
 
@@ -141,7 +141,7 @@ export function getBitmapFontAtlas(glr: GLRenderer, font: BitmapFont): BitmapFon
                 if ((gp[srcIndex] & 0xff) === 0) {
                     continue;
                 }
-                const dstIndex = ((penX + x) + (penY + y) * canvas.width) * 4;
+                const dstIndex = (penX + x + (penY + y) * canvas.width) * 4;
                 data[dstIndex] = 255;
                 data[dstIndex + 1] = 255;
                 data[dstIndex + 2] = 255;

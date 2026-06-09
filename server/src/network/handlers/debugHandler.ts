@@ -1,8 +1,11 @@
+import { logger } from "../../utils/logger";
 import type { MessageHandlerServices } from "../MessageHandlers";
 import type { MessageRouter } from "../MessageRouter";
-import { logger } from "../../utils/logger";
 
-export function registerDebugHandler(router: MessageRouter, services: MessageHandlerServices): void {
+export function registerDebugHandler(
+    router: MessageRouter,
+    services: MessageHandlerServices,
+): void {
     router.register("debug", (ctx) => {
         const payload = ctx.payload;
         const kind = payload.kind;

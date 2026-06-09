@@ -374,7 +374,14 @@ function drawBitmapRunGL(
     }
 
     if (buffer.quadCount > 0) {
-        glr.drawTextureQuads(atlas.texture, buffer.data, buffer.quadCount, 1, toRgb01(color), alpha);
+        glr.drawTextureQuads(
+            atlas.texture,
+            buffer.data,
+            buffer.quadCount,
+            1,
+            toRgb01(color),
+            alpha,
+        );
     }
 }
 
@@ -409,7 +416,20 @@ function drawBitmapSegmentsGL(
                     const [x0, x1] = scaleRange(originX, cx, cx + iconW, scaleX);
                     const [y0, y1] = scaleRange(originY, baselineY - iconH, baselineY, scaleY);
                     if (x1 > x0 && y1 > y0) {
-                        glr.drawTexture(tex, x0, y0, x1 - x0, y1 - y0, 1, 1, 0, [0, 0, 0], false, false, alpha);
+                        glr.drawTexture(
+                            tex,
+                            x0,
+                            y0,
+                            x1 - x0,
+                            y1 - y0,
+                            1,
+                            1,
+                            0,
+                            [0, 0, 0],
+                            false,
+                            false,
+                            alpha,
+                        );
                     }
                 }
                 cx += iconW;

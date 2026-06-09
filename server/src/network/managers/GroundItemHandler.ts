@@ -5,12 +5,13 @@
  * Uses a service interface pattern to avoid circular dependencies.
  */
 import type { WebSocket } from "ws";
-import { logger } from "../../utils/logger";
-import type { ServerServices } from "../../game/ServerServices";
-import type { PlayerState } from "../../game/player";
-import { encodeMessage } from "../messages";
-import { isInWilderness } from "../../game/combat/MultiCombatZones";
+
 import { getItemDefinition } from "../../data/items";
+import type { ServerServices } from "../../game/ServerServices";
+import { isInWilderness } from "../../game/combat/MultiCombatZones";
+import type { PlayerState } from "../../game/player";
+import { logger } from "../../utils/logger";
+import { encodeMessage } from "../messages";
 
 /** Pickup radius in tiles */
 const GROUND_ITEM_PICKUP_RADIUS_TILES = 2;
@@ -57,7 +58,6 @@ export type GroundItemsServerPayload =
           upserts: GroundItemStackPayload[];
           removes: number[];
       };
-
 
 /** Debug configuration */
 interface DebugConfig {
@@ -133,8 +133,8 @@ export class GroundItemHandler {
                 stack.ownerId === undefined
                     ? TILE_ITEM_OWNERSHIP_NONE
                     : stack.ownerId === playerId
-                    ? TILE_ITEM_OWNERSHIP_SELF
-                    : TILE_ITEM_OWNERSHIP_OTHER,
+                      ? TILE_ITEM_OWNERSHIP_SELF
+                      : TILE_ITEM_OWNERSHIP_OTHER,
         };
     }
 
@@ -157,7 +157,8 @@ export class GroundItemHandler {
 
     private getInventoryInsertCapacity(player: PlayerState, itemId: number): number {
         const inventory = player.getInventoryEntries();
-        const itemDef = this.svc.dataLoaderService.getObjType(itemId) as any ?? getItemDefinition(itemId);
+        const itemDef =
+            (this.svc.dataLoaderService.getObjType(itemId) as any) ?? getItemDefinition(itemId);
         const stackable = itemDef?.stackable === true;
 
         if (stackable) {
@@ -322,7 +323,8 @@ export class GroundItemHandler {
         };
 
         const opNum = payload.opNum ?? -1;
-        const itemDef = (this.svc.dataLoaderService.getObjType(itemId) as any) ?? getItemDefinition(itemId);
+        const itemDef =
+            (this.svc.dataLoaderService.getObjType(itemId) as any) ?? getItemDefinition(itemId);
         let option = payload.option?.trim().toLowerCase() ?? "";
         if (!option && opNum > 0) {
             const idx = opNum - 1;
@@ -353,17 +355,15 @@ export class GroundItemHandler {
 
         let stackId = payload.stackId ?? -1;
         if (!(stackId > 0)) {
-            const visibleStacks = this.svc
-                .groundItems
-                .queryArea(
-                    tile.x,
-                    tile.y,
-                    tile.level,
-                    0,
-                    this.svc.ticker.currentTick(),
-                    player.id,
-                    player.worldViewId,
-                );
+            const visibleStacks = this.svc.groundItems.queryArea(
+                tile.x,
+                tile.y,
+                tile.level,
+                0,
+                this.svc.ticker.currentTick(),
+                player.id,
+                player.worldViewId,
+            );
             const matchingStack = visibleStacks.find((stack) => stack.itemId === itemId);
             if (matchingStack) {
                 stackId = matchingStack.id;
@@ -467,7 +467,11 @@ export class GroundItemHandler {
             return;
         }
 
-        const addResult = this.svc.inventoryService.addItemToInventory(player, itemId, removed.removed);
+        const addResult = this.svc.inventoryService.addItemToInventory(
+            player,
+            itemId,
+            removed.removed,
+        );
         const added = Math.max(0, addResult.added);
 
         if (added <= 0) {
@@ -479,9 +483,16 @@ export class GroundItemHandler {
 
             // Respawn item - immediately visible in wilderness
             const inWilderness = isInWilderness(tile.x, tile.y);
-            groundItems.spawn(itemId, removed.removed, tile, nowTick, {
-                privateTicks: inWilderness ? 0 : undefined,
-            }, player.worldViewId);
+            groundItems.spawn(
+                itemId,
+                removed.removed,
+                tile,
+                nowTick,
+                {
+                    privateTicks: inWilderness ? 0 : undefined,
+                },
+                player.worldViewId,
+            );
             return;
         }
 
@@ -499,6 +510,8 @@ export class GroundItemHandler {
             logger.info(
                 `[ground] pickup player=${player.id} item=${itemId} qty=${added} tile=(${tile.x},${tile.y},${tile.level})`,
             );
-        } catch (err) { logger.warn("[ground-item] failed to log pickup debug", err); }
+        } catch (err) {
+            logger.warn("[ground-item] failed to log pickup debug", err);
+        }
     }
 }

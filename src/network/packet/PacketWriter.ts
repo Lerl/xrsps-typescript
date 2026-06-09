@@ -279,7 +279,7 @@ export class PacketWriter {
                     if (this.isaacCipher) {
                         packetData[0] = (packetData[0] + this.isaacCipher.nextInt()) & 0xff;
                     }
-                    this.socket.send(packetData);
+                    this.socket.send(packetData as Uint8Array<ArrayBuffer>);
                     this.bufferSize -= packetSize;
                     this.packetBufferNodes.pop();
                     this.nodePool.release(node);
@@ -329,7 +329,7 @@ export class PacketWriter {
             data[0] = (data[0] + this.isaacCipher.nextInt()) & 0xff;
         }
 
-        this.socket.send(data);
+        this.socket.send(data as Uint8Array<ArrayBuffer>);
         this.nodePool.release(node);
     }
 

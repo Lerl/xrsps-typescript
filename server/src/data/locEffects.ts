@@ -58,7 +58,9 @@ export const registerLocEffects = (
         for (const dispose of disposers.reverse()) {
             try {
                 dispose();
-            } catch (err) { logger.info("[loc-effects] failed to dispose loc effect", err); }
+            } catch (err) {
+                logger.info("[loc-effects] failed to dispose loc effect", err);
+            }
         }
     };
 };

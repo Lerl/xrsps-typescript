@@ -1,16 +1,17 @@
 import fs from "fs";
 import path from "path";
+
 import type { CacheInfo } from "../../../../src/rs/cache/CacheInfo";
 import { CacheSystem } from "../../../../src/rs/cache/CacheSystem";
 import { CombatCategoryConst as CombatCategory } from "../../../src/game/combat/WeaponDataProvider";
 import { getWeaponData } from "../../../src/game/combat/WeaponDataProvider";
 import { applyProjectileDefaults } from "../../../src/game/data/ProjectileParamsProvider";
 import {
-    buildSpellNameToWidgetMap,
     type AutocastCompatibilityResult,
     type PoweredStaffSpellData,
     type SpellDataEntry,
     type SpellDataProvider,
+    buildSpellNameToWidgetMap,
 } from "../../../src/game/spells/SpellDataProvider";
 
 const ENTRIES: SpellDataEntry[] = [
@@ -994,8 +995,7 @@ const POWERED_STAVES = new Set<number>([
 ]);
 
 const ANCIENT_SPELL_IDS = new Set<number>([
-    4629, 4630, 4632, 4633, 4635, 4636, 4638, 4639,
-    4641, 4642, 4644, 4645, 4647, 4648, 4650, 4651,
+    4629, 4630, 4632, 4633, 4635, 4636, 4638, 4639, 4641, 4642, 4644, 4645, 4647, 4648, 4650, 4651,
 ]);
 
 const GOD_SPELL_IDS = new Set<number>([3310, 3311, 3312]);
@@ -1177,7 +1177,10 @@ export function createSpellDataProvider(): SpellDataProvider {
             return SPELL_DATA_MAP.get(spellId);
         },
 
-        getSpellDataByWidget(spellbookGroupId: number, widgetChildId: number): SpellDataEntry | undefined {
+        getSpellDataByWidget(
+            spellbookGroupId: number,
+            widgetChildId: number,
+        ): SpellDataEntry | undefined {
             const key = `${spellbookGroupId}:${widgetChildId}`;
             return SPELL_BY_WIDGET_MAP.get(key);
         },

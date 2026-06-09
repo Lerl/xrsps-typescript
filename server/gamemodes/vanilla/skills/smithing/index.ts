@@ -1,4 +1,8 @@
-import { ANY_LOC_ID, type IScriptRegistry, type ScriptServices } from "../../../../src/game/scripts/types";
+import {
+    ANY_LOC_ID,
+    type IScriptRegistry,
+    type ScriptServices,
+} from "../../../../src/game/scripts/types";
 import { openSmithingBarModal } from "../../modals/smithingBarModalHandler";
 import { executeSmeltAction, registerSmeltingInteractions } from "./smelting";
 import { executeSmithAction, registerSmithingInteractions } from "./smithing";
@@ -17,9 +21,17 @@ export function register(registry: IScriptRegistry, services: ScriptServices): v
         production.openForgeInterface = (player) => smithingUI.openForgeInterface(player);
         production.openSmithingInterface = (player) => smithingUI.openSmithingInterface(player);
         production.smeltBars = (player, params) =>
-            smithingUI.handleSmeltingSelection(player, params.recipeId, params.count > 0 ? params.count : undefined);
+            smithingUI.handleSmeltingSelection(
+                player,
+                params.recipeId,
+                params.count > 0 ? params.count : undefined,
+            );
         production.smithItems = (player, params) =>
-            smithingUI.handleSmithingSelection(player, params.recipeId, params.count > 0 ? params.count : undefined);
+            smithingUI.handleSmithingSelection(
+                player,
+                params.recipeId,
+                params.count > 0 ? params.count : undefined,
+            );
         production.updateSmithingInterface = (player) => smithingUI.updateSmithingInterface(player);
         production.updateSmeltingInterface = (player) => smithingUI.updateSmeltingInterface(player);
         production.getBarTypeByItemId = (itemId) => smithingUI.getBarTypeByItemId(itemId);

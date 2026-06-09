@@ -1,6 +1,14 @@
 import { EquipmentSlot } from "../../../../src/rs/config/player/Equipment";
-import { getEmoteSeq, getSkillcapeSeqId, getSkillcapeSpotId } from "../../../src/game/scripts/types";
-import { type IScriptRegistry, type ScriptServices, type WidgetActionEvent } from "../../../src/game/scripts/types";
+import {
+    getEmoteSeq,
+    getSkillcapeSeqId,
+    getSkillcapeSpotId,
+} from "../../../src/game/scripts/types";
+import {
+    type IScriptRegistry,
+    type ScriptServices,
+    type WidgetActionEvent,
+} from "../../../src/game/scripts/types";
 
 /**
  * Emote widget handlers for interface 216 (emotes tab).
@@ -56,7 +64,10 @@ const LOOP_SEQ_MAP: Record<number, number> = {
     54: 10061, // Sit down -> emote_sit_loop
 };
 
-export function registerEmoteWidgetHandlers(registry: IScriptRegistry, services: ScriptServices): void {
+export function registerEmoteWidgetHandlers(
+    registry: IScriptRegistry,
+    services: ScriptServices,
+): void {
     // Handle emote widget (216) actions
     // Uses onButton for the emote container component
     registry.onButton(EMOTE_WIDGET_GROUP_ID, EMOTE_CONTAINER_COMPONENT, (event) => {
@@ -141,6 +152,8 @@ function handleEmote(event: WidgetActionEvent, services: ScriptServices): void {
     // For skillcape emote, also broadcast the spot animation (graphic effect)
     if (emoteIndex === SKILLCAPE_EMOTE_INDEX && spotId !== undefined && spotId >= 0) {
         services.animation.broadcastPlayerSpot(player, spotId, SKILLCAPE_SPOT_HEIGHT, 0);
-        services.system.logger.debug?.(`[emote] skillcape spot player=${player.id} spotId=${spotId}`);
+        services.system.logger.debug?.(
+            `[emote] skillcape spot player=${player.id} spotId=${spotId}`,
+        );
     }
 }

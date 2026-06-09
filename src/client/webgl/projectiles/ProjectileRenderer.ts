@@ -124,8 +124,8 @@ export class ProjectileRenderer {
 
             const prog = transparent
                 ? (this.renderer as any).projectileProgram
-                : (this.renderer as any).projectileProgramOpaque ??
-                  (this.renderer as any).projectileProgram;
+                : ((this.renderer as any).projectileProgramOpaque ??
+                  (this.renderer as any).projectileProgram);
 
             if (!prog) {
                 if ((globalThis as any).DEBUG_PROJECTILES_TRAJ) {
@@ -144,7 +144,8 @@ export class ProjectileRenderer {
 
             const subOffset = vec2.create();
 
-            const dc: DrawCall = this.renderer.configureDrawCall(vaoRec.drawCall)
+            const dc: DrawCall = this.renderer
+                .configureDrawCall(vaoRec.drawCall)
                 .uniformBlock("SceneUniforms", (this.renderer as any).sceneUniformBuffer)
                 .uniform("u_timeLoaded", -1.0)
                 .texture("u_textures", (this.renderer as any).textureArray)
