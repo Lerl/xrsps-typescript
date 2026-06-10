@@ -33,6 +33,8 @@ layout(location = 0) in uvec3 a_vertex;
 
 out vec4 v_color;
 out vec2 v_texCoord;
+out vec2 v_worldUv;
+out vec3 v_worldPos;
 flat out uint v_texId;
 flat out float v_alphaCutOff;
 out float v_fogAmount;
@@ -101,6 +103,8 @@ void main() {
     if (float(modelInfo.planeCullLevel) > u_roofPlaneLimit + 0.5) {
         v_color = vec4(0.0);
         v_texCoord = vec2(0.0);
+        v_worldUv = vec2(0.0);
+        v_worldPos = vec3(0.0);
         v_texId = 0u;
         v_alphaCutOff = 1.0;
         v_fogAmount = 1.0;
@@ -119,6 +123,8 @@ void main() {
     localPos /= 128.0;
 
     localPos += vec3(u_mapPos.x, 0, u_mapPos.y) * vec3(64);
+    v_worldUv = localPos.xz;
+    v_worldPos = localPos;
 
     float loadAlpha = smoothstep(0.0, 1.0, min((u_currentTime - u_timeLoaded), 1.0));
     float isLoading = when_neq(loadAlpha, 1.0);

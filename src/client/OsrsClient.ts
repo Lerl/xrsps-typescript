@@ -10889,6 +10889,7 @@ export class OsrsClient {
             !!renderer.npcProgram &&
             !!renderer.textureArray &&
             !!renderer.textureMaterials &&
+            !!renderer.waterTextures &&
             !!renderer.sceneUniformBuffer;
         const mapManager = renderer?.mapManager as MapManager<any> | undefined;
         const mapManagerReady =
@@ -10944,6 +10945,7 @@ export class OsrsClient {
                             renderer.npcProgram,
                             renderer.textureArray,
                             renderer.textureMaterials,
+                            renderer.waterTextures,
                             renderer.sceneUniformBuffer,
                             this.seqTypeLoader,
                             this.seqFrameLoader,

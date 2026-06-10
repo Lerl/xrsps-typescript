@@ -32,6 +32,7 @@ import { createTextureArray } from "../../picogl/PicoTexture";
 import { RS_TO_RADIANS } from "../../rs/MathConstants";
 import { OsrsMenuEntry } from "../../rs/MenuEntry";
 import { MenuTargetType } from "../../rs/MenuEntry";
+import type { OverlayFloorType } from "../../rs/config/floortype/OverlayFloorType";
 import { LocModelLoader } from "../../rs/config/loctype/LocModelLoader";
 import { LocModelType } from "../../rs/config/loctype/LocModelType";
 import { NpcModelLoader } from "../../rs/config/npctype/NpcModelLoader";
@@ -43,6 +44,7 @@ import { getMapIndexFromTile, getMapSquareId } from "../../rs/map/MapFileIndex";
 import { Model } from "../../rs/model/Model";
 import { ModelData } from "../../rs/model/ModelData";
 import { Scene } from "../../rs/scene/Scene";
+import { SceneBuilder } from "../../rs/scene/SceneBuilder";
 import { getUiScale } from "../../ui/UiScale";
 import { ClickCrossOverlay } from "../../ui/devoverlay/ClickCrossOverlay";
 import { GroundItemOverlay } from "../../ui/devoverlay/GroundItemOverlay";
@@ -177,9 +179,151 @@ import {
     createPlayerProgram,
     createProjectileProgram,
 } from "./shaders/Shaders";
+import { KNOWN_WATER_TEXTURE_IDS } from "./water/WaterTextureIds";
 
 const MAX_TEXTURES = 1024;
 const TEXTURE_SIZE = 128;
+const MATERIAL_TEXTURE_ROWS = 5;
+const WATER_OVERLAY_NAME_KEYWORDS = [
+    "water",
+    "river",
+    "ocean",
+    "sea",
+    "lake",
+    "pond",
+    "pool",
+    "canal",
+    "swamp",
+    "marsh",
+    "bog",
+    "bay",
+    "shore",
+    "surf",
+];
+const WATER_TEXTURE_SIZE = 128;
+const WATER_TEXTURE_ASSETS = [
+    "/images/water/water_normal_map_1.png",
+    "/images/water/water_normal_map_2.png",
+    "/images/water/water_flow_map.png",
+    "/images/water/water_foam.jpg",
+    "/images/water/caustics_map.jpg",
+    "/images/water/underwater_flow_map.png",
+] as const;
+
+interface WaterMaterialParams {
+    surfaceColor: [number, number, number];
+    depthColor: [number, number, number];
+    baseOpacity: number;
+    fresnelAmount: number;
+    normalStrength: number;
+    specularStrength: number;
+    specularGloss: number;
+    duration: number;
+    typeId: number;
+}
+
+function waterRgb(hex: number): [number, number, number] {
+    return [((hex >> 16) & 0xff) / 255, ((hex >> 8) & 0xff) / 255, (hex & 0xff) / 255];
+}
+
+function materialByte(value: number): number {
+    return Math.round(clamp(value, 0, 255));
+}
+
+const DEFAULT_WATER_MATERIAL: WaterMaterialParams = {
+    surfaceColor: waterRgb(0x69809c),
+    depthColor: waterRgb(0x00758e),
+    baseOpacity: 0.5,
+    fresnelAmount: 0.85,
+    normalStrength: 0.09,
+    specularStrength: 0.5,
+    specularGloss: 500,
+    duration: 1,
+    typeId: 1,
+};
+const SWAMP_WATER_MATERIAL: WaterMaterialParams = {
+    surfaceColor: waterRgb(0x172114),
+    depthColor: waterRgb(0x29521a),
+    baseOpacity: 0.8,
+    fresnelAmount: 0.3,
+    normalStrength: 0.05,
+    specularStrength: 0.1,
+    specularGloss: 100,
+    duration: 1.2,
+    typeId: 2,
+};
+const ICE_WATER_MATERIAL: WaterMaterialParams = {
+    surfaceColor: waterRgb(0x969696),
+    depthColor: waterRgb(0x69809c),
+    baseOpacity: 0.85,
+    fresnelAmount: 0.5,
+    normalStrength: 0.04,
+    specularStrength: 0.3,
+    specularGloss: 200,
+    duration: 0.01,
+    typeId: 3,
+};
+const VANILLA_WATER_SURFACE_COLORS = new Map<number, [number, number, number]>([
+    [130, waterRgb(0x556f8f)],
+    [131, waterRgb(0x536b88)],
+    [132, waterRgb(0x4d5d81)],
+    [133, waterRgb(0x3c4b71)],
+    [134, waterRgb(0x374467)],
+    [135, waterRgb(0x688b9c)],
+    [136, waterRgb(0x638189)],
+    [137, waterRgb(0x537783)],
+    [138, waterRgb(0x55707f)],
+    [139, waterRgb(0x445c72)],
+    [140, waterRgb(0x4d6b7f)],
+    [141, waterRgb(0x4a6578)],
+    [142, waterRgb(0x446175)],
+    [143, waterRgb(0x425b71)],
+    [144, waterRgb(0x3f586c)],
+    [145, waterRgb(0x6c78a2)],
+    [146, waterRgb(0x606b99)],
+    [147, waterRgb(0x585e8f)],
+    [148, waterRgb(0x473d72)],
+    [149, waterRgb(0x3f3863)],
+    [150, waterRgb(0x68799d)],
+    [151, waterRgb(0x606e90)],
+    [152, waterRgb(0x536489)],
+    [153, waterRgb(0x4f5781)],
+    [154, waterRgb(0x3f4672)],
+    [155, waterRgb(0x6e7595)],
+    [156, waterRgb(0x656b88)],
+    [157, waterRgb(0x596181)],
+    [158, waterRgb(0x585874)],
+    [159, waterRgb(0x484664)],
+    [160, waterRgb(0x7a8da3)],
+    [161, waterRgb(0x728397)],
+    [162, waterRgb(0x667a91)],
+    [163, waterRgb(0x616e8b)],
+    [164, waterRgb(0x505c7a)],
+    [165, waterRgb(0x8898ad)],
+    [166, waterRgb(0x8290a3)],
+    [167, waterRgb(0x79899e)],
+    [168, waterRgb(0x747f99)],
+    [169, waterRgb(0x68728d)],
+    [170, waterRgb(0x7298b4)],
+    [171, waterRgb(0x5f86a3)],
+    [172, waterRgb(0x547a99)],
+    [173, waterRgb(0x496e91)],
+    [174, waterRgb(0x43688b)],
+    [175, waterRgb(0x5d7f72)],
+    [176, waterRgb(0x517c6c)],
+    [177, waterRgb(0x4a686d)],
+    [178, waterRgb(0x4a686d)],
+    [179, waterRgb(0x3d595c)],
+    [180, waterRgb(0x5a7b90)],
+    [181, waterRgb(0x537084)],
+    [182, waterRgb(0x49677b)],
+    [183, waterRgb(0x506574)],
+    [184, waterRgb(0x324e6c)],
+    [185, waterRgb(0x4d5e74)],
+    [186, waterRgb(0x445267)],
+    [187, waterRgb(0x39485e)],
+    [188, waterRgb(0x394d63)],
+]);
 
 const MAX_HIT_ENTRIES = 256;
 const DEFAULT_NPC_HEALTH = 100;
@@ -469,6 +613,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
 
     textureArray?: Texture;
     textureMaterials?: Texture;
+    waterTextures?: Texture;
 
     textureIds: number[] = [];
     loadedTextureIds: Set<number> = new Set();
@@ -2728,6 +2873,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         ]);
 
         this.initFramebuffers();
+        await this.initWaterTextures();
 
         this.initTextures();
 
@@ -4345,6 +4491,9 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                 if (this.textureMaterials) {
                     this.dynamicNpcDrawCall.texture("u_textureMaterials", this.textureMaterials);
                 }
+                if (this.waterTextures) {
+                    this.dynamicNpcDrawCall.texture("u_waterTextures", this.waterTextures);
+                }
             }
         }
 
@@ -4539,6 +4688,223 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         this.initMaterialsTexture();
 
         // console.log("init textures", this.textureIds, allTextureIds.length);
+    }
+
+    private async initWaterTextures(): Promise<void> {
+        const data = await this.loadWaterTextureData().catch((error) => {
+            console.warn("[water] Failed to load 117HD water textures; using fallback maps", error);
+            return this.createFallbackWaterTextureData();
+        });
+
+        this.waterTextures?.delete();
+        this.waterTextures = createTextureArray(
+            this.app,
+            data,
+            WATER_TEXTURE_SIZE,
+            WATER_TEXTURE_SIZE,
+            WATER_TEXTURE_ASSETS.length,
+            {
+                internalFormat: PicoGL.RGBA8,
+                type: PicoGL.UNSIGNED_BYTE,
+                minFilter: PicoGL.LINEAR_MIPMAP_LINEAR,
+                magFilter: PicoGL.LINEAR,
+                wrapS: PicoGL.REPEAT,
+                wrapT: PicoGL.REPEAT,
+            },
+        );
+    }
+
+    private async loadWaterTextureData(): Promise<Uint8Array> {
+        const images = await Promise.all(
+            WATER_TEXTURE_ASSETS.map((src) => this.loadImageAsset(src)),
+        );
+        const canvas = document.createElement("canvas");
+        canvas.width = WATER_TEXTURE_SIZE;
+        canvas.height = WATER_TEXTURE_SIZE;
+        const context = canvas.getContext("2d", { willReadFrequently: true });
+        if (!context) {
+            throw new Error("Could not create canvas context for water texture upload");
+        }
+
+        const data = new Uint8Array(
+            WATER_TEXTURE_SIZE * WATER_TEXTURE_SIZE * 4 * WATER_TEXTURE_ASSETS.length,
+        );
+        for (let layer = 0; layer < images.length; layer++) {
+            context.clearRect(0, 0, WATER_TEXTURE_SIZE, WATER_TEXTURE_SIZE);
+            context.drawImage(images[layer], 0, 0, WATER_TEXTURE_SIZE, WATER_TEXTURE_SIZE);
+            const imageData = context.getImageData(0, 0, WATER_TEXTURE_SIZE, WATER_TEXTURE_SIZE);
+            data.set(imageData.data, layer * WATER_TEXTURE_SIZE * WATER_TEXTURE_SIZE * 4);
+        }
+        return data;
+    }
+
+    private loadImageAsset(src: string): Promise<HTMLImageElement> {
+        return new Promise((resolve, reject) => {
+            const image = new Image();
+            image.onload = () => resolve(image);
+            image.onerror = () => reject(new Error(`Failed to load image asset ${src}`));
+            image.src = src;
+        });
+    }
+
+    private createFallbackWaterTextureData(): Uint8Array {
+        const data = new Uint8Array(
+            WATER_TEXTURE_SIZE * WATER_TEXTURE_SIZE * 4 * WATER_TEXTURE_ASSETS.length,
+        );
+        const pixelCount = WATER_TEXTURE_SIZE * WATER_TEXTURE_SIZE;
+        for (let y = 0; y < WATER_TEXTURE_SIZE; y++) {
+            for (let x = 0; x < WATER_TEXTURE_SIZE; x++) {
+                const u = x / WATER_TEXTURE_SIZE;
+                const v = y / WATER_TEXTURE_SIZE;
+                const rippleA = Math.sin((u + v) * Math.PI * 8.0);
+                const rippleB = Math.sin((u * 2.0 - v) * Math.PI * 6.0);
+                const foam = Math.max(0, rippleA * 0.5 + rippleB * 0.5 - 0.48);
+                const flowX = Math.sin(v * Math.PI * 2.0) * 0.22;
+                const flowY = Math.cos(u * Math.PI * 2.0) * 0.22;
+                const caustic = Math.max(
+                    0,
+                    Math.min(
+                        1,
+                        Math.sin((u + flowX * 0.2) * Math.PI * 16.0) *
+                            Math.sin((v - flowY * 0.2) * Math.PI * 14.0),
+                    ),
+                );
+                const layers = [
+                    [128 + rippleA * 18, 128 + rippleB * 18, 245, 255],
+                    [128 + rippleB * 14, 128 - rippleA * 14, 246, 255],
+                    [128 + flowX * 127, 128 + flowY * 127, 128, 255],
+                    [foam * 255, foam * 255, foam * 255, 255],
+                    [caustic * 255, caustic * 255, caustic * 255, 255],
+                    [128 + flowY * 127, 128 - flowX * 127, 128, 255],
+                ];
+                const pixel = y * WATER_TEXTURE_SIZE + x;
+                for (let layer = 0; layer < layers.length; layer++) {
+                    const offset = (layer * pixelCount + pixel) * 4;
+                    const rgba = layers[layer];
+                    data[offset] = clamp(Math.round(rgba[0]), 0, 255);
+                    data[offset + 1] = clamp(Math.round(rgba[1]), 0, 255);
+                    data[offset + 2] = clamp(Math.round(rgba[2]), 0, 255);
+                    data[offset + 3] = rgba[3];
+                }
+            }
+        }
+        return data;
+    }
+
+    private collectWaterTextureIds(): Set<number> {
+        const waterTextureIds = new Set<number>(KNOWN_WATER_TEXTURE_IDS);
+        const textureLoader = this.osrsClient.textureLoader;
+        const loaderFactory = this.osrsClient.loaderFactory;
+        if (!textureLoader || !loaderFactory?.getOverlayTypeLoader) {
+            return waterTextureIds;
+        }
+
+        let overlayTypeLoader: ReturnType<typeof loaderFactory.getOverlayTypeLoader>;
+        try {
+            overlayTypeLoader = loaderFactory.getOverlayTypeLoader();
+        } catch {
+            return waterTextureIds;
+        }
+
+        const overlayCount = overlayTypeLoader.getCount();
+        for (let overlayId = 0; overlayId < overlayCount; overlayId++) {
+            let overlay: OverlayFloorType;
+            try {
+                overlay = overlayTypeLoader.load(overlayId);
+            } catch {
+                continue;
+            }
+
+            const textureId = overlay?.textureId ?? -1;
+            if (textureId === -1 || !textureLoader.isSd(textureId)) {
+                continue;
+            }
+
+            if (this.isWaterOverlayTexture(overlayId, overlay, textureId)) {
+                waterTextureIds.add(textureId);
+            }
+        }
+
+        return waterTextureIds;
+    }
+
+    private isWaterOverlayTexture(
+        overlayId: number,
+        overlay: OverlayFloorType,
+        textureId: number,
+    ): boolean {
+        if (overlayId === SceneBuilder.WATER_OVERLAY_ID) {
+            return true;
+        }
+        if (overlay.hasUnderwaterColor || overlay.hasWaterOpacity) {
+            return true;
+        }
+        if (KNOWN_WATER_TEXTURE_IDS.has(textureId)) {
+            return true;
+        }
+        if (this.isWaterOverlayName(overlay.name)) {
+            return true;
+        }
+        return this.isWaterLikeOverlayTexture(textureId);
+    }
+
+    private isWaterOverlayName(name: string | undefined): boolean {
+        if (!name) {
+            return false;
+        }
+        const lowerName = name.toLowerCase();
+        return WATER_OVERLAY_NAME_KEYWORDS.some((keyword) => lowerName.includes(keyword));
+    }
+
+    private isWaterLikeOverlayTexture(textureId: number): boolean {
+        const textureLoader = this.osrsClient.textureLoader;
+        if (!textureLoader) {
+            return false;
+        }
+
+        let material: ReturnType<typeof textureLoader.getMaterial>;
+        let averageHsl = 0;
+        try {
+            material = textureLoader.getMaterial(textureId);
+            averageHsl = textureLoader.getAverageHsl(textureId) | 0;
+        } catch {
+            return false;
+        }
+
+        const hue = (averageHsl >> 10) & 0x3f;
+        const saturation = (averageHsl >> 7) & 0x7;
+        const lightness = averageHsl & 0x7f;
+        const scrolls =
+            material.animU !== 0 ||
+            material.animV !== 0 ||
+            material.animSpeed > 0 ||
+            material.frameCount > 1;
+
+        const blueOrCyan = hue >= 23 && hue <= 46 && saturation >= 2;
+        const murkyGreen = hue >= 13 && hue <= 30 && saturation >= 3 && scrolls;
+        const plausibleLightness = lightness >= 6 && lightness <= 120;
+
+        return plausibleLightness && (blueOrCyan || murkyGreen);
+    }
+
+    private getWaterMaterialParams(textureId: number): WaterMaterialParams {
+        if (textureId === 25) {
+            return SWAMP_WATER_MATERIAL;
+        }
+        if (textureId === 91) {
+            return ICE_WATER_MATERIAL;
+        }
+
+        const vanillaSurfaceColor = VANILLA_WATER_SURFACE_COLORS.get(textureId);
+        if (vanillaSurfaceColor) {
+            return {
+                ...DEFAULT_WATER_MATERIAL,
+                surfaceColor: vanillaSurfaceColor,
+                typeId: Math.min(textureId - 127, 255),
+            };
+        }
+
+        return DEFAULT_WATER_MATERIAL;
     }
 
     initTextureArray() {
@@ -4822,6 +5188,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
             !this.npcProgram ||
             !this.textureArray ||
             !this.textureMaterials ||
+            !this.waterTextures ||
             !this.sceneUniformBuffer
         ) {
             return 0;
@@ -4831,6 +5198,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         const npcProgram = this.npcProgram;
         const textureArray = this.textureArray;
         const textureMaterials = this.textureMaterials;
+        const waterTextures = this.waterTextures;
         const sceneUniformBuffer = this.sceneUniformBuffer;
 
         // Apply maps as they arrive, but never apply surrounding chunks before
@@ -4872,6 +5240,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                 npcProgram,
                 textureArray,
                 textureMaterials,
+                waterTextures,
                 sceneUniformBuffer,
                 mapData,
                 time,
@@ -4893,10 +5262,14 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         }
 
         const textureCount = this.textureLayerCount || 1;
+        const waterTextureIds = this.collectWaterTextureIds();
 
         // Row 0: animU, animV, alphaCutOff, frameCount
-        // Row 1: animSpeed, (unused), (unused), (unused)
-        const data = new Int8Array(textureCount * 2 * 4);
+        // Row 1: animSpeed, material flags, water type id, (unused)
+        // Row 2: water surface RGB, base opacity
+        // Row 3: water depth RGB, fresnel amount
+        // Row 4: normal strength, specular strength, specular gloss, duration
+        const data = new Int8Array(textureCount * MATERIAL_TEXTURE_ROWS * 4);
         data[3] = 1; // frameCount for fallback layer 0
 
         for (let i = 0; i < this.textureIds.length; i++) {
@@ -4914,20 +5287,45 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                     const layerIndex = baseLayer + frame;
                     const row0 = layerIndex * 4;
                     const row1 = (textureCount + layerIndex) * 4;
+                    const row2 = (textureCount * 2 + layerIndex) * 4;
+                    const row3 = (textureCount * 3 + layerIndex) * 4;
+                    const row4 = (textureCount * 4 + layerIndex) * 4;
+                    const isWater = waterTextureIds.has(id);
 
                     data[row0] = material.animU;
                     data[row0 + 1] = material.animV;
-                    data[row0 + 2] = material.alphaCutOff * 255;
-                    data[row0 + 3] = frameCount;
+                    data[row0 + 2] = materialByte(material.alphaCutOff * 255);
+                    data[row0 + 3] = materialByte(frameCount);
 
                     data[row1] = material.animSpeed;
+                    data[row1 + 1] = isWater ? 1 : 0;
+
+                    if (isWater) {
+                        const water = this.getWaterMaterialParams(id);
+                        data[row1 + 2] = materialByte(water.typeId);
+
+                        data[row2] = materialByte(water.surfaceColor[0] * 255);
+                        data[row2 + 1] = materialByte(water.surfaceColor[1] * 255);
+                        data[row2 + 2] = materialByte(water.surfaceColor[2] * 255);
+                        data[row2 + 3] = materialByte(water.baseOpacity * 255);
+
+                        data[row3] = materialByte(water.depthColor[0] * 255);
+                        data[row3 + 1] = materialByte(water.depthColor[1] * 255);
+                        data[row3 + 2] = materialByte(water.depthColor[2] * 255);
+                        data[row3 + 3] = materialByte(water.fresnelAmount * 255);
+
+                        data[row4] = materialByte((water.normalStrength / 0.5) * 255);
+                        data[row4 + 1] = materialByte(water.specularStrength * 255);
+                        data[row4 + 2] = materialByte((water.specularGloss / 500) * 255);
+                        data[row4 + 3] = materialByte((water.duration / 4) * 255);
+                    }
                 }
             } catch (e) {
                 console.error("Failed loading texture", id, e);
             }
         }
 
-        this.textureMaterials = this.app.createTexture2D(data, textureCount, 2, {
+        this.textureMaterials = this.app.createTexture2D(data, textureCount, MATERIAL_TEXTURE_ROWS, {
             minFilter: PicoGL.NEAREST,
             magFilter: PicoGL.NEAREST,
             internalFormat: PicoGL.RGBA8I,
@@ -5805,6 +6203,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         npcProgram: Program,
         textureArray: Texture,
         textureMaterials: Texture,
+        waterTextures: Texture,
         sceneUniformBuffer: UniformBuffer,
         mapData: SdMapData,
         time: number,
@@ -5823,6 +6222,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                 mainAlphaProgram,
                 textureArray,
                 textureMaterials,
+                waterTextures,
                 sceneUniformBuffer,
                 mapData,
                 getClientCycle() | 0,
@@ -5887,6 +6287,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
             npcProgram,
             textureArray,
             textureMaterials,
+            waterTextures,
             sceneUniformBuffer,
             mapData,
             reuseTime,
@@ -6424,7 +6825,8 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
             !this.textureFramebuffer ||
             !this.frameDrawCall ||
             !this.textureArray ||
-            !this.textureMaterials
+            !this.textureMaterials ||
+            !this.waterTextures
         ) {
             return;
         }
@@ -7515,6 +7917,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                     this.npcProgram,
                     this.textureArray,
                     this.textureMaterials,
+                    this.waterTextures,
                     this.sceneUniformBuffer,
                     pendingMap,
                     this.skipMapFadeIn ? -1.0 : timeSec,
@@ -12282,6 +12685,10 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                     dynDrawCall.texture("u_heightMap", heightMapTex);
                     dynDrawCall.uniform("u_sceneBorderSize", (dyn.map as any).borderSize ?? 6);
                 }
+                const waterMaskTex = (dyn.map as any).waterMaskTexture;
+                if (waterMaskTex) {
+                    dynDrawCall.texture("u_waterMask", waterMaskTex);
+                }
 
                 this.dynamicNpcSingleDrawRange[0] = 0;
                 this.dynamicNpcSingleDrawRange[1] = indexCount | 0;
@@ -12371,7 +12778,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         stacks: ClientGroundItemStack[] | undefined,
     ): void {
         if (!this.mainProgram || !this.mainAlphaProgram) return;
-        if (!this.textureArray || !this.textureMaterials || !this.sceneUniformBuffer) return;
+        if (!this.textureArray || !this.textureMaterials || !this.waterTextures || !this.sceneUniformBuffer) return;
         const objModelLoader = this.osrsClient.objModelLoader;
         const textureLoader = this.osrsClient.textureLoader;
         if (!objModelLoader || !textureLoader) return;
@@ -12410,6 +12817,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
             this.mainAlphaProgram,
             this.textureArray,
             this.textureMaterials,
+            this.waterTextures,
             this.sceneUniformBuffer,
             data,
         );
@@ -12686,6 +13094,10 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                 if (heightMapTex) {
                     dynDrawCall.texture("u_heightMap", heightMapTex);
                     dynDrawCall.uniform("u_sceneBorderSize", (dyn.map as any).borderSize ?? 6);
+                }
+                const waterMaskTex = (dyn.map as any).waterMaskTexture;
+                if (waterMaskTex) {
+                    dynDrawCall.texture("u_waterMask", waterMaskTex);
                 }
 
                 this.dynamicNpcSingleDrawRange[0] = 0;
@@ -14266,6 +14678,9 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
 
         this.textureMaterials?.delete();
         this.textureMaterials = undefined;
+
+        this.waterTextures?.delete();
+        this.waterTextures = undefined;
 
         this.drawBackend?.dispose();
         this.drawBackend = undefined;

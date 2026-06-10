@@ -70,6 +70,7 @@ export type SdMapData = {
     doorModelTextureDataInteractLodAlpha: Uint16Array;
 
     heightMapTextureData: Int16Array;
+    waterMaskTextureData: Uint8Array;
 
     // CPU-side terrain triangles used for click/hover tile picking.
     // Vertices are local tile-space xyz triples, grouped by terrainPickTileOffsets.

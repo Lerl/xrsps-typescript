@@ -150,10 +150,12 @@ export class ProjectileRenderer {
                 .uniform("u_timeLoaded", -1.0)
                 .texture("u_textures", (this.renderer as any).textureArray)
                 .texture("u_textureMaterials", (this.renderer as any).textureMaterials)
+                .texture("u_waterTextures", (this.renderer as any).waterTextures)
                 .uniform("u_mapPos", vec2.fromValues(map.mapX, map.mapY))
                 .uniform("u_npcDataOffset", baseOffset | 0)
                 .texture("u_npcDataTexture", actorDataTexture)
                 .texture("u_heightMap", map.heightMapTexture)
+                .texture("u_waterMask", map.waterMaskTexture)
                 .uniform("u_sceneBorderSize", map.borderSize)
                 .uniform("u_projectileSubOffset", subOffset);
 

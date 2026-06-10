@@ -36,6 +36,8 @@ layout(location = 0) in uvec3 a_vertex;
 
 out vec4 v_color;
 out vec2 v_texCoord;
+out vec2 v_worldUv;
+out vec3 v_worldPos;
 flat out uint v_texId;
 flat out float v_alphaCutOff;
 out float v_fogAmount;
@@ -121,6 +123,8 @@ void main() {
     localPos /= vec4(vec3(128.0), 1.0);
 
     localPos += vec4(vec3(u_mapPos.x, 0, u_mapPos.y) * vec3(64), 0);
+    v_worldUv = localPos.xz;
+    v_worldPos = localPos.xyz;
 
     float loadAlpha = smoothstep(0.0, 1.0, min((u_currentTime - u_timeLoaded), 1.0));
     float isLoading = when_neq(loadAlpha, 1.0);

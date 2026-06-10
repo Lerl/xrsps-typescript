@@ -49,6 +49,7 @@ import type {
     NpcRenderExtraAnim,
     NpcRenderTemplate,
 } from "../npc/NpcRenderTemplate";
+import { isKnownWaterTextureId } from "../water/WaterTextureIds";
 import { NpcGeometryData } from "./NpcGeometryData";
 import { type MinimapIcon, SdMapData } from "./SdMapData";
 import { SdMapLoaderInput } from "./SdMapLoaderInput";
@@ -67,6 +68,109 @@ function loadHeightMapTextureData(scene: Scene): Int16Array {
     }
 
     return heightMapTextureData;
+}
+
+function isWaterSceneTile(tile: SceneTile | undefined): boolean {
+    const tileModel = tile?.tileModel;
+    if (!tileModel || tile.skipRender) {
+        return false;
+    }
+    if (isKnownWaterTextureId(tileModel.textureId)) {
+        return true;
+    }
+    for (const face of tileModel.faces) {
+        for (const vertex of face.vertices) {
+            if (isKnownWaterTextureId(vertex.textureId)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+function loadWaterMaskTextureData(scene: Scene): Uint8Array {
+    const width = scene.sizeX | 0;
+    const height = scene.sizeY | 0;
+    const layerSize = width * height;
+    const water = new Uint8Array(Scene.MAX_LEVELS * layerSize);
+    const waterMaskTextureData = new Uint8Array(Scene.MAX_LEVELS * layerSize * 4);
+
+    const maskIndex = (level: number, x: number, y: number): number =>
+        (level * layerSize + y * width + x) | 0;
+
+    const markWater = (level: number, x: number, y: number, tile: SceneTile | undefined): void => {
+        if (level < 0 || level >= Scene.MAX_LEVELS || x < 0 || y < 0 || x >= width || y >= height) {
+            return;
+        }
+        if (isWaterSceneTile(tile)) {
+            water[maskIndex(level, x, y)] = 255;
+        }
+    };
+
+    for (let level = 0; level < scene.levels; level++) {
+        for (let x = 0; x < width; x++) {
+            for (let y = 0; y < height; y++) {
+                const tile = scene.tiles[level][x][y];
+                markWater(level, x, y, tile);
+
+                if (level === 0) {
+                    if ((scene.tileRenderFlags[1]?.[x]?.[y] & 0x8) !== 0) {
+                        markWater(0, x, y, scene.tiles[1]?.[x]?.[y]);
+                    }
+                    const linked = getBridgeLinkedBelow(tile);
+                    markWater(0, x, y, linked);
+                }
+            }
+        }
+    }
+
+    const sampleWater = (level: number, x: number, y: number): number => {
+        if (level < 0 || level >= Scene.MAX_LEVELS || x < 0 || y < 0 || x >= width || y >= height) {
+            return 0;
+        }
+        return water[maskIndex(level, x, y)] > 0 ? 1 : 0;
+    };
+
+    const offsets = [
+        [1, 0, 1.0],
+        [-1, 0, 1.0],
+        [0, 1, 1.0],
+        [0, -1, 1.0],
+        [1, 1, 0.62],
+        [-1, 1, 0.62],
+        [1, -1, 0.62],
+        [-1, -1, 0.62],
+        [2, 0, 0.38],
+        [-2, 0, 0.38],
+        [0, 2, 0.38],
+        [0, -2, 0.38],
+    ] as const;
+
+    for (let level = 0; level < Scene.MAX_LEVELS; level++) {
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const center = sampleWater(level, x, y);
+                let shore = 0;
+                let adjacentWater = 0;
+                for (const [dx, dy, weight] of offsets) {
+                    const neighborWater = sampleWater(level, x + dx, y + dy);
+                    if (center > 0) {
+                        shore = Math.max(shore, (1 - neighborWater) * weight);
+                    } else {
+                        adjacentWater = Math.max(adjacentWater, neighborWater * weight);
+                    }
+                }
+
+                const out = (maskIndex(level, x, y) * 4) | 0;
+                waterMaskTextureData[out] = center * 255;
+                waterMaskTextureData[out + 1] = Math.round(Math.min(shore, 1) * 255);
+                waterMaskTextureData[out + 2] = Math.round(Math.min(adjacentWater, 1) * 255);
+                waterMaskTextureData[out + 3] = 255;
+            }
+        }
+    }
+
+    return waterMaskTextureData;
 }
 
 function buildTerrainPickData(
@@ -1538,6 +1642,7 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
         );
 
         const heightMapTextureData = loadHeightMapTextureData(scene);
+        const waterMaskTextureData = loadWaterMaskTextureData(scene);
         const terrainPickData = buildTerrainPickData(
             scene,
             usedBorderSize,
@@ -1656,6 +1761,7 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
             npcVertices.buffer,
             npcIndices.buffer,
             heightMapTextureData.buffer,
+            waterMaskTextureData.buffer,
             terrainPickData.tileOffsets.buffer,
             terrainPickData.vertices.buffer,
             terrainPickData.planes.buffer,
@@ -1768,6 +1874,7 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
                 doorModelTextureDataInteractLodAlpha,
 
                 heightMapTextureData,
+                waterMaskTextureData,
                 terrainPickTileOffsets: terrainPickData.tileOffsets,
                 terrainPickVertices: terrainPickData.vertices,
                 terrainPickPlanes: terrainPickData.planes,

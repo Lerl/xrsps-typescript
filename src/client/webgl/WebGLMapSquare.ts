@@ -254,6 +254,7 @@ export class WebGLMapSquare {
         npcProgram: Program,
         textureArray: Texture,
         textureMaterials: Texture,
+        waterTextures: Texture,
         sceneUniformBuffer: UniformBuffer,
         mapData: SdMapData,
         time: number,
@@ -330,6 +331,20 @@ export class WebGLMapSquare {
                 wrapT: PicoGL.CLAMP_TO_EDGE,
             },
         );
+        const waterMaskTexture = app.createTextureArray(
+            mapData.waterMaskTextureData,
+            heightMapSize,
+            heightMapSize,
+            Scene.MAX_LEVELS,
+            {
+                internalFormat: PicoGL.RGBA8,
+                minFilter: PicoGL.NEAREST,
+                magFilter: PicoGL.NEAREST,
+                type: PicoGL.UNSIGNED_BYTE,
+                wrapS: PicoGL.CLAMP_TO_EDGE,
+                wrapT: PicoGL.CLAMP_TO_EDGE,
+            },
+        );
 
         // const time = performance.now() * 0.001;
 
@@ -351,7 +366,9 @@ export class WebGLMapSquare {
                 // .uniform("u_drawIdOffset", drawIdOffset)
                 .texture("u_textures", textureArray)
                 .texture("u_textureMaterials", textureMaterials)
+                .texture("u_waterTextures", waterTextures)
                 .texture("u_heightMap", heightMapTexture)
+                .texture("u_waterMask", waterMaskTexture)
                 .uniform("u_sceneBorderSize", borderSize)
                 // .texture("u_modelInfoTexture", modelInfoTexture)
                 .drawRanges(...drawRanges);
@@ -773,6 +790,7 @@ export class WebGLMapSquare {
             vertexArray,
 
             heightMapTexture,
+            waterMaskTexture,
 
             modelInfoTexture,
             modelInfoTextureAlpha,
@@ -850,6 +868,7 @@ export class WebGLMapSquare {
         public vertexArray: VertexArray,
 
         readonly heightMapTexture: Texture,
+        readonly waterMaskTexture: Texture,
 
         // Model info
         public modelInfoTexture: Texture,
@@ -1123,6 +1142,7 @@ export class WebGLMapSquare {
         this.npcIndexBuffer?.delete();
 
         this.heightMapTexture.delete();
+        this.waterMaskTexture.delete();
 
         // Model info
         this.modelInfoTexture.delete();
@@ -1234,6 +1254,7 @@ export class WebGLMapSquare {
         npcProgram: Program,
         textureArray: Texture,
         textureMaterials: Texture,
+        waterTextures: Texture,
         sceneUniformBuffer: UniformBuffer,
         seqTypeLoader: SeqTypeLoader,
         seqFrameLoader: SeqFrameLoader,
@@ -1308,7 +1329,9 @@ export class WebGLMapSquare {
                 .uniform("u_worldEntityOpacity", 1.0)
                 .texture("u_textures", textureArray)
                 .texture("u_textureMaterials", textureMaterials)
+                .texture("u_waterTextures", waterTextures)
                 .texture("u_heightMap", this.heightMapTexture)
+                .texture("u_waterMask", this.waterMaskTexture)
                 .uniform("u_sceneBorderSize", this.borderSize)
                 .drawRanges(...drawRangesNpc);
 
@@ -1512,6 +1535,7 @@ export class WebGLMapSquare {
         mainAlphaProgram: Program,
         textureArray: Texture,
         textureMaterials: Texture,
+        waterTextures: Texture,
         sceneUniformBuffer: UniformBuffer,
         mapData: SdMapData,
         time?: number,
@@ -1675,7 +1699,9 @@ export class WebGLMapSquare {
                 .uniform("u_worldEntityOpacity", 1.0)
                 .texture("u_textures", textureArray)
                 .texture("u_textureMaterials", textureMaterials)
+                .texture("u_waterTextures", waterTextures)
                 .texture("u_heightMap", this.heightMapTexture)
+                .texture("u_waterMask", this.waterMaskTexture)
                 .uniform("u_sceneBorderSize", this.borderSize)
                 .drawRanges(...drawRanges);
             if (modelInfoTexture) {
@@ -1777,6 +1803,7 @@ export class WebGLMapSquare {
         mainAlphaProgram: Program,
         textureArray: Texture,
         textureMaterials: Texture,
+        waterTextures: Texture,
         sceneUniformBuffer: UniformBuffer,
         mapData: SdMapData,
         clientCycle: number,
@@ -1915,7 +1942,9 @@ export class WebGLMapSquare {
                 .uniform("u_worldEntityOpacity", 1.0)
                 .texture("u_textures", textureArray)
                 .texture("u_textureMaterials", textureMaterials)
+                .texture("u_waterTextures", waterTextures)
                 .texture("u_heightMap", this.heightMapTexture)
+                .texture("u_waterMask", this.waterMaskTexture)
                 .uniform("u_sceneBorderSize", this.borderSize)
                 .drawRanges(...drawRanges);
             if (modelInfoTex) {
@@ -2006,6 +2035,7 @@ export class WebGLMapSquare {
             mainAlphaProgram,
             textureArray,
             textureMaterials,
+            waterTextures,
             sceneUniformBuffer,
             mapData,
             loadTime,
@@ -2049,6 +2079,7 @@ export class WebGLMapSquare {
         mainAlphaProgram: Program,
         textureArray: Texture,
         textureMaterials: Texture,
+        waterTextures: Texture,
         sceneUniformBuffer: UniformBuffer,
         data?: GroundItemGeometryBuildData,
     ): void {
@@ -2089,7 +2120,9 @@ export class WebGLMapSquare {
                 .uniform("u_worldEntityOpacity", 1.0)
                 .texture("u_textures", textureArray)
                 .texture("u_textureMaterials", textureMaterials)
+                .texture("u_waterTextures", waterTextures)
                 .texture("u_heightMap", this.heightMapTexture)
+                .texture("u_waterMask", this.waterMaskTexture)
                 .uniform("u_sceneBorderSize", this.borderSize)
                 .drawRanges(...drawRanges);
             if (modelInfoTexture) {
