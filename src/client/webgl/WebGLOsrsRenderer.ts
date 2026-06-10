@@ -44,7 +44,6 @@ import { getMapIndexFromTile, getMapSquareId } from "../../rs/map/MapFileIndex";
 import { Model } from "../../rs/model/Model";
 import { ModelData } from "../../rs/model/ModelData";
 import { Scene } from "../../rs/scene/Scene";
-import { SceneBuilder } from "../../rs/scene/SceneBuilder";
 import { getUiScale } from "../../ui/UiScale";
 import { ClickCrossOverlay } from "../../ui/devoverlay/ClickCrossOverlay";
 import { GroundItemOverlay } from "../../ui/devoverlay/GroundItemOverlay";
@@ -183,23 +182,9 @@ import { KNOWN_WATER_TEXTURE_IDS } from "./water/WaterTextureIds";
 
 const MAX_TEXTURES = 1024;
 const TEXTURE_SIZE = 128;
-const MATERIAL_TEXTURE_ROWS = 5;
-const WATER_OVERLAY_NAME_KEYWORDS = [
-    "water",
-    "river",
-    "ocean",
-    "sea",
-    "lake",
-    "pond",
-    "pool",
-    "canal",
-    "swamp",
-    "marsh",
-    "bog",
-    "bay",
-    "shore",
-    "surf",
-];
+const MATERIAL_TEXTURE_ROWS = 6;
+const WATER_FLAG_HAS_FOAM = 1;
+const WATER_FLAG_NORMAL_MAP_2 = 2;
 const WATER_TEXTURE_SIZE = 128;
 const WATER_TEXTURE_ASSETS = [
     "/images/water/water_normal_map_1.png",
@@ -207,11 +192,11 @@ const WATER_TEXTURE_ASSETS = [
     "/images/water/water_flow_map.png",
     "/images/water/water_foam.jpg",
     "/images/water/caustics_map.jpg",
-    "/images/water/underwater_flow_map.png",
 ] as const;
 
 interface WaterMaterialParams {
     surfaceColor: [number, number, number];
+    foamColor: [number, number, number];
     depthColor: [number, number, number];
     baseOpacity: number;
     fresnelAmount: number;
@@ -219,7 +204,8 @@ interface WaterMaterialParams {
     specularStrength: number;
     specularGloss: number;
     duration: number;
-    typeId: number;
+    hasFoam: boolean;
+    useNormalMap2: boolean;
 }
 
 function waterRgb(hex: number): [number, number, number] {
@@ -230,8 +216,10 @@ function materialByte(value: number): number {
     return Math.round(clamp(value, 0, 255));
 }
 
+// 117HD water_types.json parameters.
 const DEFAULT_WATER_MATERIAL: WaterMaterialParams = {
     surfaceColor: waterRgb(0x69809c),
+    foamColor: waterRgb(0xb0a492),
     depthColor: waterRgb(0x00758e),
     baseOpacity: 0.5,
     fresnelAmount: 0.85,
@@ -239,10 +227,12 @@ const DEFAULT_WATER_MATERIAL: WaterMaterialParams = {
     specularStrength: 0.5,
     specularGloss: 500,
     duration: 1,
-    typeId: 1,
+    hasFoam: true,
+    useNormalMap2: false,
 };
 const SWAMP_WATER_MATERIAL: WaterMaterialParams = {
     surfaceColor: waterRgb(0x172114),
+    foamColor: waterRgb(0x737865),
     depthColor: waterRgb(0x29521a),
     baseOpacity: 0.8,
     fresnelAmount: 0.3,
@@ -250,18 +240,21 @@ const SWAMP_WATER_MATERIAL: WaterMaterialParams = {
     specularStrength: 0.1,
     specularGloss: 100,
     duration: 1.2,
-    typeId: 2,
+    hasFoam: true,
+    useNormalMap2: false,
 };
 const ICE_WATER_MATERIAL: WaterMaterialParams = {
-    surfaceColor: waterRgb(0x969696),
-    depthColor: waterRgb(0x69809c),
+    surfaceColor: waterRgb(0xffffff),
+    foamColor: waterRgb(0x969696),
+    depthColor: waterRgb(0x00758e),
     baseOpacity: 0.85,
-    fresnelAmount: 0.5,
+    fresnelAmount: 1,
     normalStrength: 0.04,
     specularStrength: 0.3,
     specularGloss: 200,
-    duration: 0.01,
-    typeId: 3,
+    duration: 0,
+    hasFoam: true,
+    useNormalMap2: true,
 };
 const VANILLA_WATER_SURFACE_COLORS = new Map<number, [number, number, number]>([
     [130, waterRgb(0x556f8f)],
@@ -323,6 +316,8 @@ const VANILLA_WATER_SURFACE_COLORS = new Map<number, [number, number, number]>([
     [186, waterRgb(0x445267)],
     [187, waterRgb(0x39485e)],
     [188, waterRgb(0x394d63)],
+    [189, waterRgb(0x314157)],
+    [208, waterRgb(0x262d45)],
 ]);
 
 const MAX_HIT_ENTRIES = 256;
@@ -614,6 +609,8 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
     textureArray?: Texture;
     textureMaterials?: Texture;
     waterTextures?: Texture;
+    waterShadingUnavailable = false;
+    waterOverlayColors = new Map<number, [number, number, number]>();
 
     textureIds: number[] = [];
     loadedTextureIds: Set<number> = new Set();
@@ -4691,10 +4688,20 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
     }
 
     private async initWaterTextures(): Promise<void> {
-        const data = await this.loadWaterTextureData().catch((error) => {
-            console.warn("[water] Failed to load 117HD water textures; using fallback maps", error);
-            return this.createFallbackWaterTextureData();
-        });
+        let data: Uint8Array;
+        try {
+            data = await this.loadWaterTextureData();
+            this.waterShadingUnavailable = false;
+        } catch (error) {
+            console.log(
+                "[water] Failed to load water textures; water renders with the vanilla texture path",
+                error,
+            );
+            this.waterShadingUnavailable = true;
+            data = new Uint8Array(
+                WATER_TEXTURE_SIZE * WATER_TEXTURE_SIZE * 4 * WATER_TEXTURE_ASSETS.length,
+            );
+        }
 
         this.waterTextures?.delete();
         this.waterTextures = createTextureArray(
@@ -4747,63 +4754,28 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         });
     }
 
-    private createFallbackWaterTextureData(): Uint8Array {
-        const data = new Uint8Array(
-            WATER_TEXTURE_SIZE * WATER_TEXTURE_SIZE * 4 * WATER_TEXTURE_ASSETS.length,
-        );
-        const pixelCount = WATER_TEXTURE_SIZE * WATER_TEXTURE_SIZE;
-        for (let y = 0; y < WATER_TEXTURE_SIZE; y++) {
-            for (let x = 0; x < WATER_TEXTURE_SIZE; x++) {
-                const u = x / WATER_TEXTURE_SIZE;
-                const v = y / WATER_TEXTURE_SIZE;
-                const rippleA = Math.sin((u + v) * Math.PI * 8.0);
-                const rippleB = Math.sin((u * 2.0 - v) * Math.PI * 6.0);
-                const foam = Math.max(0, rippleA * 0.5 + rippleB * 0.5 - 0.48);
-                const flowX = Math.sin(v * Math.PI * 2.0) * 0.22;
-                const flowY = Math.cos(u * Math.PI * 2.0) * 0.22;
-                const caustic = Math.max(
-                    0,
-                    Math.min(
-                        1,
-                        Math.sin((u + flowX * 0.2) * Math.PI * 16.0) *
-                            Math.sin((v - flowY * 0.2) * Math.PI * 14.0),
-                    ),
-                );
-                const layers = [
-                    [128 + rippleA * 18, 128 + rippleB * 18, 245, 255],
-                    [128 + rippleB * 14, 128 - rippleA * 14, 246, 255],
-                    [128 + flowX * 127, 128 + flowY * 127, 128, 255],
-                    [foam * 255, foam * 255, foam * 255, 255],
-                    [caustic * 255, caustic * 255, caustic * 255, 255],
-                    [128 + flowY * 127, 128 - flowX * 127, 128, 255],
-                ];
-                const pixel = y * WATER_TEXTURE_SIZE + x;
-                for (let layer = 0; layer < layers.length; layer++) {
-                    const offset = (layer * pixelCount + pixel) * 4;
-                    const rgba = layers[layer];
-                    data[offset] = clamp(Math.round(rgba[0]), 0, 255);
-                    data[offset + 1] = clamp(Math.round(rgba[1]), 0, 255);
-                    data[offset + 2] = clamp(Math.round(rgba[2]), 0, 255);
-                    data[offset + 3] = rgba[3];
-                }
-            }
+    private collectWaterTextureIds(): Set<number> {
+        if (this.waterShadingUnavailable) {
+            return new Set();
         }
-        return data;
+        this.collectWaterOverlayColors();
+        return new Set(KNOWN_WATER_TEXTURE_IDS);
     }
 
-    private collectWaterTextureIds(): Set<number> {
-        const waterTextureIds = new Set<number>(KNOWN_WATER_TEXTURE_IDS);
-        const textureLoader = this.osrsClient.textureLoader;
+    // Water overlays carry their tile colour in primaryRgb; use it as the
+    // surface colour for water textures without a hand-tuned entry.
+    private collectWaterOverlayColors(): void {
+        this.waterOverlayColors.clear();
         const loaderFactory = this.osrsClient.loaderFactory;
-        if (!textureLoader || !loaderFactory?.getOverlayTypeLoader) {
-            return waterTextureIds;
+        if (!loaderFactory?.getOverlayTypeLoader) {
+            return;
         }
 
         let overlayTypeLoader: ReturnType<typeof loaderFactory.getOverlayTypeLoader>;
         try {
             overlayTypeLoader = loaderFactory.getOverlayTypeLoader();
         } catch {
-            return waterTextureIds;
+            return;
         }
 
         const overlayCount = overlayTypeLoader.getCount();
@@ -4816,75 +4788,15 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
             }
 
             const textureId = overlay?.textureId ?? -1;
-            if (textureId === -1 || !textureLoader.isSd(textureId)) {
+            if (
+                !KNOWN_WATER_TEXTURE_IDS.has(textureId) ||
+                this.waterOverlayColors.has(textureId) ||
+                (overlay.primaryRgb & 0xffffff) === 0
+            ) {
                 continue;
             }
-
-            if (this.isWaterOverlayTexture(overlayId, overlay, textureId)) {
-                waterTextureIds.add(textureId);
-            }
+            this.waterOverlayColors.set(textureId, waterRgb(overlay.primaryRgb));
         }
-
-        return waterTextureIds;
-    }
-
-    private isWaterOverlayTexture(
-        overlayId: number,
-        overlay: OverlayFloorType,
-        textureId: number,
-    ): boolean {
-        if (overlayId === SceneBuilder.WATER_OVERLAY_ID) {
-            return true;
-        }
-        if (overlay.hasUnderwaterColor || overlay.hasWaterOpacity) {
-            return true;
-        }
-        if (KNOWN_WATER_TEXTURE_IDS.has(textureId)) {
-            return true;
-        }
-        if (this.isWaterOverlayName(overlay.name)) {
-            return true;
-        }
-        return this.isWaterLikeOverlayTexture(textureId);
-    }
-
-    private isWaterOverlayName(name: string | undefined): boolean {
-        if (!name) {
-            return false;
-        }
-        const lowerName = name.toLowerCase();
-        return WATER_OVERLAY_NAME_KEYWORDS.some((keyword) => lowerName.includes(keyword));
-    }
-
-    private isWaterLikeOverlayTexture(textureId: number): boolean {
-        const textureLoader = this.osrsClient.textureLoader;
-        if (!textureLoader) {
-            return false;
-        }
-
-        let material: ReturnType<typeof textureLoader.getMaterial>;
-        let averageHsl = 0;
-        try {
-            material = textureLoader.getMaterial(textureId);
-            averageHsl = textureLoader.getAverageHsl(textureId) | 0;
-        } catch {
-            return false;
-        }
-
-        const hue = (averageHsl >> 10) & 0x3f;
-        const saturation = (averageHsl >> 7) & 0x7;
-        const lightness = averageHsl & 0x7f;
-        const scrolls =
-            material.animU !== 0 ||
-            material.animV !== 0 ||
-            material.animSpeed > 0 ||
-            material.frameCount > 1;
-
-        const blueOrCyan = hue >= 23 && hue <= 46 && saturation >= 2;
-        const murkyGreen = hue >= 13 && hue <= 30 && saturation >= 3 && scrolls;
-        const plausibleLightness = lightness >= 6 && lightness <= 120;
-
-        return plausibleLightness && (blueOrCyan || murkyGreen);
     }
 
     private getWaterMaterialParams(textureId: number): WaterMaterialParams {
@@ -4895,12 +4807,12 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
             return ICE_WATER_MATERIAL;
         }
 
-        const vanillaSurfaceColor = VANILLA_WATER_SURFACE_COLORS.get(textureId);
-        if (vanillaSurfaceColor) {
+        const surfaceColor =
+            VANILLA_WATER_SURFACE_COLORS.get(textureId) ?? this.waterOverlayColors.get(textureId);
+        if (surfaceColor) {
             return {
                 ...DEFAULT_WATER_MATERIAL,
-                surfaceColor: vanillaSurfaceColor,
-                typeId: Math.min(textureId - 127, 255),
+                surfaceColor,
             };
         }
 
@@ -5265,10 +5177,11 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         const waterTextureIds = this.collectWaterTextureIds();
 
         // Row 0: animU, animV, alphaCutOff, frameCount
-        // Row 1: animSpeed, material flags, water type id, (unused)
+        // Row 1: animSpeed, material flags, water flags, (unused)
         // Row 2: water surface RGB, base opacity
         // Row 3: water depth RGB, fresnel amount
         // Row 4: normal strength, specular strength, specular gloss, duration
+        // Row 5: water foam RGB, (unused)
         const data = new Int8Array(textureCount * MATERIAL_TEXTURE_ROWS * 4);
         data[3] = 1; // frameCount for fallback layer 0
 
@@ -5290,6 +5203,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                     const row2 = (textureCount * 2 + layerIndex) * 4;
                     const row3 = (textureCount * 3 + layerIndex) * 4;
                     const row4 = (textureCount * 4 + layerIndex) * 4;
+                    const row5 = (textureCount * 5 + layerIndex) * 4;
                     const isWater = waterTextureIds.has(id);
 
                     data[row0] = material.animU;
@@ -5302,7 +5216,9 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
 
                     if (isWater) {
                         const water = this.getWaterMaterialParams(id);
-                        data[row1 + 2] = materialByte(water.typeId);
+                        data[row1 + 2] =
+                            (water.hasFoam ? WATER_FLAG_HAS_FOAM : 0) |
+                            (water.useNormalMap2 ? WATER_FLAG_NORMAL_MAP_2 : 0);
 
                         data[row2] = materialByte(water.surfaceColor[0] * 255);
                         data[row2 + 1] = materialByte(water.surfaceColor[1] * 255);
@@ -5318,6 +5234,10 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                         data[row4 + 1] = materialByte(water.specularStrength * 255);
                         data[row4 + 2] = materialByte((water.specularGloss / 500) * 255);
                         data[row4 + 3] = materialByte((water.duration / 4) * 255);
+
+                        data[row5] = materialByte(water.foamColor[0] * 255);
+                        data[row5 + 1] = materialByte(water.foamColor[1] * 255);
+                        data[row5 + 2] = materialByte(water.foamColor[2] * 255);
                     }
                 }
             } catch (e) {

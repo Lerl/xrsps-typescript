@@ -31,8 +31,6 @@ export class OverlayFloorType extends Type implements FloorType {
 
     underwaterColor: number;
     waterOpacity: number;
-    hasUnderwaterColor: boolean;
-    hasWaterOpacity: boolean;
 
     // Old caches uses the same type for overlays and underlays
     isOverlay: boolean;
@@ -59,8 +57,6 @@ export class OverlayFloorType extends Type implements FloorType {
         this.blendTexture = false;
         this.underwaterColor = 0x122b3d;
         this.waterOpacity = 16;
-        this.hasUnderwaterColor = false;
-        this.hasWaterOpacity = false;
         this.isOverlay = cacheInfo.game !== "runescape" || cacheInfo.revision > 377;
     }
 
@@ -104,7 +100,6 @@ export class OverlayFloorType extends Type implements FloorType {
             this.blendTexture = true;
         } else if (opcode === 13) {
             this.underwaterColor = buffer.readMedium();
-            this.hasUnderwaterColor = true;
         } else if (opcode === 14) {
             /*
              * Handles how deep into water the player is able to see,
@@ -114,7 +109,6 @@ export class OverlayFloorType extends Type implements FloorType {
              * being 2, blocks almost 100% of the view of the underwater map (UM).
              */
             this.waterOpacity = buffer.readUnsignedByte();
-            this.hasWaterOpacity = true;
         } else if (opcode === 15) {
             this.secondaryTextureId = buffer.readUnsignedShort();
             if (this.secondaryTextureId === 0xffff) {

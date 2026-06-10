@@ -17,6 +17,7 @@ import { Scene } from "../../../rs/scene/Scene";
 import { LocLoadType } from "../../../rs/scene/SceneBuilder";
 import { SceneTile } from "../../../rs/scene/SceneTile";
 import { getIdFromTag } from "../../../rs/scene/entity/EntityTag";
+import { INVALID_HSL_COLOR, hslToRgb } from "../../../rs/util/ColorUtil";
 import { LocEntity } from "../../../rs/scene/entity/LocEntity";
 import { TextureLoader } from "../../../rs/texture/TextureLoader";
 import { ObjSpawn, getMapObjSpawns } from "../../data/obj/ObjSpawn";
@@ -88,11 +89,44 @@ function isWaterSceneTile(tile: SceneTile | undefined): boolean {
     return false;
 }
 
+// Average of the tile's lit underlay corner colours; -1 when unavailable.
+function averageUnderlayRgb(tile: SceneTile | undefined): number {
+    const tileModel = tile?.tileModel;
+    if (!tileModel) {
+        return -1;
+    }
+    let r = 0;
+    let g = 0;
+    let b = 0;
+    let count = 0;
+    const cornerHsls = [
+        tileModel.underlayHslSw,
+        tileModel.underlayHslSe,
+        tileModel.underlayHslNe,
+        tileModel.underlayHslNw,
+    ];
+    for (const hsl of cornerHsls) {
+        if (hsl < 0 || hsl === INVALID_HSL_COLOR) {
+            continue;
+        }
+        const rgb = hslToRgb(hsl);
+        r += (rgb >> 16) & 0xff;
+        g += (rgb >> 8) & 0xff;
+        b += rgb & 0xff;
+        count++;
+    }
+    if (count === 0) {
+        return -1;
+    }
+    return (Math.round(r / count) << 16) | (Math.round(g / count) << 8) | Math.round(b / count);
+}
+
 function loadWaterMaskTextureData(scene: Scene): Uint8Array {
     const width = scene.sizeX | 0;
     const height = scene.sizeY | 0;
     const layerSize = width * height;
     const water = new Uint8Array(Scene.MAX_LEVELS * layerSize);
+    const bedColors = new Int32Array(Scene.MAX_LEVELS * layerSize).fill(-1);
     const waterMaskTextureData = new Uint8Array(Scene.MAX_LEVELS * layerSize * 4);
 
     const maskIndex = (level: number, x: number, y: number): number =>
@@ -103,7 +137,12 @@ function loadWaterMaskTextureData(scene: Scene): Uint8Array {
             return;
         }
         if (isWaterSceneTile(tile)) {
-            water[maskIndex(level, x, y)] = 255;
+            const index = maskIndex(level, x, y);
+            water[index] = 255;
+            const rgb = averageUnderlayRgb(tile);
+            if (rgb !== -1) {
+                bedColors[index] = rgb;
+            }
         }
     };
 
@@ -111,6 +150,7 @@ function loadWaterMaskTextureData(scene: Scene): Uint8Array {
         for (let x = 0; x < width; x++) {
             for (let y = 0; y < height; y++) {
                 const tile = scene.tiles[level][x][y];
+                bedColors[maskIndex(level, x, y)] = averageUnderlayRgb(tile);
                 markWater(level, x, y, tile);
 
                 if (level === 0) {
@@ -124,49 +164,70 @@ function loadWaterMaskTextureData(scene: Scene): Uint8Array {
         }
     }
 
-    const sampleWater = (level: number, x: number, y: number): number => {
-        if (level < 0 || level >= Scene.MAX_LEVELS || x < 0 || y < 0 || x >= width || y >= height) {
-            return 0;
-        }
-        return water[maskIndex(level, x, y)] > 0 ? 1 : 0;
-    };
-
-    const offsets = [
-        [1, 0, 1.0],
-        [-1, 0, 1.0],
-        [0, 1, 1.0],
-        [0, -1, 1.0],
-        [1, 1, 0.62],
-        [-1, 1, 0.62],
-        [1, -1, 0.62],
-        [-1, -1, 0.62],
-        [2, 0, 0.38],
-        [-2, 0, 0.38],
-        [0, 2, 0.38],
-        [0, -2, 0.38],
-    ] as const;
+    // Underwater depth grows with the 4-connected distance from the shore,
+    // following 117HD's DEPTH_LEVEL_SLOPE (units scaled by 0.55, capped at
+    // 12 levels). Stored as 7 bits so the water bit fits alongside it.
+    const depthBytesByLevel = [14, 28, 43, 56, 64, 69, 75, 85, 99, 120, 124, 127];
+    const maxDepthLevel = depthBytesByLevel.length;
+    const depthLevels = new Uint8Array(Scene.MAX_LEVELS * layerSize);
+    const queue = new Int32Array(layerSize);
 
     for (let level = 0; level < Scene.MAX_LEVELS; level++) {
+        let queueLength = 0;
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
-                const center = sampleWater(level, x, y);
-                let shore = 0;
-                let adjacentWater = 0;
-                for (const [dx, dy, weight] of offsets) {
-                    const neighborWater = sampleWater(level, x + dx, y + dy);
-                    if (center > 0) {
-                        shore = Math.max(shore, (1 - neighborWater) * weight);
-                    } else {
-                        adjacentWater = Math.max(adjacentWater, neighborWater * weight);
-                    }
+                const index = maskIndex(level, x, y);
+                if (water[index] === 0) {
+                    continue;
                 }
-
-                const out = (maskIndex(level, x, y) * 4) | 0;
-                waterMaskTextureData[out] = center * 255;
-                waterMaskTextureData[out + 1] = Math.round(Math.min(shore, 1) * 255);
-                waterMaskTextureData[out + 2] = Math.round(Math.min(adjacentWater, 1) * 255);
-                waterMaskTextureData[out + 3] = 255;
+                const landLeft = x === 0 || water[maskIndex(level, x - 1, y)] === 0;
+                const landRight = x === width - 1 || water[maskIndex(level, x + 1, y)] === 0;
+                const landDown = y === 0 || water[maskIndex(level, x, y - 1)] === 0;
+                const landUp = y === height - 1 || water[maskIndex(level, x, y + 1)] === 0;
+                if (landLeft || landRight || landDown || landUp) {
+                    depthLevels[index] = 1;
+                    queue[queueLength++] = index;
+                }
             }
+        }
+
+        for (let head = 0; head < queueLength; head++) {
+            const index = queue[head];
+            const depthLevel = depthLevels[index];
+            if (depthLevel >= maxDepthLevel) {
+                continue;
+            }
+            const tileIndex = index - level * layerSize;
+            const x = tileIndex % width;
+            const y = (tileIndex / width) | 0;
+            const neighbors = [
+                x > 0 ? index - 1 : -1,
+                x < width - 1 ? index + 1 : -1,
+                y > 0 ? index - width : -1,
+                y < height - 1 ? index + width : -1,
+            ];
+            for (const neighbor of neighbors) {
+                if (neighbor !== -1 && water[neighbor] !== 0 && depthLevels[neighbor] === 0) {
+                    depthLevels[neighbor] = depthLevel + 1;
+                    queue[queueLength++] = neighbor;
+                }
+            }
+        }
+    }
+
+    // rgb = lit underlay colour of the tile (the seabed under water, the
+    // beach next to it); a = water bit (0x80) plus the 7-bit depth.
+    const fallbackBedColor = 0xc2b89c;
+    for (let i = 0; i < water.length; i++) {
+        const out = (i * 4) | 0;
+        const bedColor = bedColors[i] === -1 ? fallbackBedColor : bedColors[i];
+        waterMaskTextureData[out] = (bedColor >> 16) & 0xff;
+        waterMaskTextureData[out + 1] = (bedColor >> 8) & 0xff;
+        waterMaskTextureData[out + 2] = bedColor & 0xff;
+        if (water[i] !== 0) {
+            // Water never reached by the shore search (open sea) is max depth.
+            const depthLevel = depthLevels[i] === 0 ? maxDepthLevel : depthLevels[i];
+            waterMaskTextureData[out + 3] = 0x80 | depthBytesByLevel[depthLevel - 1];
         }
     }
 
