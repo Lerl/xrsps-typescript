@@ -213,7 +213,7 @@ export function registerCombatWidgetHandlers(
         const newState = !currentlyOn;
 
         // Toggle the state
-        player.setAutoRetaliate(newState);
+        player.combat.autoRetaliate = newState;
 
         // Update varp (0 = ON, 1 = OFF - inverted logic)
         const varpValue = newState ? 0 : 1;

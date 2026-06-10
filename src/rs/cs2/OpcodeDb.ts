@@ -135,7 +135,10 @@ export function loadOpcodeDbOsrs(_baseDir: string): OpcodeDb {
     add(1305, "cc_setopbase");
     add(1306, "cc_settargetverb");
     add(1307, "cc_clearops");
-    add(1311, "cc_setdragrenderbehaviour");
+    add(1308, "cc_setopforceleftclick");
+    add(1310, "cc_clearopsubmenu");
+    add(1311, "cc_setopsubmenu");
+    add(1312, "cc_settargetpriority");
     add(1350, "cc_setopkey");
     add(1351, "cc_setoptkey");
     add(1352, "cc_setopkeyrate");
@@ -241,6 +244,10 @@ export function loadOpcodeDbOsrs(_baseDir: string): OpcodeDb {
     add(2305, "if_setopbase");
     add(2306, "if_settargetverb");
     add(2307, "if_clearops");
+    add(2308, "if_setopforceleftclick");
+    add(2310, "if_clearopsubmenu");
+    add(2311, "if_setopsubmenu");
+    add(2312, "if_settargetpriority");
     add(2350, "if_setopkey");
     add(2351, "if_setoptkey");
     add(2352, "if_setopkeyrate");
@@ -527,7 +534,12 @@ export function loadOpcodeDbOsrs(_baseDir: string): OpcodeDb {
     add(4211, "oc_findnext");
     add(4212, "oc_findreset");
     add(4213, "oc_shiftclickiop");
-    add(4214, "oc_isubop");
+    add(4214, "oc_wearpos");
+    add(4215, "oc_wearpos2");
+    add(4216, "oc_wearpos3");
+    add(4217, "oc_weight");
+    add(4218, "oc_examine");
+    add(4222, "oc_isubop");
     add(5000, "chat_getfilter_public");
     add(5001, "chat_setfilter");
     add(5002, "chat_sendabusereport");

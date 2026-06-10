@@ -85,6 +85,11 @@ const EQUIPMENT_INVENTORY_WIDGET_UID = EQUIPMENT_INVENTORY_INTERFACE_ID << 16; /
 // Player inventory ID
 const PLAYER_INV_ID = 93;
 
+// IF_SETEVENTS setting for the equipment inventory slots (85:0, slots 0-27).
+// Enables op1 ("Equip") + op10 ("Examine") transmit and drag depth 1.
+const EQUIPMENT_INVENTORY_EVENT_FLAGS = 1180674;
+const EQUIPMENT_INVENTORY_SLOT_COUNT = 28;
+
 /**
  * Open the equipment stats interface.
  */
@@ -120,6 +125,17 @@ function openEquipmentStats(player: PlayerState, services: ScriptServices): void
         targetUid: sidemodalUid,
         groupId: EQUIPMENT_INVENTORY_INTERFACE_ID,
         type: 3, // tab/sidemodal replacement (closed by IF_CLOSE)
+    });
+
+    // 3b. Enable item slot events on the equipment inventory (85:0).
+    // Without these flags the client refuses to transmit the ops, so left-click
+    // "Equip" does nothing even though the menu entries render.
+    services.dialog.queueWidgetEvent(playerId, {
+        action: "set_flags_range",
+        uid: EQUIPMENT_INVENTORY_WIDGET_UID,
+        fromSlot: 0,
+        toSlot: EQUIPMENT_INVENTORY_SLOT_COUNT - 1,
+        flags: EQUIPMENT_INVENTORY_EVENT_FLAGS,
     });
 
     // 4. Initialize inventory ops for the equipment inventory interface

@@ -184,6 +184,8 @@ export type WidgetActionRequest = {
     target?: string;
     opId?: number;
     buttonNum?: number;
+    /** 1-based submenu entry index when the op was invoked from an op submenu */
+    subOpId?: number;
     cursorX?: number;
     cursorY?: number;
     isPrimary?: boolean;

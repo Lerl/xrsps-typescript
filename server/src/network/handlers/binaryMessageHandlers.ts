@@ -62,6 +62,7 @@ function createWidgetActionHandler(services: BinaryHandlerExtServices): MessageH
             widgetId: number;
             groupId?: number;
             buttonNum?: number;
+            subOpId?: number;
             slot?: number;
             option?: string;
             itemId?: number;
@@ -69,6 +70,7 @@ function createWidgetActionHandler(services: BinaryHandlerExtServices): MessageH
         const groupId = payload.groupId ?? (payload.widgetId >> 16) & 0xffff;
         const componentId = payload.widgetId & 0xffff;
         const opId = payload.buttonNum ?? 1;
+        const subOpId = payload.subOpId;
         const slotVal = payload.slot;
         const hasValidSlot = slotVal !== undefined && slotVal >= 0 && slotVal !== 65535;
         const childId = hasValidSlot ? slotVal : componentId;
@@ -87,6 +89,7 @@ function createWidgetActionHandler(services: BinaryHandlerExtServices): MessageH
                 childId,
                 option: payload.option,
                 opId,
+                subOpId,
                 slot: slotVal,
                 itemId: payload.itemId,
             });

@@ -17,6 +17,7 @@ import { runCs1 } from "../widgets/cs1/runCs1";
 import {
     collectWidgetsAtPointAcrossRoots as UI_collectWidgetsAtPointAcrossRoots,
     deriveMenuEntriesForWidget as UI_deriveMenuEntriesForWidget,
+    findBlockingWidgetInHits as UI_findBlockingWidgetInHits,
 } from "../widgets/menu/utils";
 import { MinimapRenderer } from "./MinimapRenderer";
 import { drawChooseOptionMenu } from "./choose-option";
@@ -1312,6 +1313,41 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                 } as any;
                 try {
                     // Ensure any world menu state is closed so interaction sampling isn't locked
+                    (ui as any).closeWorldMenu?.();
+                } catch {}
+                return;
+            }
+            // No actionable widget entries. If the click still landed on UI that
+            // blocks the world (panels, modals), show a Cancel-only menu - a
+            // right-click always opens a menu with at least "Cancel". The world
+            // pass skips picks over UI entirely, so without this the click would
+            // produce no menu at all.
+            const blockingWidget = UI_findBlockingWidgetInHits(hits, {
+                getWidgetFlags,
+                getWidgetByUid: getByUid,
+            });
+            if (blockingWidget) {
+                ui.mouseX = x | 0;
+                ui.mouseY = y | 0;
+                const { widgetEntriesToSimple } = require("../menu/MenuBridge");
+                const menuState = new MenuState();
+                const mapped = widgetEntriesToSimple([{ option: "Cancel" }], {
+                    ui,
+                    chosenWidget: blockingWidget ?? null,
+                    scheduleRender,
+                    menuState,
+                });
+                ui.menu = {
+                    open: true,
+                    follow: false,
+                    x: x | 0,
+                    y: y | 0,
+                    entries: mapped,
+                    targetWidget: blockingWidget ?? null,
+                    source: "widgets",
+                    menuState,
+                } as any;
+                try {
                     (ui as any).closeWorldMenu?.();
                 } catch {}
                 return;

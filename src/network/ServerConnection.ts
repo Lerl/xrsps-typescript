@@ -369,6 +369,8 @@ export type WidgetActionClientPayload = {
      * could not be mapped to a canonical slot.
      */
     opId?: number;
+    /** 1-based submenu entry index when the op was invoked from an op submenu. */
+    subOpId?: number;
     /** Optional contextual coords relative to the widget surface (canvas pixels). */
     cursorX?: number;
     cursorY?: number;
@@ -2867,6 +2869,8 @@ function normalizeWidgetActionPayload(
     if (payload.target !== undefined) normalized.target = String(payload.target ?? "");
     if (typeof payload.isPrimary === "boolean") normalized.isPrimary = !!payload.isPrimary;
     if (Number.isFinite(payload.opId)) normalized.opId = Math.floor(payload.opId as number);
+    if (Number.isFinite(payload.subOpId))
+        normalized.subOpId = Math.floor(payload.subOpId as number);
     if (Number.isFinite(payload.cursorX))
         normalized.cursorX = Math.floor(payload.cursorX as number);
     if (Number.isFinite(payload.cursorY))
@@ -2913,14 +2917,32 @@ export function sendWidgetAction(payload: WidgetActionClientPayload): void {
     }
 
     const opId = normalized.opId ?? 1;
+
+    // Import packet functions dynamically to avoid circular dependencies
+    const { createPacket, queuePacket } = require("./packet");
+    const { ClientPacketId } = require("../shared/network/ClientPacketId");
+
+    // Ops invoked from an op submenu carry the op index and 0-based submenu index
+    // in a dedicated packet, mirroring the second widget op packet in the client.
+    if (typeof normalized.subOpId === "number" && normalized.subOpId >= 1) {
+        if (opId < 1 || opId > 10) {
+            return;
+        }
+        const pkt = createPacket(ClientPacketId.IF_BUTTON_SUB);
+        pkt.packetBuffer.writeInt(normalized.widgetId);
+        pkt.packetBuffer.writeShort(normalized.slot ?? 0xffff);
+        pkt.packetBuffer.writeShort(normalized.itemId ?? -1);
+        pkt.packetBuffer.writeByte(opId);
+        pkt.packetBuffer.writeByte(normalized.subOpId - 1);
+        queuePacket(pkt);
+        return;
+    }
+
     const packetId = OP_TO_IF_BUTTON[opId];
 
     if (!packetId) {
         return;
     }
-
-    // Import packet functions dynamically to avoid circular dependencies
-    const { createPacket, queuePacket } = require("./packet");
 
     const pkt = createPacket(packetId);
     pkt.packetBuffer.writeInt(normalized.widgetId);

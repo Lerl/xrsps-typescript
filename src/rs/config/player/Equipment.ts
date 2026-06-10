@@ -111,7 +111,7 @@ export function deriveEquipSlotFromParams(obj: ObjType | undefined): EquipmentSl
     // item "wearpos" is stored as opcode 13 in ObjType and indicates the equipment slot
     // using PlayerComposition indices (e.g., 0=head, 3=weapon, 4=body, 5=shield, 7=legs).
     if (slotId === undefined || slotId === null) {
-        const wearPos = (obj as any).op13;
+        const wearPos = obj.wearPos;
         if (typeof wearPos === "number" && wearPos >= 0) {
             slotId = wearPos | 0;
         }
@@ -122,7 +122,10 @@ export function deriveEquipSlotFromParams(obj: ObjType | undefined): EquipmentSl
 export function deriveAdditionalEquipSlotsFromParams(obj: ObjType | undefined): EquipmentSlot[] {
     if (!obj) return [];
 
-    const resolved = [mapPlayerCompositionSlot(obj.op14), mapPlayerCompositionSlot(obj.op27)];
+    const resolved = [
+        mapPlayerCompositionSlot(obj.wearPos2),
+        mapPlayerCompositionSlot(obj.wearPos3),
+    ];
     const slots: EquipmentSlot[] = [];
     for (const slot of resolved) {
         if (slot === undefined || slots.includes(slot)) continue;

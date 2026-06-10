@@ -7,6 +7,14 @@ import {
 } from "../../../../src/shared/ui/accountSummary";
 import { LEAGUE_SUMMARY_GROUP_ID } from "../../../../src/shared/ui/leagueSummary";
 import {
+    DIARY_LIST_ENTRY_EVENT_FLAGS,
+    DIARY_LIST_ENTRY_MAX_SLOT,
+    DIARY_LIST_TASKBOX_UID,
+    INTERFACE_ACHIEVEMENT_DIARY_ID,
+    INTERFACE_QUEST_LIST_ID,
+    QUEST_LIST_ENTRY_EVENT_FLAGS,
+    QUEST_LIST_ENTRY_LIST_UID,
+    QUEST_LIST_ENTRY_MAX_SLOT,
     SIDE_JOURNAL_CONTENT_GROUP_BY_TAB,
     SIDE_JOURNAL_GROUP_ID,
     SIDE_JOURNAL_LEAGUES_TAB,
@@ -740,6 +748,29 @@ export function queueSideJournalLeagueOnlyUi(
             groupId: contentGroup,
             type: 1,
         });
+
+        // The client purges IF_SETEVENTS overrides when a content interface
+        // unmounts, so the quest list entry flags must be re-sent on every open
+        // or quest clicks stop transmitting after a subtab switch.
+        if (contentGroup === INTERFACE_QUEST_LIST_ID) {
+            bridge.queueWidgetEvent(playerId, {
+                action: "set_flags_range",
+                uid: QUEST_LIST_ENTRY_LIST_UID,
+                fromSlot: 0,
+                toSlot: QUEST_LIST_ENTRY_MAX_SLOT,
+                flags: QUEST_LIST_ENTRY_EVENT_FLAGS,
+            });
+        }
+
+        if (contentGroup === INTERFACE_ACHIEVEMENT_DIARY_ID) {
+            bridge.queueWidgetEvent(playerId, {
+                action: "set_flags_range",
+                uid: DIARY_LIST_TASKBOX_UID,
+                fromSlot: 0,
+                toSlot: DIARY_LIST_ENTRY_MAX_SLOT,
+                flags: DIARY_LIST_ENTRY_EVENT_FLAGS,
+            });
+        }
 
         // Ensure "Collection Log" (op1) and "Collection Overview" (op2) from
         // Account Summary transmit to the server.

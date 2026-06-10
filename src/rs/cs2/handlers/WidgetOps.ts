@@ -204,7 +204,6 @@ function getWidgetByUidAndChild(
 // Avoids runtime iteration over property name strings
 const WIDGET_ARRAY_PROPS = [
     "actions",
-    "opCursors",
     "opKeys",
     "opKeyRates",
     "opKeyIgnoreHeld",
@@ -271,6 +270,13 @@ function cloneWidgetForCopy(src: any): any {
     // clone widget params map (don't share references between copies).
     if (src.params instanceof Map) {
         dst.params = new Map(src.params);
+    }
+
+    // submenuActions is a 2D array; deep-copy so copies don't share inner op lists.
+    if (Array.isArray(src.submenuActions)) {
+        dst.submenuActions = src.submenuActions.map((ops: (string | null)[] | null) =>
+            Array.isArray(ops) ? ops.slice() : ops,
+        );
     }
 
     // Dynamic children should not be shared by default (OSRS copies base widget properties, not live refs).
@@ -2491,6 +2497,7 @@ export function registerWidgetOps(handlers: HandlerMap): void {
         const w = getTargetWidget(ctx, intOp);
         if (w) {
             w.actions = [];
+            w.submenuActions = null;
             markWidgetInteractionDirty(w);
         }
     });
@@ -2499,167 +2506,132 @@ export function registerWidgetOps(handlers: HandlerMap): void {
         const w = getWidgetFromStack(ctx);
         if (w) {
             w.actions = [];
+            w.submenuActions = null;
             markWidgetInteractionDirty(w);
         }
     });
 
-    // CC_SETSUBOP (4222): Sets a sub-operation text for nested menu actions
-    // Modern format: 4 ints (childId, subIndex, objId, opIndex)
-    // The childId is used for widget child targeting in multi-slot widgets
-    handlers.set(Opcodes.CC_SETSUBOP, (ctx, intOp) => {
-        // Modern caches use 4 ints - consume them all to keep stack balanced
-        ctx.intStackSize -= 4;
-        const childId = ctx.intStack[ctx.intStackSize];
-        const subIndex = ctx.intStack[ctx.intStackSize + 1];
-        const objId = ctx.intStack[ctx.intStackSize + 2];
-        const opIndex = ctx.intStack[ctx.intStackSize + 3];
-        const w = getTargetWidget(ctx, intOp);
-        if (w && opIndex >= 1 && opIndex <= 10) {
-            if (!w.subOps) {
-                w.subOps = new Array(10).fill(null);
-            }
-            if (!w.subOps[opIndex - 1]) {
-                w.subOps[opIndex - 1] = [];
-            }
-            // In modern format, text is empty - sub-ops are set differently
-            w.subOps[opIndex - 1]![subIndex - 1] = "";
-        }
-    });
-
-    // IF_SETSUBOP (2311): Sets a sub-operation text for nested menu actions (widget from stack)
-    handlers.set(Opcodes.IF_SETSUBOP, (ctx) => {
-        const uid = ctx.intStack[--ctx.intStackSize];
-        const text = ctx.stringStack[--ctx.stringStackSize];
-        ctx.intStackSize -= 2;
-        const opIndex = ctx.intStack[ctx.intStackSize];
-        const subIndex = ctx.intStack[ctx.intStackSize + 1];
-        const w = ctx.widgetManager.getWidgetByUid(uid);
-        if (w && opIndex >= 1 && opIndex <= 10) {
-            if (!w.subOps) {
-                w.subOps = new Array(10).fill(null);
-            }
-            if (!w.subOps[opIndex - 1]) {
-                w.subOps[opIndex - 1] = [];
-            }
-            w.subOps[opIndex - 1]![subIndex - 1] = text;
-        }
-    });
-
-    // === Target cursors (1308-1309, 2308-2309) ===
-    handlers.set(Opcodes.CC_SETTARGETCURSORS, (ctx, intOp) => {
-        // 2 args read as array: [targetCursor, targetCursor2]
-        ctx.intStackSize -= 2;
-        const targetCursor = ctx.intStack[ctx.intStackSize];
-        const targetCursor2 = ctx.intStack[ctx.intStackSize + 1];
+    // === Force left-click (1308, 2308) ===
+    // When set, left-click executes the op directly even when the menu would normally open.
+    handlers.set(Opcodes.CC_SETOPFORCELEFTCLICK, (ctx, intOp) => {
+        const value = ctx.intStack[--ctx.intStackSize];
         const w = getTargetWidget(ctx, intOp);
         if (w) {
-            w.targetCursor = targetCursor;
-            w.targetCursor2 = targetCursor2;
-        }
-    });
-
-    handlers.set(Opcodes.IF_SETTARGETCURSORS, (ctx) => {
-        // uid is popped first, then 2 args read as array: [targetCursor, targetCursor2]
-        const uid = ctx.intStack[--ctx.intStackSize];
-        ctx.intStackSize -= 2;
-        const targetCursor = ctx.intStack[ctx.intStackSize];
-        const targetCursor2 = ctx.intStack[ctx.intStackSize + 1];
-        const w = ctx.widgetManager.getWidgetByUid(uid);
-        if (w) {
-            w.targetCursor = targetCursor;
-            w.targetCursor2 = targetCursor2;
-        }
-    });
-
-    handlers.set(Opcodes.CC_SETOPCURSOR, (ctx, intOp) => {
-        // 2 args read as array: [opIndex, cursor]
-        ctx.intStackSize -= 2;
-        const opIndex = ctx.intStack[ctx.intStackSize];
-        const cursor = ctx.intStack[ctx.intStackSize + 1];
-        const w = getTargetWidget(ctx, intOp);
-        if (w) {
-            if (!w.opCursors) {
-                w.opCursors = new Array(10).fill(null);
-            }
-            if (opIndex >= 1 && opIndex <= 10) {
-                w.opCursors[opIndex - 1] = cursor;
-            }
-        }
-    });
-
-    handlers.set(Opcodes.IF_SETOPCURSOR, (ctx) => {
-        // uid is popped first, then 2 args read as array: [opIndex, cursor]
-        const uid = ctx.intStack[--ctx.intStackSize];
-        ctx.intStackSize -= 2;
-        const opIndex = ctx.intStack[ctx.intStackSize];
-        const cursor = ctx.intStack[ctx.intStackSize + 1];
-        const w = ctx.widgetManager.getWidgetByUid(uid);
-        if (w) {
-            if (!w.opCursors) {
-                w.opCursors = new Array(10).fill(null);
-            }
-            if (opIndex >= 1 && opIndex <= 10) {
-                w.opCursors[opIndex - 1] = cursor;
-            }
-        }
-    });
-
-    // === Pause text (1310, 2310) ===
-    handlers.set(Opcodes.CC_SETPAUSETEXT, (ctx, intOp) => {
-        const text = ctx.stringStack[--ctx.stringStackSize];
-        const w = getTargetWidget(ctx, intOp);
-        if (w) {
-            // Store pause text - used for dialogue "Click here to continue" etc.
-            w.pauseText = text;
+            w.forceLeftClick = value === 1;
             markWidgetInteractionDirty(w);
         }
     });
 
-    handlers.set(Opcodes.IF_SETPAUSETEXT, (ctx) => {
-        // Pop order: widget first (top of intStack), then text (from stringStack)
+    handlers.set(Opcodes.IF_SETOPFORCELEFTCLICK, (ctx) => {
         const w = getWidgetFromStack(ctx);
-        const text = ctx.stringStack[--ctx.stringStackSize];
+        const value = ctx.intStack[--ctx.intStackSize];
         if (w) {
-            w.pauseText = text;
+            w.forceLeftClick = value === 1;
             markWidgetInteractionDirty(w);
         }
     });
 
-    // === Revision-specific opcodes (1311-1314) ===
-    // cc_setdragrenderbehaviour(behavior) - controls how widget is rendered during drag
-    // 0 = hide during drag, 1 = render at drag position (follow cursor), 2 = render at original position
-    // Note: This replaces placeholder CC_SET1311, actual opcode may vary by revision
-    handlers.set(Opcodes.CC_SETDRAGRENDERBEHAVIOUR, (ctx, intOp) => {
-        const behavior = ctx.intStack[--ctx.intStackSize];
+    // === 1309/2309: pops 1 int, no-op (stubbed in the client) ===
+    handlers.set(Opcodes.CC_OP1309, (ctx) => {
+        ctx.intStackSize--;
+    });
+
+    handlers.set(Opcodes.IF_OP2309, (ctx) => {
+        getWidgetFromStack(ctx);
+        ctx.intStackSize--;
+    });
+
+    // === Submenu ops (1310-1311, 2310-2311) ===
+    // submenuActions[opIndex-1][subIndex-1] holds nested "Choose Option" submenu entries.
+    handlers.set(Opcodes.CC_CLEAROPSUBMENU, (ctx, intOp) => {
+        const actionIndex = ctx.intStack[--ctx.intStackSize] - 1;
         const w = getTargetWidget(ctx, intOp);
-        if (w) {
-            w.dragRenderBehaviour = behavior;
+        if (w && actionIndex >= 0 && actionIndex <= 9 && w.submenuActions) {
+            w.submenuActions[actionIndex] = null;
+            markWidgetInteractionDirty(w);
         }
     });
 
-    handlers.set(Opcodes.CC_SET1312, (ctx, intOp) => {
-        // cc_setoppriority - Takes 1 int (priority value, -1 to disable)
-        const priority = ctx.intStack[--ctx.intStackSize];
-        const w = getTargetWidget(ctx, intOp);
-        if (w) {
-            w.opPriority = priority;
+    handlers.set(Opcodes.IF_CLEAROPSUBMENU, (ctx) => {
+        const w = getWidgetFromStack(ctx);
+        const actionIndex = ctx.intStack[--ctx.intStackSize] - 1;
+        if (w && actionIndex >= 0 && actionIndex <= 9 && w.submenuActions) {
+            w.submenuActions[actionIndex] = null;
+            markWidgetInteractionDirty(w);
         }
     });
 
-    handlers.set(Opcodes.CC_SET1313, (ctx, intOp) => {
-        // Takes 2 ints. Strong hypothesis: Model Ambient and Contrast.
-        const contrast = ctx.intStack[--ctx.intStackSize];
-        const ambient = ctx.intStack[--ctx.intStackSize];
+    const setOpSubmenu = (w: any, opIndex: number, subIndex: number, text: string): void => {
+        if (!w.submenuActions || w.submenuActions.length <= opIndex) {
+            const grown: ((string | null)[] | null)[] = new Array(opIndex + 1).fill(null);
+            if (w.submenuActions) {
+                for (let i = 0; i < w.submenuActions.length; i++) grown[i] = w.submenuActions[i];
+            }
+            w.submenuActions = grown;
+        }
+        if (!w.submenuActions[opIndex] || w.submenuActions[opIndex]!.length <= subIndex) {
+            const grown: (string | null)[] = new Array(subIndex + 1).fill(null);
+            const existing = w.submenuActions[opIndex];
+            if (existing) {
+                for (let i = 0; i < existing.length; i++) grown[i] = existing[i];
+            }
+            w.submenuActions[opIndex] = grown;
+        }
+        w.submenuActions[opIndex]![subIndex] = text;
+        markWidgetInteractionDirty(w);
+    };
+
+    handlers.set(Opcodes.CC_SETOPSUBMENU, (ctx, intOp) => {
+        const subIndex = ctx.intStack[--ctx.intStackSize] - 1;
+        const opIndex = ctx.intStack[--ctx.intStackSize] - 1;
+        const text = ctx.stringStack[--ctx.stringStackSize];
+        if (opIndex < 0 || opIndex > 9 || subIndex < 0) {
+            throw new Error("RuntimeException");
+        }
         const w = getTargetWidget(ctx, intOp);
         if (w) {
-            w.modelAmbient = ambient;
-            w.modelContrast = contrast;
+            setOpSubmenu(w, opIndex, subIndex, text);
         }
     });
 
-    handlers.set(Opcodes.CC_SET1314, (ctx, intOp) => {
-        // Takes 1 int.
-        const val = ctx.intStack[--ctx.intStackSize];
+    handlers.set(Opcodes.IF_SETOPSUBMENU, (ctx) => {
+        const w = getWidgetFromStack(ctx);
+        const subIndex = ctx.intStack[--ctx.intStackSize] - 1;
+        const opIndex = ctx.intStack[--ctx.intStackSize] - 1;
+        const text = ctx.stringStack[--ctx.stringStackSize];
+        if (opIndex < 0 || opIndex > 9 || subIndex < 0) {
+            throw new Error("RuntimeException");
+        }
+        if (w) {
+            setOpSubmenu(w, opIndex, subIndex, text);
+        }
+    });
+
+    // === Target priority (1312, 2312) ===
+    // Ops with 0-based index > targetPriority use the low-priority widget opcode (1007),
+    // which makes left-click open the menu instead of executing the op.
+    const applyTargetPriority = (w: any, value: number): void => {
+        if (value === -1) {
+            w.targetPriority = 4;
+        } else if (value >= 1 && value <= 32) {
+            w.targetPriority = value - 1;
+        }
+    };
+
+    handlers.set(Opcodes.CC_SETTARGETPRIORITY, (ctx, intOp) => {
+        const value = ctx.intStack[--ctx.intStackSize];
+        const w = getTargetWidget(ctx, intOp);
+        if (w) {
+            applyTargetPriority(w, value);
+        }
+    });
+
+    handlers.set(Opcodes.IF_SETTARGETPRIORITY, (ctx) => {
+        const w = getWidgetFromStack(ctx);
+        const value = ctx.intStack[--ctx.intStackSize];
+        if (w) {
+            applyTargetPriority(w, value);
+        }
     });
 
     handlers.set(Opcodes.CC_GETOP, (ctx, intOp) => {

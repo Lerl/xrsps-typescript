@@ -37,6 +37,10 @@ type WidgetActionBridgeEvent = {
     slot?: number;
 
     itemId?: number;
+
+    opIndex?: number;
+
+    opSubIndex?: number;
 };
 
 type WidgetMenuProvider = {

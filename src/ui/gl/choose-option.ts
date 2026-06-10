@@ -1,5 +1,6 @@
 import { ClickMode } from "../../client/InputManager";
 import { BitmapFont } from "../../rs/font/BitmapFont";
+import { getClientCycle } from "../../network/ServerConnection";
 import { getUiScale } from "../UiScale";
 import { FONT_BOLD_12 } from "../fonts";
 import type { MenuClickContext } from "../menu/MenuEngine";
@@ -12,6 +13,7 @@ type FontLoader = (id: number) => BitmapFont | undefined;
 export type ChooseOptionMenuEntry = {
     option: string;
     target?: string;
+    subEntries?: ChooseOptionMenuEntry[];
 };
 
 export type ChooseOptionMenuLike = {
@@ -19,6 +21,39 @@ export type ChooseOptionMenuLike = {
     x: number;
     y: number;
     entries: ChooseOptionMenuEntry[];
+};
+
+type MenuEntryLike = {
+    option: string;
+    target?: string;
+    onClick?: (x?: number, y?: number, ctx?: MenuClickContext) => void;
+    menuStateIndex?: number;
+    subEntries?: MenuEntryLike[];
+};
+
+type MenuRect = { x: number; y: number; w: number; h: number };
+
+/**
+ * Per-open runtime state for the Choose Option menu (scroll offsets and submenu
+ * hover/open tracking). Stored on `ui.__menuRt`; recreated whenever a menu opens
+ * at a new anchor. Rect fields are in scaled canvas pixels and refreshed each draw
+ * so out-of-frame consumers (mouse wheel handling) can hit-test against them.
+ */
+export type ChooseOptionMenuRuntime = {
+    key: string;
+    menuScroll: number;
+    menuScrollMax: number;
+    submenuScroll: number;
+    submenuScrollMax: number;
+    openSubMenuIndex: number;
+    pendingSubMenuIndex: number;
+    subMenuOpenCycle: number;
+    lastMouseX: number;
+    lastMouseY: number;
+    mainRect?: MenuRect;
+    subRect?: MenuRect;
+    /** Scaled hover/close margin in canvas pixels (MENU_CLOSE_MARGIN_PX * uiScale). */
+    closeMargin: number;
 };
 
 // PERF: Module-level canvas for text measurement (avoid creating per frame)
@@ -61,6 +96,18 @@ const MENU_ROW_HIT_TOP_OFFSET_PX = 13;
 const MENU_ROW_HIT_BOTTOM_OFFSET_PX = 3;
 const MENU_HIT_TEST_INSET_PX = 1; // emulate strict comparisons via 1px inset
 
+// Oversized menus scroll by rows: scrollMax = (menuHeight - canvasHeight + 14) / 15.
+const MENU_SCROLL_HEIGHT_PAD_PX = 14;
+
+// Submenu hover-open delays in client cycles (20ms): re-checked while another
+// submenu is open. A stationary pointer waits longer than a moving one.
+const SUBMENU_OPEN_DELAY_STATIONARY_CYCLES = 8;
+const SUBMENU_OPEN_DELAY_MOVING_CYCLES = 2;
+
+// Entries with a submenu render a trailing arrow; measured as " <gt>" (one '>' glyph).
+const SUBMENU_ARROW_MEASURE_SUFFIX = " <gt>";
+const SUBMENU_ARROW_DRAW_SUFFIX = " </col><gt>";
+
 // Click target priorities (menu must consume clicks over widgets)
 const MENU_BG_PRIORITY = 999;
 const MENU_OPTION_PRIORITY_BASE = 1000;
@@ -69,7 +116,11 @@ const FONT_OPT = FONT_BOLD_12;
 
 function stripTagsForMeasure(s: string): string {
     if (!s) return "";
-    return String(s).replace(/<[^>]*>/g, "");
+    // <gt>/<lt> are glyph escapes, not formatting tags - they contribute width.
+    return String(s)
+        .replace(/<gt>/gi, ">")
+        .replace(/<lt>/gi, "<")
+        .replace(/<[^>]*>/g, "");
 }
 
 function measureMenuText(fontLoader: FontLoader, s: string, fontId: number): number {
@@ -141,40 +192,268 @@ function sp(logicalPx: number, scale: number): number {
     return Math.max(1, Math.round(logicalPx * scale));
 }
 
+function entryFullText(e: { option?: string; target?: string }): string {
+    const option = e.option || "";
+    const target = e.target || "";
+    if (!target.length) return option;
+    return option.length ? `${option} ${target}` : target;
+}
+
+function hasSubEntries(e: MenuEntryLike | ChooseOptionMenuEntry | undefined): boolean {
+    return !!(e && Array.isArray((e as any).subEntries) && (e as any).subEntries.length > 0);
+}
+
+/**
+ * Menu.computeDimensions: width fits the widest of the header text and all
+ * entry rows (entries with a submenu include the trailing arrow); height is
+ * rows * 15 + 22 (4px padding + 18px header).
+ */
+function computeMenuSize(
+    fontLoader: FontLoader,
+    headerText: string,
+    entries: Array<{ option?: string; target?: string; subEntries?: unknown[] }>,
+    uiScale: number,
+): { w: number; h: number } {
+    let contentW = measureMenuText(fontLoader, headerText, FONT_TITLE);
+    for (const e of entries) {
+        let full = entryFullText(e as any);
+        if (hasSubEntries(e as any)) full += SUBMENU_ARROW_MEASURE_SUFFIX;
+        const w = measureMenuText(fontLoader, full, FONT_OPT);
+        if (w > contentW) contentW = w;
+    }
+    const w = (sp(contentW, uiScale) + sp(MENU_WIDTH_PADDING_PX, uiScale)) | 0;
+    const h = (entries.length * sp(MENU_ROW_HEIGHT_PX, uiScale) +
+        sp(MENU_HEIGHT_BASE_PX, uiScale)) | 0;
+    return { w, h };
+}
+
 export function getChooseOptionMenuRect(
     fontLoader: FontLoader,
     menu: ChooseOptionMenuLike | undefined,
     hostW: number,
     hostH: number,
     uiScale: number = 1,
-): { x: number; y: number; w: number; h: number } | undefined {
+): MenuRect | undefined {
     if (!(menu && menu.open && Array.isArray(menu.entries) && menu.entries.length > 0)) {
         return undefined;
     }
 
     const s = uiScale > 0 ? uiScale : 1;
+    const size = computeMenuSize(fontLoader, "Choose Option", menu.entries, s);
 
-    let contentW = measureMenuText(fontLoader, "Choose Option", FONT_TITLE);
-    for (const e of menu.entries) {
-        const option = e.option || "";
-        const target = e.target || "";
-        const full = target.length ? `${option} ${target}` : option;
-        const w = measureMenuText(fontLoader, full, FONT_OPT);
-        if (w > contentW) contentW = w;
-    }
-
-    const boxW = (sp(contentW, s) + sp(MENU_WIDTH_PADDING_PX, s)) | 0;
-    const boxH = ((menu.entries.length * sp(MENU_ROW_HEIGHT_PX, s) + sp(MENU_HEIGHT_BASE_PX, s)) |
-        0) as number;
-
-    let left = ((menu.x | 0) - ((boxW / 2) | 0)) | 0;
-    if (left + boxW > (hostW | 0)) left = (hostW | 0) - boxW;
+    let left = ((menu.x | 0) - ((size.w / 2) | 0)) | 0;
+    if (left + size.w > (hostW | 0)) left = (hostW | 0) - size.w;
     if (left < 0) left = 0;
     let top = menu.y | 0;
-    if (top + boxH > (hostH | 0)) top = (hostH | 0) - boxH;
+    if (top + size.h > (hostH | 0)) top = (hostH | 0) - size.h;
     if (top < 0) top = 0;
 
-    return { x: left, y: top, w: boxW, h: boxH };
+    return { x: left, y: top, w: size.w, h: size.h };
+}
+
+/**
+ * Menu.positionRelativeToInternal: the submenu opens to the right of its parent,
+ * flips to the left edge when it would overflow the canvas, and is vertically
+ * anchored to the parent entry's row slot (offset by the parent's scroll).
+ */
+function computeSubMenuRect(
+    fontLoader: FontLoader,
+    parentRect: MenuRect,
+    parentEntry: MenuEntryLike,
+    openIndex: number,
+    menuScroll: number,
+    hostW: number,
+    hostH: number,
+    uiScale: number,
+): MenuRect {
+    const subEntries = parentEntry.subEntries || [];
+    const size = computeMenuSize(fontLoader, parentEntry.target || "", subEntries, uiScale);
+
+    let x = parentRect.x + parentRect.w;
+    if (x + size.w > (hostW | 0)) {
+        x = parentRect.x - size.w;
+    }
+    if (x < 0) x = 0;
+
+    let y = (openIndex - menuScroll) * sp(MENU_ROW_HEIGHT_PX, uiScale) + parentRect.y;
+    if (y + size.h > (hostH | 0)) y = (hostH | 0) - size.h;
+    if (y < 0) y = 0;
+
+    return { x, y, w: size.w, h: size.h };
+}
+
+/** Client.openMenu: scrollMax = (menuHeight - canvasHeight + 14) / 15 when oversized. */
+function computeMenuScrollMax(menuHeightPx: number, hostH: number, uiScale: number): number {
+    if (menuHeightPx <= (hostH | 0)) return 0;
+    return Math.floor(
+        (menuHeightPx - (hostH | 0) + sp(MENU_SCROLL_HEIGHT_PAD_PX, uiScale)) /
+            sp(MENU_ROW_HEIGHT_PX, uiScale),
+    );
+}
+
+function isPointInRect(rect: MenuRect | undefined, x: number, y: number, margin: number): boolean {
+    if (!rect) return false;
+    return (
+        x >= rect.x - margin &&
+        x <= rect.x + rect.w + margin &&
+        y >= rect.y - margin &&
+        y <= rect.y + rect.h + margin
+    );
+}
+
+/**
+ * Menu.getEntryIndexAt: scroll-aware row hit test. Rows are scanned bottom-up so
+ * the visible row wins where a scrolled-out row's band overlaps the header area.
+ */
+function getEntryIndexAt(
+    rect: MenuRect,
+    entryCount: number,
+    scroll: number,
+    mx: number,
+    my: number,
+    uiScale: number,
+): number {
+    const sRowH = sp(MENU_ROW_HEIGHT_PX, uiScale);
+    const sFirstRowBase = sp(MENU_FIRST_ROW_BASELINE_OFFSET_PX, uiScale);
+    const sHitTop = sp(MENU_ROW_HIT_TOP_OFFSET_PX, uiScale);
+    const sHitBot = sp(MENU_ROW_HIT_BOTTOM_OFFSET_PX, uiScale);
+    for (let i = entryCount - 1; i >= 0; i--) {
+        const baselineY = rect.y + sFirstRowBase + (i - scroll) * sRowH;
+        if (
+            mx > rect.x &&
+            mx < rect.x + rect.w &&
+            my > baselineY - sHitTop &&
+            my < baselineY + sHitBot
+        ) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+/** Menu.slope helper for the moving-toward-submenu test. */
+function menuSlope(x0: number, y0: number, x1: number, y1: number): number {
+    return (y0 - y1) / (x1 - x0);
+}
+
+/**
+ * Menu.isMovingTowardSubMenu: the pointer is heading into the open submenu when
+ * its trajectory (versus last frame) stays within the triangle spanned by the
+ * pointer and the submenu's near edge.
+ */
+function isMovingTowardSubMenu(
+    rt: ChooseOptionMenuRuntime,
+    mainRect: MenuRect,
+    mx: number,
+    my: number,
+): boolean {
+    if (rt.openSubMenuIndex === -1) return false;
+    const sub = rt.subRect;
+    if (!sub) return false;
+    if (sub.x > mainRect.x) {
+        const edgeX = sub.x;
+        const a = menuSlope(mx, my, edgeX, sub.y);
+        const b = menuSlope(rt.lastMouseX, rt.lastMouseY, edgeX, sub.y);
+        const c = menuSlope(mx, my, edgeX, sub.y + sub.h);
+        const d = menuSlope(rt.lastMouseX, rt.lastMouseY, edgeX, sub.y + sub.h);
+        return (a >= b && c < d) || (a > b && c <= d);
+    }
+    const edgeX = mainRect.x;
+    const a = menuSlope(mx, my, edgeX, sub.y);
+    const b = menuSlope(rt.lastMouseX, rt.lastMouseY, edgeX, sub.y);
+    const c = menuSlope(mx, my, edgeX, sub.y + sub.h);
+    const d = menuSlope(rt.lastMouseX, rt.lastMouseY, edgeX, sub.y + sub.h);
+    return (a <= b && c > d) || (a < b && c >= d);
+}
+
+function closeSubMenu(rt: ChooseOptionMenuRuntime): void {
+    rt.openSubMenuIndex = -1;
+    rt.subRect = undefined;
+}
+
+function createMenuRuntime(key: string): ChooseOptionMenuRuntime {
+    return {
+        key,
+        menuScroll: 0,
+        menuScrollMax: 0,
+        submenuScroll: 0,
+        submenuScrollMax: 0,
+        openSubMenuIndex: -1,
+        pendingSubMenuIndex: -1,
+        subMenuOpenCycle: -1,
+        lastMouseX: -1,
+        lastMouseY: -1,
+        closeMargin: MENU_CLOSE_MARGIN_PX,
+    };
+}
+
+/**
+ * Menu.isMouseOverMenuInternal: tracks hover, opens/closes submenus with the
+ * cycle delays and moving-toward-submenu deferral, and reports whether the
+ * pointer is still over the menu (incl. the open submenu) within the margin.
+ */
+function updateMenuHover(
+    rt: ChooseOptionMenuRuntime,
+    entries: MenuEntryLike[],
+    mainRect: MenuRect,
+    mx: number,
+    my: number,
+    hostH: number,
+    uiScale: number,
+): boolean {
+    const margin = rt.closeMargin;
+    let over: boolean;
+    if (
+        rt.openSubMenuIndex !== -1 &&
+        rt.subRect &&
+        isPointInRect(rt.subRect, mx, my, margin)
+    ) {
+        over = true;
+    } else if (isPointInRect(mainRect, mx, my, margin)) {
+        const idx = getEntryIndexAt(mainRect, entries.length, rt.menuScroll, mx, my, uiScale);
+        if (idx !== -1 && idx !== rt.openSubMenuIndex) {
+            const now = getClientCycle();
+            let pending = idx;
+            let deadline = Math.max(now, rt.subMenuOpenCycle);
+            if (rt.openSubMenuIndex !== -1) {
+                if (isMovingTowardSubMenu(rt, mainRect, mx, my)) {
+                    pending = -1;
+                    deadline = Number.MAX_SAFE_INTEGER;
+                } else if (rt.pendingSubMenuIndex === -1) {
+                    deadline =
+                        now +
+                        (rt.lastMouseX === mx && rt.lastMouseY === my
+                            ? SUBMENU_OPEN_DELAY_STATIONARY_CYCLES
+                            : SUBMENU_OPEN_DELAY_MOVING_CYCLES);
+                }
+            }
+            rt.pendingSubMenuIndex = pending;
+            rt.subMenuOpenCycle = deadline;
+            if (rt.subMenuOpenCycle <= now) {
+                rt.pendingSubMenuIndex = -1;
+                closeSubMenu(rt);
+                const entry = entries[idx];
+                if (hasSubEntries(entry)) {
+                    rt.openSubMenuIndex = idx;
+                    rt.submenuScroll = 0;
+                    rt.submenuScrollMax = 0;
+                    // Sub rect is recomputed by the draw pass; the scroll bound only
+                    // needs the submenu height.
+                    const subH =
+                        (entry.subEntries!.length * sp(MENU_ROW_HEIGHT_PX, uiScale) +
+                            sp(MENU_HEIGHT_BASE_PX, uiScale)) |
+                        0;
+                    rt.submenuScrollMax = computeMenuScrollMax(subH, hostH, uiScale);
+                }
+            }
+        }
+        over = true;
+    } else {
+        over = false;
+    }
+    rt.lastMouseX = mx;
+    rt.lastMouseY = my;
+    return over;
 }
 
 export function drawChooseOptionMenu(
@@ -194,32 +473,22 @@ export function drawChooseOptionMenu(
               open?: boolean;
               x: number;
               y: number;
-              entries: Array<{
-                  option: string;
-                  target?: string;
-                  // Click handler may receive pointer coords in canvas pixels
-                  onClick?: (x?: number, y?: number, ctx?: MenuClickContext) => void;
-                  menuStateIndex?: number;
-              }>;
+              entries: MenuEntryLike[];
               targetWidget?: any;
               // When true, this is a non-interactive, always-follow cursor overlay
               // and should not auto-cancel or register click targets.
               follow?: boolean;
               menuState?: MenuState;
-              onEntryInvoke?: (entry: {
-                  option: string;
-                  target?: string;
-                  onClick?: (x?: number, y?: number, ctx?: MenuClickContext) => void;
-                  menuStateIndex?: number;
-              }) => void;
+              onEntryInvoke?: (entry: MenuEntryLike) => void;
           }
         | undefined;
     // Cleanup any previously registered menu click targets when the menu is closed.
     // We register menu targets as persistent so they are available for input processing even
     // when the menu is drawn after input; therefore we must explicitly unregister on close.
     const prevCount = (ui.__menuTargetCount | 0) as number;
-    const unregisterMenuTargets = (count: number) => {
-        if (count > 0 && clicks?.unregister) {
+    const prevSubCount = (ui.__menuSubTargetCount | 0) as number;
+    const unregisterMenuTargets = (count: number, subCount: number) => {
+        if ((count > 0 || subCount > 0) && clicks?.unregister) {
             try {
                 clicks.unregister("__menu_bg");
             } catch {}
@@ -228,11 +497,18 @@ export function drawChooseOptionMenu(
                     clicks.unregister(`__menu_opt_${i}`);
                 } catch {}
             }
+            for (let i = 0; i < subCount; i++) {
+                try {
+                    clicks.unregister(`__menu_sub_${i}`);
+                } catch {}
+            }
         }
         ui.__menuTargetCount = 0;
+        ui.__menuSubTargetCount = 0;
     };
     if (!(menu && menu.open && Array.isArray(menu.entries) && menu.entries.length > 0)) {
-        unregisterMenuTargets(prevCount);
+        unregisterMenuTargets(prevCount, prevSubCount);
+        ui.__menuRt = undefined;
         return;
     }
 
@@ -246,8 +522,9 @@ export function drawChooseOptionMenu(
         // Idempotency guard: avoid double-closing (MenuState.invoke may call ctx.closeMenu in finally).
         const hadUiMenu = !!ui.menu;
         const hadWorldMenu = !!globalClient?.menuOpen;
+        ui.__menuRt = undefined;
         if (!hadUiMenu && !hadWorldMenu) {
-            unregisterMenuTargets(ui.__menuTargetCount | 0);
+            unregisterMenuTargets(ui.__menuTargetCount | 0, ui.__menuSubTargetCount | 0);
             return;
         }
         try {
@@ -300,7 +577,7 @@ export function drawChooseOptionMenu(
                 globalClient.dragClickY = 0;
             }
         } catch {}
-        unregisterMenuTargets(ui.__menuTargetCount | 0);
+        unregisterMenuTargets(ui.__menuTargetCount | 0, ui.__menuSubTargetCount | 0);
         opts.requestRender();
     };
 
@@ -334,13 +611,55 @@ export function drawChooseOptionMenu(
         s,
     );
     if (!menuRect) {
-        unregisterMenuTargets(prevCount);
+        unregisterMenuTargets(prevCount, prevSubCount);
+        ui.__menuRt = undefined;
         return;
     }
     const left = menuRect.x | 0;
     const top = menuRect.y | 0;
     const boxW = menuRect.w | 0;
     const boxH = menuRect.h | 0;
+
+    // Per-open runtime state. World-menu population recreates the menu object every
+    // frame at the same anchor, so the runtime is keyed by source+anchor instead of
+    // object identity and survives until the menu closes or reopens elsewhere.
+    const rtKey = `${(menu as any).source ?? "ui"}|${menu.x | 0}|${menu.y | 0}`;
+    let rt = ui.__menuRt as ChooseOptionMenuRuntime | undefined;
+    if (!rt || rt.key !== rtKey) {
+        rt = createMenuRuntime(rtKey);
+        rt.menuScrollMax = computeMenuScrollMax(boxH, hostH, s);
+        ui.__menuRt = rt;
+    }
+    rt.closeMargin = sp(MENU_CLOSE_MARGIN_PX, s);
+    rt.mainRect = menuRect;
+
+    // Drop submenu state if the entry no longer has one (entries can be repopulated),
+    // then refresh the submenu rect (Menu.positionRelativeTo runs on open and reopen).
+    const refreshSubMenu = (): MenuEntryLike | undefined => {
+        if (rt!.openSubMenuIndex !== -1 && !hasSubEntries(menu.entries[rt!.openSubMenuIndex])) {
+            // Entries were repopulated without this submenu; also reset the hover
+            // deadline so a deferred (moving-toward) state can't pin it forever.
+            closeSubMenu(rt!);
+            rt!.pendingSubMenuIndex = -1;
+            rt!.subMenuOpenCycle = -1;
+        }
+        const entry =
+            rt!.openSubMenuIndex !== -1 ? menu.entries[rt!.openSubMenuIndex] : undefined;
+        if (entry) {
+            rt!.subRect = computeSubMenuRect(
+                opts.fontLoader,
+                menuRect,
+                entry,
+                rt!.openSubMenuIndex,
+                rt!.menuScroll,
+                hostW,
+                hostH,
+                s,
+            );
+        }
+        return entry;
+    };
+    let openSubEntry = refreshSubMenu();
 
     // menu auto-closes when the mouse moves outside the menu rect with a margin.
     // Also: selecting an option happens on mousedown (lastPressedX/Y), not mouseup.
@@ -364,15 +683,13 @@ export function drawChooseOptionMenu(
             } catch {}
         }
 
-        // Close menu when moving off it (no selection click this frame).
+        // Hover tracking + submenu open/close; close menu when moving off it
+        // (no selection click this frame).
         if (lastButton !== ClickMode.LEFT) {
-            const closeMargin = sp(MENU_CLOSE_MARGIN_PX, s);
-            if (
-                mx < ((left - closeMargin) | 0) ||
-                mx > ((left + boxW + closeMargin) | 0) ||
-                my < ((top - closeMargin) | 0) ||
-                my > ((top + boxH + closeMargin) | 0)
-            ) {
+            const over = updateMenuHover(rt, menu.entries, menuRect, mx, my, hostH, s);
+            // Hover may have opened or switched the submenu this frame.
+            openSubEntry = refreshSubMenu();
+            if (!over) {
                 // If a right-click happened this frame, also consume it so it doesn't open a new menu.
                 if (lastButton === ClickMode.RIGHT) {
                     try {
@@ -385,6 +702,7 @@ export function drawChooseOptionMenu(
                     if (ui.menu) ui.menu.open = false;
                     ui.menu = undefined;
                 } catch {}
+                ui.__menuRt = undefined;
                 try {
                     if (typeof (menu as any)?.closeWorldMenu === "function")
                         (menu as any).closeWorldMenu();
@@ -393,13 +711,14 @@ export function drawChooseOptionMenu(
                     else if (typeof globalClient?.closeMenu === "function")
                         globalClient.closeMenu();
                 } catch {}
-                unregisterMenuTargets(ui.__menuTargetCount | 0);
+                unregisterMenuTargets(ui.__menuTargetCount | 0, ui.__menuSubTargetCount | 0);
                 opts.requestRender();
                 return;
             }
         }
 
-        // Select/close on mousedown (OSRS: lastPressedX/Y).
+        // Select/close on mousedown (OSRS: lastPressedX/Y). The open submenu is
+        // hit-tested before the parent menu (Menu.handleClickAtInternal).
         if (lastButton === ClickMode.LEFT) {
             const pressPoint = scaleInputPoint(
                 canvas,
@@ -408,25 +727,33 @@ export function drawChooseOptionMenu(
             );
             const pressX = pressPoint.x | 0;
             const pressY = pressPoint.y | 0;
-            const sRowH = sp(MENU_ROW_HEIGHT_PX, s);
-            const sFirstRowBase = sp(MENU_FIRST_ROW_BASELINE_OFFSET_PX, s);
-            const sHitTop = sp(MENU_ROW_HIT_TOP_OFFSET_PX, s);
-            const sHitBot = sp(MENU_ROW_HIT_BOTTOM_OFFSET_PX, s);
-            let pickedIndex = -1;
-            for (let i = 0; i < menu.entries.length; i++) {
-                const baselineY = (top + sFirstRowBase + i * sRowH) | 0;
-                if (
-                    pressX > left &&
-                    pressX < left + boxW &&
-                    pressY > baselineY - sHitTop &&
-                    pressY < baselineY + sHitBot
-                ) {
-                    pickedIndex = i;
-                }
+
+            let picked: MenuEntryLike | undefined;
+            if (openSubEntry && rt.subRect) {
+                const subIdx = getEntryIndexAt(
+                    rt.subRect,
+                    openSubEntry.subEntries!.length,
+                    rt.submenuScroll,
+                    pressX,
+                    pressY,
+                    s,
+                );
+                if (subIdx !== -1) picked = openSubEntry.subEntries![subIdx];
+            }
+            if (!picked) {
+                const mainIdx = getEntryIndexAt(
+                    menuRect,
+                    menu.entries.length,
+                    rt.menuScroll,
+                    pressX,
+                    pressY,
+                    s,
+                );
+                if (mainIdx !== -1) picked = menu.entries[mainIdx];
             }
 
-            if (pickedIndex !== -1) {
-                const e = menu.entries[pickedIndex];
+            if (picked) {
+                const e = picked;
                 try {
                     menu.onEntryInvoke?.(e);
                 } catch {}
@@ -461,8 +788,110 @@ export function drawChooseOptionMenu(
         }
     }
 
-    // Keep menu target count in sync for cleanup if the menu closes.
+    // Keep menu target counts in sync and drop stale persistent targets when the
+    // entry/sub-entry counts shrink (e.g. the submenu closed or switched).
+    const subCount = openSubEntry ? openSubEntry.subEntries!.length : 0;
+    if (clicks?.unregister) {
+        for (let i = menu.entries.length; i < prevCount; i++) {
+            try {
+                clicks.unregister(`__menu_opt_${i}`);
+            } catch {}
+        }
+        for (let i = subCount; i < prevSubCount; i++) {
+            try {
+                clicks.unregister(`__menu_sub_${i}`);
+            } catch {}
+        }
+    }
     ui.__menuTargetCount = menu.entries.length;
+    ui.__menuSubTargetCount = subCount;
+
+    // Click background to close when clicking outside options (useful on touch)
+    // Disabled in follow mode to avoid hijacking clicks during hover-only display
+    if (!menu.follow) {
+        clicks?.register?.({
+            id: "__menu_bg",
+            rect: { x: 0, y: 0, w: glr.width, h: glr.height },
+            // menu consumes clicks outside options (prevents pass-through).
+            // Keep below menu option rows but above any widget targets.
+            priority: MENU_BG_PRIORITY,
+            persist: true,
+            onDown: () => {
+                closeAllMenus();
+            },
+        });
+    }
+
+    const mouseX = (ui.mouseX | 0) as number;
+    const mouseY = (ui.mouseY | 0) as number;
+
+    drawMenuLevel(glr, opts, menu, {
+        rect: menuRect,
+        entries: menu.entries,
+        headerText: "Choose Option",
+        scroll: rt.menuScroll,
+        targetIdPrefix: "__menu_opt_",
+        targetPriority: MENU_OPTION_PRIORITY_BASE,
+        uiScale: s,
+        mouseX,
+        mouseY,
+        colors: { COL_MENU_BG, COL_BLACK, COL_TITLE_TEXT, COL_TEXT_DEFAULT, COL_TEXT_HOVER },
+    });
+
+    // The open submenu draws after (above) the parent, but only while its parent
+    // row is on-screen (Client.drawOriginalMenu draws it inside the visible row).
+    if (openSubEntry && rt.subRect && rt.openSubMenuIndex - rt.menuScroll >= 0) {
+        drawMenuLevel(glr, opts, menu, {
+            rect: rt.subRect,
+            entries: openSubEntry.subEntries!,
+            headerText: openSubEntry.target || "",
+            scroll: rt.submenuScroll,
+            targetIdPrefix: "__menu_sub_",
+            targetPriority: MENU_OPTION_PRIORITY_BASE + menu.entries.length,
+            uiScale: s,
+            mouseX,
+            mouseY,
+            colors: { COL_MENU_BG, COL_BLACK, COL_TITLE_TEXT, COL_TEXT_DEFAULT, COL_TEXT_HOVER },
+        });
+    }
+}
+
+function drawMenuLevel(
+    glr: GLRenderer,
+    opts: {
+        fontLoader: FontLoader;
+        requestRender: () => void;
+        onExamine?: (target?: any) => void;
+        menuState?: MenuState;
+    },
+    menu: { follow?: boolean },
+    level: {
+        rect: MenuRect;
+        entries: MenuEntryLike[];
+        headerText: string;
+        scroll: number;
+        targetIdPrefix: string;
+        targetPriority: number;
+        uiScale: number;
+        mouseX: number;
+        mouseY: number;
+        colors: {
+            COL_MENU_BG: [number, number, number, number];
+            COL_BLACK: [number, number, number, number];
+            COL_TITLE_TEXT: number;
+            COL_TEXT_DEFAULT: number;
+            COL_TEXT_HOVER: number;
+        };
+    },
+): void {
+    const canvas = glr.canvas as HTMLCanvasElement & { __clicks?: any };
+    const clicks = canvas.__clicks;
+    const s = level.uiScale;
+    const { rect, entries, scroll, colors } = level;
+    const left = rect.x | 0;
+    const top = rect.y | 0;
+    const boxW = rect.w | 0;
+    const boxH = rect.h | 0;
 
     // Scaled layout constants for drawing
     const sInset = sp(MENU_TITLE_BG_INSET_PX, s);
@@ -481,18 +910,18 @@ export function drawChooseOptionMenu(
     const sStroke = sp(1, s);
 
     // Menu background fill (0x5D5447)
-    glr.drawRect(left, top, boxW, boxH, COL_MENU_BG);
+    glr.drawRect(left, top, boxW, boxH, colors.COL_MENU_BG);
     // Title background (black) at (x+1, y+1, w-2, 16)
-    glr.drawRect(left + sInset, top + sInset, boxW - sInset * 2, sTitleBgH, COL_BLACK);
+    glr.drawRect(left + sInset, top + sInset, boxW - sInset * 2, sTitleBgH, colors.COL_BLACK);
     // Options area outline (black) at (x+1, y+18, w-2, h-19)
     const optX0 = left + sInset;
     const optY0 = top + sOutlineY;
     const optW = boxW - sInset * 2;
     const optH = boxH - sOutlineHSub;
-    glr.drawRect(optX0, optY0, optW, sStroke, COL_BLACK);
-    glr.drawRect(optX0, optY0 + optH - sStroke, optW, sStroke, COL_BLACK);
-    glr.drawRect(optX0, optY0, sStroke, optH, COL_BLACK);
-    glr.drawRect(optX0 + optW - sStroke, optY0, sStroke, optH, COL_BLACK);
+    glr.drawRect(optX0, optY0, optW, sStroke, colors.COL_BLACK);
+    glr.drawRect(optX0, optY0 + optH - sStroke, optW, sStroke, colors.COL_BLACK);
+    glr.drawRect(optX0, optY0, sStroke, optH, colors.COL_BLACK);
+    glr.drawRect(optX0 + optW - sStroke, optY0, sStroke, optH, colors.COL_BLACK);
 
     // Title text baseline at (x+3, y+14)
     {
@@ -502,13 +931,13 @@ export function drawChooseOptionMenu(
         UI_drawTextGL(
             glr,
             opts.fontLoader,
-            "Choose Option",
+            level.headerText,
             left + sTitleTextX,
             (top + sTitleTextBase - Math.round(maxAscent * s)) | 0,
             Math.max(1, boxW - sTextWPad),
             Math.max(1, Math.round(h * s)),
             FONT_TITLE,
-            COL_TITLE_TEXT,
+            colors.COL_TITLE_TEXT,
             0,
             0,
             false,
@@ -519,35 +948,21 @@ export function drawChooseOptionMenu(
         );
     }
 
-    // Click background to close when clicking outside options (useful on touch)
-    // Disabled in follow mode to avoid hijacking clicks during hover-only display
-    if (!menu.follow) {
-        clicks?.register?.({
-            id: "__menu_bg",
-            rect: { x: 0, y: 0, w: glr.width, h: glr.height },
-            // menu consumes clicks outside options (prevents pass-through).
-            // Keep below menu option rows but above any widget targets.
-            priority: MENU_BG_PRIORITY,
-            persist: true,
-            onDown: () => {
-                closeAllMenus();
-            },
-        });
-    }
-
-    // Entries (Client.drawLoggedIn menu entry layout)
+    // Entries (Client.drawLoggedIn menu entry layout); rows scrolled past the top
+    // are culled, rows below the canvas clip naturally.
     const optFont = opts.fontLoader(FONT_OPT);
     const optMaxAscent = (optFont?.maxAscent ?? optFont?.ascent ?? 0) | 0;
     const optH1 = optFont ? (optFont.maxAscent + optFont.maxDescent) | 0 : 16;
 
-    for (let i = 0; i < menu.entries.length; i++) {
-        const e = menu.entries[i];
-        const option = e.option || "";
-        const target = e.target || "";
-        const fullText = target.length ? `${option} ${target}` : option;
+    for (let i = 0; i < entries.length; i++) {
+        const drawnRow = i - scroll;
+        if (drawnRow < 0) continue;
+        const e = entries[i];
+        let fullText = entryFullText(e);
+        if (hasSubEntries(e)) fullText += SUBMENU_ARROW_DRAW_SUFFIX;
 
-        // OSRS: baseline at menuY + MENU_FIRST_ROW_BASELINE_OFFSET_PX + (i * MENU_ROW_HEIGHT_PX) (top-to-bottom).
-        const baselineY = (top + sFirstRowBase + i * sRowHeight) | 0;
+        // OSRS: baseline at menuY + MENU_FIRST_ROW_BASELINE_OFFSET_PX + (row * MENU_ROW_HEIGHT_PX).
+        const baselineY = (top + sFirstRowBase + drawnRow * sRowHeight) | 0;
         const textY = (baselineY - Math.round(optMaxAscent * s)) | 0;
 
         // Hover/click region in OSRS uses strict comparisons; emulate with a 1px inset.
@@ -557,28 +972,26 @@ export function drawChooseOptionMenu(
             w: Math.max(1, boxW - sHitInset),
             h: sRowHeight,
         };
-        const id = `__menu_opt_${i}`;
+        const id = `${level.targetIdPrefix}${i}`;
 
         // In follow mode, make the menu non-interactive: no click targets registered.
         if (!menu.follow) {
-            const hoverLabel = String(fullText)
-                .replace(/<[^>]*>/g, "")
-                .trim();
+            const hoverLabel = stripTagsForMeasure(fullText).trim();
             clicks?.register?.({
                 id,
                 rect: rowRect,
                 // Must be higher than __menu_bg so option rows consume hover/clicks.
-                priority: MENU_OPTION_PRIORITY_BASE + i,
+                priority: level.targetPriority + i,
                 persist: true,
                 hoverText: hoverLabel.length ? hoverLabel : undefined,
             });
         }
 
         const hover =
-            ui.mouseX > left &&
-            ui.mouseX < left + boxW &&
-            ui.mouseY > baselineY - sHitTop &&
-            ui.mouseY < baselineY + sHitBot;
+            level.mouseX > left &&
+            level.mouseX < left + boxW &&
+            level.mouseY > baselineY - sHitTop &&
+            level.mouseY < baselineY + sHitBot;
 
         UI_drawTextGL(
             glr,
@@ -589,7 +1002,7 @@ export function drawChooseOptionMenu(
             Math.max(1, boxW - sTextWPad),
             Math.max(1, Math.round(optH1 * s)),
             FONT_OPT,
-            hover ? COL_TEXT_HOVER : COL_TEXT_DEFAULT,
+            hover ? colors.COL_TEXT_HOVER : colors.COL_TEXT_DEFAULT,
             0,
             0,
             true,

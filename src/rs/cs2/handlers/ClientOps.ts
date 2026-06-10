@@ -908,6 +908,31 @@ export function registerClientOps(handlers: HandlerMap): void {
                 (canvasAny?.__input as any)?.getClicks?.() ||
                 (canvasAny?.__inputBridge as any)?.getClicks?.() ||
                 canvasAny?.__clicks;
+            if (!clicks) continue;
+            // Re-pick at the live pointer position instead of trusting the cached
+            // hover id: CS2 timers rebuild widget rows (e.g., the side journal),
+            // which unregisters the hovered target and nulls the hover id while the
+            // pointer is stationary - making the mouseover text vanish mid-hover.
+            const ui = canvasAny?.__ui;
+            if (
+                typeof clicks.pick === "function" &&
+                typeof ui?.mouseX === "number" &&
+                typeof ui?.mouseY === "number"
+            ) {
+                const sxRaw = Number(canvasAny?.__uiInputScaleX ?? 1);
+                const syRaw = Number(canvasAny?.__uiInputScaleY ?? 1);
+                const sx = Number.isFinite(sxRaw) && sxRaw > 0 ? sxRaw : 1;
+                const sy = Number.isFinite(syRaw) && syRaw > 0 ? syRaw : 1;
+                const px = Math.round(ui.mouseX * sx);
+                const py = Math.round(ui.mouseY * sy);
+                // Prefer the topmost target with menu text: listener-only widgets
+                // (e.g., the diary rows' hover-highlight rects) layer above the
+                // op-bearing rows and would otherwise blank the minimenu.
+                const hit =
+                    clicks.pick(px, py, (t: any) => !!t?.primaryOption?.option) ||
+                    clicks.pick(px, py);
+                if (hit) return hit;
+            }
             const hoverTarget = clicks?.getHoverTarget?.();
             if (hoverTarget) return hoverTarget;
         }

@@ -13,6 +13,14 @@ type WidgetMenuEntryInput = {
         itemId?: number;
     };
     suppressWidgetAction?: boolean;
+    /** 1-based widget op index (identifier); 0 for targetVerb entries */
+    opIndex?: number;
+    /** Widget op opcode (57 normal / 1007 low priority) */
+    opcode?: number;
+    /** Forces left-click execution even when the menu would open */
+    forceLeftClick?: boolean;
+    /** Submenu entry texts for this op (widget.submenuActions[opIndex-1]) */
+    subOptions?: string[];
 };
 
 export type TargetLabelOptions = {
@@ -258,86 +266,109 @@ export function widgetEntriesToSimple(
 ): SimpleMenuEntry[] {
     const { ui, chosenWidget, scheduleRender, menuState } = ctx;
     if (menuState) menuState.reset();
-    const list: SimpleMenuEntry[] = (entries || []).map((e) => ({
-        option: e.option,
-        target: e.target,
-        action: inferMenuAction(e.option),
-        targetType: e.target ? MenuTargetType.ITEM : MenuTargetType.NONE,
-        onClick: (() => {
-            const lower = String(e.option || "").toLowerCase();
-            const shouldDispatchWidgetAction =
-                !e.suppressWidgetAction &&
-                lower !== "cancel" &&
-                lower !== "examine" &&
-                lower !== "inspect";
-            const dispatchWidgetAction = (clickCtx?: MenuClickContext): boolean => {
-                if (!shouldDispatchWidgetAction) return false;
-                const hook = ui?.onWidgetAction;
-                if (typeof hook !== "function") return false;
-                try {
-                    // widget ops on item containers need slot/itemId.
-                    // Dynamic CC_CREATE children store slot index in `childIndex`.
-                    const fallbackSlot =
-                        typeof chosenWidget?.childIndex === "number"
-                            ? chosenWidget.childIndex | 0
-                            : undefined;
-                    const fallbackItemId =
-                        typeof chosenWidget?.itemId === "number"
-                            ? chosenWidget.itemId | 0
-                            : undefined;
-                    hook({
-                        widget: chosenWidget,
-                        option: e.option,
-                        target: e.target,
-                        source: clickCtx?.source ?? "menu",
-                        cursorX: ui?.mouseX,
-                        cursorY: ui?.mouseY,
-                        slot: e.widgetAction?.slot ?? fallbackSlot,
-                        itemId: e.widgetAction?.itemId ?? fallbackItemId,
-                    });
-                    return true;
-                } catch (err) {
-                    console.warn?.("[menu] widget action dispatch failed", err);
-                    return false;
-                }
-            };
-            if (typeof e.onClick === "function")
-                return (gx?: number, gy?: number, clickCtx?: MenuClickContext) => {
-                    dispatchWidgetAction(clickCtx);
-                    try {
-                        e.onClick?.(gx, gy, clickCtx);
-                    } catch (err) {
-                        console.warn?.("[menu] widget entry onClick threw", err);
-                    }
-                    if (ui?.menu) ui.menu.open = false;
-                    ui.menu = undefined;
-                    (ui as any)?.closeWorldMenu?.();
-                    scheduleRender();
-                };
-            if (lower === "cancel" || lower === "examine" || lower === "inspect")
-                return () => {
-                    const hook = ui?.onWidgetExamine || ui?.setDetails;
-                    if (typeof hook === "function") hook(chosenWidget);
-                    if (ui?.menu) ui.menu.open = false;
-                    ui.menu = undefined;
-                    (ui as any)?.closeWorldMenu?.();
-                    scheduleRender();
-                };
+
+    const closeMenus = () => {
+        if (ui?.menu) ui.menu.open = false;
+        ui.menu = undefined;
+        (ui as any)?.closeWorldMenu?.();
+        scheduleRender();
+    };
+
+    const buildOnClick = (
+        e: WidgetMenuEntryInput,
+        option: string,
+        target: string | undefined,
+        opSubIndex?: number,
+    ): ((gx?: number, gy?: number, ctx?: MenuClickContext) => void) => {
+        const lower = String(option || "").toLowerCase();
+        const shouldDispatchWidgetAction =
+            !e.suppressWidgetAction &&
+            lower !== "cancel" &&
+            lower !== "examine" &&
+            lower !== "inspect";
+        const dispatchWidgetAction = (clickCtx?: MenuClickContext): boolean => {
+            if (!shouldDispatchWidgetAction) return false;
+            const hook = ui?.onWidgetAction;
+            if (typeof hook !== "function") return false;
+            try {
+                // widget ops on item containers need slot/itemId.
+                // Dynamic CC_CREATE children store slot index in `childIndex`.
+                const fallbackSlot =
+                    typeof chosenWidget?.childIndex === "number"
+                        ? chosenWidget.childIndex | 0
+                        : undefined;
+                const fallbackItemId =
+                    typeof chosenWidget?.itemId === "number" ? chosenWidget.itemId | 0 : undefined;
+                hook({
+                    widget: chosenWidget,
+                    option,
+                    target,
+                    source: clickCtx?.source ?? "menu",
+                    cursorX: ui?.mouseX,
+                    cursorY: ui?.mouseY,
+                    slot: e.widgetAction?.slot ?? fallbackSlot,
+                    itemId: e.widgetAction?.itemId ?? fallbackItemId,
+                    opIndex: e.opIndex,
+                    opSubIndex,
+                });
+                return true;
+            } catch (err) {
+                console.warn?.("[menu] widget action dispatch failed", err);
+                return false;
+            }
+        };
+        if (typeof e.onClick === "function" && opSubIndex === undefined) {
+            const entryOnClick = e.onClick;
             return (gx?: number, gy?: number, clickCtx?: MenuClickContext) => {
-                const dispatched = dispatchWidgetAction(clickCtx);
-                if (!dispatched) {
-                    console.log(
-                        `[ui] widget action: ${e.option}` + (e.target ? ` -> ${e.target}` : ""),
-                        chosenWidget,
-                    );
+                dispatchWidgetAction(clickCtx);
+                try {
+                    entryOnClick(gx, gy, clickCtx);
+                } catch (err) {
+                    console.warn?.("[menu] widget entry onClick threw", err);
                 }
-                if (ui?.menu) ui.menu.open = false;
-                ui.menu = undefined;
-                (ui as any)?.closeWorldMenu?.();
-                scheduleRender();
+                closeMenus();
             };
-        })(),
-    }));
+        }
+        if (lower === "cancel" || lower === "examine" || lower === "inspect") {
+            return () => {
+                const hook = ui?.onWidgetExamine || ui?.setDetails;
+                if (typeof hook === "function") hook(chosenWidget);
+                closeMenus();
+            };
+        }
+        return (gx?: number, gy?: number, clickCtx?: MenuClickContext) => {
+            const dispatched = dispatchWidgetAction(clickCtx);
+            if (!dispatched) {
+                console.log(
+                    `[ui] widget action: ${option}` + (target ? ` -> ${target}` : ""),
+                    chosenWidget,
+                );
+            }
+            closeMenus();
+        };
+    };
+
+    const list: SimpleMenuEntry[] = (entries || []).map((e) => {
+        const mapped: SimpleMenuEntry = {
+            option: e.option,
+            target: e.target,
+            action: inferMenuAction(e.option),
+            targetType: e.target ? MenuTargetType.ITEM : MenuTargetType.NONE,
+            opcode: e.opcode,
+            forceLeftClick: e.forceLeftClick,
+            onClick: buildOnClick(e, e.option, e.target),
+        };
+        // Submenu entries dispatch the same widget op with a 1-based opSubIndex.
+        // The submenu header shows the parent entry's target; sub rows have no target.
+        if (Array.isArray(e.subOptions) && e.subOptions.length > 0) {
+            mapped.subEntries = e.subOptions.map((subText, subIdx) => ({
+                option: subText,
+                target: "",
+                onClick: buildOnClick(e, subText, "", subIdx + 1),
+            }));
+        }
+        return mapped;
+    });
     // Widget-derived menu entries are already provided in OSRS display order (top-to-bottom).
     // normalizeMenuEntries expects OSRS insertion order (reverse-render semantics) and would invert
     // widget ops like minimap orbs.
@@ -351,6 +382,16 @@ export function widgetEntriesToSimple(
                 handler: entry.onClick,
             });
             entry.menuStateIndex = idx;
+            if (entry.subEntries) {
+                for (const sub of entry.subEntries) {
+                    sub.menuStateIndex = menuState.add({
+                        option: sub.option,
+                        target: sub.target,
+                        action: inferMenuAction(sub.option),
+                        handler: sub.onClick,
+                    });
+                }
+            }
         }
     }
     return ordered;

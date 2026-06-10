@@ -55,6 +55,7 @@ export enum ClientPacketId {
     IF_BUTTON10 = 84, // Interface button 10 (8 bytes)
     IF_TRIGGEROPLOCAL = 30, // IF_TRIGGEROPLOCAL (var-short)
     IF_BUTTONT = 90, // Widget target on widget (16 bytes)
+    IF_BUTTON_SUB = 89, // Interface button via op submenu (10 bytes)
 
     // Movement
     MOVE_GAMECLICK = 16, // Walk/Move (7 bytes)
@@ -145,6 +146,7 @@ export const CLIENT_PACKET_LENGTHS: Record<number, number> = {
     [ClientPacketId.EXAMINE_OBJ]: 6,
     [ClientPacketId.OPLOCU]: 15,
     [ClientPacketId.IF_BUTTONT]: 16,
+    [ClientPacketId.IF_BUTTON_SUB]: 10,
     [ClientPacketId.OPLOC_T_ALT]: 15,
     [ClientPacketId.OPOBJ1]: 7,
     [ClientPacketId.OPOBJ3]: 7,

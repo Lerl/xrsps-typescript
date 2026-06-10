@@ -1,6 +1,54 @@
 import { isDropTarget, isPauseButton, shouldShowMenuOption } from "../WidgetFlags";
 
-export type SimpleMenuEntry = { option: string; target?: string };
+export type SimpleMenuEntry = {
+    option: string;
+    target?: string;
+    /** 1-based widget op index (identifier); 0 for targetVerb entries */
+    opIndex?: number;
+    /** Widget op opcode: 57 (CC_OP) or 1007 (CC_OP low priority, left-click opens menu) */
+    opcode?: number;
+    /** Forces left-click execution even when the menu would normally open */
+    forceLeftClick?: boolean;
+    /** Submenu entry texts for this op (widget.submenuActions[opIndex-1]) */
+    subOptions?: string[];
+};
+
+/** Widget ops with 0-based index above targetPriority use the low-priority opcode. */
+const WIDGET_OP_NORMAL = 57;
+const WIDGET_OP_LOW_PRIORITY = 1007;
+const DEFAULT_TARGET_PRIORITY = 4;
+
+function getWidgetTargetPriority(w: any): number {
+    return typeof w?.targetPriority === "number" ? w.targetPriority | 0 : DEFAULT_TARGET_PRIORITY;
+}
+
+function getWidgetSubOptions(w: any, actionIndex: number): string[] | undefined {
+    const submenus = w?.submenuActions;
+    if (!Array.isArray(submenus) || actionIndex < 0 || actionIndex >= submenus.length) {
+        return undefined;
+    }
+    const ops = submenus[actionIndex];
+    if (!Array.isArray(ops)) return undefined;
+    const out: string[] = [];
+    for (const text of ops) {
+        if (typeof text === "string" && text.length > 0) out.push(text);
+    }
+    return out.length ? out : undefined;
+}
+
+function buildWidgetOpEntry(w: any, actionIndex: number, option: string, target?: string) {
+    const lowPriority = actionIndex > getWidgetTargetPriority(w);
+    const entry: SimpleMenuEntry = {
+        option,
+        target,
+        opIndex: actionIndex + 1,
+        opcode: lowPriority ? WIDGET_OP_LOW_PRIORITY : WIDGET_OP_NORMAL,
+    };
+    if (!lowPriority && w?.forceLeftClick) entry.forceLeftClick = true;
+    const subOptions = getWidgetSubOptions(w, actionIndex);
+    if (subOptions) entry.subOptions = subOptions;
+    return entry;
+}
 
 const ITEM_MENU_TARGET_RGB = 16748608; // OSRS item target orange (<col=ff9040>)
 
@@ -232,25 +280,37 @@ export function deriveMenuEntriesForWidget(
             }
         }
 
-        for (const op of ops) entries.push({ option: op.text, target: itemTarget });
+        for (const op of ops) {
+            if (op.index >= 0) {
+                entries.push(buildWidgetOpEntry(w, op.index, op.text, itemTarget));
+            } else {
+                entries.push({ option: op.text, target: itemTarget, opIndex: 0 });
+            }
+        }
     } else if (actions.length) {
-        const ops: string[] = [];
+        const ops: Array<{ text: string; index: number }> = [];
         for (let i = 0; i < actions.length; i++) {
             const p = sanitizeText(actions[i]);
             // Only include action if transmit flag is set OR widget has onOp handler
             if (shouldShowMenuOption(flags, i, hasOnOpHandler)) {
-                if (p) ops.push(p);
-                else if (verb) ops.push(verb);
+                if (p) ops.push({ text: p, index: i });
+                else if (verb) ops.push({ text: verb, index: -1 });
             }
         }
         // spell action (buttonType=2 / spellActionName) is an explicit menu entry,
         // not just a placeholder for empty op slots.
         if (ops.length === 0 && verb) {
-            ops.push(verb);
+            ops.push({ text: verb, index: -1 });
         }
-        for (const option of ops) entries.push({ option, target });
+        for (const op of ops) {
+            if (op.index >= 0) {
+                entries.push(buildWidgetOpEntry(w, op.index, op.text, target));
+            } else {
+                entries.push({ option: op.text, target, opIndex: 0 });
+            }
+        }
     } else {
-        if (verb) entries.push({ option: verb, target });
+        if (verb) entries.push({ option: verb, target, opIndex: 0 });
     }
     // widget menus use configured ops (actions + flags + handlers).
     // Do not synthesize fallback Examine options for item widgets here.

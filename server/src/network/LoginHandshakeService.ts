@@ -1,6 +1,11 @@
 import { WebSocket } from "ws";
 
-import { SIDE_JOURNAL_GROUP_ID } from "../../../src/shared/ui/sideJournal";
+import {
+    QUEST_LIST_ENTRY_EVENT_FLAGS,
+    QUEST_LIST_ENTRY_LIST_UID,
+    QUEST_LIST_ENTRY_MAX_SLOT,
+    SIDE_JOURNAL_GROUP_ID,
+} from "../../../src/shared/ui/sideJournal";
 import {
     VARBIT_SIDE_JOURNAL_TAB,
     VARBIT_XPDROPS_ENABLED,
@@ -564,18 +569,15 @@ export class LoginHandshakeService {
                         });
                     }
 
-                    // IF_SETEVENTS for quest list dynamic children
-                    const QUEST_LIST_GROUP_ID = 399;
-                    const QUEST_LIST_COMPONENT = 7;
-                    const QUEST_LIST_MAX_SLOT = 199;
-                    const QUEST_LIST_FLAGS = 0x7e;
-
+                    // IF_SETEVENTS for quest list dynamic children.
+                    // Also re-sent on every quest subtab open (the client purges
+                    // flag overrides when the content interface unmounts).
                     this.svc.queueWidgetEvent(p.id, {
                         action: "set_flags_range",
-                        uid: (QUEST_LIST_GROUP_ID << 16) | QUEST_LIST_COMPONENT,
+                        uid: QUEST_LIST_ENTRY_LIST_UID,
                         fromSlot: 0,
-                        toSlot: QUEST_LIST_MAX_SLOT,
-                        flags: QUEST_LIST_FLAGS,
+                        toSlot: QUEST_LIST_ENTRY_MAX_SLOT,
+                        flags: QUEST_LIST_ENTRY_EVENT_FLAGS,
                     });
                 }
 

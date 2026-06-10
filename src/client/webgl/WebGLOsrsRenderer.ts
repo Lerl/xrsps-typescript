@@ -13993,8 +13993,17 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         }
 
         if (picked) {
-            this.osrsClient.menuOpen = true;
-            this.osrsClient.menuOpenedFrame = frameCount;
+            // Only open the world menu for picks over the world. Picks over UI
+            // belong to the widget layer (which shows its own menu, falling back
+            // to a Cancel-only one); flagging menuOpen here with no entries left
+            // an invisible "open" menu that swallowed every left click, and
+            // opening a Cancel menu here instead consumed the right-click before
+            // the widget layer could build the real widget menu.
+            const pickOverUi = mouseInUIRegion || mouseOverWidget;
+            if (!pickOverUi) {
+                this.osrsClient.menuOpen = true;
+                this.osrsClient.menuOpenedFrame = frameCount;
+            }
         }
         // If a pick event happened, anchor menu to the true click position and compute exact tile at click
         if (picked) {

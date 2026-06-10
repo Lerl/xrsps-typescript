@@ -147,16 +147,54 @@ export function registerConfigOps(handlers: HandlerMap): void {
         ctx.pushInt(shiftIndex >= 0 ? shiftIndex + 1 : -1);
     });
 
-    // oc_isubop(obj, opIndex, subIndex) - gets inventory sub-operation text for an item
-    // Used for nested menu actions like "Use" -> "Use with X"
-    // Note: Sub-operations are rarely used in modern OSRS, return empty string
-    handlers.set(Opcodes.OC_ISUBOP, (ctx) => {
-        const subIndex = ctx.intStack[--ctx.intStackSize];
-        const opIndex = ctx.intStack[--ctx.intStackSize];
+    handlers.set(Opcodes.OC_WEARPOS, (ctx) => {
         const itemId = ctx.intStack[--ctx.intStackSize];
-        // Most items don't have sub-operations defined
-        // This is primarily a legacy feature, return empty string
-        ctx.pushString("");
+        ctx.pushInt(ctx.objTypeLoader?.load(itemId)?.wearPos ?? -1);
+    });
+
+    handlers.set(Opcodes.OC_WEARPOS2, (ctx) => {
+        const itemId = ctx.intStack[--ctx.intStackSize];
+        ctx.pushInt(ctx.objTypeLoader?.load(itemId)?.wearPos2 ?? -1);
+    });
+
+    handlers.set(Opcodes.OC_WEARPOS3, (ctx) => {
+        const itemId = ctx.intStack[--ctx.intStackSize];
+        ctx.pushInt(ctx.objTypeLoader?.load(itemId)?.wearPos3 ?? -1);
+    });
+
+    handlers.set(Opcodes.OC_WEIGHT, (ctx) => {
+        const itemId = ctx.intStack[--ctx.intStackSize];
+        ctx.pushInt(ctx.objTypeLoader?.load(itemId)?.weight ?? 0);
+    });
+
+    handlers.set(Opcodes.OC_EXAMINE, (ctx) => {
+        const itemId = ctx.intStack[--ctx.intStackSize];
+        ctx.pushString(ctx.objTypeLoader?.load(itemId)?.examine ?? "null");
+    });
+
+    // oc_isubop(obj, opIndex, subIndex) - inventory op submenu text for an item.
+    // Args read as an array of 3 ints; opIndex/subIndex are 1-based. Returns ""
+    // unless the op exists and the subop slot is populated.
+    handlers.set(Opcodes.OC_ISUBOP, (ctx) => {
+        ctx.intStackSize -= 3;
+        const itemId = ctx.intStack[ctx.intStackSize];
+        const opIndex = ctx.intStack[ctx.intStackSize + 1];
+        const subIndex = ctx.intStack[ctx.intStackSize + 2];
+        const obj = ctx.objTypeLoader?.load(itemId);
+        let subop: string | null = null;
+        if (
+            obj &&
+            opIndex >= 1 &&
+            opIndex <= 5 &&
+            obj.inventoryActions?.[opIndex - 1] != null &&
+            obj.subops != null &&
+            obj.subops[opIndex - 1] != null &&
+            subIndex >= 1 &&
+            subIndex <= obj.subops[opIndex - 1]!.length
+        ) {
+            subop = obj.subops[opIndex - 1]![subIndex - 1];
+        }
+        ctx.pushString(subop != null ? subop : "");
     });
 
     handlers.set(Opcodes.OC_PARAM, (ctx) => {

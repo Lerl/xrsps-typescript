@@ -114,7 +114,6 @@ export interface WidgetNode {
     xTextAlignment?: number; // 0=left, 1=center, 2=right
     yTextAlignment?: number; // 0=top, 1=center, 2=bottom
     lineHeight?: number;
-    pauseText?: string;
     buttonText?: string; // IF1 button tooltip text (Ok, Select, Continue)
 
     color?: number; // rectangle color
@@ -193,9 +192,13 @@ export interface WidgetNode {
 
     // Interaction
     actions?: (string | null)[];
-    subOps?: ((string | null)[] | null)[]; // subOps[opIndex][subIndex] = text for nested menu actions
+    // submenuActions[opIndex][subIndex] = nested "Choose Option" submenu entry text
+    submenuActions?: ((string | null)[] | null)[] | null;
     opBase?: string;
-    opPriority?: number; // cc_setoppriority: menu entry priority, -1 to disable
+    // Ops with 0-based index > targetPriority use the low-priority opcode (1007). Default 4.
+    targetPriority?: number;
+    // Forces left-click execution of the op even when the menu would otherwise open.
+    forceLeftClick?: boolean;
     targetVerb?: string; // spellActionName in Java - action text for spell targeting
     targetMask?: number; // Bits 11-16 of flags - determines targeting behavior
     hasListener?: boolean;
@@ -214,11 +217,6 @@ export interface WidgetNode {
     dragDeadTime?: number;
     dragRenderArea?: WidgetNode; // Widget that defines coordinate space for drag events
     dragRenderBehaviour?: number; // 0=hide, 1=follow cursor, 2=stay in place
-
-    // Cursors
-    targetCursor?: number;
-    targetCursor2?: number;
-    opCursors?: (number | null)[];
 
     // Keyboard Shortcuts (Runtime)
     // CC_SETOPKEY supports up to 5 key pairs per op, IF_SETOPKEY supports 1 key pair

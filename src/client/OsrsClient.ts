@@ -3881,6 +3881,10 @@ export class OsrsClient {
         cursorY?: number;
         slot?: number;
         itemId?: number;
+        /** Explicit 1-based widget op index (identifier); 0 for targetVerb entries */
+        opIndex?: number;
+        /** 1-based submenu entry index when invoked from an op submenu */
+        opSubIndex?: number;
     }): void {
         // for dynamic children (CC_CREATE), the click packet identifies the parent widget
         // plus a childIndex ("slot"). Our menu/hit-test layers sometimes surface the parent widget with
@@ -4411,8 +4415,10 @@ export class OsrsClient {
         if (event.widget && !skipCs2Handlers) {
             let handled = false;
 
-            // Determine the op index (1-based) for onOp handlers
-            const opIndex = this.inferWidgetOpId(event.widget, event.option) ?? 1;
+            // Determine the op index (1-based) for onOp handlers.
+            // Menu entries pass the explicit op index; fall back to option-text inference.
+            const opIndex =
+                event.opIndex ?? this.inferWidgetOpId(event.widget, event.option) ?? 1;
             const widgetGroupId = event.widget.groupId ?? event.widget.uid >>> 16;
 
             // CS2 event coords are relative to the widget ("event_mousex/y").
@@ -4442,6 +4448,7 @@ export class OsrsClient {
                 mouseX: relMouseX,
                 mouseY: relMouseY,
                 opIndex,
+                opSubIndex: event.opSubIndex ?? 0,
                 targetName: event.target ?? "",
             };
 
@@ -6105,6 +6112,47 @@ export class OsrsClient {
             this.hoveredWidgetsByUid = nextHoveredWidgetsByUid;
         }
 
+        // While the Choose Option menu is open, the wheel scrolls oversized
+        // menus/submenus instead of reaching widget onScroll or camera zoom.
+        // The submenu is checked first, then the parent menu.
+        if (input.wheelDeltaY !== 0) {
+            const menuUiState = (this.renderer?.canvas as any)?.__ui;
+            const openMenu = menuUiState?.menu;
+            const menuRt = menuUiState?.__menuRt;
+            if (openMenu?.open && menuRt) {
+                const canvasAny: any = this.renderer?.canvas;
+                const inputScaleX = Number(canvasAny?.__uiInputScaleX ?? 1) || 1;
+                const inputScaleY = Number(canvasAny?.__uiInputScaleY ?? 1) || 1;
+                const menuMouseX = Math.round(input.mouseX * inputScaleX);
+                const menuMouseY = Math.round(input.mouseY * inputScaleY);
+                const rotation = input.wheelDeltaY > 0 ? 1 : -1;
+                const margin = (menuRt.closeMargin | 0) || 10;
+                const withinRect = (r: any): boolean =>
+                    !!r &&
+                    menuMouseX >= r.x - margin &&
+                    menuMouseX <= r.x + r.w + margin &&
+                    menuMouseY >= r.y - margin &&
+                    menuMouseY <= r.y + r.h + margin;
+                if (
+                    menuRt.submenuScrollMax > 0 &&
+                    menuRt.openSubMenuIndex > -1 &&
+                    withinRect(menuRt.subRect)
+                ) {
+                    menuRt.submenuScroll = Math.min(
+                        Math.max(menuRt.submenuScroll + rotation, 0),
+                        menuRt.submenuScrollMax,
+                    );
+                    input.wheelDeltaY = 0;
+                } else if (menuRt.menuScrollMax > 0 && withinRect(menuRt.mainRect)) {
+                    menuRt.menuScroll = Math.min(
+                        Math.max(menuRt.menuScroll + rotation, 0),
+                        menuRt.menuScrollMax,
+                    );
+                    input.wheelDeltaY = 0;
+                }
+            }
+        }
+
         // IF1 scrollbar interaction (Skills.nv).
         // Handles arrows, track dragging, and wheel over content+scrollbar region.
         if (!this.isDraggingWidget) {
@@ -7475,6 +7523,8 @@ export class OsrsClient {
         cursorY?: number;
         slot?: number;
         itemId?: number;
+        opIndex?: number;
+        opSubIndex?: number;
     }): WidgetActionClientPayload | undefined {
         const widget = event.widget;
         if (!widget) return undefined;
@@ -7489,8 +7539,12 @@ export class OsrsClient {
         };
         if (option.length) payload.option = option;
         if (target.length) payload.target = target;
-        const opId = this.inferWidgetOpId(widget, option.length ? option : undefined);
+        const opId =
+            event.opIndex ?? this.inferWidgetOpId(widget, option.length ? option : undefined);
         if (typeof opId === "number") payload.opId = opId;
+        if (typeof event.opSubIndex === "number" && event.opSubIndex >= 1) {
+            payload.subOpId = event.opSubIndex | 0;
+        }
         if (typeof event.cursorX === "number") payload.cursorX = event.cursorX;
         if (typeof event.cursorY === "number") payload.cursorY = event.cursorY;
         // Slot is only meaningful for inventory actions (item slot) and dynamic widgets (CC_CREATE childIndex).

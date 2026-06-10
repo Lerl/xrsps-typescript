@@ -80,11 +80,14 @@ export class CustomObjTypeLoader implements ObjTypeLoader {
         clone.offsetY2d = source.offsetY2d;
         clone.stackability = source.stackability;
         clone.price = source.price;
-        clone.op13 = source.op13;
-        clone.op14 = source.op14;
+        clone.wearPos = source.wearPos;
+        clone.wearPos2 = source.wearPos2;
         clone.isMembers = source.isMembers;
         clone.groundActions = [...source.groundActions];
         clone.inventoryActions = [...source.inventoryActions];
+        clone.subops = source.subops
+            ? source.subops.map((ops) => (Array.isArray(ops) ? ops.slice() : ops))
+            : null;
         clone.shiftClickIndex = source.shiftClickIndex;
         clone.maleModel = source.maleModel;
         clone.maleModel1 = source.maleModel1;
@@ -98,7 +101,7 @@ export class CustomObjTypeLoader implements ObjTypeLoader {
         clone.maleHeadModel2 = source.maleHeadModel2;
         clone.femaleHeadModel = source.femaleHeadModel;
         clone.femaleHeadModel2 = source.femaleHeadModel2;
-        clone.op27 = source.op27;
+        clone.wearPos3 = source.wearPos3;
         clone.note = source.note;
         clone.noteTemplate = source.noteTemplate;
         clone.resizeX = source.resizeX;

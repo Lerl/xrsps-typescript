@@ -60,6 +60,7 @@ import { handleSailingPlayerRestore } from "./skills/sailing";
 import { registerAccountSummaryWidgetHandlers } from "./widgets/accountSummaryWidgets";
 import { registerCollectionLogWidgetHandlers } from "./widgets/collectionLogWidgets";
 import { registerCombatWidgetHandlers } from "./widgets/combatWidgets";
+import { registerDiaryJournalWidgetHandlers } from "./widgets/diaryJournalWidgets";
 import { registerEmoteWidgetHandlers } from "./widgets/emoteWidgets";
 import { registerMinimapWidgetHandlers } from "./widgets/minimapWidgets";
 import { registerMusicWidgetHandlers } from "./widgets/musicWidgets";
@@ -213,6 +214,7 @@ export class VanillaGamemode extends BaseGamemode {
         registerSkillGuideWidgetHandlers(registry, services);
         registerSettingsWidgetHandlers(registry, services);
         registerQuestJournalWidgetHandlers(registry, services);
+        registerDiaryJournalWidgetHandlers(registry, services);
         registerAccountSummaryWidgetHandlers(registry, services);
         registerCollectionLogWidgetHandlers(registry, services);
 

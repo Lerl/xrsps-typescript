@@ -30,14 +30,16 @@ export class ObjType extends Type {
 
     price: number;
 
-    op13: number;
+    wearPos: number;
 
-    op14: number;
+    wearPos2: number;
 
     isMembers: boolean;
 
     groundActions: (string | null)[];
     inventoryActions: (string | null)[];
+    // subops[opIndex][subIndex] = nested "Choose Option" submenu text per inventory op
+    subops: ((string | null)[] | null)[] | null;
     shiftClickIndex: number;
 
     maleModel: number;
@@ -60,7 +62,7 @@ export class ObjType extends Type {
     countObj!: number[];
     countCo!: number[];
 
-    op27: number;
+    wearPos3: number;
 
     note: number;
     noteTemplate: number;
@@ -105,11 +107,12 @@ export class ObjType extends Type {
         this.offsetY2d = 0;
         this.stackability = ObjStackability.SOMETIMES;
         this.price = 1;
-        this.op13 = -1;
-        this.op14 = -1;
+        this.wearPos = -1;
+        this.wearPos2 = -1;
         this.isMembers = false;
         this.groundActions = [null, null, "Take", null, null];
         this.inventoryActions = [null, null, null, null, "Drop"];
+        this.subops = null;
         this.shiftClickIndex = -2;
         this.maleModel = -1;
         this.maleModel1 = -1;
@@ -123,7 +126,7 @@ export class ObjType extends Type {
         this.maleHeadModel2 = -1;
         this.femaleHeadModel = -1;
         this.femaleHeadModel2 = -1;
-        this.op27 = -1;
+        this.wearPos3 = -1;
         this.note = -1;
         this.noteTemplate = -1;
         this.resizeX = 128;
@@ -189,9 +192,9 @@ export class ObjType extends Type {
         } else if (opcode === 12) {
             this.price = buffer.readInt();
         } else if (opcode === 13) {
-            this.op13 = buffer.readUnsignedByte();
+            this.wearPos = buffer.readUnsignedByte();
         } else if (opcode === 14) {
-            this.op14 = buffer.readUnsignedByte();
+            this.wearPos2 = buffer.readUnsignedByte();
         } else if (opcode === 16) {
             this.isMembers = true;
         } else if (opcode === 23) {
@@ -205,7 +208,7 @@ export class ObjType extends Type {
         } else if (opcode === 26) {
             this.femaleModel1 = this.readModelId(buffer);
         } else if (opcode === 27) {
-            this.op27 = buffer.readUnsignedByte();
+            this.wearPos3 = buffer.readUnsignedByte();
         } else if (opcode >= 30 && opcode < 35) {
             this.groundActions[opcode - 30] = this.readString(buffer);
             if (this.groundActions[opcode - 30]?.toLowerCase() === "hidden") {
@@ -235,12 +238,22 @@ export class ObjType extends Type {
             this.shiftClickIndex = buffer.readByte();
         } else if (opcode === 43) {
             const opId = buffer.readUnsignedByte();
+            if (!this.subops) {
+                this.subops = new Array(5).fill(null);
+            }
+            const validOp = opId >= 0 && opId < 5;
+            if (validOp && !this.subops[opId]) {
+                this.subops[opId] = new Array(20).fill(null);
+            }
             while (true) {
                 const subopId = buffer.readUnsignedByte() - 1;
                 if (subopId === -1) {
                     break;
                 }
-                this.readString(buffer);
+                const text = this.readString(buffer);
+                if (validOp && subopId >= 0 && subopId < 20) {
+                    this.subops[opId]![subopId] = text;
+                }
             }
         } else if (opcode === 44) {
             this.model = buffer.readInt();
@@ -521,6 +534,14 @@ export class ObjType extends Type {
         }
 
         this.inventoryActions[4] = "Discard";
+        if (original.subops) {
+            this.subops = new Array(5).fill(null);
+            for (let i = 0; i < 4; i++) {
+                this.subops[i] = original.subops[i];
+            }
+        } else {
+            this.subops = null;
+        }
         this.price = 0;
     }
 

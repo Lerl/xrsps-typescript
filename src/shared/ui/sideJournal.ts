@@ -71,6 +71,29 @@ export const INTERFACE_CHARACTER_SUMMARY_ID = 712;
 export const INTERFACE_QUEST_LIST_ID = 399;
 export const INTERFACE_ACHIEVEMENT_DIARY_ID = 259;
 export const INTERFACE_ADVENTURE_LOG_ID = 187;
+
+// Quest list entry rows (cc-created children of 399:7).
+// The client purges IF_SETEVENTS overrides when a content interface unmounts
+// (journal subtab switch), so these flags must be re-sent on every quest tab open.
+export const QUEST_LIST_ENTRY_LIST_CHILD_ID = 7;
+export const QUEST_LIST_ENTRY_LIST_UID = packWidgetUid(
+    INTERFACE_QUEST_LIST_ID,
+    QUEST_LIST_ENTRY_LIST_CHILD_ID,
+);
+export const QUEST_LIST_ENTRY_MAX_SLOT = 199;
+// Ops 1-6 transmit (View info / Read journal / Show on map / wiki ops / Pin journal)
+export const QUEST_LIST_ENTRY_EVENT_FLAGS = 0x7e;
+
+// Achievement diary area rows (cc-created children 0-11 of 259:2, child index = area id).
+// Same unmount-purge rule as the quest list: re-sent on every diary tab open.
+export const DIARY_LIST_TASKBOX_CHILD_ID = 2;
+export const DIARY_LIST_TASKBOX_UID = packWidgetUid(
+    INTERFACE_ACHIEVEMENT_DIARY_ID,
+    DIARY_LIST_TASKBOX_CHILD_ID,
+);
+export const DIARY_LIST_ENTRY_MAX_SLOT = 11;
+// Ops 1-2 transmit (Open <Area> Journal / Wiki <Area> Journal)
+export const DIARY_LIST_ENTRY_EVENT_FLAGS = 0x6;
 export const INTERFACE_LEAGUE_SIDE_PANEL_ID = 656; // league_side_panel (Leagues I/II/IV/V)
 export const INTERFACE_LEAGUE_3_SIDE_PANEL_ID = 736; // league_3_side_panel (Leagues III / Shattered Relics)
 

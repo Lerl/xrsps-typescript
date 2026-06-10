@@ -18,6 +18,8 @@ export type SimpleMenuEntry = {
     opcode?: number; // precomputed OSRS client opcode when known
     deprioritized?: boolean; // Whether this entry is deprioritized (sorted below normal entries)
     shiftClick?: boolean; // Whether this entry can be executed via shift-click (bypasses menu)
+    forceLeftClick?: boolean; // Forces left-click execution even when the menu would open
+    subEntries?: SimpleMenuEntry[]; // Nested submenu entries (rendered as a child menu)
 };
 
 export type MenuClickContext = {
@@ -73,6 +75,11 @@ export function shouldLeftClickOpenMenu(
         if (opcode === MenuOpcode.CC_OP_LowPriority) {
             shouldOpen = true;
         }
+    }
+
+    // forceLeftClick on the top entry suppresses menu opening entirely.
+    if (shouldOpen && topEntry.forceLeftClick) {
+        return false;
     }
 
     // If the top entry has shiftClick enabled, don't open menu

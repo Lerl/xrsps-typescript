@@ -114,6 +114,8 @@ export interface WidgetActionEvent extends ScriptExecutionContext {
     option?: string;
     target?: string;
     opId?: number;
+    /** 1-based submenu entry index when the op was invoked from an op submenu */
+    subOpId?: number;
     slot?: number;
     itemId?: number;
     isPrimary?: boolean;

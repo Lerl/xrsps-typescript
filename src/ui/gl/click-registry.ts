@@ -213,7 +213,17 @@ export class ClickRegistry {
         return this.targets.map((t) => t.rect);
     }
 
-    private pick(x: number, y: number): ClickTarget | undefined {
+    /**
+     * Hit-test the current targets at a point (topmost wins).
+     * Public so per-frame consumers (e.g., the CS2 minimenu snapshot) can resolve
+     * the live hover even when the cached hover id was invalidated by a widget
+     * rebuild while the pointer was stationary.
+     *
+     * `accept` optionally filters candidates - e.g., the minimenu snapshot prefers
+     * the topmost target that carries menu text, so listener-only widgets layered
+     * above an op-bearing row don't blank the mouseover text.
+     */
+    pick(x: number, y: number, accept?: (t: ClickTarget) => boolean): ClickTarget | undefined {
         let best: ClickTarget | undefined;
         let bestP = -Infinity;
         for (let i = 0; i < this.targets.length; i++) {
@@ -224,6 +234,7 @@ export class ClickRegistry {
             if (t.widgetUid !== undefined && this.widgetHiddenChecker?.(t.widgetUid)) {
                 continue;
             }
+            if (accept && !accept(t)) continue;
             const order = this.registrationOrderById.get(t.id) ?? 0;
             const p = (t.priority ?? 0) * 1e6 + order; // later registered wins on tie
             if (p > bestP) {

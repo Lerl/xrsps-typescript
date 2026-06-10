@@ -151,6 +151,8 @@ export interface IfButtonNPacket {
     widgetId: number;
     slot: number;
     itemId: number;
+    /** 1-based submenu entry index when invoked from an op submenu */
+    subOp?: number;
 }
 
 export interface IfButtonDPacket {
@@ -774,6 +776,18 @@ export function decodePacket(opcode: number, data: Uint8Array): DecodedPacket {
             return { type: "if_button_n", buttonNum: 10, widgetId, slot, itemId };
         }
 
+        // IF_BUTTON_SUB (89) - Widget op invoked from an op submenu (10 bytes)
+        // Client: writeInt(widgetId), writeShort(slot), writeShort(itemId),
+        //         writeByte(opIndex), writeByte(subIndex - 1)
+        case ClientPacketId.IF_BUTTON_SUB: {
+            const widgetId = buf.readInt();
+            const slot = buf.readShort();
+            const itemId = buf.readShort();
+            const buttonNum = buf.readByte();
+            const subOp = buf.readByte() + 1;
+            return { type: "if_button_n", buttonNum, widgetId, slot, itemId, subOp };
+        }
+
         // IF_CLOSE (55) - Close interface (0 bytes)
         // Client: no payload
         case ClientPacketId.IF_CLOSE: {
@@ -1296,6 +1310,7 @@ function convertDecodedPacketToMessage(packet: DecodedPacket): ClientToServer | 
                     slot: packet.slot,
                     itemId: packet.itemId,
                     buttonNum: packet.buttonNum,
+                    subOpId: packet.subOp,
                 },
             };
 
