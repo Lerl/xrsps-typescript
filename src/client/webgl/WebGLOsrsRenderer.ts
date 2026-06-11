@@ -8320,7 +8320,11 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         focalSubX: number,
         focalSubZ: number,
         basePlane: number,
+        cycles: number,
     ): void {
+        if (cycles <= 0) {
+            return;
+        }
         const focalHeight = sampleBridgeHeightForWorldTile(
             this.mapManager,
             focalSubX / 128,
@@ -8366,11 +8370,15 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         if (target > 98048) target = 98048;
         if (target < 32768) target = 32768;
 
-        const current = this.cameraTerrainPitchPressure | 0;
-        if (target > current) {
-            this.cameraTerrainPitchPressure = current + (((target - current) / 24) | 0);
-        } else if (target < current) {
-            this.cameraTerrainPitchPressure = current + (((target - current) / 80) | 0);
+        for (let i = 0; i < cycles; i++) {
+            const current = this.cameraTerrainPitchPressure | 0;
+            if (target > current) {
+                this.cameraTerrainPitchPressure = current + (((target - current) / 24) | 0);
+            } else if (target < current) {
+                this.cameraTerrainPitchPressure = current + (((target - current) / 80) | 0);
+            } else {
+                break;
+            }
         }
     }
 
@@ -8514,6 +8522,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         const targetSubX = px;
         const targetSubZ = py;
 
+        let smoothingCycles = 0;
         if (!this.followCamFocalInitialized || this.followCamFocalLastClientCycle < 0) {
             this.followCamFocalXSub = targetSubX;
             this.followCamFocalZSub = targetSubZ;
@@ -8526,7 +8535,9 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                 this.followCamFocalXSub = targetSubX;
                 this.followCamFocalZSub = targetSubZ;
                 this.followCamFocalLastClientCycle = clientCycle;
+                smoothingCycles = 1;
             } else if (cyclesElapsed > 0) {
+                smoothingCycles = cyclesElapsed;
                 for (let i = 0; i < cyclesElapsed; i++) {
                     const dxFocal = targetSubX - this.followCamFocalXSub;
                     const dzFocal = targetSubZ - this.followCamFocalZSub;
@@ -8548,13 +8559,16 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         const focalSubZ = this.followCamFocalZSub;
         const basePlane = pe.getLevel(playerEcsIndex) | 0;
         const onWorldEntity = this.getControlledPlayerWorldViewId() >= 0;
+        // Pitch pressure eases on the client-cycle timebase like the focal point;
+        // per-frame easing would converge several times faster than OSRS at high refresh rates.
         if (!onWorldEntity) {
-            this.updateCameraTerrainPitchPressure(focalSubX, focalSubZ, basePlane);
+            this.updateCameraTerrainPitchPressure(focalSubX, focalSubZ, basePlane, smoothingCycles);
         } else {
             // On a world entity (ship) the deck is flat; let pressure decay to the minimum
             // so it doesn't artificially restrict the camera pitch.
-            const current = this.cameraTerrainPitchPressure | 0;
-            if (current > 32768) {
+            for (let i = 0; i < smoothingCycles; i++) {
+                const current = this.cameraTerrainPitchPressure | 0;
+                if (current <= 32768) break;
                 this.cameraTerrainPitchPressure = current + (((32768 - current) / 80) | 0);
             }
         }
@@ -8650,27 +8664,12 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
 
         const focusHeightTiles = (this.osrsClient.camFollowHeight | 0) / 128.0;
         const targetY = playerHeightSample.height - focusHeightTiles;
-        const desiredPosY = targetY - forward[1] * dist;
-
-        // Prevent camera from going "behind" the ground (underground). World Y is negative-up,
-        // so ensure camera Y target stays just above sampled ground height.
-        const camHeightSample = sampleBridgeHeightForWorldTile(
-            this.mapManager,
-            desiredPosX,
-            desiredPosZ,
-            basePlane,
-            BridgePlaneStrategy.RENDER,
-        );
-        // Use camera position height only if valid, otherwise use target height as fallback
-        const groundAtCam = camHeightSample.valid
-            ? camHeightSample.height
-            : playerHeightSample.height;
-        const eps = 0.05; // ~6.4 px in heightmap
-        const minAllowedY = groundAtCam - eps;
-        const clampedPosY = Math.round(Math.min(desiredPosY, minAllowedY) * 128) / 128;
+        // Camera Y is purely the orbit position around the focal point; terrain clipping is
+        // handled by the pitch clamp pressure, never by raising the camera off its orbit.
+        const desiredPosY = Math.round((targetY - forward[1] * dist) * 128) / 128;
 
         // Tight follow: snap camera height to the computed orbit position to keep the target stable in view.
-        camera.snapToPosition(undefined, clampedPosY, undefined);
+        camera.snapToPosition(undefined, desiredPosY, undefined);
     }
 
     private getSceneViewportWidgetRect(): { x: number; y: number; width: number; height: number } {
