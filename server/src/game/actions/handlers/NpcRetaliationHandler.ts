@@ -50,9 +50,21 @@ export class NpcRetaliationHandler {
             style = HITMARK_DAMAGE,
             type2: rawType2,
             damage2: rawDamage2,
+            attackType: rawAttackType,
         } = data;
-        const damage = Math.max(0, rawDamage);
         const maxHit = Math.max(0, rawMaxHit);
+        const attackType = this.services.resolveNpcAttackType(
+            npc,
+            this.services.normalizeAttackType(rawAttackType) ?? undefined,
+        );
+        // Protection prayers are evaluated when the hit lands, so a prayer
+        // activated while a projectile is in flight still reduces the damage.
+        const damage = this.services.applyProtectionPrayers(
+            player,
+            Math.max(0, rawDamage),
+            attackType,
+            "npc",
+        );
         const type2 = Number.isFinite(rawType2) ? rawType2 : undefined;
         const damage2 = Number.isFinite(rawDamage2) ? rawDamage2 : undefined;
 
@@ -185,9 +197,6 @@ export class NpcRetaliationHandler {
             // Roll NPC damage for aggression attack using actual NPC stats
             damage = this.services.rollRetaliateDamage(npc, player);
         }
-        // Protection prayers are evaluated on the swing tick; toggling them after
-        // the swing does not change the already-queued hit.
-        damage = this.services.applyProtectionPrayers(player, damage, attackType, "npc");
         const type2 = Number.isFinite(rawType2) ? rawType2 : undefined;
         const damage2 = Number.isFinite(rawDamage2) ? rawDamage2 : undefined;
         const hitDelay = Math.max(

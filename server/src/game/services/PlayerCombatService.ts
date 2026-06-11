@@ -16,8 +16,11 @@ const DEFAULT_MISS_SOUND = 2564;
 const DEFAULT_MAGIC_SPLASH_SOUND = 227;
 const MAGIC_CAST_SEQ = 711; // Standard magic casting animation (human_caststrike)
 const MAGIC_CAST_STAFF_SEQ = 1162; // Magic casting with staff (human_caststrike_staff)
-/** Melee hits resolve on the attack tick itself. */
-const MELEE_HIT_DELAY_TICKS = 0;
+/**
+ * Melee hits on NPCs land the tick after the swing: the base melee delay is 0,
+ * but NPCs act before players each tick, so the hit applies on the NPC's next turn.
+ */
+const MELEE_HIT_DELAY_TICKS = 1;
 const UNARMED_PUNCH_SOUND = 2567;
 const UNARMED_KICK_SOUND = 2568;
 const WEAPON_SPEED_PARAM = 771;

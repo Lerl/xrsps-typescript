@@ -1135,7 +1135,7 @@ export class CombatActionHandler {
         let fallbackHitDelay =
             minimumProjectileHitDelay !== undefined
                 ? minimumProjectileHitDelay
-                : Math.max(0, this.svc.playerCombatService!.pickHitDelay(player));
+                : Math.max(1, this.svc.playerCombatService!.pickHitDelay(player));
 
         // Award magic base XP on cast
         // Skip if onMagicAttack already awarded base XP at schedule time (prevents double XP)
@@ -1160,7 +1160,9 @@ export class CombatActionHandler {
                 spellId,
                 ammoEffect,
             } = entryData;
-            const hitDelay = Math.max(0, Math.ceil(rawHitDelay), minimumProjectileHitDelay ?? 0);
+            // Hits on NPCs never resolve on the attack tick: NPCs act before players
+            // within a tick, so the earliest a queued hit can apply is the next tick.
+            const hitDelay = Math.max(1, Math.ceil(rawHitDelay), minimumProjectileHitDelay ?? 0);
             const damage = Math.max(0, rawDamage);
             const maxHit = Math.max(0, rawMaxHit);
             const style = explicitStyle ?? (damage > 0 || landed ? HITMARK_DAMAGE : HITMARK_BLOCK);
@@ -1205,40 +1207,24 @@ export class CombatActionHandler {
                 hitData.xpGrantedOnAttack = true;
             }
 
-            if (hitDelay <= 0) {
-                // 0-tick hits (melee) resolve inline on the attack tick, so the
-                // hitsplat goes out in the same cycle as the attack animation.
-                // The scheduler drains its queue once per tick, so a queued
-                // 0-delay action would not run until the next tick.
-                const inlineResult = this.executeCombatPlayerHitAction(
-                    player,
-                    hitData,
-                    scheduleTick,
+            const hitResult = this.svc.actionScheduler.requestAction(
+                player.id,
+                {
+                    kind: "combat.playerHit",
+                    data: hitData,
+                    groups: ["combat.hit"],
+                    cooldownTicks: 0,
+                    delayTicks: hitDelay,
+                },
+                scheduleTick,
+            );
+            if (!hitResult.ok) {
+                logger.warn(
+                    `[combat] failed to schedule player hit (player=${player.id}, npc=${npc.id}): ${
+                        hitResult.reason ?? "unknown"
+                    }`,
                 );
-                // Outside an active frame the hit handler dispatches its own effects.
-                if (inlineResult.effects?.length && this.subServices.isActiveFrame()) {
-                    effects.push(...inlineResult.effects);
-                }
-            } else {
-                const hitResult = this.svc.actionScheduler.requestAction(
-                    player.id,
-                    {
-                        kind: "combat.playerHit",
-                        data: hitData,
-                        groups: ["combat.hit"],
-                        cooldownTicks: 0,
-                        delayTicks: hitDelay,
-                    },
-                    scheduleTick,
-                );
-                if (!hitResult.ok) {
-                    logger.warn(
-                        `[combat] failed to schedule player hit (player=${player.id}, npc=${npc.id}): ${
-                            hitResult.reason ?? "unknown"
-                        }`,
-                    );
-                    continue;
-                }
+                continue;
             }
 
             if (grantXpOnAttack) {

@@ -403,11 +403,11 @@ export class CombatEngine {
         const hitChance = forceHit
             ? 1
             : this.computeHitChance(attackProfile.attackRoll, defenceRoll);
-        // Hit delays relative to the attack tick:
-        // Melee: 0 ticks, Ranged: 1 + floor((3+dist)/6), Magic: 1 + floor((1+dist)/3).
-        // A 0-tick hit resolves inline on the attack tick, so the hitsplat is
-        // broadcast in the same cycle as the attack animation.
-        const hitDelay = this.computeHitDelay(context, attackProfile.style);
+        // Base hit delays: Melee 0, Ranged 1 + floor((3+dist)/6), Magic 1 + floor((1+dist)/3).
+        // NPCs take their turns before players within a tick, so every hit a player
+        // deals to an NPC lands one tick after these base delays — a melee hitsplat
+        // appears the tick after the swing animation, never on the same tick.
+        const hitDelay = this.computeHitDelay(context, attackProfile.style) + 1;
         const roll = this.rng.next();
         const hitLanded = forceHit ? true : roll < hitChance;
         let damage = hitLanded ? this.rollDamage(Math.max(0, maxHit)) : 0;
