@@ -1,4 +1,5 @@
 import type { ActionEffect, ActionExecutionResult } from "../../../../src/game/actions/types";
+import { LockState } from "../../../../src/game/model/LockState";
 import type { PlayerState } from "../../../../src/game/player";
 import type {
     IScriptRegistry,
@@ -48,6 +49,13 @@ export interface PickpocketNpcDef {
     maxDamage: number;
     stunTicks: number;
     displayName?: string;
+    /**
+     * Success-roll numerators out of 255 at thieving levels 1 and 99,
+     * interpolated linearly between (the engine's per-NPC curve). When absent,
+     * falls back to the generic 55-95% curve from reqLevel to 99.
+     */
+    lowChance?: number;
+    highChance?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -186,6 +194,9 @@ const PICKPOCKET_NPCS: PickpocketNpcDef[] = [
         minDamage: 1,
         maxDamage: 1,
         stunTicks: 8,
+        // Documented engine values (Mod Ash): 180/255 at level 1, 240/255 at 99.
+        lowChance: 180,
+        highChance: 240,
     },
     {
         // Farmer (r237 cache-verified)
@@ -637,6 +648,8 @@ interface PickpocketActionData {
     maxDamage: number;
     stunTicks: number;
     displayName?: string;
+    lowChance?: number;
+    highChance?: number;
     /** 0=attempt, 1=resolve, 2=stun_visual, 3=stun_damage */
     phase: number;
 }
@@ -687,17 +700,34 @@ function schedulePickpocket(
 
 function rollPickpocketSuccess(
     playerLevel: number,
-    reqLevel: number,
+    data: Pick<PickpocketActionData, "reqLevel" | "lowChance" | "highChance">,
     equipArray: number[],
 ): boolean {
     const glovesId = equipArray[EQUIPMENT_SLOT_GLOVES] ?? -1;
-    const bonus = glovesId === GLOVES_OF_SILENCE_ID ? GLOVES_OF_SILENCE_BONUS : 0;
-    const minChance = 55;
-    const maxChance = 95;
-    const range = 99 - reqLevel || 1;
-    const chance = minChance + ((maxChance - minChance) * (playerLevel - reqLevel)) / range;
-    const clamped = Math.min(maxChance, Math.max(minChance, chance));
-    return Math.random() * (100 - bonus) < clamped;
+    const hasGloves = glovesId === GLOVES_OF_SILENCE_ID;
+
+    let successChance: number;
+    if (data.lowChance !== undefined && data.highChance !== undefined) {
+        // Engine curve: numerator out of 255, interpolated from level 1 to 99.
+        const t = Math.min(98, Math.max(0, playerLevel - 1)) / 98;
+        const numerator = Math.floor(
+            data.lowChance + (data.highChance - data.lowChance) * t,
+        );
+        successChance = Math.min(255, Math.max(0, numerator)) / 255;
+    } else {
+        const minChance = 55;
+        const maxChance = 95;
+        const range = 99 - data.reqLevel || 1;
+        const chance =
+            minChance + ((maxChance - minChance) * (playerLevel - data.reqLevel)) / range;
+        successChance = Math.min(maxChance, Math.max(minChance, chance)) / 100;
+    }
+
+    if (hasGloves) {
+        // Gloves of silence reduce the failure chance by 5%.
+        successChance = 1 - (1 - successChance) * (1 - GLOVES_OF_SILENCE_BONUS / 100);
+    }
+    return Math.random() < successChance;
 }
 
 function rollPickpocketLoot(
@@ -772,6 +802,28 @@ function executePickpocketAction(ctx: ScriptActionHandlerContext): ActionExecuti
             return { ok: true, effects };
         }
 
+        // Coin pouches cap at 28; pickpocketing coin NPCs is blocked until opened.
+        if (data.coinPouchId) {
+            const inv = services.inventory.getInventoryItems(player);
+            let pouchCount = 0;
+            for (const entry of inv) {
+                if (entry && entry.itemId === data.coinPouchId) pouchCount += entry.quantity;
+            }
+            if (pouchCount >= MAX_COIN_POUCHES) {
+                effects.push(
+                    buildMessageEffect(
+                        player,
+                        "You should open the coin pouches that you've already stolen first.",
+                    ),
+                );
+                return { ok: true, effects };
+            }
+        }
+
+        // The pickpocket animation plays on the attempt itself, before the
+        // outcome is known, and the player is held in place until it resolves.
+        services.animation.playPlayerSeq(player, PICKPOCKET_ANIM);
+        player.lock = LockState.FULL_WITH_ITEM_INTERACTION;
         effects.push(
             buildMessageEffect(player, `You attempt to pick the ${npcNameLower}'s pocket.`),
         );
@@ -787,10 +839,10 @@ function executePickpocketAction(ctx: ScriptActionHandlerContext): ActionExecuti
             (thievingSkill?.baseLevel ?? 1) + (thievingSkill?.boost ?? 0),
         );
         const equipArray = services.equipment.getEquipArray(player) ?? [];
-        const success = rollPickpocketSuccess(thievingLevel, data.reqLevel, equipArray);
+        const success = rollPickpocketSuccess(thievingLevel, data, equipArray);
 
         if (success) {
-            services.animation.playPlayerSeq(player, PICKPOCKET_ANIM);
+            player.lock = LockState.NONE;
             services.combat.clearPlayerFaceTarget(player);
             services.sound.sendSound(player, PICKPOCKET_SUCCESS_SOUND);
 
@@ -883,6 +935,8 @@ function executePickpocketAction(ctx: ScriptActionHandlerContext): ActionExecuti
         });
 
         effects.push(buildMessageEffect(player, "You've been stunned!"));
+        // The stun timer takes over from the attempt lock.
+        player.lock = LockState.NONE;
         services.combat.stunPlayer(player, data.stunTicks);
         services.variables.sendVarbit?.(player, PICKPOCKET_BUSY_VARBIT, 0);
     }
@@ -917,6 +971,8 @@ export function register(registry: IScriptRegistry, _services: ScriptServices): 
                         maxDamage: def.maxDamage,
                         stunTicks: def.stunTicks,
                         displayName: def.displayName,
+                        lowChance: def.lowChance,
+                        highChance: def.highChance,
                         phase: 0,
                     };
 

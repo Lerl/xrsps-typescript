@@ -692,8 +692,9 @@ export abstract class Actor {
             this.stepPositions[i].rot = finalRot;
         }
 
-        // Pure rotation update (no movement, but facing changed)
-        if (!moved && rotated && this.forcedOrientation >= 0) {
+        // Pure rotation update (no movement, but facing changed). Turns from
+        // faceTile() (which clears forcedOrientation) must broadcast too.
+        if (!moved && rotated) {
             this.stepPositions.push({
                 x: this.x,
                 y: this.y,

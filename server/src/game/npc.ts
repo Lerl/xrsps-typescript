@@ -1,5 +1,6 @@
 import { Actor } from "./actor";
 import { EntityType } from "./collision/EntityCollisionService";
+import type { InteractionTargetType } from "./interactionIndex";
 import type { AttackType } from "./combat/AttackType";
 import {
     DEFAULT_DISEASE_INTERVAL_TICKS,
@@ -591,6 +592,35 @@ export class NpcState extends Actor {
         if (!target) return false;
         // RSMod considers "player" and "npc" as pawns
         return target.type === EntityType.Player || target.type === EntityType.Npc;
+    }
+
+    /** Tick when the current idle pawn-face hold began (-1 = not tracking). */
+    private pawnFaceHoldSinceTick: number = -1;
+
+    override setInteraction(targetType: InteractionTargetType, targetId: number): void {
+        const before = this.getInteractionIndex();
+        super.setInteraction(targetType, targetId);
+        if (this.getInteractionIndex() !== before) {
+            // A new facing target restarts the idle hold (RESET_PAWN_FACING_TIMER).
+            this.pawnFaceHoldSinceTick = -1;
+        }
+    }
+
+    /**
+     * Idle pawn-face hold (RSMod Npc.RESET_PAWN_FACE_DELAY): while an idle NPC
+     * faces a pawn it does not roam; the facing clears once the hold expires.
+     * Starts counting on the first idle tick it is queried.
+     */
+    isPawnFaceHoldExpired(currentTick: number, holdTicks: number): boolean {
+        if (this.pawnFaceHoldSinceTick < 0) {
+            this.pawnFaceHoldSinceTick = currentTick;
+            return false;
+        }
+        return currentTick - this.pawnFaceHoldSinceTick >= holdTicks;
+    }
+
+    clearPawnFaceHold(): void {
+        this.pawnFaceHoldSinceTick = -1;
     }
 
     /**

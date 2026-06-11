@@ -61,8 +61,6 @@ export class NpcEcs {
     // Animation state (per-frame)
     private frameIndex: Uint16Array; // action sequence frame
     private seqId: Int32Array; // current action/sequence override (-1 = none)
-    private seqTicksLeft: Int16Array; // frames remaining for current seq (client ticks)
-    private seqTicksTotal: Int16Array; // total frames when armed (for reset/logging)
     private seqDelay: Uint8Array; // Actor.sequenceDelay
     private seqPathLength: Uint8Array; // Actor.sequencePathLength snapshot
     private useWalkAnim: Uint8Array; // 0=idle, 1=walk
@@ -145,8 +143,6 @@ export class NpcEcs {
         this.overheadCycle = new Int32Array(this.capacity);
         this.frameIndex = new Uint16Array(this.capacity);
         this.seqId = new Int32Array(this.capacity);
-        this.seqTicksLeft = new Int16Array(this.capacity);
-        this.seqTicksTotal = new Int16Array(this.capacity);
         this.seqDelay = new Uint8Array(this.capacity);
         this.seqPathLength = new Uint8Array(this.capacity);
         this.useWalkAnim = new Uint8Array(this.capacity);
@@ -218,8 +214,6 @@ export class NpcEcs {
         this.overheadCycle = grow(this.overheadCycle, newCap);
         this.frameIndex = grow(this.frameIndex, newCap);
         this.seqId = grow(this.seqId, newCap);
-        this.seqTicksLeft = grow(this.seqTicksLeft, newCap);
-        this.seqTicksTotal = grow(this.seqTicksTotal, newCap);
         this.seqDelay = grow(this.seqDelay, newCap);
         this.seqPathLength = grow(this.seqPathLength, newCap);
         this.useWalkAnim = grow(this.useWalkAnim, newCap);
@@ -349,8 +343,6 @@ export class NpcEcs {
         this.animTick[id] = 0;
         this.loopCount[id] = 0;
         this.seqId[id] = -1;
-        this.seqTicksLeft[id] = 0;
-        this.seqTicksTotal[id] = 0;
         this.seqDelay[id] = 0;
         this.seqPathLength[id] = 0;
         this.movementFrameIndex[id] = 0;
@@ -804,10 +796,11 @@ export class NpcEcs {
                 const dy = (ty - cy) | 0;
 
                 // one current path target is processed per client cycle.
+                const chebyshev = Math.max(Math.abs(dx), Math.abs(dy));
                 if (cx === tx && cy === ty) {
                     this.completeActiveStep(id);
-                } else if (dx > 256 || dx < -256 || dy > 256 || dy < -256) {
-                    // snap to target tile center when >2 tiles away on either axis.
+                } else if (chebyshev > 288) {
+                    // snap to target tile center when more than 2.25 tiles away.
                     this.setXY(id, tx, ty);
                     this.completeActiveStep(id);
                 } else {
@@ -912,7 +905,7 @@ export class NpcEcs {
     setMovementFrameIndex(id: number, idx: number): void {
         this.movementFrameIndex[id] = (idx | 0) & 0xffff;
     }
-    handleServerSequence(id: number, seqId: number, ticks: number, delay: number = 0): void {
+    handleServerSequence(id: number, seqId: number, delay: number = 0): void {
         const nextSeq = seqId | 0;
         const nextDelay = Math.max(0, delay | 0) & 0xff;
         const currentSeq = this.seqId[id] | 0;
@@ -920,8 +913,6 @@ export class NpcEcs {
         if (currentSeq === nextSeq && nextSeq !== -1) {
             const restartMode = this.getSeqRestartMode(nextSeq);
             if (restartMode === 1) {
-                this.seqTicksTotal[id] = Math.max(0, ticks | 0);
-                this.seqTicksLeft[id] = Math.max(0, ticks | 0);
                 this.seqDelay[id] = nextDelay;
                 this.animTick[id] = 0;
                 this.frameIndex[id] = 0;
@@ -942,8 +933,6 @@ export class NpcEcs {
             this.getSeqForcedPriority(nextSeq) >= this.getSeqForcedPriority(currentSeq)
         ) {
             this.seqId[id] = nextSeq;
-            this.seqTicksTotal[id] = Math.max(0, ticks | 0);
-            this.seqTicksLeft[id] = Math.max(0, ticks | 0);
             this.seqDelay[id] = nextDelay;
             this.seqPathLength[id] = Math.min(255, this.getPathLengthLike(id)) & 0xff;
             this.animTick[id] = 0;
@@ -951,13 +940,8 @@ export class NpcEcs {
             this.loopCount[id] = 0;
         }
     }
-    setSeq(id: number, seqId: number, ticks: number, delay: number = 0): void {
-        this.handleServerSequence(id, seqId, ticks, delay);
-    }
     clearSeq(id: number): void {
         this.seqId[id] = -1;
-        this.seqTicksLeft[id] = 0;
-        this.seqTicksTotal[id] = 0;
         this.seqDelay[id] = 0;
         this.seqPathLength[id] = 0;
         // Reset animTick and frameIndex so next animation starts from frame 0
@@ -1034,15 +1018,6 @@ export class NpcEcs {
     }
     setMovementSeqId(id: number, seqId: number): void {
         this.movementSeqId[id] = seqId | 0;
-    }
-    getSeqTicksLeft(id: number): number {
-        return this.seqTicksLeft[id] | 0;
-    }
-    setSeqTicksLeft(id: number, ticks: number): void {
-        this.seqTicksLeft[id] = Math.max(0, ticks | 0);
-    }
-    getSeqTicksTotal(id: number): number {
-        return this.seqTicksTotal[id] | 0;
     }
     getSeqDelay(id: number): number {
         return this.seqDelay[id] | 0;

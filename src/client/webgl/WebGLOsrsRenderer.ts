@@ -3805,15 +3805,18 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                         (pe.getTargetRotation?.(ecsIndex) ?? pe.targetRot?.[ecsIndex] ?? rot) | 0;
                     const delta = (desired - rot) & 2047;
                     if (delta !== 0) {
-                        // OSRS turn animation delay: only play turn animation after 25 ticks of continuous rotation
                         const rotationCounter = (pe.getRotationCounter?.(ecsIndex) ?? 0) | 0;
                         const rotationSpeed = (pe.getRotationSpeed?.(ecsIndex) ?? 32) | 0;
-                        const shouldPlayTurnAnim = rotationCounter >= 25 && rotationSpeed > 0;
-
-                        if (shouldPlayTurnAnim) {
+                        // Turn anims play while the rotation is still in progress
+                        // this tick; the counter only extends them past the final
+                        // snap step (the di > 25 case). Falls back to the walk
+                        // animation when no idle-rotate sequence exists.
+                        const stillTurning =
+                            delta >= rotationSpeed && delta <= 2048 - rotationSpeed;
+                        if (rotationSpeed > 0 && (stillTurning || rotationCounter > 25)) {
                             const turnSeq = pick(
                                 delta > 1024 ? animSeq("turnLeft") : animSeq("turnRight"),
-                                delta > 1024 ? animSeq("turnRight") : animSeq("turnLeft"),
+                                animSeq("walk"),
                             );
                             if (turnSeq >= 0) return turnSeq;
                         }
@@ -4157,6 +4160,22 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
             const pathLength = ecs.getPathLengthLike?.(ecsId) | 0;
             if (pathLength <= 0) {
                 movementSeqId = idleSeqId;
+                // Turn-in-place: while still rotating toward the target
+                // orientation, play the idle-rotate sequence (walk fallback).
+                const rot = ecs.getRotation(ecsId) | 0;
+                const targetRot = ecs.getTargetRot(ecsId) | 0;
+                const delta = (targetRot - rot) & 2047;
+                if (delta !== 0) {
+                    const rotSpeed = ecs.getRotationSpeed(ecsId) | 0;
+                    const stillTurning =
+                        rotSpeed > 0 && delta >= rotSpeed && delta <= 2048 - rotSpeed;
+                    if (stillTurning) {
+                        const turnSeq =
+                            delta > 1024 ? movementSet.turnLeft | 0 : movementSet.turnRight | 0;
+                        const resolved = turnSeq >= 0 ? turnSeq : walkSeqId;
+                        if (resolved >= 0) movementSeqId = resolved;
+                    }
+                }
                 return { movementSeqId, idleSeqId, walkSeqId };
             }
 
@@ -11406,31 +11425,12 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                         true,
                     );
 
-                    // When a one-shot animation finishes, hold the
-                    // last frame while seqTicksLeft > 0 instead of immediately
-                    // reverting to idle. This prevents the NPC from flashing back
-                    // to its idle pose between the death animation ending and the
-                    // server despawn packet arriving.
-                    // NOTE: In OSRS, death animations have a very long hold frame
-                    // (65535 cycles) on their final frame in the cache data, which
-                    // keeps the corpse pose visible until the server removes the NPC.
-                    // This client-side seqTicksLeft buffer is a workaround for
-                    // animations that lack proper cache hold frames. The proper fix
-                    // is adding hold frames to death SeqTypes in the cache.
-                    const ticksLeft = ecs.getSeqTicksLeft(id) | 0;
-                    if (ticksLeft > 0) {
-                        ecs.setSeqTicksLeft(id, (ticksLeft - 1) | 0);
-                    }
-
+                    // Reference: updateActorAnimationState stops the sequence the
+                    // moment it finishes (actor animation state reverts to none);
+                    // corpse poses persist via the death seq's own frame lengths
+                    // and the server despawning the NPC at the animation's end.
                     if (actionStep.cleared) {
-                        if (ticksLeft > 0) {
-                            // Hold last frame until seqTicksLeft expires
-                            ecs.setFrameIndex(id, Math.max(0, (actionFrameCount - 1) | 0));
-                            ecs.setAnimTick(id, 0);
-                            ecs.setLoopCount(id, actionStep.loopCount | 0);
-                        } else {
-                            ecs.clearSeq(id);
-                        }
+                        ecs.clearSeq(id);
                     } else {
                         ecs.setFrameIndex(id, actionStep.frameIndex | 0);
                         ecs.setAnimTick(id, actionStep.animTick | 0);

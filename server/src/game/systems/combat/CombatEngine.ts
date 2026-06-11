@@ -308,7 +308,10 @@ export class CombatEngine {
             atkStance.magic ?? 0,
         );
         const atkBonus = atkBonuses[atkStyle.bonusIndex] ?? 0;
-        const attackRoll = atkEffective * Math.max(0, atkBonus + 64);
+        const attackRoll = CombatFormulas.attackRoll({
+            effectiveLevel: atkEffective,
+            bonus: this.clampEquipmentBonus(atkBonus),
+        });
 
         // Max hit (baseMaxHit with magic damage%)
         const magicDamagePct = atkBonuses[MAGIC_DAMAGE_INDEX] ?? 0;
@@ -335,7 +338,10 @@ export class CombatEngine {
         );
         const magicDefBonusIndex = DEFENCE_BONUS_INDEX[AttackBonusIndex.Magic];
         const defBonus = defBonuses[magicDefBonusIndex] ?? 0;
-        const defenceRoll = effMagicDef * Math.max(0, defBonus + 64);
+        const defenceRoll = CombatFormulas.defenceRoll({
+            effectiveLevel: effMagicDef,
+            bonus: this.clampEquipmentBonus(defBonus),
+        });
 
         const hitChance = this.computeHitChance(attackRoll, defenceRoll);
         const landed = this.rng.next() < hitChance;
@@ -902,18 +908,7 @@ export class CombatEngine {
 
     private rollDamage(maxDamage: number): number {
         if (!(maxDamage > 0)) return 0;
-        // OSRS: Successful hits roll 0 to maxHit inclusive
-        return this.rng.nextInt(0, maxDamage + 1);
-    }
-
-    /**
-     * Roll NPC damage using the same formula as player damage (0 to maxHit inclusive).
-     * OSRS NPCs use the same damage rolling mechanics as players.
-     */
-    private rollNpcDamage(maxHit: number): number {
-        if (!(maxHit > 0)) return 0;
-        // OSRS: NPC damage rolls 0 to maxHit inclusive, same as players
-        return this.rng.nextInt(0, maxHit + 1);
+        return CombatFormulas.rollDamage(maxDamage, this.rng.next());
     }
 
     private getPlayerEquipment(player: PlayerState): number[] {
@@ -954,23 +949,15 @@ export class CombatEngine {
     /**
      * Resolve the NPC's max hit from profile or estimate from its strength level.
      * NPC max hits are defined per-NPC in the cache/wiki data; the formula is the
-     * fallback. NPC effective levels are level + 9 (8 + the fixed +1 stance bonus).
+     * fallback.
      */
     private resolveNpcMaxHit(profile: NpcCombatProfile | undefined, npc: NpcState): number {
-        // Use explicit maxHit from profile if provided
-        if (profile?.maxHit !== undefined && profile.maxHit > 0) {
-            return profile.maxHit;
-        }
-
-        if (profile?.strengthLevel !== undefined && profile.strengthLevel > 0) {
-            const effectiveStrength = CombatFormulas.npcEffectiveStrength(profile.strengthLevel);
-            const strengthBonus = profile.strengthBonus ?? 0;
-            const maxHit = Math.floor(0.5 + (effectiveStrength * (strengthBonus + 64)) / 640);
-            return Math.max(1, maxHit);
-        }
-
-        // No cache/profile stats available - return minimal max hit.
-        return 1;
+        const maxHit = CombatFormulas.npcMaxHit({
+            maxHit: profile?.maxHit ?? 0,
+            strengthLevel: profile?.strengthLevel ?? 0,
+            strengthBonus: profile?.strengthBonus ?? 0,
+        });
+        return Math.max(1, maxHit);
     }
 
     private pickDefaultNpcHitDelay(
@@ -1026,7 +1013,10 @@ export class CombatEngine {
                     accuracyLevelMultiplier,
                 );
                 const attackBonus = equipmentBonuses[style.bonusIndex] ?? 0;
-                const attackRoll = effectiveLevel * Math.max(0, attackBonus + 64);
+                const attackRoll = CombatFormulas.attackRoll({
+                    effectiveLevel,
+                    bonus: this.clampEquipmentBonus(attackBonus),
+                });
 
                 const effectiveStrength = this.applyEffectiveLevelMultiplier(
                     this.computeEffectiveLevel(
@@ -1037,9 +1027,10 @@ export class CombatEngine {
                     strengthLevelMultiplier,
                 );
                 const rangedStrengthBonus = equipmentBonuses[RANGED_STRENGTH_INDEX] ?? 0;
-                const maxHit = Math.floor(
-                    0.5 + (effectiveStrength * Math.max(0, rangedStrengthBonus + 64)) / 640,
-                );
+                const maxHit = CombatFormulas.maxHit({
+                    effectiveStrength,
+                    strengthBonus: this.clampEquipmentBonus(rangedStrengthBonus),
+                });
 
                 return { style, attackRoll, maxHit, equipmentBonuses };
             }
@@ -1056,7 +1047,10 @@ export class CombatEngine {
                     effectiveLevel,
                     accuracyLevelMultiplier,
                 );
-                const attackRoll = accuracyLevel * Math.max(0, attackBonus + 64);
+                const attackRoll = CombatFormulas.attackRoll({
+                    effectiveLevel: accuracyLevel,
+                    bonus: this.clampEquipmentBonus(attackBonus),
+                });
 
                 const magicDamagePct = equipmentBonuses[MAGIC_DAMAGE_INDEX] ?? 0;
                 const baseDamage = this.resolveMagicBaseDamage(context.player, effectiveLevel);
@@ -1076,7 +1070,10 @@ export class CombatEngine {
                     accuracyLevelMultiplier,
                 );
                 const attackBonus = equipmentBonuses[style.bonusIndex] ?? 0;
-                const attackRoll = effectiveAttack * Math.max(0, attackBonus + 64);
+                const attackRoll = CombatFormulas.attackRoll({
+                    effectiveLevel: effectiveAttack,
+                    bonus: this.clampEquipmentBonus(attackBonus),
+                });
 
                 const effectiveStrength = this.applyEffectiveLevelMultiplier(
                     this.computeEffectiveLevel(
@@ -1087,9 +1084,10 @@ export class CombatEngine {
                     strengthLevelMultiplier,
                 );
                 const meleeStrengthBonus = equipmentBonuses[MELEE_STRENGTH_INDEX] ?? 0;
-                const maxHit = Math.floor(
-                    0.5 + (effectiveStrength * Math.max(0, meleeStrengthBonus + 64)) / 640,
-                );
+                const maxHit = CombatFormulas.maxHit({
+                    effectiveStrength,
+                    strengthBonus: this.clampEquipmentBonus(meleeStrengthBonus),
+                });
 
                 return { style, attackRoll, maxHit, equipmentBonuses };
             }
@@ -1112,35 +1110,39 @@ export class CombatEngine {
 
         const defenceBonus = this.resolveNpcDefenceBonus(profile, attackProfile.style.bonusIndex);
 
+        const clampedBonus = this.clampEquipmentBonus(defenceBonus);
         switch (attackProfile.style.kind) {
             case AttackType.Magic: {
                 const effectiveMagicDefence = this.computeMagicDefenceEffectiveLevel(
                     defenceLevel,
                     magicLevel,
                 );
-                return effectiveMagicDefence * Math.max(0, defenceBonus + 64);
+                return CombatFormulas.defenceRoll({
+                    effectiveLevel: effectiveMagicDefence,
+                    bonus: clampedBonus,
+                });
             }
-            case AttackType.Ranged: {
-                const effectiveRangedDefence = CombatFormulas.npcEffectiveDefence(defenceLevel);
-                return effectiveRangedDefence * Math.max(0, defenceBonus + 64);
-            }
+            case AttackType.Ranged:
             case AttackType.Melee: {
-                const effectiveDefence = CombatFormulas.npcEffectiveDefence(defenceLevel);
-                return effectiveDefence * Math.max(0, defenceBonus + 64);
+                return CombatFormulas.defenceRoll({
+                    effectiveLevel: CombatFormulas.npcEffectiveDefence(defenceLevel),
+                    bonus: clampedBonus,
+                });
             }
         }
     }
 
     private computeHitChance(attackRoll: number, defenceRoll: number): number {
         if (attackRoll <= 0) return 0;
-        if (defenceRoll <= 0) return 1;
-        // RSMod parity: Use > (strictly greater)
-        // Formula: attack > defence: 1 - (defence + 2) / (2 * (attack + 1))
-        //          attack <= defence: attack / (2 * (defence + 1))
-        if (attackRoll > defenceRoll) {
-            return 1 - (defenceRoll + 2) / (2 * (attackRoll + 1));
-        }
-        return attackRoll / (2 * (defenceRoll + 1));
+        return CombatFormulas.hitChance(attackRoll, defenceRoll);
+    }
+
+    /**
+     * Equipment bonuses below -64 would make the (bonus + 64) roll factor
+     * negative; clamp so rolls bottom out at zero.
+     */
+    private clampEquipmentBonus(bonus: number): number {
+        return Math.max(-64, bonus);
     }
 
     private aggregatePlayerBonuses(player: PlayerState): number[] {
@@ -1454,11 +1456,12 @@ export class CombatEngine {
         boostedLevel: number,
         prayerMultiplier: number,
         stanceBonus: number,
-        additive: number = 8,
     ): number {
-        const prayed = Math.floor(boostedLevel * Math.max(0, prayerMultiplier));
-        const total = prayed + stanceBonus + additive;
-        return Math.max(1, total);
+        return CombatFormulas.effectiveLevel(
+            boostedLevel,
+            Math.max(0, prayerMultiplier),
+            stanceBonus,
+        );
     }
 
     private getPrayerMultiplier(player: PlayerState, stat: PrayerStat): number {
@@ -1482,10 +1485,8 @@ export class CombatEngine {
     }
 
     private computeMagicDefenceEffectiveLevel(defenceLevel: number, magicLevel: number): number {
-        // Magic defence uses 70% magic, 30% defence (not reversed!)
-        // Formula: floor(magic * 0.7 + defence * 0.3) + 8
-        // Reference: docs/combat-formulas.md
-        return Math.max(1, Math.floor(magicLevel * 0.7 + defenceLevel * 0.3) + 8);
+        // Magic defence uses 70% magic, 30% defence (provider takes magic first).
+        return CombatFormulas.effectiveMagicDefence(magicLevel, defenceLevel);
     }
 
     private resolveNpcDefenceBonus(

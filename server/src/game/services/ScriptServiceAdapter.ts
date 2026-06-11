@@ -749,6 +749,10 @@ export function buildScriptServices(deps: ScriptServiceAdapterDeps): ScriptServi
                 npc.queueOneShotSeq(seqId);
             },
             faceNpcToPlayer: (npc, player) => {
+                // Face-pawn: the client turns the NPC toward the player
+                // continuously, and idle roaming is suppressed until the
+                // facing hold expires.
+                npc.setInteraction("player", player.id);
                 npc.faceTile(player.tileX, player.tileY);
             },
         },
