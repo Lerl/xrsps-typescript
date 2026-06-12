@@ -359,16 +359,20 @@ export class LeaguesVGamemode extends VanillaGamemode {
         widgetId: number,
         childIndex: number,
     ): boolean {
-        void childIndex;
-        if (!this.uiBridge) return false;
-        return handleLeagueTutorialHintResume(
-            player,
-            {
-                queueWidgetEvent: (playerId, action) =>
-                    this.uiBridge?.queueWidgetEvent(playerId, action as any),
-            },
-            widgetId,
-        );
+        if (
+            this.uiBridge &&
+            handleLeagueTutorialHintResume(
+                player,
+                {
+                    queueWidgetEvent: (playerId, action) =>
+                        this.uiBridge?.queueWidgetEvent(playerId, action as any),
+                },
+                widgetId,
+            )
+        ) {
+            return true;
+        }
+        return super.onResumePauseButton(player, widgetId, childIndex);
     }
 
     // === Display ===

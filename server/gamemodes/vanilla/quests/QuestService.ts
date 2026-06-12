@@ -22,9 +22,8 @@ const QC_QUEST_POINTS_CHILD = 6;
 /** First of eight reward list lines */
 const QC_FIRST_REWARD_LINE_CHILD = 8;
 const QC_REWARD_LINE_COUNT = 8;
-/** Close button layer + graphic */
+/** Close button layer (cache op1 "Close"; the graphic child 17 stays click-through) */
 const QC_CLOSE_LAYER_CHILD = 16;
-const QC_CLOSE_BUTTON_CHILD = 17;
 
 /** quest_complete_1 */
 const QUEST_COMPLETE_JINGLE_ID = 152;
@@ -168,15 +167,13 @@ function openQuestCompletedScroll(
     services.dialog.openSubInterface(player, mainmodalUid, QUEST_COMPLETED_GROUP_ID, 0);
 
     const OP1_TRANSMIT = 1 << 1;
-    for (const childId of [QC_CLOSE_LAYER_CHILD, QC_CLOSE_BUTTON_CHILD]) {
-        services.dialog.queueWidgetEvent(player.id, {
-            action: "set_flags_range",
-            uid: (QUEST_COMPLETED_GROUP_ID << 16) | childId,
-            fromSlot: -1,
-            toSlot: -1,
-            flags: OP1_TRANSMIT,
-        });
-    }
+    services.dialog.queueWidgetEvent(player.id, {
+        action: "set_flags_range",
+        uid: (QUEST_COMPLETED_GROUP_ID << 16) | QC_CLOSE_LAYER_CHILD,
+        fromSlot: -1,
+        toSlot: -1,
+        flags: OP1_TRANSMIT,
+    });
 
     const setText = (childId: number, text: string) => {
         services.dialog.queueWidgetEvent(player.id, {
@@ -214,5 +211,4 @@ export function registerQuestCompletedWidgetHandlers(
         services.dialog.closeModal(event.player);
     };
     registry.onButton(QUEST_COMPLETED_GROUP_ID, QC_CLOSE_LAYER_CHILD, close);
-    registry.onButton(QUEST_COMPLETED_GROUP_ID, QC_CLOSE_BUTTON_CHILD, close);
 }

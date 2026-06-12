@@ -1,6 +1,10 @@
 import type { IScriptRegistry, ScriptServices } from "../../../src/game/scripts/types";
 import { registerQuestDefinition } from "./QuestRegistry";
-import { registerQuestCompletedWidgetHandlers } from "./QuestService";
+import {
+    VARP_QUEST_POINTS,
+    registerQuestCompletedWidgetHandlers,
+    setQuestStage,
+} from "./QuestService";
 import { doricsQuest } from "./definitions/doricsQuest";
 import type { QuestDefinition } from "./types";
 
@@ -20,6 +24,20 @@ export function registerQuestHandlers(registry: IScriptRegistry, services: Scrip
         registerQuestDefinition(quest);
         quest.register(registry, services);
     }
+
+    // Dev command: reset all registered quests (and quest points) for testing
+    registry.registerCommand("resetquests", ({ player }) => {
+        for (const quest of QUEST_DEFINITIONS) {
+            setQuestStage(player, quest, services, 0);
+        }
+        player.varps.setVarpValue(VARP_QUEST_POINTS, 0);
+        services.variables.sendVarp(player, VARP_QUEST_POINTS, 0);
+        services.system.logger.info?.(
+            `[quests] ::resetquests - Reset ${QUEST_DEFINITIONS.length} quest(s) for player ${player.id}`,
+        );
+        return `Reset ${QUEST_DEFINITIONS.length} quest(s) and quest points.`;
+    });
+
     services.system.logger.info?.(`[quests] Registered ${QUEST_DEFINITIONS.length} quest(s)`);
 }
 
