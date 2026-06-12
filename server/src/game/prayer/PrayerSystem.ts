@@ -14,6 +14,8 @@ export type PrayerSelectionError = { prayer: PrayerName; message: string };
 export type PrayerSelectionResult = {
     changed: boolean;
     activePrayers: PrayerName[];
+    activated: PrayerName[];
+    deactivated: PrayerName[];
     errors: PrayerSelectionError[];
 };
 
@@ -33,6 +35,8 @@ export class PrayerSystem implements PrayerSystemProvider {
             return {
                 changed: false,
                 activePrayers: Array.from(player.prayer.getActivePrayers()),
+                activated: [],
+                deactivated: [],
                 errors,
             };
         }
@@ -59,10 +63,22 @@ export class PrayerSystem implements PrayerSystemProvider {
             this.removeConflicts(next, def);
             next.push(prayer);
         }
+        const previous = new Set(player.prayer.getActivePrayers());
         const changed = player.prayer.setActivePrayers(next);
+        const current = player.prayer.getActivePrayers();
+        const activated: PrayerName[] = [];
+        for (const prayer of current) {
+            if (!previous.has(prayer)) activated.push(prayer);
+        }
+        const deactivated: PrayerName[] = [];
+        for (const prayer of previous) {
+            if (!current.has(prayer)) deactivated.push(prayer);
+        }
         return {
             changed,
-            activePrayers: Array.from(player.prayer.getActivePrayers()),
+            activePrayers: Array.from(current),
+            activated,
+            deactivated,
             errors,
         };
     }

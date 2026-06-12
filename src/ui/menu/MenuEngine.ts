@@ -116,6 +116,9 @@ export function normalizeMenuEntries(entries: SimpleMenuEntry[]): SimpleMenuEntr
         const action = row.action ?? inferMenuAction(row.option, row.targetType);
         const targetType = row.targetType;
         const actionIndex = row.actionIndex;
+        // Rows carrying an op slot index are entity ops; their text never
+        // selects the opcode (a loc/npc op may be named "Use" or "Cast").
+        const isEntityOp = typeof actionIndex === "number" && actionIndex >= 0;
 
         if (action === MenuAction.WalkHere) return MenuOpcode.WalkHere;
         if (action === MenuAction.Cancel) return MenuOpcode.Cancel;
@@ -131,7 +134,7 @@ export function normalizeMenuEntries(entries: SimpleMenuEntry[]): SimpleMenuEntr
                     return MenuOpcode.ExamineInventoryItem;
             }
         }
-        if (action === MenuAction.Cast) {
+        if (action === MenuAction.Cast && !isEntityOp) {
             switch (targetType) {
                 case MenuTargetType.NPC:
                     return MenuOpcode.WidgetTargetOnNpc;
@@ -145,7 +148,7 @@ export function normalizeMenuEntries(entries: SimpleMenuEntry[]): SimpleMenuEntr
                     return MenuOpcode.SpellCast;
             }
         }
-        if (action === MenuAction.Use) {
+        if (action === MenuAction.Use && !isEntityOp) {
             switch (targetType) {
                 case MenuTargetType.NPC:
                     return MenuOpcode.ItemUseOnNpc;

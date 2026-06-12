@@ -217,6 +217,9 @@ export type MenuStateRow = {
 function inferOpcode(row: MenuStateRow): number {
     if (typeof row.opcode === "number") return row.opcode;
     const { action, targetType, actionIndex } = row;
+    // Rows carrying an op slot index are entity ops; their text never selects
+    // the opcode (a loc/npc op may legitimately be named "Use" or "Cast").
+    const isEntityOp = typeof actionIndex === "number" && actionIndex >= 0;
     // Exact casts/uses routed by target type
     if (action === MenuAction.WalkHere) return MenuOpcode.WalkHere;
     if (action === MenuAction.Cancel) return MenuOpcode.Cancel;
@@ -232,7 +235,7 @@ function inferOpcode(row: MenuStateRow): number {
                 return MenuOpcode.ExamineInventoryItem;
         }
     }
-    if (action === MenuAction.Cast) {
+    if (action === MenuAction.Cast && !isEntityOp) {
         switch (targetType) {
             case MenuTargetType.NPC:
                 return MenuOpcode.WidgetTargetOnNpc;
@@ -246,7 +249,7 @@ function inferOpcode(row: MenuStateRow): number {
                 return MenuOpcode.SpellCast;
         }
     }
-    if (action === MenuAction.Use) {
+    if (action === MenuAction.Use && !isEntityOp) {
         switch (targetType) {
             case MenuTargetType.NPC:
                 return MenuOpcode.ItemUseOnNpc;

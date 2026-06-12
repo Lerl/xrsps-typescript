@@ -697,7 +697,13 @@ export interface CombatFacade {
     applyPrayers(
         player: PlayerState,
         prayers: PrayerName[],
-    ): { changed: boolean; errors: Array<{ message: string }>; activePrayers: string[] };
+    ): {
+        changed: boolean;
+        errors: Array<{ message: string }>;
+        activePrayers: string[];
+        activated: PrayerName[];
+        deactivated: PrayerName[];
+    };
     setCombatSpell?(player: PlayerState, spellId: number | null): void;
     queueCombatState(player: PlayerState): void;
     requestAction: ScriptActionRequestFn;

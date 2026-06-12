@@ -1,6 +1,10 @@
 import type { WebSocket } from "ws";
 
-import type { PrayerName } from "../../../../src/rs/prayer/prayers";
+import {
+    PRAYER_DEACTIVATE_SOUND_ID,
+    type PrayerName,
+    getPrayerDefinition,
+} from "../../../../src/rs/prayer/prayers";
 import type { SkillId } from "../../../../src/rs/skill/skills";
 import { faceAngleRs } from "../../../../src/rs/utils/rotation";
 import { SIDE_JOURNAL_GROUP_ID } from "../../../../src/shared/ui/sideJournal";
@@ -702,7 +706,20 @@ export function buildScriptServices(deps: ScriptServiceAdapterDeps): ScriptServi
                     Number.isFinite(currentTick) ? (currentTick as number) : deps.getCurrentTick(),
                 );
             },
-            applyPrayers: (player, prayers) => deps.prayerSystem.applySelection(player, prayers),
+            applyPrayers: (player, prayers) => {
+                const result = deps.prayerSystem.applySelection(player, prayers);
+                if (result.activated.length > 0) {
+                    for (const prayer of result.activated) {
+                        const soundId = getPrayerDefinition(prayer).soundId;
+                        if (soundId !== undefined) {
+                            deps.soundService.sendSound(player, soundId);
+                        }
+                    }
+                } else if (result.deactivated.length > 0) {
+                    deps.soundService.sendSound(player, PRAYER_DEACTIVATE_SOUND_ID);
+                }
+                return result;
+            },
             setCombatSpell: undefined,
             queueCombatState: (player) =>
                 deps.queueCombatSnapshot(
