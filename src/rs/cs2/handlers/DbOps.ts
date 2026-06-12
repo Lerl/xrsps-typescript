@@ -59,10 +59,7 @@ export function registerDbOps(handlers: HandlerMap): void {
                 const { found, values } = getEffectiveColumnValue(ctx, tableId, columnId, row);
                 if (found) {
                     for (const val of values) {
-                        // Compare with type coercion for booleans:
-                        // OSRS treats false as 0 and true as 1
-                        const normalizedVal = typeof val === "boolean" ? (val ? 1 : 0) : val;
-                        if (normalizedVal === query) {
+                        if (val === query) {
                             rowQuery.push(row.id);
                             break;
                         }
@@ -101,9 +98,7 @@ export function registerDbOps(handlers: HandlerMap): void {
                 const { found, values } = getEffectiveColumnValue(ctx, tableId, columnId, row);
                 if (found) {
                     for (const val of values) {
-                        // Compare with type coercion for booleans
-                        const normalizedVal = typeof val === "boolean" ? (val ? 1 : 0) : val;
-                        if (normalizedVal === query) {
+                        if (val === query) {
                             rowQuery.push(row.id);
                             break;
                         }
@@ -305,9 +300,7 @@ export function registerDbOps(handlers: HandlerMap): void {
                 const { found, values } = getEffectiveColumnValue(ctx, tableId, columnId, row);
                 if (found) {
                     for (const val of values) {
-                        // Compare with type coercion for booleans
-                        const normalizedVal = typeof val === "boolean" ? (val ? 1 : 0) : val;
-                        if (normalizedVal === query) {
+                        if (val === query) {
                             matchingRowIds.add(row.id);
                             break;
                         }
@@ -379,9 +372,7 @@ export function registerDbOps(handlers: HandlerMap): void {
                 const { found, values } = getEffectiveColumnValue(ctx, tableId, columnId, row);
                 if (found) {
                     for (const val of values) {
-                        // Compare with type coercion for booleans
-                        const normalizedVal = typeof val === "boolean" ? (val ? 1 : 0) : val;
-                        if (normalizedVal === query) {
+                        if (val === query) {
                             matchingRowIds.add(row.id);
                             break;
                         }

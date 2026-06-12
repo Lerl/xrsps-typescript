@@ -96,6 +96,7 @@ import type { ScriptRegistry, ScriptRuntime } from "./scripts";
 // ── Game – services ─────────────────────────────────────────────────────────
 import type { ActionDispatchService } from "./services/ActionDispatchService";
 import type { AppearanceService } from "./services/AppearanceService";
+import type { ClientInputService } from "./services/ClientInputService";
 import type { CollectionLogService } from "./services/CollectionLogService";
 import type { CombatDataService } from "./services/CombatDataService";
 import type { CombatEffectService } from "./services/CombatEffectService";
@@ -188,6 +189,7 @@ export interface ServerServices {
     readonly equipmentStatsUiService: EquipmentStatsUiService;
     readonly tickPhaseService: TickPhaseService;
     readonly tickFrameService: TickFrameService;
+    readonly clientInputService: ClientInputService;
     readonly actionDispatchService: ActionDispatchService;
     spellCastingService?: SpellCastingService;
     projectileTimingService?: ProjectileTimingService;
@@ -285,7 +287,10 @@ export interface ServerServices {
     >;
     readonly playerGroundSerial: Map<number, number>;
     readonly playerGroundChunk: Map<number, number>;
-    readonly pendingDirectSends: Map<WebSocket, { message: string | Uint8Array; context: string }>;
+    readonly pendingDirectSends: Map<
+        WebSocket,
+        Array<{ message: string | Uint8Array; context: string }>
+    >;
     pendingDebugRequests?: Map<number, WebSocket>;
     readonly wssClients: Set<WebSocket>;
     pendingNpcUpdates: import("./npc").NpcUpdateDelta[];

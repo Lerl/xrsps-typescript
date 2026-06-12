@@ -57,6 +57,12 @@ export interface PlayerDefenceProfile {
     defenceLevel: number;
     magicLevel: number;
     defenceBonus: number;
+    /** Defence prayer multiplier (Thick Skin..Piety/Rigour/Augury). Defaults to 1. */
+    defencePrayerMultiplier?: number;
+    /** Magic prayer multiplier, used for the magic-defence mix. Defaults to 1. */
+    magicPrayerMultiplier?: number;
+    /** Defence stance bonus from the player's current combat style (+3 defensive, +1 controlled). */
+    defenceStanceBonus?: number;
 }
 
 export interface NpcVsPlayerResult {

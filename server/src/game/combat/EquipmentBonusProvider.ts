@@ -11,6 +11,17 @@ export type { AttackType } from "./AttackType";
 export interface EquipmentBonusResult {
     accuracyMultiplier: number;
     damageMultiplier: number;
+    /**
+     * Multiplier applied to the attacker's effective accuracy level (floored)
+     * before the attack roll, e.g. void. Distinct from accuracyMultiplier,
+     * which scales the final attack roll.
+     */
+    accuracyLevelMultiplier: number;
+    /**
+     * Multiplier applied to the attacker's effective strength level (floored)
+     * before the max-hit formula, e.g. void.
+     */
+    strengthLevelMultiplier: number;
     maxHitBonus: number;
     notes: string[];
     damageProcs?: Array<{ type: "keris"; chance: number; multiplier: number }>;

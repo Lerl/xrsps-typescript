@@ -53,7 +53,7 @@ export class FollowingHandler {
 
     private replaceInteractionState(ws: WebSocket, player: PlayerState): void {
         try {
-            player.interruptQueues();
+            player.interruptWeakQueues();
         } catch (err) {
             logger.warn("[interaction] failed to interrupt queues", err);
         }

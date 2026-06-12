@@ -30,7 +30,7 @@ function hitChance(atkRoll: number, defRoll: number): number {
 
 function maxHit(params: MaxHitParams): number {
     const raw = 0.5 + (params.effectiveStrength * (params.strengthBonus + 64)) / 640;
-    return Math.max(1, Math.floor(raw));
+    return Math.floor(raw);
 }
 
 function rollDamage(max: number, random: number): number {
@@ -48,15 +48,15 @@ function effectiveMagicDefence(magicLevel: number, defenceLevel: number): number
 }
 
 function npcEffectiveAttack(attackLevel: number): number {
-    return attackLevel + 8;
+    return attackLevel + 9;
 }
 
 function npcEffectiveStrength(strengthLevel: number): number {
-    return strengthLevel + 8;
+    return strengthLevel + 9;
 }
 
 function npcEffectiveDefence(defenceLevel: number): number {
-    return defenceLevel + 8;
+    return defenceLevel + 9;
 }
 
 function getNpcAttackBonus(profile: NpcAttackBonusProfile, attackType: AttackType): number {
@@ -114,11 +114,19 @@ function calculateNpcVsPlayer(
     const npcAtkBonus = getNpcAttackBonus(npcProfile, type);
     const npcAtkRoll = attackRoll({ effectiveLevel: npcEffAtk, bonus: npcAtkBonus });
 
+    const defencePrayer = playerDefence.defencePrayerMultiplier ?? 1;
+    const defenceStance = playerDefence.defenceStanceBonus ?? 0;
     let playerEffDef: number;
     if (type === AttackType.Magic) {
-        playerEffDef = effectiveMagicDefence(playerDefence.magicLevel, playerDefence.defenceLevel);
+        const magicPrayer = playerDefence.magicPrayerMultiplier ?? 1;
+        const prayedMagic = Math.max(1, Math.floor(playerDefence.magicLevel * magicPrayer));
+        const prayedDefence = Math.max(
+            1,
+            Math.floor(playerDefence.defenceLevel * defencePrayer) + defenceStance,
+        );
+        playerEffDef = effectiveMagicDefence(prayedMagic, prayedDefence);
     } else {
-        playerEffDef = effectiveLevel(playerDefence.defenceLevel, 1, 0);
+        playerEffDef = effectiveLevel(playerDefence.defenceLevel, defencePrayer, defenceStance);
     }
     const playerDefRoll = defenceRoll({
         effectiveLevel: playerEffDef,

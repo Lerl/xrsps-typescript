@@ -19,7 +19,7 @@ import type { PendingNpcDrop } from "../npcManager";
 import type { PlayerState } from "../player";
 import { CombatEngine } from "../systems/combat/CombatEngine";
 
-export const COMBAT_SOUND_DELAY_MS = 50;
+export const COMBAT_SOUND_DELAY_CYCLES = 3;
 const RESPAWN_DELAY_TICKS = 17;
 
 export const PROTECTION_PRAYER_MAP: Record<AttackType, PrayerName> = {
@@ -344,7 +344,7 @@ export class CombatEffectService {
                         x: npc.tileX,
                         y: npc.tileY,
                         level: npc.level,
-                        delay: COMBAT_SOUND_DELAY_MS,
+                        delay: COMBAT_SOUND_DELAY_CYCLES,
                     },
                     "combat_npc_death_sound",
                 ),
@@ -438,7 +438,8 @@ export class CombatEffectService {
                 return Math.max(1, 1 + Math.floor((3 + distance) / 6));
             case AttackType.Melee:
             default:
-                return 1;
+                // Melee hits resolve on the swing tick itself.
+                return 0;
         }
     }
 
@@ -461,13 +462,20 @@ export class CombatEffectService {
 
     // ── NPC Animation ───────────────────────────────────────────────
 
-    broadcastNpcSequence(npc: NpcState, seqId: number | undefined): void {
+    broadcastNpcSequence(
+        npc: NpcState,
+        seqId: number | undefined,
+        opts?: { yieldToExisting?: boolean },
+    ): void {
         if (seqId === undefined || seqId < 0) return;
         const frame = this.svc.activeFrame;
         if (!frame) return;
         const id = npc.id;
         const existing = frame.npcUpdates.find((d: { id?: number; seq?: number }) => d?.id === id);
         if (existing?.seq !== undefined && existing.seq >= 0) {
+            // Interruptible sequences (e.g. blocks) never replace a sequence
+            // already broadcast this tick - attack animations win over blocks.
+            if (opts?.yieldToExisting) return;
             const existingPriority = this.getSeqForcedPriority(existing.seq);
             const newPriority = this.getSeqForcedPriority(seqId);
             if (newPriority >= existingPriority) {

@@ -2,7 +2,7 @@ import { SkillId } from "../../../../src/rs/skill/skills";
 import { NpcState } from "../npc";
 import { PlayerState } from "../player";
 import { InventoryItem, RuneValidationResult, RuneValidator } from "./RuneValidator";
-import { SpellDataEntry, getSpellData } from "./SpellDataProvider";
+import { SpellDataEntry, SpellUnlockRequirement, getSpellData } from "./SpellDataProvider";
 
 export type SpellCastContext = {
     player: PlayerState;
@@ -21,6 +21,7 @@ export type SpellCastOutcome = {
         | "out_of_range"
         | "out_of_runes"
         | "level_requirement"
+        | "spell_locked"
         | "cooldown"
         | "restricted_zone"
         | "immune_target"
@@ -44,6 +45,28 @@ export type SpellCastOutcome = {
  */
 export class SpellCaster {
     /**
+     * Return the first quest/unlock requirement the player does not meet,
+     * or undefined if the spell is fully unlocked.
+     */
+    static getUnmetUnlockRequirement(
+        player: PlayerState,
+        requirements: SpellUnlockRequirement[] | undefined,
+    ): SpellUnlockRequirement | undefined {
+        if (!requirements || requirements.length === 0) {
+            return undefined;
+        }
+        return requirements.find((req) => {
+            const value =
+                req.varbitId !== undefined
+                    ? player.varps.getVarbitValue(req.varbitId)
+                    : req.varpId !== undefined
+                      ? player.varps.getVarpValue(req.varpId)
+                      : 0;
+            return value < req.minValue;
+        });
+    }
+
+    /**
      * Validate if a player can cast a spell
      */
     static validate(ctx: SpellCastContext): SpellCastOutcome {
@@ -60,6 +83,11 @@ export class SpellCaster {
         const magicLevel = Math.max(1, baseLevel + boost);
         if (spellData.levelRequired && magicLevel < spellData.levelRequired) {
             return { success: false, reason: "level_requirement", spellData };
+        }
+
+        // Check quest/unlock requirements
+        if (this.getUnmetUnlockRequirement(ctx.player, spellData.unlockRequirements)) {
+            return { success: false, reason: "spell_locked", spellData };
         }
 
         // Validate rune costs

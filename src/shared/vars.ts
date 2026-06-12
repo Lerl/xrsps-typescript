@@ -395,6 +395,18 @@ export const VARP_BIOHAZARD = 68;
 /** Plague City quest progress - prerequisite for Biohazard */
 export const VARP_PLAGUE_CITY = 165;
 
+/** Priest in Peril quest progress - required for Salve Graveyard/Fenkenstrain/Barrows teleports */
+export const VARP_PRIEST_IN_PERIL = 302;
+
+/** Monkey Madness I quest progress - required for Ape Atoll Dungeon Teleport */
+export const VARP_MONKEY_MADNESS = 365;
+
+/** The Great Brain Robbery quest progress - required for Harmony Island Teleport */
+export const VARP_GREAT_BRAIN_ROBBERY = 980;
+
+/** Recipe for Disaster: Freeing King Awowogei progress - required for Ape Atoll Teleport */
+export const VARBIT_RFD_AWOWOGEI = 1914;
+
 // ========== SKILL GUIDE VARBITS ==========
 
 /** Which skill guide is displayed (1-24 mapping to skills in this cache, including Sailing) */

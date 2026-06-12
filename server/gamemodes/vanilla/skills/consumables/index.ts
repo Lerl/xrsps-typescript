@@ -783,7 +783,6 @@ export function register(registry: IScriptRegistry, services: ScriptServices): v
                             tile: { x: player.tileX, y: player.tileY },
                             level: player.level,
                             radius: 1,
-                            volume: 255,
                         });
                         const itemName = formatItemName(services, def.itemId, def.label);
                         services.messaging.sendGameMessage(player, `You eat the ${itemName}.`);
@@ -835,7 +834,6 @@ export function register(registry: IScriptRegistry, services: ScriptServices): v
                                 tile: { x: player.tileX, y: player.tileY },
                                 level: player.level,
                                 radius: 1,
-                                volume: 255,
                             });
                         } else {
                             services.sound.playAreaSound({
@@ -843,7 +841,6 @@ export function register(registry: IScriptRegistry, services: ScriptServices): v
                                 tile: { x: player.tileX, y: player.tileY },
                                 level: player.level,
                                 radius: 1,
-                                volume: 255,
                             });
                         }
                         if (def.curePoison) player.skillSystem.curePoison();
@@ -932,7 +929,6 @@ export function register(registry: IScriptRegistry, services: ScriptServices): v
                             tile: { x: player.tileX, y: player.tileY },
                             level: player.level,
                             radius: 1,
-                            volume: 255,
                         });
                         services.messaging.sendGameMessage(
                             player,
@@ -975,7 +971,6 @@ export function register(registry: IScriptRegistry, services: ScriptServices): v
                             tile: { x: player.tileX, y: player.tileY },
                             level: player.level,
                             radius: 1,
-                            volume: 255,
                         });
                         applyPrayerRestore(player, def.prayerRestore);
                         applyStatRestores(player, def.statRestore);
@@ -1029,7 +1024,6 @@ export function register(registry: IScriptRegistry, services: ScriptServices): v
                             tile: { x: player.tileX, y: player.tileY },
                             level: player.level,
                             radius: 1,
-                            volume: 255,
                         });
                         for (const boost of def.boosts) {
                             applyStatBoost(player, boost.skillId, boost.formula);

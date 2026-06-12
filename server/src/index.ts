@@ -88,9 +88,17 @@ async function main() {
     logger.info("Boot: game ticker started");
 
     // Graceful shutdown
-    const shutdown = (signal: string) => () => {
+    let shuttingDown = false;
+    const shutdown = (signal: string) => async () => {
+        if (shuttingDown) return;
+        shuttingDown = true;
         logger.info(`Received ${signal}, shutting down...`);
         ticker.stop();
+        try {
+            await server.flushPlayerSaves();
+        } catch (err) {
+            logger.warn("Final player save failed", err);
+        }
         gamemode.dispose?.();
         process.exit(0);
     };

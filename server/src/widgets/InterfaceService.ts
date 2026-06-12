@@ -18,12 +18,15 @@
 import type { PlayerState } from "../game/player";
 import { logger } from "../utils/logger";
 import type { WidgetEntry } from "./WidgetManager";
-import { getMainmodalUid, getSidemodalUid } from "./viewport";
+import { getInventoryTabUid, getMainmodalUid, getSidemodalUid } from "./viewport";
 
 // =============== INTERFACE CONSTANTS ===============
 
 /** Normal inventory interface */
 export const INVENTORY_INTERFACE_ID = 149;
+
+/** IF_SETEVENTS flags for the normal inventory slots (149:0, slots 0-27) */
+export const INVENTORY_EVENT_FLAGS = 1181694;
 
 /** Player inventory ID (inv 93) */
 export const PLAYER_INV_ID = 93;
@@ -288,13 +291,18 @@ export class InterfaceService {
 
     /**
      * Open an inventory side panel (like shop inventory 301 or bank side 15).
-     * This mounts to sidemodal (child 74), which triggers script 1213 to hide all tabs.
-     * OSRS behavior: Bank/shop side panels hide all tabs, not just replace inventory.
+     *
+     * Destinations:
+     * - "sidemodal" (default): mounts to sidemodal (child 74), which triggers script 1213
+     *   to hide all tabs. Used by the bank side panel (15).
+     * - "inventory_tab": mounts into the inventory tab container (child 79), replacing the
+     *   normal inventory (149) while tab buttons stay visible. Used by the shop inventory (301).
      */
     openInventorySidePanel(
         player: PlayerState,
         options: {
             interfaceId: number;
+            destination?: "sidemodal" | "inventory_tab";
             initScript?: {
                 scriptId: number;
                 args: (string | number)[];
@@ -311,11 +319,13 @@ export class InterfaceService {
             varbits?: Record<number, number>;
         },
     ): void {
-        // Use sidemodal (child 74) - this hides all tabs via script 1213
-        const sidemodalUid = getSidemodalUid(player.displayMode);
+        const inventoryTab = options.destination === "inventory_tab";
+        const targetUid = inventoryTab
+            ? getInventoryTabUid(player.displayMode)
+            : getSidemodalUid(player.displayMode);
         player.widgets.open(options.interfaceId, {
-            targetUid: sidemodalUid,
-            type: 3,
+            targetUid,
+            type: inventoryTab ? 1 : 3,
             modal: false,
             varps: options.varps,
             varbits: options.varbits,
@@ -347,9 +357,28 @@ export class InterfaceService {
      * Close the current side panel (bank/shop inventory).
      * Closes from sidemodal which triggers script 1213 to show tabs again
      * (if tab interfaces are mounted in their containers).
+     * If the panel replaced the inventory tab (shop inventory), remount the
+     * normal inventory (149) in its container.
      */
     restoreNormalInventory(player: PlayerState): void {
-        player.widgets.closeByScope("side_panel");
+        const closed = player.widgets.closeByScope("side_panel");
+        const inventoryTabUid = getInventoryTabUid(player.displayMode);
+        if (closed.some((entry) => entry.targetUid === inventoryTabUid)) {
+            player.widgets.open(INVENTORY_INTERFACE_ID, {
+                targetUid: inventoryTabUid,
+                type: 1,
+                modal: false,
+            });
+            // Flag overrides purge when the sub-interface unmounts, so the
+            // inventory slot events must be re-sent with the remount.
+            this.dispatcher.queueWidgetEvent(player.id, {
+                action: "set_flags_range",
+                uid: INVENTORY_INTERFACE_ID << 16,
+                fromSlot: 0,
+                toSlot: 27,
+                flags: INVENTORY_EVENT_FLAGS,
+            });
+        }
     }
 
     // =============== SIDEMODAL MANAGEMENT ===============

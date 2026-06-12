@@ -2755,19 +2755,22 @@ export class OsrsClient {
                     loops?: number;
                     delay?: number;
                     radius?: number;
-                    volume?: number;
+                    attenuation?: number;
                 }) => {
                     try {
                         if (!this.soundEffectSystem) return;
                         const hasPosition = payload.x !== undefined && payload.y !== undefined;
-                        // SOUND_AREA: radius in tiles -> scene units (128 per tile)
+                        // Wire loops: n = play n times; skip if zero
+                        const wireLoops = payload.loops !== undefined ? payload.loops | 0 : 1;
+                        if (wireLoops <= 0) return;
+                        // Radius in tiles -> scene units (128 per tile)
                         const radiusScene =
                             payload.radius !== undefined && payload.radius > 0
                                 ? (payload.radius | 0) * 128
                                 : undefined;
                         this.soundEffectSystem.playSoundEffect(payload.soundId, {
-                            loops: payload.loops,
-                            delayMs: payload.delay,
+                            loops: wireLoops - 1,
+                            delayMs: payload.delay !== undefined ? payload.delay * 20 : undefined,
                             position: hasPosition
                                 ? {
                                       x: ((payload.x! | 0) * 128 + 64) | 0,
@@ -2776,7 +2779,7 @@ export class OsrsClient {
                                   }
                                 : undefined,
                             radius: radiusScene,
-                            volume: payload.volume,
+                            attenuation: payload.attenuation,
                         });
                     } catch (err) {
                         console.warn("[OsrsClient] sound playback failed", err);
@@ -10663,18 +10666,7 @@ export class OsrsClient {
             if (block.seq) {
                 const seqId = block.seq.id | 0;
                 if (seqId >= 0) {
-                    // Add a hold buffer (1 server tick = 30 cycles)
-                    // so seqTicksLeft outlasts the animation frames. This prevents
-                    // NPCs from flashing back to idle between their death animation
-                    // ending and the server despawn arriving.
-                    // NOTE: The canonical OSRS fix is a very long hold frame (65535
-                    // cycles) on the last frame of every death animation in the cache.
-                    // This client-side buffer is a workaround until cache animations
-                    // include proper hold frames.
-                    const ticks = this.estimateSeqDurationTicks(seqId) + 30;
-                    this.npcEcs.handleServerSequence(ecsId, seqId, ticks, block.seq.delay | 0);
-                    this.npcEcs.setFrameIndex(ecsId, 0);
-                    this.npcEcs.setAnimTick(ecsId, 0);
+                    this.npcEcs.handleServerSequence(ecsId, seqId, block.seq.delay | 0);
                 } else {
                     this.npcEcs.clearSeq(ecsId);
                 }
@@ -10807,25 +10799,6 @@ export class OsrsClient {
             const mapId = this.getNpcInstanceRenderMapId(existingInstance);
             this.npcInstanceMapsPendingReload.add(mapId);
             this.scheduleNpcInstanceFlush();
-        }
-    }
-
-    private estimateSeqDurationTicks(seqId: number): number {
-        const seqType = this.seqTypeLoader?.load?.(seqId);
-        if (!seqType) return 0;
-        try {
-            if (seqType.isSkeletalSeq?.()) {
-                return seqType.getSkeletalDuration?.() | 0;
-            }
-            const frameCount = Math.max(1, seqType.frameIds?.length ?? 1);
-            let total = 0;
-            for (let i = 0; i < frameCount; i++) {
-                const len = seqType.getFrameLength?.(this.seqFrameLoader, i) ?? 1;
-                total += len | 0;
-            }
-            return total > 0 ? total : frameCount;
-        } catch {
-            return 0;
         }
     }
 

@@ -30,20 +30,14 @@ export function registerMovementHandlers(
         });
 
         try {
-            // OSRS: walking cancels active skilling loops immediately
-            const removed = services.clearActionsInGroup(ctx.player.id, "skill.woodcut");
+            // Walking is player input: clears weak queue tasks and interruptible actions
+            const removed = services.interruptPlayerInput(ctx.player);
             if (removed > 0) {
                 ctx.player.clearInteraction();
                 ctx.player.stopAnimation();
             }
         } catch (err) {
-            logger.warn("Failed to clear woodcutting actions on walk", err);
-        }
-
-        try {
-            services.clearActionsInGroup(ctx.player.id, "inventory");
-        } catch (err) {
-            logger.warn("Failed to clear inventory actions on walk", err);
+            logger.warn("Failed to interrupt actions on walk", err);
         }
     });
 
@@ -60,6 +54,7 @@ export function registerMovementHandlers(
                 return;
             }
             const { to, level } = ctx.payload;
+            services.interruptPlayerInput(ctx.player);
             const result = services.requestTeleportAction(ctx.player, {
                 x: to.x,
                 y: to.y,

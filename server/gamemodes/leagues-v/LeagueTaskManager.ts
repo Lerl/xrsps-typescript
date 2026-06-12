@@ -425,7 +425,7 @@ export class LeagueTaskManager {
 
                 const notification = {
                     kind: "league_task",
-                    title: "League Challenge Completed",
+                    title: "League Task Complete!",
                     message: `${challenge.description}<br><br><col=ffffff>Challenge Complete!</col>`,
                     durationMs: 3000,
                 };
@@ -449,7 +449,7 @@ export class LeagueTaskManager {
 
             const notification = {
                 kind: "league_task",
-                title: "League Challenge Completed",
+                title: "League Task Complete!",
                 message: `${challenge.description}<br><br><col=ffffff>Challenge Complete!</col>`,
                 durationMs: 3000,
             };

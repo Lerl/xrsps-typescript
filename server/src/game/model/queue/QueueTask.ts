@@ -61,6 +61,12 @@ export class QueueTask<TContext = unknown> {
     requestReturnValue: unknown = null;
 
     /**
+     * Whether this task is suspended waiting for a return value
+     * (set by TaskConditions.waitReturnValue, cleared on resume).
+     */
+    awaitingReturnValue: boolean = false;
+
+    /**
      * Action to execute if task is terminated early.
      */
     terminateAction: ((task: QueueTask<TContext>) => void) | null = null;
@@ -135,6 +141,7 @@ export class QueueTask<TContext = unknown> {
         }
 
         this.currentCondition = null;
+        this.awaitingReturnValue = false;
 
         try {
             const result = this.generator.next();
@@ -172,6 +179,7 @@ export class QueueTask<TContext = unknown> {
     terminate(): void {
         this.currentCondition = null;
         this.requestReturnValue = null;
+        this.awaitingReturnValue = false;
         this._completed = true;
         if (this.terminateAction) {
             try {
@@ -215,6 +223,7 @@ export const TaskConditions = {
      * Wait for a return value to be set.
      */
     waitReturnValue(task: QueueTask): SuspendCondition {
+        task.awaitingReturnValue = true;
         return new PredicateCondition(() => task.requestReturnValue !== null);
     },
 };

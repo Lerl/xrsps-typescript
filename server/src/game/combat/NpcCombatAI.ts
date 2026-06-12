@@ -664,8 +664,8 @@ export function calculateNpcAttack(
     distance: number,
     random: () => number,
 ): NpcAttackResult {
-    // Calculate accuracy
-    const effectiveAttack = npcStats.attackLevel + 8;
+    // Calculate accuracy (NPC effective levels are level + 9)
+    const effectiveAttack = npcStats.attackLevel + 9;
     const attackRoll = effectiveAttack * (npcStats.attackBonus + 64);
 
     const effectiveDefence = targetDefenceLevel + 8;

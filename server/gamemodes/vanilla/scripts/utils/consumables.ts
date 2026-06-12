@@ -104,7 +104,7 @@ export function scheduleConsumableAction(options: ConsumableActionOptions): bool
             // Standard food/potions: +3 ticks, combo food: +2 ticks
             const attackDelay = profile ? PROFILE_ATTACK_DELAY[profile] : 0;
             if (attackDelay > 0) {
-                player.addAttackDelay(attackDelay);
+                player.addAttackDelay(attackDelay, resolvedTick);
             }
         } catch (err) {
             log("onExecute threw", {

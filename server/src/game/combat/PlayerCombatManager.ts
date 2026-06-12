@@ -4,7 +4,6 @@
  * Owns player-vs-NPC combat state, attack scheduling, and combat timing.
  * NPC movement, chase, retreat, and retaliation authority remain in NpcManager.
  */
-import { SkillId } from "../../../../src/rs/skill/skills";
 import type { PathService } from "../../pathfinding/PathService";
 import {
     CardinalAdjacentRouteStrategy,
@@ -30,7 +29,6 @@ import {
 } from "./CombatAction";
 import { CombatEffectApplicator } from "./CombatEffectApplicator";
 import { CombatEngagementRegistry } from "./CombatEngagementRegistry";
-import * as CombatFormulas from "./CombatFormulaProvider";
 import { resolvePlayerAttackReach, resolvePlayerAttackType } from "./CombatRules";
 import {
     CombatPhase,
@@ -309,6 +307,12 @@ export class PlayerCombatManager {
             npcAttackSpeed,
             playerAttackSpeed,
             tick,
+        );
+        // The attack timer is actor-global: switching targets must not reset the
+        // weapon cooldown, so seed the engagement timer from the player's timer.
+        state.timing.nextAttackTick = Math.max(
+            state.timing.nextAttackTick,
+            player.combat.nextAttackAvailableTick,
         );
 
         // Create state machine and start combat
@@ -621,7 +625,9 @@ export class PlayerCombatManager {
             tick: ctx.tick,
             distanceToTarget: distance,
             attackReach: reach,
-            attackSpeedReady: ctx.tick >= state.timing.nextAttackTick,
+            attackSpeedReady:
+                ctx.tick >= state.timing.nextAttackTick &&
+                player.combat.isAttackReady(ctx.tick),
             targetAlive: npc.getHitpoints() > 0,
             targetInRange: inRange,
             playerFrozen: isFrozen,
@@ -657,6 +663,7 @@ export class PlayerCombatManager {
                         playerAttackScheduled = true;
                         state.timing.pendingAttackTick = undefined;
                         state.timing.nextAttackTick = tick + attackSpeed;
+                        player.combat.delayNextAttack(tick + attackSpeed);
 
                         // Apply melee locks
                         if (isMelee) {
@@ -749,7 +756,8 @@ export class PlayerCombatManager {
                 // Delay here is "until first retaliation swing". The retaliation hit then
                 // resolves on its normal attack hit delay (1 tick for melee in this scheduler flow).
                 const npcAttackSpeed = npc.attackSpeed;
-                const retaliationDelay = Math.ceil(npcAttackSpeed / 2);
+                // Flinch timing: half the attack speed rounded down, plus one tick.
+                const retaliationDelay = Math.floor(npcAttackSpeed / 2) + 1;
                 const nextSwingTick = tick + retaliationDelay;
                 npc.setNextAttackTick(nextSwingTick);
                 state.engagement.npcNextAttackTick = nextSwingTick;
@@ -799,6 +807,9 @@ export class PlayerCombatManager {
      * Update attack timing after an attack is executed.
      */
     onAttackExecuted(playerId: number, tick: number, attackSpeed: number): void {
+        this.playerManager
+            ?.getPlayerById(playerId)
+            ?.combat.delayNextAttack(tick + attackSpeed);
         const state = this.engagements.getState(playerId);
         if (state) {
             state.timing.nextAttackTick = tick + attackSpeed;
@@ -974,7 +985,9 @@ export class PlayerCombatManager {
         if (!state.engagement.playerAutoAttack) return false;
         if ((state.config.weaponRange ?? DEFAULT_MELEE_REACH) > 1) return false;
         if (state.timing.pendingAttackTick !== undefined) return false;
-        return tick >= state.timing.nextAttackTick;
+        if (tick < state.timing.nextAttackTick) return false;
+        const player = this.playerManager?.getPlayerById(playerId);
+        return !player || player.combat.isAttackReady(tick);
     }
 
     /**
@@ -1015,31 +1028,10 @@ export class PlayerCombatManager {
 
     /**
      * Roll retaliation damage using NPC's combat profile directly.
-     * Uses pure CombatFormulas - no external lookups needed.
+     * Defence prayers and the defender's stance bonus are applied via the engine.
      */
     rollRetaliateDamage(npc: NpcState, player: PlayerState): number {
-        const profile = npc.combat;
-
-        // Get player defence stats
-        const defenceLevel = this.engine.getBoostedLevel(player, SkillId.Defence);
-        const magicLevel = this.engine.getBoostedLevel(player, SkillId.Magic);
-        const defenceBonus = this.engine.getPlayerDefenceBonus(player, profile.attackType);
-
-        // Calculate using pure formulas
-        const result = CombatFormulas.calculateNpcVsPlayer(
-            profile,
-            { defenceLevel, magicLevel, defenceBonus },
-            profile.attackType,
-        );
-
-        // Roll hit
-        const roll = Math.random();
-        if (roll >= result.hitChance) {
-            return 0; // Miss
-        }
-
-        // Roll damage
-        return CombatFormulas.rollDamage(result.maxHit, Math.random());
+        return this.engine.rollNpcVsPlayerDamage(npc, player);
     }
 
     /**
@@ -1315,7 +1307,6 @@ export class PlayerCombatManager {
                 style: plan.hitsplatStyle,
                 attackDelay: plan.attackDelay,
                 hitDelay: plan.hitDelay,
-                // RSMod parity: retaliateDamage calculated at hit confirm, not here
                 retaliationDelay: plan.retaliationDelay,
                 expectedHitTick,
                 landed: !!plan.hitLanded,

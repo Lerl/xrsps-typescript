@@ -36,7 +36,6 @@ export interface TeleportActionRequest {
     endSpotDelay?: number;
     arriveSoundId?: number;
     arriveSoundRadius?: number;
-    arriveSoundVolume?: number;
     arriveMessage?: string;
     arriveSeqId?: number;
     arriveFaceTileX?: number;
@@ -131,8 +130,7 @@ export class MovementService {
         }
 
         try {
-            this.services.actionScheduler.clearActionsInGroup(player.id, "skill.woodcut");
-            this.services.actionScheduler.clearActionsInGroup(player.id, "inventory");
+            this.services.actionScheduler.cancelInterruptibleActions(player.id);
             player.clearInteraction();
             player.stopAnimation();
             player.clearWalkDestination();
@@ -263,8 +261,6 @@ export class MovementService {
         if (request.arriveSoundId !== undefined) data.arriveSoundId = request.arriveSoundId;
         if (request.arriveSoundRadius !== undefined)
             data.arriveSoundRadius = request.arriveSoundRadius;
-        if (request.arriveSoundVolume !== undefined)
-            data.arriveSoundVolume = request.arriveSoundVolume;
         if (request.arriveMessage && request.arriveMessage.length > 0)
             data.arriveMessage = request.arriveMessage;
         if (request.arriveSeqId !== undefined) data.arriveSeqId = request.arriveSeqId;
@@ -497,10 +493,6 @@ export class MovementService {
                         data.arriveSoundRadius !== undefined
                             ? Math.max(0, data.arriveSoundRadius)
                             : 5,
-                    volume:
-                        data.arriveSoundVolume !== undefined
-                            ? Math.max(0, data.arriveSoundVolume)
-                            : 255,
                 });
             }
 

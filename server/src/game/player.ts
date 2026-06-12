@@ -145,27 +145,12 @@ export interface PlayerFollowerPersistentEntry {
 
 export type { CollectionLogUnlockEntry } from "./state/PlayerCollectionLogState";
 
-const DEFAULT_MAX_COMBAT_STYLE_SLOT = 3;
 /**
- * Max combat style slot per weapon category.
- * Most weapons use slots 0-3, but some have only 3 buttons
- * that map to slots 0, 1, 3 (skipping slot 2). The max slot must allow slot 3.
- * Only unarmed (0) and basic melee staves (18) use consecutive slots 0,1,2.
+ * Style slots always span 0-3; which slots exist for a category is sparse
+ * (e.g. unarmed/staves use 0,1,3) and comes from DB table 78 via
+ * combat.attackTypes, which setCombatStyle validates against.
  */
-const COMBAT_STYLE_MAX_SLOT_BY_CATEGORY: Record<number, number> = {
-    0: 2, // Unarmed - punch/kick/block (slots 0,1,2)
-    3: 3, // Bow - accurate/rapid/longrange (slots 0,1,3)
-    5: 3, // Crossbow - accurate/rapid/longrange (slots 0,1,3)
-    6: 3, // Salamander - scorch/flare/blaze (slots 0,1,3)
-    7: 3, // Chinchompa - accurate/rapid/longrange (slots 0,1,3)
-    8: 3, // Powered shot (crystal bow) - accurate/rapid/longrange (slots 0,1,3)
-    18: 2, // Staff - bash/pound/focus (slots 0,1,2)
-    19: 3, // Thrown - accurate/rapid/longrange (slots 0,1,3)
-    20: 3, // Whip - flick/lash/deflect (slots 0,1,3)
-    24: 3, // Staff (magic) - spell/defensive (slots 0,3)
-    29: 3, // Staff (longrange) - accurate/longrange (slots 0,3)
-    31: 3, // Powered staff (trident) - accurate/longrange (slots 0,1,3)
-};
+const DEFAULT_MAX_COMBAT_STYLE_SLOT = 3;
 
 export interface PlayerPersistentVars {
     varps?: Record<number, number>;
@@ -372,15 +357,6 @@ export class PlayerState extends Actor {
         this.combat.combatTargetFocus = null;
     }
 
-    /**
-     * Check if attack delay is ready (can attack now).
-     * RSMod: Combat.isAttackDelayReady(pawn)
-     * @deprecated Use player.combat.isAttackDelayReady() directly
-     */
-    isAttackDelayReady(): boolean {
-        return this.combat.attackDelayTicks <= 0;
-    }
-
     // ========================================================================
     // RSMod-style systems: TimerMap, LockState, QueueTaskSet
     // ========================================================================
@@ -498,10 +474,21 @@ export class PlayerState extends Actor {
     }
 
     /**
-     * Terminate all queued tasks.
+     * Terminate all queued tasks regardless of priority.
+     * Reserved for hard resets like death — player input must use
+     * interruptWeakQueues() so standard/strong tasks (queued damage,
+     * level-ups, death) survive.
      */
     interruptQueues(): void {
         this.taskQueue.terminateTasks();
+    }
+
+    /**
+     * Terminate weak queued tasks only.
+     * Called on player input: walk clicks, new interactions, teleport requests.
+     */
+    interruptWeakQueues(): void {
+        this.taskQueue.terminateWeakTasks();
     }
 
     // ========================================================================
@@ -761,7 +748,7 @@ export class PlayerState extends Actor {
         const previousCategory = this.combat.styleCategory;
         const categoryChanged =
             normalizedCategory !== undefined && normalizedCategory !== previousCategory;
-        const maxSlot = this.getMaxCombatStyleSlot(normalizedCategory);
+        const maxSlot = DEFAULT_MAX_COMBAT_STYLE_SLOT;
 
         let desiredSlot: number | undefined;
         const styleIsDefined = style !== null && style !== undefined;
@@ -873,17 +860,6 @@ export class PlayerState extends Actor {
             Math.min(this.combat.meleeBonusIndices.length - 1, this.combat.styleSlot),
         );
         return this.combat.meleeBonusIndices[slot];
-    }
-
-    private getMaxCombatStyleSlot(category?: number): number {
-        if (category === undefined || category === null) {
-            return DEFAULT_MAX_COMBAT_STYLE_SLOT;
-        }
-        const override = COMBAT_STYLE_MAX_SLOT_BY_CATEGORY[category];
-        if (override !== undefined && override >= 0) {
-            return override;
-        }
-        return DEFAULT_MAX_COMBAT_STYLE_SLOT;
     }
 
     setCombatSpell(spellId: number | null | undefined): void {
@@ -1118,14 +1094,14 @@ export class PlayerState extends Actor {
     }
 
     /**
-     * Add delay to the player's attack timer (OSRS: eating food adds +3 ticks, combo food +2 ticks).
-     * Reference: docs/tick-cycle-order.md
+     * Delay the player's next attack (eating food adds +3 ticks, combo food +2 ticks).
      *
-     * @param ticks Number of ticks to add to attack delay
+     * @param ticks Number of ticks to delay the next attack from now
+     * @param currentTick Current game tick
      */
-    addAttackDelay(ticks: number): void {
+    addAttackDelay(ticks: number, currentTick: number): void {
         if (!(ticks > 0)) return;
-        this.combat.attackDelayTicks = Math.max(this.combat.attackDelayTicks, 0) + ticks;
+        this.combat.delayNextAttack(currentTick + ticks);
     }
 }
 

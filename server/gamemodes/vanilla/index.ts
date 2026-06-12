@@ -39,6 +39,7 @@ import { computeTargetBonusPercentages } from "./equipment/targetBonuses";
 import { registerSmithingBarModalHandler } from "./modals/smithingBarModalHandler";
 import { registerWidgetCloseHandlers } from "./modals/widgetCloseHandlers";
 import { registerWidgetOpenHandlers } from "./modals/widgetOpenHandlers";
+import { registerQuestHandlers } from "./quests";
 import { registerAlKharidBorderHandlers } from "./scripts/content/alKharidBorder";
 import { registerClimbingHandlers } from "./scripts/content/climbing";
 import { registerDefaultTalkHandlers } from "./scripts/content/defaultTalk";
@@ -220,6 +221,9 @@ export class VanillaGamemode extends BaseGamemode {
 
         // Skills
         registerSkillHandlers(registry, services);
+
+        // Quests (after skills so quest gates can wrap skill loc handlers)
+        registerQuestHandlers(registry, services);
 
         // Level-up display (event-driven from SkillService)
         if (services.system.eventBus) {

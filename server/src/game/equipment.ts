@@ -101,7 +101,8 @@ function getBlockedEquipSlots(
     return [];
 }
 
-// Skillcape spot animation ids per cape item id (approximate across OSRS caches)
+// Cape-emote spot animation ids per cape item id (cache-verified via each
+// spotanim's sequence: 812-835/907 skillcapes, 816 quest, 1286 max)
 export const SKILLCAPE_SPOT_BY_CAPE_ID: Record<number, number> = {
     9747: 823,
     9748: 823, // Attack
@@ -147,9 +148,37 @@ export const SKILLCAPE_SPOT_BY_CAPE_ID: Record<number, number> = {
     9808: 822, // Woodcutting
     9810: 825,
     9811: 825, // Farming
-    10662: 816, // Max
     9948: 907,
     9949: 907, // Hunter
+    9813: 816,
+    13068: 816, // Quest point cape (+t)
+    // Achievement diary capes (13069/19476) have no spot animation.
+    13280: 1286,
+    13342: 1286, // Max cape
+    13329: 1286, // Fire max cape
+    21186: 1286, // Fire max cape
+    13331: 1286, // Saradomin max cape
+    13333: 1286, // Zamorak max cape
+    13335: 1286, // Guthix max cape
+    13337: 1286, // Accumulator max cape
+    20760: 1286, // Ardougne max cape
+    21284: 1286, // Infernal max cape
+    21285: 1286, // Infernal max cape
+    24133: 1286, // Infernal max cape (l)
+    21776: 1286, // Imbued saradomin max cape
+    24232: 1286, // Imbued saradomin max cape (l)
+    21780: 1286, // Imbued zamorak max cape
+    24233: 1286, // Imbued zamorak max cape (l)
+    21784: 1286, // Imbued guthix max cape
+    24234: 1286, // Imbued guthix max cape (l)
+    21898: 1286, // Assembler max cape
+    24135: 1286, // Assembler max cape (l)
+    24134: 1286, // Fire max cape (l)
+    24855: 1286, // Mythical max cape
+    27363: 1286, // Masori assembler max cape
+    27365: 1286, // Masori assembler max cape (l)
+    28902: 1286, // Dizana's max cape
+    28906: 1286, // Dizana's max cape (l)
 };
 
 export function getSkillcapeSpotId(capeItemId: number | undefined): number | undefined {
@@ -159,7 +188,8 @@ export function getSkillcapeSpotId(capeItemId: number | undefined): number | und
     return val !== undefined && val >= 0 ? val : undefined;
 }
 
-// Player emote sequence ids per skillcape (from common OSRS mappings)
+// Cape-emote player sequence ids per cape item id (cache-verified seq names:
+// skillcapes_* 4937-4981/5158, quest 4945, diary 2709, max 7121)
 export const SKILLCAPE_SEQ_BY_CAPE_ID: Record<number, number> = {
     9747: 4959,
     9748: 4959, // Attack
@@ -205,9 +235,38 @@ export const SKILLCAPE_SEQ_BY_CAPE_ID: Record<number, number> = {
     9808: 4957, // Woodcutting
     9810: 4963,
     9811: 4963, // Farming
-    10662: 4945, // Max
     9948: 5158,
     9949: 5158, // Hunter
+    9813: 4945,
+    13068: 4945, // Quest point cape (+t)
+    13069: 2709,
+    19476: 2709, // Achievement diary cape (+t)
+    13280: 7121,
+    13342: 7121, // Max cape
+    13329: 7121, // Fire max cape
+    21186: 7121, // Fire max cape
+    13331: 7121, // Saradomin max cape
+    13333: 7121, // Zamorak max cape
+    13335: 7121, // Guthix max cape
+    13337: 7121, // Accumulator max cape
+    20760: 7121, // Ardougne max cape
+    21284: 7121, // Infernal max cape
+    21285: 7121, // Infernal max cape
+    24133: 7121, // Infernal max cape (l)
+    21776: 7121, // Imbued saradomin max cape
+    24232: 7121, // Imbued saradomin max cape (l)
+    21780: 7121, // Imbued zamorak max cape
+    24233: 7121, // Imbued zamorak max cape (l)
+    21784: 7121, // Imbued guthix max cape
+    24234: 7121, // Imbued guthix max cape (l)
+    21898: 7121, // Assembler max cape
+    24135: 7121, // Assembler max cape (l)
+    24134: 7121, // Fire max cape (l)
+    24855: 7121, // Mythical max cape
+    27363: 7121, // Masori assembler max cape
+    27365: 7121, // Masori assembler max cape (l)
+    28902: 7121, // Dizana's max cape
+    28906: 7121, // Dizana's max cape (l)
 };
 
 export function getSkillcapeSeqId(capeItemId: number | undefined): number | undefined {

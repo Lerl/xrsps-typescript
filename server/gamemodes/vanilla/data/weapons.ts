@@ -684,7 +684,7 @@ const unarmedCombatStyles = {
         xpMode: XpMode.STRENGTH,
         attackStyle: AttackStyle.AGGRESSIVE,
     },
-    2: {
+    3: {
         name: "Block",
         attackType: AttackType.CRUSH,
         xpMode: XpMode.DEFENCE,
@@ -790,7 +790,7 @@ const hammerCombatStyles = {
         xpMode: XpMode.STRENGTH,
         attackStyle: AttackStyle.AGGRESSIVE,
     },
-    2: {
+    3: {
         name: "Block",
         attackType: AttackType.CRUSH,
         xpMode: XpMode.DEFENCE,
@@ -896,7 +896,7 @@ const halberdCombatStyles = {
         xpMode: XpMode.STRENGTH,
         attackStyle: AttackStyle.AGGRESSIVE,
     },
-    2: {
+    3: {
         name: "Fend",
         attackType: AttackType.STAB,
         xpMode: XpMode.DEFENCE,
@@ -974,7 +974,7 @@ const whipCombatStyles = {
         xpMode: XpMode.SHARED,
         attackStyle: AttackStyle.CONTROLLED,
     },
-    2: {
+    3: {
         name: "Deflect",
         attackType: AttackType.SLASH,
         xpMode: XpMode.DEFENCE,
@@ -996,7 +996,7 @@ const staffCombatStyles = {
         xpMode: XpMode.STRENGTH,
         attackStyle: AttackStyle.AGGRESSIVE,
     },
-    2: {
+    3: {
         name: "Focus",
         attackType: AttackType.CRUSH,
         xpMode: XpMode.DEFENCE,
@@ -1018,7 +1018,7 @@ const bowCombatStyles = {
         xpMode: XpMode.RANGED,
         attackStyle: AttackStyle.RAPID,
     },
-    2: {
+    3: {
         name: "Longrange",
         attackType: AttackType.RANGED,
         xpMode: XpMode.RANGED_DEFENCE,
@@ -1040,7 +1040,7 @@ const crossbowCombatStyles = {
         xpMode: XpMode.RANGED,
         attackStyle: AttackStyle.RAPID,
     },
-    2: {
+    3: {
         name: "Longrange",
         attackType: AttackType.RANGED,
         xpMode: XpMode.RANGED_DEFENCE,
@@ -1062,39 +1062,7 @@ const thrownCombatStyles = {
         xpMode: XpMode.RANGED,
         attackStyle: AttackStyle.RAPID,
     },
-    2: {
-        name: "Longrange",
-        attackType: AttackType.RANGED,
-        xpMode: XpMode.RANGED_DEFENCE,
-        attackStyle: AttackStyle.LONGRANGE,
-    },
-} as const;
-
-// Dark bow: Accurate, Longrange (NO rapid style - )
-const darkBowCombatStyles = {
-    0: {
-        name: "Accurate",
-        attackType: AttackType.RANGED,
-        xpMode: XpMode.RANGED,
-        attackStyle: AttackStyle.ACCURATE,
-    },
-    1: {
-        name: "Longrange",
-        attackType: AttackType.RANGED,
-        xpMode: XpMode.RANGED_DEFENCE,
-        attackStyle: AttackStyle.LONGRANGE,
-    },
-} as const;
-
-// Heavy ballista: Accurate, Longrange (NO rapid style - )
-const heavyBallistaCombatStyles = {
-    0: {
-        name: "Accurate",
-        attackType: AttackType.RANGED,
-        xpMode: XpMode.RANGED,
-        attackStyle: AttackStyle.ACCURATE,
-    },
-    1: {
+    3: {
         name: "Longrange",
         attackType: AttackType.RANGED,
         xpMode: XpMode.RANGED_DEFENCE,
@@ -1116,7 +1084,7 @@ const chinchompaCombatStyles = {
         xpMode: XpMode.RANGED,
         attackStyle: AttackStyle.RAPID,
     },
-    2: {
+    3: {
         name: "Long fuse",
         attackType: AttackType.RANGED,
         xpMode: XpMode.RANGED_DEFENCE,
@@ -1188,7 +1156,7 @@ const bludgeonCombatStyles = {
         xpMode: XpMode.STRENGTH,
         attackStyle: AttackStyle.AGGRESSIVE,
     },
-    2: {
+    3: {
         name: "Smash",
         attackType: AttackType.CRUSH,
         xpMode: XpMode.STRENGTH,
@@ -1204,7 +1172,7 @@ const bulwarkCombatStyles = {
         xpMode: XpMode.ATTACK,
         attackStyle: AttackStyle.ACCURATE,
     },
-    1: {
+    3: {
         name: "Block",
         attackType: AttackType.CRUSH,
         xpMode: XpMode.DEFENCE,
@@ -1226,7 +1194,7 @@ const poweredStaffCombatStyles = {
         xpMode: XpMode.MAGIC,
         attackStyle: AttackStyle.ACCURATE,
     },
-    2: {
+    3: {
         name: "Longrange",
         attackType: AttackType.MAGIC,
         xpMode: XpMode.MAGIC_DEFENCE,
@@ -3823,7 +3791,6 @@ export const weaponDataEntries: WeaponDataEntry[] = [
         attackSpeed: 9,
         hitDelay: 3,
         hitSounds: darkBowHitSounds,
-        combatStyles: darkBowCombatStyles,
     },
 
     // ==================================================================================
@@ -4192,7 +4159,6 @@ export const weaponDataEntries: WeaponDataEntry[] = [
         attackSpeed: 8,
         hitDelay: 3,
         hitSounds: ballistaHitSounds,
-        combatStyles: heavyBallistaCombatStyles,
     },
 
     // ==================================================================================

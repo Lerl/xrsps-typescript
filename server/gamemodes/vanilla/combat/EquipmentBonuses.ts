@@ -141,6 +141,8 @@ class EquipmentBonusProviderImpl implements EquipmentBonusProvider {
         const result: EquipmentBonusResult = {
             accuracyMultiplier: 1.0,
             damageMultiplier: 1.0,
+            accuracyLevelMultiplier: 1.0,
+            strengthLevelMultiplier: 1.0,
             maxHitBonus: 0,
             notes: [],
         };
@@ -278,19 +280,20 @@ function applyVoidBonus(
     const helm = equipment[EquipmentSlot.HEAD];
     const isElite = hasEliteVoidSet(equipment);
 
+    // Void scales the effective level (floored) rather than the final roll.
     switch (attackType) {
         case AttackType.Melee:
             if (helm === VOID_MELEE_HELM) {
-                result.accuracyMultiplier *= 1.1;
-                result.damageMultiplier *= 1.1;
+                result.accuracyLevelMultiplier *= 1.1;
+                result.strengthLevelMultiplier *= 1.1;
                 result.notes.push("Void melee: +10% accuracy, +10% damage");
             }
             break;
 
         case AttackType.Ranged:
             if (helm === VOID_RANGER_HELM) {
-                result.accuracyMultiplier *= 1.1;
-                result.damageMultiplier *= isElite ? 1.125 : 1.1;
+                result.accuracyLevelMultiplier *= 1.1;
+                result.strengthLevelMultiplier *= isElite ? 1.125 : 1.1;
                 result.notes.push(
                     isElite
                         ? "Elite void ranged: +10% accuracy, +12.5% damage"
@@ -301,7 +304,7 @@ function applyVoidBonus(
 
         case AttackType.Magic:
             if (helm === VOID_MAGE_HELM) {
-                result.accuracyMultiplier *= 1.45;
+                result.accuracyLevelMultiplier *= 1.45;
                 result.damageMultiplier *= isElite ? 1.025 : 1.0;
                 result.notes.push(
                     isElite

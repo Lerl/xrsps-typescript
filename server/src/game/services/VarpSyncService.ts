@@ -3,28 +3,17 @@ import type { WebSocket } from "ws";
 import {
     MUSIC_UNLOCK_VARPS,
     VARBIT_ACTIVE_SPELLBOOK,
-    VARBIT_ARCEUUS_FAVOR,
-    VARBIT_ARCEUUS_SPELLBOOK_UNLOCKED,
     VARBIT_AUTOCAST_DEFMODE,
     VARBIT_AUTOCAST_SET,
     VARBIT_AUTOCAST_SPELL,
-    VARBIT_CLIENT_OF_KOUREND,
-    VARBIT_IBAN_BOOK_READ,
-    VARBIT_MAGE_ARENA_2_PROGRESS,
     VARBIT_MUSIC_UNLOCK_TEXT_TOGGLE,
     VARBIT_XPDROPS_ENABLED,
     VARP_AREA_SOUNDS_VOLUME,
     VARP_ATTACK_STYLE,
     VARP_AUTO_RETALIATE,
-    VARP_BIOHAZARD,
     VARP_COMBAT_TARGET_PLAYER_INDEX,
-    VARP_DESERT_TREASURE,
-    VARP_EADGAR_QUEST,
     VARP_LAST_HOME_TELEPORT,
     VARP_LAST_MINIGAME_TELEPORT,
-    VARP_LEGENDS_QUEST,
-    VARP_LUNAR_DIPLOMACY,
-    VARP_MAGE_ARENA,
     VARP_MASTER_VOLUME,
     VARP_MUSICPLAY,
     VARP_MUSIC_CURRENT_TRACK,
@@ -32,11 +21,8 @@ import {
     VARP_OPTION_ATTACK_PRIORITY_NPC,
     VARP_OPTION_ATTACK_PRIORITY_PLAYER,
     VARP_OPTION_RUN,
-    VARP_PLAGUE_CITY,
     VARP_SOUND_EFFECTS_VOLUME,
     VARP_SPECIAL_ATTACK,
-    VARP_UNDERGROUND_PASS,
-    VARP_WATCHTOWER,
     XPDROPS_TRANSMIT_VARPS,
 } from "../../../../src/shared/vars";
 import { encodeMessage } from "../../network/messages";
@@ -164,6 +150,7 @@ export class VarpSyncService {
 
             if (varpId === VARP_OPTION_RUN) {
                 value = player.energy.wantsToRun() ? 1 : 0;
+                player.varps.setVarpValue(VARP_OPTION_RUN, value);
             }
 
             if (varpId === VARP_OPTION_RUN || varpId === VARP_AUTO_RETALIATE || value !== 0) {
@@ -204,6 +191,37 @@ export class VarpSyncService {
                 }
             }
         }
+        // Replay all persisted varps/varbits (quest stages, spell unlocks, etc.)
+        // so saved progression reaches the client without per-feature lists.
+        // Computed/forced varps (combat target, home teleport cooldowns) are
+        // sent after this and override the stored values.
+        for (const [varpId, value] of player.varps.getVarpEntries()) {
+            if (value === 0) continue;
+            this.services.networkLayer.withDirectSendBypass("varp", () =>
+                this.services.networkLayer.sendWithGuard(
+                    sock,
+                    encodeMessage({
+                        type: "varp",
+                        payload: { varpId, value },
+                    }),
+                    "varp",
+                ),
+            );
+        }
+        for (const [varbitId, value] of player.varps.getVarbitEntries()) {
+            if (value === 0) continue;
+            this.services.networkLayer.withDirectSendBypass("varbit", () =>
+                this.services.networkLayer.sendWithGuard(
+                    sock,
+                    encodeMessage({
+                        type: "varbit",
+                        payload: { varbitId, value },
+                    }),
+                    "varbit",
+                ),
+            );
+        }
+
         const soundVarps = [
             VARP_MUSIC_VOLUME,
             VARP_SOUND_EFFECTS_VOLUME,
@@ -281,52 +299,6 @@ export class VarpSyncService {
                 "varp",
             ),
         );
-
-        const spellUnlockVarps: Array<{ varpId: number; value: number }> = [
-            { varpId: VARP_LEGENDS_QUEST, value: 180 },
-            { varpId: VARP_UNDERGROUND_PASS, value: 110 },
-            { varpId: VARP_MAGE_ARENA, value: 8 },
-            { varpId: VARP_DESERT_TREASURE, value: 15 },
-            { varpId: VARP_LUNAR_DIPLOMACY, value: 190 },
-            { varpId: VARP_EADGAR_QUEST, value: 110 },
-            { varpId: VARP_WATCHTOWER, value: 13 },
-            { varpId: VARP_PLAGUE_CITY, value: 29 },
-            { varpId: VARP_BIOHAZARD, value: 16 },
-        ];
-
-        for (const { varpId, value } of spellUnlockVarps) {
-            this.services.networkLayer.withDirectSendBypass("varp", () =>
-                this.services.networkLayer.sendWithGuard(
-                    sock,
-                    encodeMessage({
-                        type: "varp",
-                        payload: { varpId, value },
-                    }),
-                    "varp",
-                ),
-            );
-        }
-
-        const spellUnlockVarbits: Array<{ varbitId: number; value: number }> = [
-            { varbitId: VARBIT_ARCEUUS_FAVOR, value: 1000 },
-            { varbitId: VARBIT_ARCEUUS_SPELLBOOK_UNLOCKED, value: 1 },
-            { varbitId: VARBIT_IBAN_BOOK_READ, value: 1 },
-            { varbitId: VARBIT_MAGE_ARENA_2_PROGRESS, value: 6 },
-            { varbitId: VARBIT_CLIENT_OF_KOUREND, value: 9 },
-        ];
-
-        for (const { varbitId, value } of spellUnlockVarbits) {
-            this.services.networkLayer.withDirectSendBypass("varbit", () =>
-                this.services.networkLayer.sendWithGuard(
-                    sock,
-                    encodeMessage({
-                        type: "varbit",
-                        payload: { varbitId, value },
-                    }),
-                    "varbit",
-                ),
-            );
-        }
 
         for (const varpId of MUSIC_UNLOCK_VARPS) {
             const value = player.varps.getVarpValue(varpId);

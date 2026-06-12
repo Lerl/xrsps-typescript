@@ -106,8 +106,9 @@ export function getDesktopInterfaces(
     // Index 12 (Emotes):   161:88, interface 216
     // Index 13 (Music):    161:89, interface 239
     //
-    // Note: Bank/shop side panels mount to sidemodal (child 74), which hides all tabs
-    // via script 1213. When bank/shop closes, tabs reappear because sidemodal is empty.
+    // Note: The bank side panel mounts to sidemodal (child 74), which hides all tabs
+    // via script 1213; tabs reappear on close because sidemodal is empty. The shop
+    // inventory (301) instead replaces the inventory interface in its tab container.
 
     for (const mapping of TAB_INTERFACE_MAPPINGS) {
         // In tutorial mode, only include the Quest tab

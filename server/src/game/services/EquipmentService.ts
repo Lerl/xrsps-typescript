@@ -220,9 +220,8 @@ export class EquipmentService {
     ): boolean {
         if (slot !== EquipmentSlot.CAPE) return false;
         const seqId = getSkillcapeSeqId(capeItemId);
-        const rawSpotId = getSkillcapeSpotId(capeItemId);
-        if (seqId === undefined && rawSpotId === undefined) return false;
-        const spotIdResolved = rawSpotId !== undefined && rawSpotId >= 0 ? rawSpotId : 833;
+        const spotId = getSkillcapeSpotId(capeItemId);
+        if (seqId === undefined && spotId === undefined) return false;
         if (seqId !== undefined && seqId >= 0) {
             try {
                 player.queueOneShotSeq(seqId);
@@ -233,11 +232,11 @@ export class EquipmentService {
                 );
             }
         }
-        if (spotIdResolved >= 0) {
+        if (spotId !== undefined && spotId >= 0) {
             this.services.broadcastService.enqueueSpotAnimation({
                 tick: this.services.ticker.currentTick(),
                 playerId: player.id,
-                spotId: spotIdResolved,
+                spotId: spotId,
                 delay: 0,
                 height: 120,
             });
@@ -252,7 +251,7 @@ export class EquipmentService {
         logger.info(
             `[equipment] player=${player.id} operated skillcape item=${capeItemId} seq=${
                 seqId ?? -1
-            } spot=${spotIdResolved}`,
+            } spot=${spotId ?? -1}`,
         );
         return true;
     }

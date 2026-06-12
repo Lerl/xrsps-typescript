@@ -41,9 +41,10 @@ export class SoundEffectLoader {
         if (!file) return undefined;
         const buffer = file.getDataAsBuffer();
         const effect = SoundEffect.decode(buffer);
-        effect.calculateDelay();
+        const delayCycles = effect.calculateDelay();
         const raw = effect.toRawSound();
         if (!raw || !raw.samples || raw.samples.length <= 0) return undefined;
+        raw.delayCycles = delayCycles;
         return raw;
     }
 

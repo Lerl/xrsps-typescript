@@ -68,16 +68,10 @@ const NPC_SIM_RADIUS_TILES = NPC_STREAM_EXIT_RADIUS_TILES + 12;
 
 /**
  * Extracts tick phase logic from wsServer into a standalone service.
- * Implements TickPhaseProvider so the TickPhaseOrchestrator can call each phase.
+ * The TickPhaseOrchestrator drives these phases in order each tick.
  */
 export class TickPhaseService {
     constructor(private readonly svc: ServerServices) {}
-
-    broadcastTick(_frame: TickFrame): void {
-        // broadcastTick is handled separately by the BroadcastScheduler in wsServer.
-        // This method exists to satisfy the interface; the orchestrator wires it to
-        // the scheduler's broadcastTick call directly.
-    }
 
     runPreMovementPhase(frame: TickFrame): void {
         const { npcManager, players, followerManager, followerCombatManager, npcSyncManager } =
@@ -286,15 +280,11 @@ export class TickPhaseService {
                                 message,
                             },
                         });
-                        if (sock && (sock as WebSocket).readyState === WebSocket.OPEN) {
-                            if (this.svc.pendingDirectSends.size > 512) {
-                                this.svc.pendingDirectSends.clear();
-                            }
-                            this.svc.pendingDirectSends.set(sock, {
-                                message: debugMsg,
-                                context: "walk_path_debug_repath",
-                            });
-                        }
+                        this.svc.broadcastService.queueDirectSend(
+                            sock,
+                            debugMsg,
+                            "walk_path_debug_repath",
+                        );
                     } catch (err) {
                         logger.warn("Failed to send walk path debug repath", err);
                     }
@@ -674,19 +664,24 @@ export class TickPhaseService {
         });
     }
 
-    runBroadcastPhase(frame: TickFrame): void {
+    runScheduledScriptsPhase(frame: TickFrame): void {
         this.svc.scriptScheduler.process(frame.tick);
+    }
+
+    runBroadcastPhase(frame: TickFrame): void {
         this.svc.networkLayer.setBroadcastPhase(true);
         try {
             const ctx = this.buildBroadcastContext();
             if (this.svc.pendingDirectSends.size > 0) {
                 const entries = Array.from(this.svc.pendingDirectSends.entries());
                 this.svc.pendingDirectSends.clear();
-                for (const [ws, entry] of entries) {
-                    try {
-                        this.svc.networkLayer.sendWithGuard(ws, entry.message, entry.context);
-                    } catch (err) {
-                        logger.warn("Failed to flush pending direct send", err);
+                for (const [ws, queue] of entries) {
+                    for (const entry of queue) {
+                        try {
+                            this.svc.networkLayer.sendWithGuard(ws, entry.message, entry.context);
+                        } catch (err) {
+                            logger.warn("Failed to flush pending direct send", err);
+                        }
                     }
                 }
             }

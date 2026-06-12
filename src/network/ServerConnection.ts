@@ -613,7 +613,7 @@ const soundListeners = new Set<
         loops?: number;
         delay?: number;
         radius?: number;
-        volume?: number;
+        attenuation?: number;
     }) => void
 >();
 const playSongListeners = new Set<
@@ -3680,12 +3680,14 @@ export function subscribeSound(
         x?: number;
         y?: number;
         level?: number;
+        /** Number of times to play (1 = once). */
         loops?: number;
+        /** Delay in client cycles (20ms each). */
         delay?: number;
-        /** SOUND_AREA: radius in tiles (0-15, default 0 = no distance falloff) */
+        /** Radius in tiles (0-31): distance at which the sound becomes silent. */
         radius?: number;
-        /** SOUND_AREA: volume (0-255, default 255 = full volume) */
-        volume?: number;
+        /** Full volume up to (attenuation & 31) - 1 tiles, then fades to radius. */
+        attenuation?: number;
     }) => void,
 ): () => void {
     soundListeners.add(cb);

@@ -10,6 +10,9 @@ export interface TickPhase {
     name: string;
     fn: () => void | Promise<void>;
     yieldAfter?: boolean;
+    // Set on the stage that transmits the frame's drained buffers. If it fails,
+    // the buffers are restored so they are delivered next tick instead of lost.
+    restoreFrameOnFailure?: boolean;
 }
 
 export class TickPhaseOrchestrator {
@@ -20,20 +23,26 @@ export class TickPhaseOrchestrator {
     }
 
     async processTick(tick: number, time: number): Promise<void> {
-        const frame = this.svc.tickFrameService.createTickFrame({ tick, time });
-        this.svc.activeFrame = frame;
-
         const startedAt = performance.now();
         const stageTimes: Array<{ name: string; ms: number }> = [];
 
-        const stages = this.buildPhaseList(frame);
+        // Drain queued client packets before the frame snapshot so their
+        // effects are captured by this tick's frame and broadcast this tick.
+        const inputStart = performance.now();
+        try {
+            this.svc.clientInputService.drain();
+        } catch (err) {
+            logger.error(`[tick] stage client_input failed (tick=${tick})`, err);
+        }
+        stageTimes.push({ name: "client_input", ms: performance.now() - inputStart });
+
+        const frame = this.svc.tickFrameService.createTickFrame({ tick, time });
+        this.svc.activeFrame = frame;
 
         try {
-            for (const stage of stages) {
+            for (const stage of this.buildPhaseList(frame)) {
                 const stageStart = performance.now();
-                if (!(await this.runTickStage(stage.name, stage.fn, frame))) {
-                    return;
-                }
+                await this.runTickStage(stage, frame);
                 stageTimes.push({ name: stage.name, ms: performance.now() - stageStart });
 
                 if (stage.yieldAfter) {
@@ -46,11 +55,10 @@ export class TickPhaseOrchestrator {
                 }
             }
 
-            const elapsedMs = performance.now() - startedAt;
-            this.logTickTiming(frame.tick, elapsedMs, stageTimes);
-            this.svc.tickFrameService.maybeRunAutosave(frame as any);
+            this.logTickTiming(frame.tick, performance.now() - startedAt, stageTimes);
         } finally {
             this.svc.activeFrame = undefined;
+            this.svc.tickFrameService.maybeRunAutosave(frame);
         }
     }
 
@@ -59,7 +67,7 @@ export class TickPhaseOrchestrator {
         return [
             {
                 name: "broadcast",
-                fn: () => tps.broadcastTick(frame as any),
+                fn: () => this.svc.broadcastService.broadcastTick(frame),
                 yieldAfter: true,
             },
             {
@@ -78,22 +86,23 @@ export class TickPhaseOrchestrator {
                 name: "orphaned_players",
                 fn: () => tps.runOrphanedPlayersPhase(frame),
             },
-            { name: "broadcast_phase", fn: () => tps.runBroadcastPhase(frame) },
+            { name: "scheduled_scripts", fn: () => tps.runScheduledScriptsPhase(frame) },
+            {
+                name: "broadcast_phase",
+                fn: () => tps.runBroadcastPhase(frame),
+                restoreFrameOnFailure: true,
+            },
         ];
     }
 
-    private async runTickStage(
-        name: string,
-        fn: () => void | Promise<void>,
-        frame: TickFrame,
-    ): Promise<boolean> {
+    private async runTickStage(stage: TickPhase, frame: TickFrame): Promise<void> {
         try {
-            await fn();
-            return true;
+            await stage.fn();
         } catch (err) {
-            this.svc.tickFrameService.restorePendingFrame(frame as any);
-            logger.error(`[tick] stage ${name} failed (tick=${frame.tick})`, err);
-            return false;
+            logger.error(`[tick] stage ${stage.name} failed (tick=${frame.tick})`, err);
+            if (stage.restoreFrameOnFailure) {
+                this.svc.tickFrameService.restorePendingFrame(frame);
+            }
         }
     }
 

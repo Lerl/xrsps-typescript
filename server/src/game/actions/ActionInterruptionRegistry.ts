@@ -107,7 +107,9 @@ export class ActionInterruptionRegistry {
 
 /**
  * Default registry instance with standard OSRS-like patterns.
+ * Covers skilling loops and item-on-item production. Instant inventory ops
+ * (inventory.equip/consume/move) stay out: they are usable while moving.
  */
-export const defaultInterruptionRegistry = new ActionInterruptionRegistry().registerPattern(
-    "skill.",
-);
+export const defaultInterruptionRegistry = new ActionInterruptionRegistry()
+    .registerPattern("skill.")
+    .registerPattern("inventory.use_on");

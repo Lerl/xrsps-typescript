@@ -170,12 +170,13 @@ export function getChildId(dest: InterfaceDestinationEntry, displayMode: Display
  *
  * OSRS Tab Hiding Behavior:
  * - MAINMODAL: For modal interfaces (bank, shop, settings). Does NOT affect tabs.
- * - INVENTORY_TAB (79): Tab 3 container - only for mounting inventory interface.
- * - SIDEMODAL (74): For side panels that should HIDE all tabs (bank side, shop inventory).
+ * - INVENTORY_TAB (79): Tab 3 container - inventory interface (149), replaced by the
+ *   shop inventory (301) while a shop is open (tab buttons stay visible).
+ * - SIDEMODAL (74): For side panels that should HIDE all tabs (bank side).
  *   When content is mounted here, script 1213 hides side_panels, side_top, side_bottom.
  *
- * Bank/Shop behavior: Opens main interface in MAINMODAL, side panel in SIDEMODAL.
- * This hides all tabs while the bank/shop is open - correct OSRS behavior.
+ * Bank behavior: main interface in MAINMODAL, side panel in SIDEMODAL (hides all tabs).
+ * Shop behavior: main interface in MAINMODAL, side panel in INVENTORY_TAB.
  */
 export const ContainerChildIds = {
     // Desktop fixed (548)

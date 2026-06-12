@@ -83,6 +83,8 @@ type NearbyAggressionPlayer = {
 };
 
 const REGION_SIZE = 32; // tiles; aligns to half a chunk for coarse spatial buckets
+/** How long an idle NPC holds a pawn-facing before it clears (RSMod Npc.RESET_PAWN_FACE_DELAY). */
+const RESET_PAWN_FACE_DELAY_TICKS = 25;
 
 /**
  * Build NpcCombatProfile from loaded stats or use defaults.
@@ -861,6 +863,12 @@ export class NpcManager {
                                 { x: targetPlayer.tileX, y: targetPlayer.tileY },
                                 { maxQueuedSteps: 2 },
                             );
+                        } else {
+                            // The chase queues steps toward the target's own tile, so a
+                            // leftover step can remain once the NPC reaches attack
+                            // position. Discard it, or the NPC walks onto/past the
+                            // target after swinging.
+                            npc.clearPath();
                         }
                     } else {
                         npc.disengageCombat();
@@ -1157,7 +1165,13 @@ export class NpcManager {
         roamBudget?: { remaining: number },
     ): void {
         if (npc.isFacingPawn()) {
+            // NPCs don't roam while facing a pawn; the facing holds for
+            // RESET_PAWN_FACE_DELAY ticks and then clears.
+            if (!npc.isPawnFaceHoldExpired(currentTick, RESET_PAWN_FACE_DELAY_TICKS)) {
+                return;
+            }
             npc.clearInteractionTarget();
+            npc.clearPawnFaceHold();
         }
         this.maybeStartRoam(npc, currentTick, roamBudget);
     }

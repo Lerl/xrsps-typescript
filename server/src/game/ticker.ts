@@ -7,9 +7,18 @@ export interface TickEvent {
     time: number; // ms since epoch
 }
 
+export interface TickerStats {
+    tick: number;
+    // Times the loop gave up catching up and re-anchored the schedule.
+    catchUpGiveUps: number;
+    // Ticks dropped (never dispatched) across all give-ups.
+    ticksSkipped: number;
+    // Times the tick timer fired later than the drift warning threshold.
+    lateFires: number;
+}
+
 export declare interface GameTicker {
     on(event: "tick", listener: (data: TickEvent) => void | Promise<void>): this;
-    emit(event: "tick", data: TickEvent): boolean;
 }
 
 const DEFAULT_MAX_CATCH_UP_TICKS = 5;
@@ -23,6 +32,13 @@ export class GameTicker extends EventEmitter {
     private readonly clock: () => number;
     private running = false;
     private lastScheduledAt = 0;
+    // Incremented on every start()/stop() so an in-flight async tick loop from a
+    // previous run can detect it has been superseded and bail out instead of
+    // racing a newly scheduled loop.
+    private epoch = 0;
+    private catchUpGiveUps = 0;
+    private ticksSkipped = 0;
+    private lateFires = 0;
 
     constructor(tickMs: number, opts?: { maxCatchUpTicks?: number; clock?: () => number }) {
         super();
@@ -35,12 +51,14 @@ export class GameTicker extends EventEmitter {
     start(): void {
         if (this.running) return;
         this.running = true;
+        this.epoch++;
         this.lastScheduledAt = this.clock();
-        this.scheduleNext();
+        this.scheduleNext(this.epoch);
     }
 
     stop(): void {
         this.running = false;
+        this.epoch++;
         if (this.timer) {
             clearTimeout(this.timer);
             this.timer = null;
@@ -51,22 +69,42 @@ export class GameTicker extends EventEmitter {
         return this.tickIdx;
     }
 
-    private scheduleNext(): void {
-        if (!this.running) return;
+    stats(): TickerStats {
+        return {
+            tick: this.tickIdx,
+            catchUpGiveUps: this.catchUpGiveUps,
+            ticksSkipped: this.ticksSkipped,
+            lateFires: this.lateFires,
+        };
+    }
+
+    private scheduleNext(epoch: number): void {
+        if (!this.running || epoch !== this.epoch) return;
         const nextTarget = this.lastScheduledAt + this.tickMs;
         const delay = Math.max(0, nextTarget - this.clock());
         this.timer = setTimeout(() => {
-            this.tickLoop().catch((err) => {
+            this.tickLoop(epoch).catch((err) => {
                 logger.error("[GameTicker] tick loop exception", err);
             });
         }, delay);
     }
 
-    private async tickLoop(): Promise<void> {
-        if (!this.running) return;
+    private async tickLoop(epoch: number): Promise<void> {
+        if (!this.running || epoch !== this.epoch) return;
+        const lateMs = this.clock() - (this.lastScheduledAt + this.tickMs);
+        if (lateMs > this.driftWarnMs) {
+            this.lateFires++;
+            logger.warn(
+                `[GameTicker] tick timer fired ${lateMs}ms late (budget=${this.tickMs}ms, total late fires=${this.lateFires}); event loop is starved`,
+            );
+        }
         let iterations = 0;
         try {
-            while (this.running && this.clock() >= this.lastScheduledAt + this.tickMs) {
+            while (
+                this.running &&
+                epoch === this.epoch &&
+                this.clock() >= this.lastScheduledAt + this.tickMs
+            ) {
                 const scheduledTime = this.lastScheduledAt + this.tickMs;
                 this.lastScheduledAt = scheduledTime;
                 await this.dispatchTick(scheduledTime);
@@ -75,23 +113,22 @@ export class GameTicker extends EventEmitter {
                 const behindMs = now - this.lastScheduledAt;
                 if (behindMs >= this.tickMs) {
                     if (iterations >= this.maxCatchUpTicks) {
+                        const skipped = Math.floor(behindMs / this.tickMs);
+                        this.catchUpGiveUps++;
+                        this.ticksSkipped += skipped;
                         logger.warn(
-                            `[GameTicker] unable to catch up after ${iterations} ticks (behind ${behindMs}ms); skipping ahead`,
+                            `[GameTicker] unable to catch up after ${iterations} ticks (behind ${behindMs}ms); ` +
+                                `skipping ${skipped} tick(s) (lifetime: ${this.catchUpGiveUps} give-ups, ${this.ticksSkipped} skipped)`,
                         );
                         this.lastScheduledAt = now;
                         break;
                     }
                     continue;
                 }
-                if (behindMs > this.driftWarnMs) {
-                    logger.warn(
-                        `[GameTicker] tick ${this.tickIdx} overran by ${behindMs}ms (budget=${this.tickMs}ms)`,
-                    );
-                }
                 break;
             }
         } finally {
-            this.scheduleNext();
+            this.scheduleNext(epoch);
         }
     }
 

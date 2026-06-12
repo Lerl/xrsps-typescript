@@ -1000,10 +1000,10 @@ export function decodeServerPacket(data: Uint8Array | ArrayBuffer): DecodedServe
             const loops = reader.readByte();
             const delay = reader.readShort();
             const radius = reader.readByte();
-            const volume = reader.readByte();
+            const attenuation = reader.readByte();
             return {
                 type: "sound",
-                payload: { soundId, x, y, level, loops, delay, radius, volume },
+                payload: { soundId, x, y, level, loops, delay, radius, attenuation },
             };
         }
 

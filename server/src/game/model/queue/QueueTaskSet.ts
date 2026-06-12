@@ -22,12 +22,12 @@ export class QueueTaskSet<TContext = unknown> {
      */
     queue(priority: TaskPriority, generatorFn: TaskGenerator<TContext>): QueueTask<TContext> {
         if (priority === TaskPriority.STRONG) {
-            this.terminateTasks();
+            this.terminateWeakTasks();
         }
 
         const task = createTask(this.ctx, priority, generatorFn);
-        // RSMod: addFirst (most recent task runs first)
-        this.tasks.unshift(task);
+        // Insertion order: tasks queued first are processed first within a cycle
+        this.tasks.push(task);
         return task;
     }
 
@@ -54,15 +54,23 @@ export class QueueTaskSet<TContext = unknown> {
 
     /**
      * Process tasks for one game cycle.
+     *
+     * Every task ticks independently (a suspended task does not block the
+     * ones behind it), so concurrent delayed scripts — e.g. several queued
+     * hits or a level-up alongside a teleport — all count down each cycle.
+     * STANDARD tasks pause while a menu is open; WEAK and STRONG always run.
      */
     cycle(): void {
-        while (true) {
-            const task = this.tasks[0];
-            if (!task) break;
+        if (this.tasks.length === 0) return;
+
+        // Snapshot: tasks queued during processing start on the next cycle
+        const snapshot = [...this.tasks];
+        for (const task of snapshot) {
+            if (task.completed()) continue;
 
             const ctx = task.ctx as TContext & MenuAwareContext;
             if (task.priority === TaskPriority.STANDARD && ctx.hasMenuOpen?.()) {
-                break;
+                continue;
             }
 
             if (!task.invoked) {
@@ -71,21 +79,18 @@ export class QueueTaskSet<TContext = unknown> {
             }
 
             task.cycle();
-
-            if (!task.suspended()) {
-                this.tasks.shift();
-                continue;
-            }
-
-            break;
         }
+
+        this.tasks = this.tasks.filter((task) => !task.completed());
     }
 
     /**
-     * Submit a return value for the current task.
+     * Submit a return value (e.g. dialog input) to the task waiting for one.
      */
     submitReturnValue(value: unknown): void {
-        const task = this.tasks[0];
+        const task =
+            this.tasks.find((t) => t.awaitingReturnValue) ??
+            this.tasks.find((t) => t.suspended());
         if (!task) return;
         task.requestReturnValue = value;
     }
@@ -98,6 +103,23 @@ export class QueueTaskSet<TContext = unknown> {
             task.terminate();
         }
         this.tasks = [];
+    }
+
+    /**
+     * Terminate weak tasks only. Standard and strong tasks survive.
+     * Called on player input (walk click, new interaction, teleport request)
+     * and when a strong task is queued.
+     */
+    terminateWeakTasks(): void {
+        const remaining: QueueTask<TContext>[] = [];
+        for (const task of this.tasks) {
+            if (task.priority === TaskPriority.WEAK) {
+                task.terminate();
+            } else {
+                remaining.push(task);
+            }
+        }
+        this.tasks = remaining;
     }
 
     /**

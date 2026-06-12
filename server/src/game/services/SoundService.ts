@@ -32,7 +32,7 @@ export class SoundService {
         loops?: number;
         delayMs?: number;
         radius?: number;
-        volume?: number;
+        attenuation?: number;
     }): void {
         if (!opts || !(opts.soundId > 0)) return;
         const payload: SoundBroadcastRequest = {
@@ -41,13 +41,14 @@ export class SoundService {
             y: opts.tile?.y ?? 0,
             level: opts.level ?? 0,
         };
-        if (opts.loops !== undefined) Object.assign(payload, { loops: Math.max(0, opts.loops) });
-        if (opts.delayMs !== undefined) payload.delay = Math.max(0, opts.delayMs);
+        if (opts.loops !== undefined) payload.loops = Math.max(1, opts.loops);
+        // Wire delay is in client cycles (20ms each)
+        if (opts.delayMs !== undefined) payload.delay = Math.max(0, Math.round(opts.delayMs / 20));
         if (opts.radius !== undefined && opts.radius > 0) {
-            payload.radius = Math.min(15, Math.max(0, opts.radius));
+            payload.radius = Math.min(31, Math.max(0, opts.radius));
         }
-        if (opts.volume !== undefined && opts.volume < 255) {
-            payload.volume = Math.min(255, Math.max(0, opts.volume));
+        if (opts.attenuation !== undefined && opts.attenuation > 0) {
+            payload.attenuation = Math.min(31, Math.max(0, opts.attenuation));
         }
         this.services.networkLayer.withDirectSendBypass("script_loc_sound", () =>
             this.services.broadcastService.broadcastSound(payload, "script_loc_sound"),
@@ -59,7 +60,8 @@ export class SoundService {
         tile: { x: number; y: number };
         level?: number;
         radius?: number;
-        volume?: number;
+        attenuation?: number;
+        /** Delay in server ticks before the sound plays. */
         delay?: number;
     }): void {
         if (!opts || !(opts.soundId > 0)) return;
@@ -70,13 +72,14 @@ export class SoundService {
             level: opts.level ?? 0,
         };
         if (opts.radius !== undefined && opts.radius > 0) {
-            payload.radius = Math.min(15, Math.max(0, opts.radius));
+            payload.radius = Math.min(31, Math.max(0, opts.radius));
         }
-        if (opts.volume !== undefined && opts.volume < 255) {
-            payload.volume = Math.min(255, Math.max(0, opts.volume));
+        if (opts.attenuation !== undefined && opts.attenuation > 0) {
+            payload.attenuation = Math.min(31, Math.max(0, opts.attenuation));
         }
         if (opts.delay !== undefined && opts.delay > 0) {
-            payload.delay = opts.delay * 600;
+            // Server ticks (600ms) to client cycles (20ms)
+            payload.delay = opts.delay * 30;
         }
         this.services.networkLayer.withDirectSendBypass("area_sound", () =>
             this.services.broadcastService.broadcastSound(payload, "area_sound"),
@@ -86,9 +89,15 @@ export class SoundService {
     sendSound(
         player: PlayerState,
         soundId: number,
-        opts?: { delay?: number; loops?: number },
+        opts?: { delayMs?: number; loops?: number },
     ): void {
-        this.services.soundManager!.sendSound(player, soundId, opts);
+        this.services.soundManager!.sendSound(player, soundId, {
+            delay:
+                opts?.delayMs !== undefined
+                    ? Math.max(0, Math.round(opts.delayMs / 20))
+                    : undefined,
+            loops: opts?.loops,
+        });
     }
 
     sendJingle(player: PlayerState, jingleId: number, delay: number = 0): void {

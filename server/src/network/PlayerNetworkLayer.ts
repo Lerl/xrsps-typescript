@@ -18,10 +18,6 @@ export class PlayerNetworkLayer {
     private isBroadcastPhase = false;
     private directSendBypassDepth = 0;
     private directSendWarningContexts = new Set<string>();
-    private pendingDirectSends = new Map<
-        WebSocket,
-        { message: string | Uint8Array; context: string }
-    >();
 
     setBroadcastPhase(active: boolean): void {
         this.isBroadcastPhase = active;
@@ -103,18 +99,6 @@ export class PlayerNetworkLayer {
             this.flushMessageBatch(sock);
         }
         this.messageBatches.clear();
-    }
-
-    queueDirectSend(
-        sock: WebSocket | undefined,
-        message: string | Uint8Array,
-        context: string,
-    ): void {
-        if (!sock || sock.readyState !== WebSocket.OPEN) return;
-        if (this.pendingDirectSends.size > 512) {
-            this.pendingDirectSends.clear();
-        }
-        this.pendingDirectSends.set(sock, { message, context });
     }
 
     flushDirectSendWarnings(stage: string): void {

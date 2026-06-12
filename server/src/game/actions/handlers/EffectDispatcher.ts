@@ -185,11 +185,11 @@ export class EffectDispatcher {
             if (target) {
                 if (effect.damage > 0) {
                     this.svc.soundService.sendSound(target, PLAYER_TAKE_DAMAGE_SOUND, {
-                        delay: COMBAT_SOUND_DELAY_MS,
+                        delayMs: COMBAT_SOUND_DELAY_MS,
                     });
                 } else if (effect.style === HITMARK_BLOCK) {
                     this.svc.soundService.sendSound(target, PLAYER_ZERO_DAMAGE_SOUND, {
-                        delay: COMBAT_SOUND_DELAY_MS,
+                        delayMs: COMBAT_SOUND_DELAY_MS,
                     });
                 }
             }

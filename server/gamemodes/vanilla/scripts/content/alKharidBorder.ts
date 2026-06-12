@@ -432,7 +432,6 @@ export function registerAlKharidBorderHandlers(
             tile: SOUTH_PART.tile,
             level: GATE_LEVEL,
             radius: 5,
-            volume: 255,
         });
     };
 
@@ -507,7 +506,6 @@ export function registerAlKharidBorderHandlers(
             tile: part.tile,
             level: GATE_LEVEL,
             radius: 5,
-            volume: 255,
         });
         if (chargeToll) {
             services.messaging.sendGameMessage(

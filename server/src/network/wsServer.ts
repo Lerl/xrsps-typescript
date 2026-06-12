@@ -13,8 +13,10 @@ import type { LocTypeLoader } from "../../../src/rs/config/loctype/LocTypeLoader
 import type { NpcTypeLoader } from "../../../src/rs/config/npctype/NpcTypeLoader";
 import type { ObjTypeLoader } from "../../../src/rs/config/objtype/ObjTypeLoader";
 import { ACCOUNT_SUMMARY_GROUP_ID } from "../../../src/shared/ui/accountSummary";
+import { MUSIC_GROUP_ID } from "../../../src/shared/ui/music";
 import { VARP_FOLLOWER_INDEX } from "../../../src/shared/vars";
 import { MusicCatalogService } from "../audio/MusicCatalogService";
+import { MusicRegionService } from "../audio/MusicRegionService";
 import { MusicUnlockService } from "../audio/MusicUnlockService";
 import { NpcSoundLookup } from "../audio/NpcSoundLookup";
 import { config } from "../config";
@@ -59,6 +61,7 @@ import { SailingInstanceManager } from "../game/sailing/SailingInstanceManager";
 import { ScriptRegistry, ScriptRuntime, bootstrapScripts } from "../game/scripts";
 import { ActionDispatchService } from "../game/services/ActionDispatchService";
 import { AppearanceService } from "../game/services/AppearanceService";
+import { ClientInputService } from "../game/services/ClientInputService";
 import { CollectionLogService } from "../game/services/CollectionLogService";
 import { CombatDataService } from "../game/services/CombatDataService";
 import { CombatEffectService } from "../game/services/CombatEffectService";
@@ -251,6 +254,7 @@ export class WSServer {
     // Extracted services (Broadcast + TickFrame)
     private broadcastService!: BroadcastService;
     private tickFrameService!: TickFrameService;
+    private clientInputService!: ClientInputService;
 
     // Extracted services (Phase 8)
     private combatEffectService!: CombatEffectService;
@@ -278,7 +282,7 @@ export class WSServer {
     // pendingWalkCommands moved to MovementService
     private pendingDirectSends = new Map<
         WebSocket,
-        { message: string | Uint8Array; context: string }
+        Array<{ message: string | Uint8Array; context: string }>
     >();
     // isBroadcastPhase, messageBatches, enableMessageBatching, directSendBypassDepth,
     // directSendWarningContexts moved to PlayerNetworkLayer
@@ -291,6 +295,7 @@ export class WSServer {
     private dbRepository?: DbRepository;
     private npcSoundLookup?: NpcSoundLookup;
     private musicCatalogService?: MusicCatalogService;
+    private musicRegionService?: MusicRegionService;
     private musicUnlockService?: MusicUnlockService;
     private autosaveIntervalTicks!: number;
     private groundItems!: GroundItemManager;
@@ -348,6 +353,7 @@ export class WSServer {
         this.initDeferredDeps(opts);
         this.broadcastService = new BroadcastService(this.svc);
         this.tickFrameService = new TickFrameService(this.svc, this.autosaveIntervalTicks);
+        this.clientInputService = new ClientInputService(this.svc);
         this.loginHandshakeService = new LoginHandshakeService(this.svc);
         this.tickPhaseService = new TickPhaseService(this.svc);
         this.populateServiceContext();
@@ -357,6 +363,14 @@ export class WSServer {
         this.initTestBots();
         this.wss.on("connection", (ws) => this.loginHandshakeService.onConnection(ws));
         opts.ticker.on("tick", (data) => this.tickFrameService.handleTick(data));
+    }
+
+    /**
+     * Persist all connected players immediately. Used by graceful shutdown so
+     * progress since the last autosave is not lost.
+     */
+    async flushPlayerSaves(): Promise<void> {
+        await this.tickFrameService.runAutosave(this.options.ticker.currentTick());
     }
 
     /**
@@ -398,6 +412,7 @@ export class WSServer {
             ["combatCategoryData", () => self.combatCategoryData],
             ["npcSoundLookup", () => self.npcSoundLookup],
             ["musicCatalogService", () => self.musicCatalogService],
+            ["musicRegionService", () => self.musicRegionService],
             ["musicUnlockService", () => self.musicUnlockService],
             ["playerCombatManager", () => self.playerCombatManager],
             ["playerCombatService", () => self.playerCombatService],
@@ -459,6 +474,7 @@ export class WSServer {
         s.equipmentStatsUiService = this.equipmentStatsUiService;
         s.tickPhaseService = this.tickPhaseService;
         s.tickFrameService = this.tickFrameService;
+        s.clientInputService = this.clientInputService;
         s.actionDispatchService = this.actionDispatchService;
         s.inventoryMessageService = this.inventoryMessageService;
         s.broadcastService = this.broadcastService;
@@ -547,7 +563,8 @@ export class WSServer {
             getInventory: (player) => this.inventoryService.getInventory(player),
         });
         this.widgetBroadcaster = new WidgetBroadcaster({
-            syncPostWidgetOpenState: () => {},
+            syncPostWidgetOpenState: (playerId, action) =>
+                this.syncPostWidgetOpenState(playerId, action),
         });
         this.combatBroadcaster = new CombatBroadcaster({
             forEachPlayer: (fn) => this.players?.forEach(fn),
@@ -817,6 +834,9 @@ export class WSServer {
             enqueueSoundBroadcast: (soundId, x, y, level) =>
                 this.broadcastService.enqueueSoundBroadcast(soundId, x, y, level),
             syncMusicInterface: (player) => this.soundManager?.syncMusicInterfaceForPlayer(player),
+            playSongForPlayer: (player, trackId, trackName) =>
+                this.soundManager?.playSongForPlayer(player, trackId, trackName),
+            skipMusicTrack: (player) => this.soundManager?.skipTrackForPlayer(player) ?? false,
             queueCombatSnapshot: (...args: Parameters<typeof this.queueCombatSnapshot>) =>
                 this.queueCombatSnapshot(...args),
             queueWidgetEvent: (pid, evt) => this.queueWidgetEvent(pid, evt),
@@ -1163,6 +1183,7 @@ export class WSServer {
                 this.musicCatalogService = new MusicCatalogService(this.dbRepository);
                 this.scriptAdapterDeps.musicCatalogService = this.musicCatalogService;
 
+                this.musicRegionService = new MusicRegionService();
                 this.musicUnlockService = new MusicUnlockService(this.musicCatalogService);
             } catch (err) {
                 logger.warn("[combat] failed to load combat category data", err);
@@ -1384,6 +1405,20 @@ export class WSServer {
 
     private queueActivateQuestSideTab(playerId: number): void {
         this.gamemodeUi.activateQuestTab(playerId);
+    }
+
+    private syncPostWidgetOpenState(playerId: number, action: WidgetAction): void {
+        if ((action.groupId ?? 0) !== MUSIC_GROUP_ID) {
+            return;
+        }
+        if (action.action !== "open_sub" && action.action !== "open") {
+            return;
+        }
+        const player = this.players?.getById(playerId);
+        if (!player) {
+            return;
+        }
+        this.soundManager?.syncMusicInterfaceForPlayer(player);
     }
 
     private queueWidgetEvent(playerId: number, action: WidgetAction): void {

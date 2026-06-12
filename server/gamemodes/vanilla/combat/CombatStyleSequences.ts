@@ -10,11 +10,9 @@ function getMeleeAttackSequenceForCategory(
     const category = weaponCategory ?? -1;
     const slot = Math.max(0, Math.min(styleSlot ?? 0, 3)) as CombatStyleSlot;
 
-    // Unarmed: punch / kick / block.
+    // Unarmed: punch (0) / kick (1) / block (3, attacks with the punch swing).
     if (category === 0) {
-        if (slot === 0) return 422;
         if (slot === 1) return 423;
-        if (slot === 2) return 424;
         return 422;
     }
 

@@ -3,15 +3,18 @@ import { EntityType } from "../collision/EntityCollisionService";
 export const HITSPLAT_STYLE_BLOCK = 0;
 export const HITSPLAT_STYLE_DAMAGE = 1;
 
-// Cache-verified in this project: 26 = us blocking, 27 = other blocking.
-export const OSRS_HITSPLAT_BLOCK_ME = 26;
-export const OSRS_HITSPLAT_BLOCK_OTHER = 27;
-// Cache-verified in this project: 28 = us hitting, 29 = other hitting.
-export const OSRS_HITSPLAT_DAMAGE_ME = 28;
-export const OSRS_HITSPLAT_DAMAGE_OTHER = 29;
+// Cache-verified: 12/13 and 16/17 are varbit-10236 wrappers whose
+// multihitsplats children are the concrete defs (26/27 block, 28/29 damage).
+// The server sends the wrapper ids (matching the official protocol) and the
+// client resolves the transform, so settings-driven tint variants apply.
+export const OSRS_HITSPLAT_BLOCK_ME = 12;
+export const OSRS_HITSPLAT_BLOCK_OTHER = 13;
+export const OSRS_HITSPLAT_DAMAGE_ME = 16;
+export const OSRS_HITSPLAT_DAMAGE_OTHER = 17;
+// Poison wrappers: 65 = {68,68,68} (me), 66 = {69,68,69} (other).
 export const OSRS_HITSPLAT_POISON = 65;
-export const OSRS_HITSPLAT_POISON_ME = 68;
-export const OSRS_HITSPLAT_POISON_OTHER = 69;
+export const OSRS_HITSPLAT_POISON_ME = 65;
+export const OSRS_HITSPLAT_POISON_OTHER = 66;
 export const OSRS_HITSPLAT_POISON_MAX = 70;
 export const OSRS_HITSPLAT_DISEASE = 4;
 export const OSRS_HITSPLAT_DISEASE_BLOCKED = 3;

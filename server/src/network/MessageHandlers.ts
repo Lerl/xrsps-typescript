@@ -52,7 +52,6 @@ interface TeleportActionRequest {
     endSpotDelay?: number;
     arriveSoundId?: number;
     arriveSoundRadius?: number;
-    arriveSoundVolume?: number;
     arriveMessage?: string;
     requireCanTeleport?: boolean;
     rejectIfPending?: boolean;
@@ -101,6 +100,8 @@ export interface MessageHandlerServices {
     ) => void;
     clearPendingWalkCommand: (ws: WebSocket) => void;
     clearActionsInGroup: (playerId: number, group: string) => number;
+    /** Clears the weak class of pending behavior (weak queue tasks + interruptible actions). */
+    interruptPlayerInput: (player: PlayerState) => number;
     canUseAdminTeleport: (player: PlayerState) => boolean;
     teleportPlayer: (
         player: PlayerState,
@@ -292,6 +293,7 @@ export interface MessageHandlerServices {
           }) => string | void | Promise<string | void>)
         | undefined;
     getCurrentTick: () => number;
+    getTickerStats: () => import("../game/ticker").TickerStats;
 
     // Debug
     broadcast: (message: string | Uint8Array, context: string) => void;

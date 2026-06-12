@@ -335,13 +335,13 @@ export class PlayerInteractionSystem {
     /**
      * Replace any in-flight interaction intent with a new one.
      * Mirrors RSMod-style click semantics:
-     * - interrupt queued tasks
+     * - interrupt weak queued tasks (standard/strong tasks survive input)
      * - reset player interaction attributes
      * - clear interaction-system state maps
      */
     private replaceInteractionState(ws: WebSocket, player: PlayerState): void {
         try {
-            player.interruptQueues();
+            player.interruptWeakQueues();
         } catch (err) {
             logger.warn("[interaction] failed to interrupt queues", err);
         }

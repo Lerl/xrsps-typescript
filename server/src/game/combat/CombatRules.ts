@@ -120,7 +120,7 @@ export function resolvePlayerAttackReach(
     }
 
     if (attackType === AttackType.Ranged) {
-        const isLongrange = styleSlot === 2 || styleSlot === 3;
+        const isLongrange = styleSlot === 3;
         const range = baseRange ?? 7;
         return Math.max(1, range + (isLongrange ? 2 : 0));
     }

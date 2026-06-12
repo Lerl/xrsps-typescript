@@ -5,6 +5,7 @@ import {
     type IScriptRegistry,
     ScriptServices,
 } from "../../../src/game/scripts/types";
+import { getQuestDefinition } from "../quests/QuestRegistry";
 
 // ============================================================================
 // Constants
@@ -126,11 +127,19 @@ function buildQuestMap(services: ScriptServices): Map<number, QuestEntry> {
 /**
  * Build journal lines for a quest based on its completion status.
  *
- * In OSRS, each quest has unique server-side scripts that generate journal
- * text per progress stage. For our implementation, we check the quest's
+ * Implemented quests (registered in the quest registry) generate stage-specific
+ * journal text from their definitions. For the rest, we check the quest's
  * progress varp against its completion value to determine basic status.
  */
-function buildJournalLines(player: PlayerState, quest: QuestEntry): string[] {
+function buildJournalLines(
+    player: PlayerState,
+    quest: QuestEntry,
+    services: ScriptServices,
+): string[] {
+    const definition = getQuestDefinition(quest.displayName);
+    if (definition) {
+        return definition.buildJournal(player, services);
+    }
     // Check if quest was completed via ::quest command by checking known quest varps
     const completionEntry = QUEST_COMPLETION_DATA.get(quest.displayName.toLowerCase());
     if (completionEntry) {
@@ -336,7 +345,7 @@ export function registerQuestJournalWidgetHandlers(
  * 5. Run scroll configuration script
  */
 function openQuestJournal(player: PlayerState, quest: QuestEntry, services: ScriptServices): void {
-    const lines = buildJournalLines(player, quest);
+    const lines = buildJournalLines(player, quest, services);
     const lineCount = lines.length;
     const playerId = player.id;
 

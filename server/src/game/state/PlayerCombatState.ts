@@ -39,8 +39,12 @@ export class PlayerCombatState {
 
     /** Current attack speed in ticks (e.g., 4 for most melee weapons) */
     attackDelay: number = 4;
-    /** Ticks remaining until player can attack again. */
-    attackDelayTicks: number = 0;
+    /**
+     * Absolute tick when the player may attack again. This is the actor-global
+     * attack timer: it persists across target switches and is pushed forward by
+     * eating food, so neither resets the weapon cooldown.
+     */
+    nextAttackAvailableTick: number = 0;
 
     /** Last known wilderness level for change detection. */
     lastWildernessLevel: number = 0;
@@ -136,8 +140,13 @@ export class PlayerCombatState {
         return this.combatTargetFocus?.deref() != null;
     }
 
-    isAttackDelayReady(): boolean {
-        return this.attackDelayTicks <= 0;
+    isAttackReady(currentTick: number): boolean {
+        return currentTick >= this.nextAttackAvailableTick;
+    }
+
+    /** Push the global attack timer forward; never pulls it back. */
+    delayNextAttack(untilTick: number): void {
+        this.nextAttackAvailableTick = Math.max(this.nextAttackAvailableTick, untilTick);
     }
 
     getInteractingNpc(): NpcState | null {

@@ -2,6 +2,20 @@
  * Teleport spell destinations and metadata.
  * Coordinates are OSRS tile coordinates.
  */
+import {
+    VARBIT_ARCEUUS_SPELLBOOK_UNLOCKED,
+    VARBIT_CLIENT_OF_KOUREND,
+    VARBIT_RFD_AWOWOGEI,
+    VARP_BIOHAZARD,
+    VARP_DESERT_TREASURE,
+    VARP_EADGAR_QUEST,
+    VARP_GREAT_BRAIN_ROBBERY,
+    VARP_MONKEY_MADNESS,
+    VARP_PLAGUE_CITY,
+    VARP_PRIEST_IN_PERIL,
+    VARP_WATCHTOWER,
+} from "../../../src/shared/vars";
+import type { SpellUnlockRequirement } from "../game/spells/SpellDataProvider";
 import { getSpellWidgetId } from "./spellWidgetLoader";
 
 export type TeleportDestination = {
@@ -19,6 +33,7 @@ export type TeleportSpellData = {
     destination: TeleportDestination;
     spellbook: "standard" | "ancient" | "lunar" | "arceuus";
     runeCosts: Array<{ runeId: number; quantity: number }>;
+    unlockRequirements?: SpellUnlockRequirement[];
     experienceGained: number;
     castAnimId?: number;
     castSpotAnim?: number;
@@ -58,6 +73,25 @@ const LUNAR_TELEPORT_GFX = 747; // Lunar teleport graphic
 // Per RSMod: Arceuus uses same as Lunar (animation 1816, graphic 747 at height 120)
 const ARCEUUS_TELEPORT_ANIM = 1816; // Arceuus teleport animation
 const ARCEUUS_TELEPORT_GFX = 747; // Arceuus teleport graphic
+
+// Quest/unlock gates, mirroring the spellbook cs2 var checks
+const DESERT_TREASURE_UNLOCK: SpellUnlockRequirement = {
+    varpId: VARP_DESERT_TREASURE,
+    minValue: 15,
+    message: "You need to have completed Desert Treasure I to cast this spell.",
+};
+
+const ARCEUUS_SPELLBOOK_UNLOCK: SpellUnlockRequirement = {
+    varbitId: VARBIT_ARCEUUS_SPELLBOOK_UNLOCKED,
+    minValue: 1,
+    message: "You need to have unlocked the Arceuus spellbook to cast this spell.",
+};
+
+const PRIEST_IN_PERIL_UNLOCK: SpellUnlockRequirement = {
+    varpId: VARP_PRIEST_IN_PERIL,
+    minValue: 61,
+    message: "You need to have completed Priest in Peril to cast this spell.",
+};
 
 // Teleport sound effects (OSRS sound IDs)
 const STANDARD_TELEPORT_CAST_SOUND = 200; // Standard teleport cast sound
@@ -173,6 +207,13 @@ export const STANDARD_TELEPORTS: TeleportSpellData[] = [
         levelRequired: 48,
         destination: { x: 1643, y: 3672, level: 0, name: "Kourend Castle" },
         spellbook: "standard",
+        unlockRequirements: [
+            {
+                varbitId: VARBIT_CLIENT_OF_KOUREND,
+                minValue: 7,
+                message: "You need to have completed Client of Kourend to cast this spell.",
+            },
+        ],
         runeCosts: [
             { runeId: FIRE_RUNE, quantity: 5 },
             { runeId: WATER_RUNE, quantity: 4 },
@@ -191,6 +232,13 @@ export const STANDARD_TELEPORTS: TeleportSpellData[] = [
         levelRequired: 51,
         destination: { x: 2661, y: 3301, level: 0, name: "Ardougne Market" },
         spellbook: "standard",
+        unlockRequirements: [
+            {
+                varpId: VARP_PLAGUE_CITY,
+                minValue: 30,
+                message: "You haven't learned the Ardougne Teleport spell yet.",
+            },
+        ],
         runeCosts: [
             { runeId: WATER_RUNE, quantity: 2 },
             { runeId: LAW_RUNE, quantity: 2 },
@@ -207,6 +255,13 @@ export const STANDARD_TELEPORTS: TeleportSpellData[] = [
         levelRequired: 58,
         destination: { x: 2549, y: 3112, level: 2, name: "Watchtower" },
         spellbook: "standard",
+        unlockRequirements: [
+            {
+                varpId: VARP_WATCHTOWER,
+                minValue: 14,
+                message: "You haven't learned the Watchtower Teleport spell yet.",
+            },
+        ],
         runeCosts: [
             { runeId: EARTH_RUNE, quantity: 2 },
             { runeId: LAW_RUNE, quantity: 2 },
@@ -223,6 +278,13 @@ export const STANDARD_TELEPORTS: TeleportSpellData[] = [
         levelRequired: 61,
         destination: { x: 2891, y: 3678, level: 0, name: "Trollheim" },
         spellbook: "standard",
+        unlockRequirements: [
+            {
+                varpId: VARP_EADGAR_QUEST,
+                minValue: 110,
+                message: "You need to have completed Eadgar's Ruse to cast this spell.",
+            },
+        ],
         runeCosts: [
             { runeId: FIRE_RUNE, quantity: 2 },
             { runeId: LAW_RUNE, quantity: 2 },
@@ -239,6 +301,14 @@ export const STANDARD_TELEPORTS: TeleportSpellData[] = [
         levelRequired: 64,
         destination: { x: 2796, y: 2798, level: 0, name: "Ape Atoll" },
         spellbook: "standard",
+        unlockRequirements: [
+            {
+                varbitId: VARBIT_RFD_AWOWOGEI,
+                minValue: 50,
+                message:
+                    "You need to have saved Awowogei in Recipe for Disaster to cast this spell.",
+            },
+        ],
         runeCosts: [
             { runeId: FIRE_RUNE, quantity: 2 },
             { runeId: WATER_RUNE, quantity: 2 },
@@ -452,6 +522,7 @@ export const ARCEUUS_TELEPORTS: TeleportSpellData[] = [
         levelRequired: 40,
         destination: { x: 3432, y: 3461, level: 0, name: "Salve Graveyard" },
         spellbook: "arceuus",
+        unlockRequirements: [PRIEST_IN_PERIL_UNLOCK],
         runeCosts: [
             { runeId: SOUL_RUNE, quantity: 1 },
             { runeId: LAW_RUNE, quantity: 1 },
@@ -468,6 +539,7 @@ export const ARCEUUS_TELEPORTS: TeleportSpellData[] = [
         levelRequired: 48,
         destination: { x: 3548, y: 3528, level: 0, name: "Fenkenstrain's Castle" },
         spellbook: "arceuus",
+        unlockRequirements: [PRIEST_IN_PERIL_UNLOCK],
         runeCosts: [
             { runeId: EARTH_RUNE, quantity: 1 },
             { runeId: SOUL_RUNE, quantity: 1 },
@@ -485,6 +557,13 @@ export const ARCEUUS_TELEPORTS: TeleportSpellData[] = [
         levelRequired: 61,
         destination: { x: 2500, y: 3291, level: 0, name: "West Ardougne" },
         spellbook: "arceuus",
+        unlockRequirements: [
+            {
+                varpId: VARP_BIOHAZARD,
+                minValue: 16,
+                message: "You need to have completed Biohazard to cast this spell.",
+            },
+        ],
         runeCosts: [
             { runeId: SOUL_RUNE, quantity: 2 },
             { runeId: LAW_RUNE, quantity: 2 },
@@ -501,6 +580,13 @@ export const ARCEUUS_TELEPORTS: TeleportSpellData[] = [
         levelRequired: 65,
         destination: { x: 3797, y: 2866, level: 0, name: "Harmony Island" },
         spellbook: "arceuus",
+        unlockRequirements: [
+            {
+                varpId: VARP_GREAT_BRAIN_ROBBERY,
+                minValue: 130,
+                message: "You need to have completed The Great Brain Robbery to cast this spell.",
+            },
+        ],
         runeCosts: [
             { runeId: SOUL_RUNE, quantity: 1 },
             { runeId: NATURE_RUNE, quantity: 1 },
@@ -535,6 +621,13 @@ export const ARCEUUS_TELEPORTS: TeleportSpellData[] = [
         levelRequired: 90,
         destination: { x: 2770, y: 9100, level: 0, name: "Ape Atoll Dungeon" },
         spellbook: "arceuus",
+        unlockRequirements: [
+            {
+                varpId: VARP_MONKEY_MADNESS,
+                minValue: 9,
+                message: "You need to have completed Monkey Madness to cast this spell.",
+            },
+        ],
         runeCosts: [
             { runeId: SOUL_RUNE, quantity: 2 },
             { runeId: BLOOD_RUNE, quantity: 2 },
@@ -547,6 +640,22 @@ export const ARCEUUS_TELEPORTS: TeleportSpellData[] = [
         arriveSoundId: STANDARD_TELEPORT_ARRIVE_SOUND,
     },
 ];
+
+// Book-wide unlocks: every Ancient teleport requires Desert Treasure I and
+// every Arceuus teleport requires the Arceuus spellbook, in addition to any
+// per-spell quest gates declared above.
+for (const teleportSpell of ANCIENT_TELEPORTS) {
+    teleportSpell.unlockRequirements = [
+        DESERT_TREASURE_UNLOCK,
+        ...(teleportSpell.unlockRequirements ?? []),
+    ];
+}
+for (const teleportSpell of ARCEUUS_TELEPORTS) {
+    teleportSpell.unlockRequirements = [
+        ARCEUUS_SPELLBOOK_UNLOCK,
+        ...(teleportSpell.unlockRequirements ?? []),
+    ];
+}
 
 /**
  * Get all teleport spells across all spellbooks

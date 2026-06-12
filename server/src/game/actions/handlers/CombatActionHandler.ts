@@ -258,10 +258,16 @@ export interface CombatActionServices {
     getNpcAttackSoundId(typeId: number): number;
     /** Resolve NPC's attack type. */
     resolveNpcAttackType(npc: NpcState, hint?: AttackType): AttackType;
+    /** Resolve the NPC's swing-to-impact hit delay (0 for melee). */
+    pickNpcHitDelay(npc: NpcState, player: PlayerState, attackSpeed: number): number;
     /** Resolve NPC's attack range. */
     resolveNpcAttackRange(npc: NpcState, attackType: AttackType): number;
     /** Broadcast NPC sequence animation. */
-    broadcastNpcSequence(npc: NpcState, seqId: number): void;
+    broadcastNpcSequence(
+        npc: NpcState,
+        seqId: number,
+        opts?: { yieldToExisting?: boolean },
+    ): void;
     /** Estimate NPC despawn delay from death sequence. */
     estimateNpcDespawnDelayTicksFromSeq(seqId: number | undefined): number;
 
@@ -552,7 +558,7 @@ export interface CombatActionServices {
 
 const DEFAULT_ATTACK_SPEED = 4;
 const DEFAULT_BLOCK_SEQ = 403;
-const COMBAT_SOUND_DELAY_MS = 150;
+const COMBAT_SOUND_DELAY_CYCLES = 8;
 const VARP_SPECIAL_ATTACK = 301;
 const EQUIP_SLOT_COUNT = 14;
 const DEFAULT_RANGED_ATTACK_SPOT = 249;
@@ -655,10 +661,12 @@ export class CombatActionHandler {
                 svc.combatDataService.getNpcAttackSoundId({ typeId } as unknown as NpcState),
             resolveNpcAttackType: (npc, hint) =>
                 svc.combatEffectService.resolveNpcAttackType(npc, hint),
+            pickNpcHitDelay: (npc, player, attackSpeed) =>
+                svc.combatEffectService.pickNpcHitDelay(npc, player, attackSpeed),
             resolveNpcAttackRange: (npc, attackType) =>
                 svc.combatEffectService.resolveNpcAttackRange(npc, attackType),
-            broadcastNpcSequence: (npc, seqId) =>
-                svc.combatEffectService.broadcastNpcSequence(npc, seqId),
+            broadcastNpcSequence: (npc, seqId, opts) =>
+                svc.combatEffectService.broadcastNpcSequence(npc, seqId, opts),
             estimateNpcDespawnDelayTicksFromSeq: (seqId) =>
                 svc.combatEffectService.estimateNpcDespawnDelayTicksFromSeq(seqId),
 
@@ -1152,6 +1160,8 @@ export class CombatActionHandler {
                 spellId,
                 ammoEffect,
             } = entryData;
+            // Hits on NPCs never resolve on the attack tick: NPCs act before players
+            // within a tick, so the earliest a queued hit can apply is the next tick.
             const hitDelay = Math.max(1, Math.ceil(rawHitDelay), minimumProjectileHitDelay ?? 0);
             const damage = Math.max(0, rawDamage);
             const maxHit = Math.max(0, rawMaxHit);
@@ -1163,14 +1173,8 @@ export class CombatActionHandler {
                 expectedHitTick !== undefined
                     ? Math.max(minimumExpectedHitTick, expectedHitTick)
                     : minimumExpectedHitTick;
-            let retaliateDamage = hitPayload.retaliateDamage;
-            if (retaliateDamage === undefined) {
-                retaliateDamage = this.svc.playerCombatManager?.rollRetaliateDamage(npc, player);
-            }
-            if (retaliateDamage === undefined) {
-                retaliateDamage = 0;
-            }
-            retaliateDamage = Math.max(0, retaliateDamage);
+            // NPC retaliation damage is rolled at swing time in NpcRetaliationHandler,
+            // so it reflects the player's prayers and gear when the NPC attacks.
             const totalRetaliationDelay = Math.max(1, hitPayload.retaliationDelay ?? attackDelay);
 
             const hitData = {
@@ -1182,7 +1186,6 @@ export class CombatActionHandler {
                 damage2,
                 attackDelay,
                 hitDelay,
-                retaliateDamage,
                 retaliationDelay: Math.max(0, totalRetaliationDelay - hitDelay),
                 retaliationTotalDelay: totalRetaliationDelay,
                 expectedHitTick: resolvedExpectedHitTick,
@@ -1195,6 +1198,15 @@ export class CombatActionHandler {
                 hitIndex: hitIndex++,
                 xpGrantedOnAttack: false,
             };
+            const resolvedAttackType = normalizeAttackType(entryAttackType) ?? plannedAttackType;
+            const grantXpOnAttack =
+                resolvedAttackType !== AttackType.Magic &&
+                this.resolveHitLanded(landed, style, damage) &&
+                damage > 0;
+            if (grantXpOnAttack) {
+                hitData.xpGrantedOnAttack = true;
+            }
+
             const hitResult = this.svc.actionScheduler.requestAction(
                 player.id,
                 {
@@ -1215,12 +1227,7 @@ export class CombatActionHandler {
                 continue;
             }
 
-            const resolvedAttackType = normalizeAttackType(entryAttackType) ?? plannedAttackType;
-            const shouldGrantXpOnAttack =
-                resolvedAttackType !== AttackType.Magic &&
-                this.resolveHitLanded(landed, style, damage);
-            if (shouldGrantXpOnAttack && damage > 0) {
-                hitData.xpGrantedOnAttack = true;
+            if (grantXpOnAttack) {
                 this.svc.skillService.awardCombatXp(
                     player,
                     damage,

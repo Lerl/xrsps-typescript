@@ -266,6 +266,18 @@ function createChatHandler(services: MessageHandlerServices): MessageHandler<"ch
                 const parts = cmd.split(/\s+/).filter((part) => part.length > 0);
                 const root = parts[0] ?? "";
 
+                if (root === "tickstats") {
+                    const stats = services.getTickerStats();
+                    services.queueChatMessage({
+                        messageType: "game",
+                        text:
+                            `Tick ${stats.tick}: ${stats.catchUpGiveUps} catch-up give-ups, ` +
+                            `${stats.ticksSkipped} tick(s) skipped, ${stats.lateFires} late timer fire(s).`,
+                        targetPlayerIds: [sender.id],
+                    });
+                    return;
+                }
+
                 if (root === "clear") {
                     try {
                         services.clearActionsInGroup(sender.id, "inventory");

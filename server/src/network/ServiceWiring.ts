@@ -18,6 +18,7 @@ import {
     VARP_SPECIAL_ATTACK,
 } from "../../../src/shared/vars";
 import type { ServerServices } from "../game/ServerServices";
+import { interruptForPlayerInput } from "../game/actions/playerInputInterrupt";
 import type { NpcSpawnConfig } from "../game/npc";
 import type { PlayerState } from "../game/player";
 import { logger } from "../utils/logger";
@@ -55,6 +56,7 @@ export function registerMessageHandlers(svc: ServerServices, router: MessageRout
         clearPendingWalkCommand: (ws) => svc.movementService.getPendingWalkCommands().delete(ws),
         clearActionsInGroup: (playerId, group) =>
             svc.actionScheduler.clearActionsInGroup(playerId, group),
+        interruptPlayerInput: (player) => interruptForPlayerInput(player, svc.actionScheduler),
         canUseAdminTeleport: (player) => svc.authService.isAdminPlayer(player),
         teleportPlayer: (player, x, y, level, forceRebuild = false) =>
             svc.movementService.teleportPlayer(player, x, y, level, forceRebuild),
@@ -260,6 +262,7 @@ export function registerMessageHandlers(svc: ServerServices, router: MessageRout
                   }) => string | void | Promise<string | void>)
                 | undefined,
         getCurrentTick: () => svc.ticker.currentTick(),
+        getTickerStats: () => svc.ticker.stats(),
 
         // Debug
         broadcast: (message, context) => svc.broadcastService.broadcast(message, context),

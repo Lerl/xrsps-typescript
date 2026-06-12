@@ -12,6 +12,8 @@ type DecodedSound = {
     loopStartSec: number;
     /** Loop end in seconds (from RawSound.end). 0 if no loop markers. */
     loopEndSec: number;
+    /** Synth onset trimmed at decode, in seconds; re-added when one-shots are scheduled. */
+    onsetSec: number;
 };
 
 const enum EasingCurveId {
@@ -49,11 +51,12 @@ export interface PlaySoundOptions {
     loops?: number;
     delayMs?: number;
     position?: { x: number; y: number; z?: number };
+    /** Silence distance in scene units (128 per tile). */
     radius?: number;
     distanceFadeCurve?: number;
     isLocalPlayer?: boolean;
-    /** SOUND_AREA volume (0-255, default 255 = full volume) */
-    volume?: number;
+    /** Full volume up to (attenuation & 31) - 1 tiles, then fades linearly to radius. */
+    attenuation?: number;
 }
 
 export interface SequenceSoundContext {
@@ -95,13 +98,20 @@ export interface AmbientSoundInstance {
 type ActiveAmbientSound = {
     instance: AmbientSoundInstance;
     gainNode: GainNode;
+    /** Identity of the resolved sound set this emitter is currently tuned to. */
+    soundKey: string;
     loopSource?: AudioBufferSourceNode;
     loopSoundId?: number;
     overlaySource?: AudioBufferSourceNode;
+    /** Absolute ctx time when the next overlay may trigger; Infinity while one plays or none pending. */
     nextChangeTime: number;
+    /** Delay (seconds) applied after the current overlay finishes playing. */
+    pendingOverlayDelaySec?: number;
     currentSoundIndex: number;
     stopAt?: number;
     fadeOutActive?: boolean;
+    /** Fading to silence before switching to a different resolved sound set. */
+    swapPending?: boolean;
     fadeInDurationSec: number;
     fadeOutDurationSec: number;
 };
@@ -124,6 +134,7 @@ export class SoundEffectSystem {
     private listenerX = 0;
     private listenerY = 0;
     private listenerZ = 0;
+    private lastAmbientUpdateTime = -1;
     private readonly warnedSounds = new Set<number>();
     // Memory leak fix: track context resume listener cleanup
     private contextResumeCleanup: (() => void) | null = null;
@@ -255,6 +266,8 @@ export class SoundEffectSystem {
     private toFloatData(raw: RawSoundData, targetSampleRate: number): DecodedSound {
         const total = raw.samples.length | 0;
 
+        const onsetSec = (raw.delayCycles ?? 0) * CYCLE_LENGTH_SECONDS;
+
         if (total <= 0) {
             return {
                 sampleRate: raw.sampleRate || targetSampleRate || 22050,
@@ -262,6 +275,7 @@ export class SoundEffectSystem {
                 duration: 0,
                 loopStartSec: 0,
                 loopEndSec: 0,
+                onsetSec,
             };
         }
 
@@ -301,6 +315,7 @@ export class SoundEffectSystem {
             duration: output.length / outputRate,
             loopStartSec,
             loopEndSec,
+            onsetSec,
         };
     }
 
@@ -362,6 +377,7 @@ export class SoundEffectSystem {
                 duration: 0.02,
                 loopStartSec: 0,
                 loopEndSec: 0,
+                onsetSec: 0,
             };
             // tiny DC-pop-safe blip
             for (let i = 0; i < tmp.channelData.length; i++)
@@ -380,61 +396,114 @@ export class SoundEffectSystem {
             return;
         }
 
-        const buffer = this.prepareBuffer(decoded, ctx);
-        const source = ctx.createBufferSource();
-        source.buffer = buffer;
+        const radius = options.radius;
+        const position = options.position;
+        const delayMs = options.delayMs ?? 0;
+
+        if (radius !== undefined && radius > 0) {
+            if (!position) {
+                return;
+            }
+            // Positional sound: distance and volume are evaluated when the
+            // delay expires, from the listener's position at that moment.
+            const startPositional = () => {
+                const gain = this.computePositionalGain(
+                    position,
+                    radius,
+                    options.attenuation,
+                    options.distanceFadeCurve,
+                );
+                if (gain === undefined) return;
+                this.startOneShot(decoded, ctx, gain, 0, options.loops, true);
+            };
+            if (delayMs > 0) {
+                setTimeout(startPositional, delayMs);
+            } else {
+                startPositional();
+            }
+            return;
+        }
+
+        if (radius !== undefined && radius <= 0 && !options.isLocalPlayer) {
+            return;
+        }
+
+        this.startOneShot(decoded, ctx, 1, delayMs, options.loops, false);
+    }
+
+    /**
+     * Compute distance falloff for a positional one-shot sound, or undefined
+     * if the listener is out of range and the sound should not play.
+     */
+    private computePositionalGain(
+        position: { x: number; y: number; z?: number },
+        radius: number,
+        attenuation?: number,
+        distanceFadeCurve?: number,
+    ): number | undefined {
+        const dx = Math.abs(position.x - this.listenerX);
+        const dy = Math.abs(position.y - this.listenerY);
+        // Manhattan distance between tile centers, minus one tile (128 fine units)
+        const dist = Math.max(0, dx + dy - 128);
+        if (dist >= radius) {
+            return undefined;
+        }
+        // Full volume out to (attenuation & 31) - 1 tiles, then fade to silence at radius
+        const attenFine = Math.max(((((attenuation ?? 0) | 0) & 31) - 1) * 128, 0);
+        if (attenFine >= radius) {
+            return 1;
+        }
+        const progress = Math.max(0, Math.min(1, (radius - dist) / (radius - attenFine)));
+        return SoundEffectSystem.ease(progress, distanceFadeCurve ?? EasingCurveId.LINEAR);
+    }
+
+    private ensureSfxBus(ctx: AudioContext): GainNode {
         if (!this.gainNode) {
             this.gainNode = ctx.createGain();
             this.gainNode.gain.value = this.masterVolume;
             this.gainNode.connect(ctx.destination);
         }
+        return this.gainNode;
+    }
 
-        let gainMultiplier = 1.0;
-        const radius = options.radius;
-        const position = options.position;
-        let gainNode: GainNode | undefined;
-
-        // SOUND_AREA volume: 0-255 where 255 = full volume
-        const volumeRaw = typeof options.volume === "number" ? options.volume : 255;
-        const volumeMultiplier = Math.max(0, Math.min(1, volumeRaw / 255));
-
-        if (radius !== undefined) {
-            if (radius <= 0) {
-                if (!options.isLocalPlayer) {
-                    return;
-                }
-            } else {
-                if (!position) {
-                    return;
-                }
-                const dx = Math.abs(position.x - this.listenerX);
-                const dy = Math.abs(position.y - this.listenerY);
-                const manhattan = Math.max(0, dx + dy - 64);
-                if (manhattan > radius) {
-                    return;
-                }
-                const curveId = options.distanceFadeCurve ?? EasingCurveId.LINEAR;
-                gainMultiplier =
-                    radius > 0 ? SoundEffectSystem.ease((radius - manhattan) / radius, curveId) : 1;
-            }
+    private ensureAmbientBus(ctx: AudioContext): GainNode {
+        if (!this.ambientGainNode) {
+            this.ambientGainNode = ctx.createGain();
+            this.ambientGainNode.gain.value = this.ambientVolume;
+            this.ambientGainNode.connect(ctx.destination);
         }
+        return this.ambientGainNode;
+    }
 
-        // Apply both distance attenuation and SOUND_AREA volume
-        const finalGain = gainMultiplier * volumeMultiplier;
+    private startOneShot(
+        decoded: DecodedSound,
+        ctx: AudioContext,
+        gainValue: number,
+        delayMs: number,
+        loops: number | undefined,
+        useAmbientBus: boolean,
+    ): void {
+        const buffer = this.prepareBuffer(decoded, ctx);
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        // Positional sounds follow the area-sounds volume; the rest follow sound effects
+        const bus = useAmbientBus ? this.ensureAmbientBus(ctx) : this.ensureSfxBus(ctx);
 
-        if (radius !== undefined || volumeMultiplier < 1) {
+        let gainNode: GainNode | undefined;
+        if (gainValue < 1) {
             gainNode = ctx.createGain();
-            gainNode.gain.value = finalGain;
-            gainNode.connect(this.gainNode);
+            gainNode.gain.value = gainValue;
+            gainNode.connect(bus);
             source.connect(gainNode);
         } else {
-            source.connect(this.gainNode);
+            source.connect(bus);
         }
 
-        const startTime = ctx.currentTime + (options.delayMs ? options.delayMs / 1000 : 0);
+        // The synth onset trimmed at decode time is re-added to the play delay
+        const startTime = ctx.currentTime + (delayMs > 0 ? delayMs / 1000 : 0) + decoded.onsetSec;
 
         // Reference semantics: numLoops < 0 = infinite, 0 = play once, n > 0 = loop n additional times
-        const requestedLoops = typeof options.loops === "number" ? options.loops : 0;
+        const requestedLoops = typeof loops === "number" ? loops : 0;
 
         if (requestedLoops < 0) {
             // Infinite loop (matches RawPcmStream.setNumLoopsInternal(-1))
@@ -506,114 +575,170 @@ export class SoundEffectSystem {
         }
 
         const now = ctx.currentTime;
+        const dt =
+            this.lastAmbientUpdateTime >= 0
+                ? Math.min(Math.max(now - this.lastAmbientUpdateTime, 0), 1)
+                : 0;
+        this.lastAmbientUpdateTime = now;
         const activeKeys = new Set<string>();
 
         for (const instance of instances) {
             const key = this.ambientKey(instance);
             activeKeys.add(key);
 
-            const existing = this.ambientSounds.get(key);
+            let active = this.ambientSounds.get(key);
+            if (!active) {
+                active = this.startAmbientSound(key, instance, ctx);
+            }
+
+            active.instance = instance;
+            active.fadeInDurationSec = Math.max(
+                0,
+                (typeof instance.fadeInDurationMs === "number" ? instance.fadeInDurationMs : 300) /
+                    1000,
+            );
+            active.fadeOutDurationSec = Math.max(
+                0,
+                (typeof instance.fadeOutDurationMs === "number"
+                    ? instance.fadeOutDurationMs
+                    : 300) / 1000,
+            );
+            active.fadeOutActive = false;
+            active.stopAt = undefined;
+
+            // A different resolved sound set (e.g. transformed loc): fade to
+            // silence with the fade-out curve, then retune.
+            const soundKey = SoundEffectSystem.soundKeyOf(instance);
+            if (soundKey !== active.soundKey) {
+                active.swapPending = true;
+            }
+            if (active.swapPending) {
+                this.adjustAmbientGain(active, 0, ctx, now);
+                if (active.gainNode.gain.value <= 0.001) {
+                    this.stopActiveSources(active);
+                    active.soundKey = soundKey;
+                    active.currentSoundIndex = -1;
+                    active.nextChangeTime = Infinity;
+                    active.pendingOverlayDelaySec = undefined;
+                    active.swapPending = false;
+                }
+                continue;
+            }
+
+            const planeMatch = instance.z === this.listenerZ;
+            if (!planeMatch) {
+                // Quick 150ms linear fade on plane mismatch; sources keep
+                // running silently and the overlay countdown is frozen.
+                this.adjustAmbientGain(active, 0, ctx, now, 0.15, EasingCurveId.LINEAR);
+                if (active.nextChangeTime !== Infinity) {
+                    active.nextChangeTime += dt;
+                }
+                continue;
+            }
+
             const volume = this.computeAmbientVolume(instance);
+            this.adjustAmbientGain(active, volume, ctx, now);
 
-            if (existing) {
-                existing.fadeInDurationSec = Math.max(
-                    0,
-                    (typeof instance.fadeInDurationMs === "number"
-                        ? instance.fadeInDurationMs
-                        : 300) / 1000,
-                );
-                existing.fadeOutDurationSec = Math.max(
-                    0,
-                    (typeof instance.fadeOutDurationMs === "number"
-                        ? instance.fadeOutDurationMs
-                        : 300) / 1000,
-                );
-                existing.fadeOutActive = false;
-                existing.stopAt = undefined;
+            // The loop stream starts once the sound first becomes audible and
+            // then persists (running silently when out of range).
+            const desiredLoopId = instance.soundId >= 0 ? instance.soundId : undefined;
+            if (
+                !active.loopSource &&
+                desiredLoopId !== undefined &&
+                active.loopSoundId !== desiredLoopId &&
+                volume > 0
+            ) {
+                this.startLoopSource(active, desiredLoopId, ctx, now);
+            }
 
-                this.adjustAmbientGain(existing, volume, ctx, now);
+            const hasAlternates =
+                instance.soundIds !== undefined &&
+                instance.soundIds.length > 0 &&
+                instance.soundIds.some((id) => id !== undefined && id >= 0);
 
-                const loopSoundId = instance.soundId >= 0 ? instance.soundId : undefined;
-                if (loopSoundId !== existing.loopSoundId) {
+            if (!hasAlternates) {
+                active.nextChangeTime = Infinity;
+                if (active.overlaySource) {
                     try {
-                        existing.loopSource?.stop();
+                        active.overlaySource.stop();
                     } catch {}
                     try {
-                        existing.loopSource?.disconnect();
+                        active.overlaySource.disconnect();
                     } catch {}
-                    existing.loopSource = undefined;
-                    existing.loopSoundId = undefined;
-
-                    if (loopSoundId !== undefined) {
-                        const decodedLoop = this.decode(loopSoundId, undefined, true);
-                        if (decodedLoop) {
-                            const loopBuffer = this.prepareBuffer(decodedLoop, ctx, true);
-                            const loopSource = ctx.createBufferSource();
-                            loopSource.buffer = loopBuffer;
-                            loopSource.loop = true;
-                            loopSource.loopStart = decodedLoop.loopStartSec;
-                            loopSource.loopEnd =
-                                decodedLoop.loopEndSec > decodedLoop.loopStartSec
-                                    ? decodedLoop.loopEndSec
-                                    : loopBuffer.duration;
-                            loopSource.connect(existing.gainNode);
-                            this.registerSource(loopSource);
-                            loopSource.start(now);
-                            existing.loopSource = loopSource;
-                            existing.loopSoundId = loopSoundId;
-                        } else {
-                            console.warn(
-                                `[SoundEffectSystem] Failed to decode ambient loop ${loopSoundId} for loc ${instance.locId}`,
-                            );
-                        }
-                    }
+                    active.overlaySource = undefined;
                 }
-
-                const hasAlternates =
-                    instance.soundIds !== undefined &&
-                    instance.soundIds.length > 0 &&
-                    instance.soundIds.some((id) => id !== undefined && id >= 0);
-
-                if (!hasAlternates) {
-                    existing.nextChangeTime = Infinity;
-                    if (existing.overlaySource) {
-                        try {
-                            existing.overlaySource.stop();
-                        } catch {}
-                        try {
-                            existing.overlaySource.disconnect();
-                        } catch {}
-                        existing.overlaySource = undefined;
-                    }
-                } else if (existing.nextChangeTime === Infinity) {
-                    existing.nextChangeTime = this.computeNextChangeTime(instance, now);
+            } else if (!active.overlaySource) {
+                if (active.nextChangeTime === Infinity) {
+                    active.nextChangeTime = now + this.computeOverlayDelaySec(instance);
                 }
-
-                existing.instance = instance;
-
-                // Check if we need to change/replay sound
-                if (now >= existing.nextChangeTime && existing.nextChangeTime !== Infinity) {
-                    this.playOverlaySound(key, existing, instance, ctx, now);
+                // The countdown keeps running while inaudible, but the overlay
+                // only triggers once the sound is audible.
+                if (now >= active.nextChangeTime && volume > 0) {
+                    this.playOverlaySound(key, active, instance, ctx, now);
                 }
-            } else {
-                // Start new ambient sound
-                this.startAmbientSound(key, instance, ctx, volume, now);
             }
         }
 
-        // Stop sounds that are no longer in range
+        // Fade out sounds whose emitters no longer exist (map unload, loc removed)
         for (const [key, active] of this.ambientSounds.entries()) {
             if (!activeKeys.has(key)) {
                 this.beginAmbientFadeOut(key, active, ctx, now);
             }
-            if (
-                active.fadeOutActive &&
-                active.stopAt !== undefined &&
-                ctx.currentTime >= active.stopAt
-            ) {
+            if (active.fadeOutActive && active.stopAt !== undefined && now >= active.stopAt) {
                 this.stopAmbientSound(key, ctx);
             }
         }
+    }
+
+    private static soundKeyOf(instance: AmbientSoundInstance): string {
+        return `${instance.soundId}|${instance.soundIds ? instance.soundIds.join(",") : ""}`;
+    }
+
+    private stopActiveSources(active: ActiveAmbientSound): void {
+        try {
+            active.loopSource?.stop();
+        } catch {}
+        try {
+            active.loopSource?.disconnect();
+        } catch {}
+        try {
+            active.overlaySource?.stop();
+        } catch {}
+        try {
+            active.overlaySource?.disconnect();
+        } catch {}
+        active.loopSource = undefined;
+        active.loopSoundId = undefined;
+        active.overlaySource = undefined;
+    }
+
+    private startLoopSource(
+        active: ActiveAmbientSound,
+        soundId: number,
+        ctx: AudioContext,
+        now: number,
+    ): void {
+        const decoded = this.decode(soundId, undefined, true); // Force resample to AudioContext rate
+        if (!decoded) {
+            console.warn(
+                `[SoundEffectSystem] Failed to decode ambient loop ${soundId} for loc ${active.instance.locId}`,
+            );
+            // Tune to the failed id so decoding isn't retried every frame
+            active.loopSoundId = soundId;
+            return;
+        }
+        const loopBuffer = this.prepareBuffer(decoded, ctx, true);
+        const loopSource = ctx.createBufferSource();
+        loopSource.buffer = loopBuffer;
+        loopSource.loop = true;
+        loopSource.loopStart = decoded.loopStartSec;
+        loopSource.loopEnd =
+            decoded.loopEndSec > decoded.loopStartSec ? decoded.loopEndSec : loopBuffer.duration;
+        loopSource.connect(active.gainNode);
+        this.registerSource(loopSource);
+        loopSource.start(now);
+        active.loopSource = loopSource;
+        active.loopSoundId = soundId;
     }
 
     private ambientKey(instance: AmbientSoundInstance): string {
@@ -624,7 +749,7 @@ export class SoundEffectSystem {
         return `${instance.locId}_${quant(instance.x)}_${quant(instance.y)}_${quant(instance.z)}`;
     }
 
-    private computeNextChangeTime(instance: AmbientSoundInstance, now: number): number {
+    private computeOverlayDelaySec(instance: AmbientSoundInstance): number {
         if (instance.deferSwap) {
             return Infinity;
         }
@@ -645,7 +770,7 @@ export class SoundEffectSystem {
         // soundEffectMinDelay/MaxDelay are in game cycles (20ms each)
         const range = maxDelay - minDelay;
         const cycles = minDelay + (range > 0 ? Math.random() * range : 0);
-        return now + cycles * CYCLE_LENGTH_SECONDS;
+        return cycles * CYCLE_LENGTH_SECONDS;
     }
 
     /**
@@ -845,6 +970,8 @@ export class SoundEffectSystem {
         targetGain: number,
         ctx: AudioContext,
         now: number,
+        overrideDurationSec?: number,
+        overrideCurve?: number,
     ): void {
         const gain = active.gainNode.gain;
         gain.cancelScheduledValues(now);
@@ -854,14 +981,21 @@ export class SoundEffectSystem {
 
         // Use fadeIn curve/duration when volume is increasing, fadeOut when decreasing
         const increasing = targetGain > current;
-        const baseDuration = increasing
-            ? active.fadeInDurationSec > 0
-                ? active.fadeInDurationSec
-                : 0.05
-            : active.fadeOutDurationSec > 0
-              ? active.fadeOutDurationSec
-              : 0.05;
-        const curveId = increasing ? active.instance.fadeInCurve : active.instance.fadeOutCurve;
+        let baseDuration: number;
+        let curveId: number | undefined;
+        if (overrideDurationSec !== undefined) {
+            baseDuration = overrideDurationSec;
+            curveId = overrideCurve;
+        } else {
+            baseDuration = increasing
+                ? active.fadeInDurationSec > 0
+                    ? active.fadeInDurationSec
+                    : 0.05
+                : active.fadeOutDurationSec > 0
+                  ? active.fadeOutDurationSec
+                  : 0.05;
+            curveId = increasing ? active.instance.fadeInCurve : active.instance.fadeOutCurve;
+        }
 
         // Scale fade duration proportionally to the volume delta.
         // Matches reference scaleIntByRatio: smaller volume changes → shorter fades.
@@ -900,89 +1034,28 @@ export class SoundEffectSystem {
         key: string,
         instance: AmbientSoundInstance,
         ctx: AudioContext,
-        volume: number,
-        now: number,
-    ): void {
+    ): ActiveAmbientSound {
+        // Sources are created lazily by the update loop once the sound first
+        // becomes audible; the gain starts silent and fades in from there.
         const gainNode = ctx.createGain();
-        // Connect ambient sounds through the ambient gain node (separate from SFX)
-        if (!this.ambientGainNode) {
-            this.ambientGainNode = ctx.createGain();
-            this.ambientGainNode.gain.value = this.ambientVolume;
-            this.ambientGainNode.connect(ctx.destination);
-        }
-        gainNode.connect(this.ambientGainNode);
+        gainNode.gain.value = 0;
+        gainNode.connect(this.ensureAmbientBus(ctx));
 
-        const loopSoundId = instance.soundId >= 0 ? instance.soundId : undefined;
-        let loopSource: AudioBufferSourceNode | undefined;
-        if (loopSoundId !== undefined) {
-            const decodedLoop = this.decode(loopSoundId, undefined, true); // Force resample to AudioContext rate
-            if (!decodedLoop) {
-                console.warn(
-                    `[SoundEffectSystem] Failed to decode ambient loop ${loopSoundId} for loc ${instance.locId}`,
-                );
-            } else {
-                const loopBuffer = this.prepareBuffer(decodedLoop, ctx, true);
-                loopSource = ctx.createBufferSource();
-                loopSource.buffer = loopBuffer;
-                loopSource.loop = true;
-                loopSource.loopStart = decodedLoop.loopStartSec;
-                loopSource.loopEnd =
-                    decodedLoop.loopEndSec > decodedLoop.loopStartSec
-                        ? decodedLoop.loopEndSec
-                        : loopBuffer.duration;
-                loopSource.connect(gainNode);
-                this.registerSource(loopSource);
-                loopSource.start(now);
-            }
-        }
-
-        const fadeInSec = Math.max(
-            0,
-            (typeof instance.fadeInDurationMs === "number" ? instance.fadeInDurationMs : 300) /
-                1000,
-        );
-        const fadeOutSec = Math.max(
-            0,
-            (typeof instance.fadeOutDurationMs === "number" ? instance.fadeOutDurationMs : 300) /
-                1000,
-        );
-
-        const targetGain = volume;
-
-        gainNode.gain.cancelScheduledValues(now);
-        if (fadeInSec > 0) {
-            gainNode.gain.setValueAtTime(0, now);
-            this.scheduleGainRamp(
-                gainNode.gain,
-                now,
-                0,
-                targetGain,
-                fadeInSec,
-                instance.fadeInCurve,
-            );
-        } else {
-            gainNode.gain.setValueAtTime(targetGain, now);
-        }
-
-        const hasAlternates = !!(
-            instance.soundIds &&
-            instance.soundIds.length > 0 &&
-            instance.soundIds.some((id) => id !== undefined && id >= 0)
-        );
-        const nextChangeTime = hasAlternates ? this.computeNextChangeTime(instance, now) : Infinity;
-
-        this.ambientSounds.set(key, {
+        const active: ActiveAmbientSound = {
             instance,
             gainNode,
-            loopSource,
-            loopSoundId: loopSource ? loopSoundId : undefined,
+            soundKey: SoundEffectSystem.soundKeyOf(instance),
+            loopSource: undefined,
+            loopSoundId: undefined,
             overlaySource: undefined,
-            nextChangeTime,
-            currentSoundIndex: hasAlternates ? -1 : 0,
-            fadeInDurationSec: fadeInSec,
-            fadeOutDurationSec: fadeOutSec,
+            nextChangeTime: Infinity,
+            currentSoundIndex: -1,
+            fadeInDurationSec: 0.3,
+            fadeOutDurationSec: 0.3,
             fadeOutActive: false,
-        });
+        };
+        this.ambientSounds.set(key, active);
+        return active;
     }
 
     private playOverlaySound(
@@ -1004,80 +1077,53 @@ export class SoundEffectSystem {
             return;
         }
 
-        if (active.overlaySource) {
-            try {
-                active.overlaySource.stop();
-            } catch {}
-            active.overlaySource.disconnect();
-            active.overlaySource = undefined;
-        }
-
-        // Determine which sound to play next
-        let nextSoundId: number;
+        // Uniform random pick (the same sound may repeat back-to-back)
         let nextIndex: number;
-
-        if (validSoundIds.length > 0) {
-            // Multi-sound ambient: pick next sound from array
-            if (instance.loopSequentially) {
-                nextIndex = (active.currentSoundIndex + 1) % validSoundIds.length;
-            } else {
-                const count = validSoundIds.length;
-                if (count === 1) {
-                    nextIndex = 0;
-                } else {
-                    let candidate = active.currentSoundIndex;
-                    while (candidate === active.currentSoundIndex) {
-                        candidate = Math.floor(Math.random() * count);
-                    }
-                    nextIndex = candidate;
-                }
-            }
-            nextSoundId = validSoundIds[nextIndex];
+        if (instance.loopSequentially) {
+            nextIndex = (active.currentSoundIndex + 1) % validSoundIds.length;
         } else {
-            // Single sound ambient: replay the same sound
-            nextSoundId = instance.soundId;
-            nextIndex = Math.max(active.currentSoundIndex, 0);
+            nextIndex = Math.floor(Math.random() * validSoundIds.length);
         }
+        const nextSoundId = validSoundIds[nextIndex];
 
         const decoded = this.decode(nextSoundId);
         if (!decoded) {
+            // Re-arm rather than retrying every frame
+            active.nextChangeTime = now + this.computeOverlayDelaySec(instance);
             return;
         }
 
         const buffer = this.prepareBuffer(decoded, ctx);
         const source = ctx.createBufferSource();
         source.buffer = buffer;
-
         source.loop = false;
-        const overlayGain = ctx.createGain();
-        overlayGain.gain.setValueAtTime(0, now);
-        const fadeIn = Math.min(0.05, Math.max(0.005, buffer.duration * 0.1));
-        const fadeOut = Math.min(0.05, Math.max(0.005, buffer.duration * 0.1));
-        const sustainEnd = Math.max(now + fadeIn, now + buffer.duration - fadeOut);
-        overlayGain.gain.linearRampToValueAtTime(1, now + fadeIn);
-        overlayGain.gain.setValueAtTime(1, sustainEnd);
-        overlayGain.gain.linearRampToValueAtTime(0, now + buffer.duration);
+        source.connect(active.gainNode);
 
-        source.connect(overlayGain);
-        overlayGain.connect(active.gainNode);
+        // The next delay is drawn when the overlay starts, but only begins
+        // counting down once the overlay has finished playing.
+        const delaySec = this.computeOverlayDelaySec(instance);
+        active.pendingOverlayDelaySec = delaySec;
+        active.nextChangeTime = Infinity;
+
         source.addEventListener("ended", () => {
             try {
                 source.disconnect();
-                overlayGain.disconnect();
             } catch {}
             if (active.overlaySource === source) {
                 active.overlaySource = undefined;
+                const pending = active.pendingOverlayDelaySec;
+                active.pendingOverlayDelaySec = undefined;
+                if (pending !== undefined && pending !== Infinity) {
+                    const endNow = this.context ? this.context.currentTime : now;
+                    active.nextChangeTime = endNow + pending;
+                }
             }
         });
-        this.registerSource(source, [overlayGain]);
+        this.registerSource(source);
         source.start(now);
 
         active.overlaySource = source;
         active.currentSoundIndex = nextIndex;
-        active.nextChangeTime = this.computeNextChangeTime(instance, now);
-        active.fadeOutActive = false;
-        active.stopAt = undefined;
-        active.instance = instance;
     }
 
     private stopAmbientSound(key: string, ctx?: AudioContext): void {

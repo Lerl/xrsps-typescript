@@ -6,6 +6,7 @@
  */
 import type { WebSocket } from "ws";
 
+import { ObjStackability } from "../../../../src/rs/config/objtype/ObjStackability";
 import { getItemDefinition } from "../../data/items";
 import type { ServerServices } from "../../game/ServerServices";
 import { isInWilderness } from "../../game/combat/MultiCombatZones";
@@ -157,9 +158,10 @@ export class GroundItemHandler {
 
     private getInventoryInsertCapacity(player: PlayerState, itemId: number): number {
         const inventory = player.getInventoryEntries();
-        const itemDef =
-            (this.svc.dataLoaderService.getObjType(itemId) as any) ?? getItemDefinition(itemId);
-        const stackable = itemDef?.stackable === true;
+        const objType = this.svc.dataLoaderService.getObjType(itemId);
+        const stackable = objType
+            ? objType.stackability === ObjStackability.ALWAYS || objType.noteTemplate !== -1
+            : getItemDefinition(itemId)?.stackable === true;
 
         if (stackable) {
             for (const entry of inventory) {

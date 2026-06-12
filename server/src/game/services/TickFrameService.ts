@@ -187,15 +187,24 @@ export class TickFrameService {
         if (frame.tick < this.nextAutosaveTick) return;
         this.nextAutosaveTick = frame.tick + this.autosaveIntervalTicks;
         this.autosaveRunning = true;
-        setImmediate(() => {
-            this.runAutosave(frame.tick)
-                .catch((err) => {
-                    logger.warn(`[autosave] tick=${frame.tick} failed`, err);
-                })
-                .finally(() => {
-                    this.autosaveRunning = false;
-                });
-        });
+        setImmediate(() => this.tryRunAutosave(frame.tick));
+    }
+
+    private tryRunAutosave(triggerTick: number): void {
+        // During catch-up the next tick may already be mid-flight when this
+        // immediate fires; defer until the server is between ticks so the save
+        // observes end-of-tick state and adds no latency inside a tick.
+        if (this.svc.activeFrame) {
+            setImmediate(() => this.tryRunAutosave(triggerTick));
+            return;
+        }
+        this.runAutosave(triggerTick)
+            .catch((err) => {
+                logger.warn(`[autosave] tick=${triggerTick} failed`, err);
+            })
+            .finally(() => {
+                this.autosaveRunning = false;
+            });
     }
 
     async runAutosave(triggerTick: number): Promise<void> {
@@ -221,21 +230,6 @@ export class TickFrameService {
                 1,
             )}ms`,
         );
-    }
-
-    async runTickStage(
-        name: string,
-        fn: () => void | Promise<void>,
-        frame: TickFrame,
-    ): Promise<boolean> {
-        try {
-            await fn();
-            return true;
-        } catch (err) {
-            this.restorePendingFrame(frame);
-            logger.error(`[tick] stage ${name} failed (tick=${frame.tick})`, err);
-            return false;
-        }
     }
 
     async yieldToEventLoop(stage: string): Promise<void> {

@@ -105,7 +105,6 @@ export interface CombatHitPayloadData {
     style?: number;
     type2?: number;
     damage2?: number;
-    retaliateDamage?: number;
     retaliationDelay?: number;
     retaliationTotalDelay?: number;
     expectedHitTick?: number;
@@ -150,7 +149,6 @@ type CombatPlayerHitBase = {
     attackType?: AttackType | string;
     attackDelay?: number;
     hitDelay?: number;
-    retaliateDamage?: number;
     retaliationDelay?: number;
     retaliationTotalDelay?: number;
     attackStyleMode?: unknown;
@@ -210,7 +208,6 @@ export interface MovementTeleportActionData {
     endSpotDelay?: number;
     arriveSoundId?: number;
     arriveSoundRadius?: number;
-    arriveSoundVolume?: number;
     arriveMessage?: string;
     arriveSeqId?: number;
     arriveFaceTileX?: number;

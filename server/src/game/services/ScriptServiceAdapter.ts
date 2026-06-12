@@ -114,6 +114,8 @@ export interface ScriptServiceAdapterDeps {
     enqueueForcedMovement: (data: ForcedMovementBroadcast) => void;
     enqueueSoundBroadcast: (soundId: number, x: number, y: number, level: number) => void;
     syncMusicInterface?: (player: PlayerState) => void;
+    playSongForPlayer?: (player: PlayerState, trackId: number, trackName?: string) => void;
+    skipMusicTrack?: (player: PlayerState) => boolean;
     queueCombatSnapshot: (
         playerId: number,
         weaponCategory: number,
@@ -534,8 +536,9 @@ export function buildScriptServices(deps: ScriptServiceAdapterDeps): ScriptServi
         sound: {
             playLocSound: (opts) => deps.soundService.playLocSound(opts),
             playAreaSound: (opts) => deps.soundService.playAreaSound(opts),
-            playSong: (player, trackId) => deps.soundService.sendSound(player, trackId),
-            skipMusicTrack: () => false,
+            playSong: (player, trackId, trackName) =>
+                deps.playSongForPlayer?.(player, trackId, trackName),
+            skipMusicTrack: (player) => deps.skipMusicTrack?.(player) ?? false,
             getMusicTrackId: (trackName) => deps.soundService.getMusicTrackIdByName(trackName),
             getMusicTrackBySlot: (slot) => deps.musicCatalogService?.getBaseListTrackBySlot(slot),
             sendSound: (player, soundId, opts) =>
@@ -749,6 +752,10 @@ export function buildScriptServices(deps: ScriptServiceAdapterDeps): ScriptServi
                 npc.queueOneShotSeq(seqId);
             },
             faceNpcToPlayer: (npc, player) => {
+                // Face-pawn: the client turns the NPC toward the player
+                // continuously, and idle roaming is suppressed until the
+                // facing hold expires.
+                npc.setInteraction("player", player.id);
                 npc.faceTile(player.tileX, player.tileY);
             },
         },

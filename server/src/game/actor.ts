@@ -183,7 +183,7 @@ export abstract class Actor {
         turnRight: 823,
     };
 
-    private pendingSeqs: Array<{ seqId: number; delay: number }> = [];
+    private pendingSeqs: Array<{ seqId: number; delay: number; interruptible?: boolean }> = [];
     private singleStepRoutePending: number = 0; // 1 when a user-initiated route has exactly one step
 
     // Allow subclasses (e.g., PlayerState) to explicitly mark a fresh, single-step route
@@ -341,11 +341,22 @@ export abstract class Actor {
         this.forcedOrientation = -1;
     }
 
-    queueOneShotSeq(seqId: number | undefined, delay: number = 0): void {
+    queueOneShotSeq(
+        seqId: number | undefined,
+        delay: number = 0,
+        opts?: { interruptible?: boolean },
+    ): void {
         if (seqId !== undefined) {
+            // A non-interruptible sequence (e.g. an attack) supersedes any
+            // interruptible ones (e.g. blocks) queued earlier in the same tick,
+            // matching the in-game rule that attack animations win over blocks.
+            if (!opts?.interruptible && this.pendingSeqs.length > 0) {
+                this.pendingSeqs = this.pendingSeqs.filter((entry) => !entry.interruptible);
+            }
             this.pendingSeqs.push({
                 seqId: seqId,
                 delay: Math.max(0, delay),
+                interruptible: opts?.interruptible === true,
             });
         }
     }
@@ -681,8 +692,9 @@ export abstract class Actor {
             this.stepPositions[i].rot = finalRot;
         }
 
-        // Pure rotation update (no movement, but facing changed)
-        if (!moved && rotated && this.forcedOrientation >= 0) {
+        // Pure rotation update (no movement, but facing changed). Turns from
+        // faceTile() (which clears forcedOrientation) must broadcast too.
+        if (!moved && rotated) {
             this.stepPositions.push({
                 x: this.x,
                 y: this.y,

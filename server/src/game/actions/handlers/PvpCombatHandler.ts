@@ -21,7 +21,7 @@ import type { CombatActionServices } from "./CombatActionHandler";
 // Constants
 // ============================================================================
 
-const COMBAT_SOUND_DELAY_MS = 150;
+const COMBAT_SOUND_DELAY_CYCLES = 8;
 
 // ============================================================================
 // Handler Class
@@ -171,6 +171,8 @@ export class PvpCombatHandler {
         this.services.applySmite(player, target, targetHitsplat.amount);
         this.services.tryActivateRedemption(target);
         this.services.closeInterruptibleInterfaces(target);
+        // Being attacked interrupts weak queue tasks (e.g. Home Teleport)
+        target.interruptWeakQueues();
 
         this.services.log(
             "info",
@@ -304,7 +306,7 @@ export class PvpCombatHandler {
                         x: target.tileX,
                         y: target.tileY,
                         level: target.level,
-                        delay: COMBAT_SOUND_DELAY_MS,
+                        delay: COMBAT_SOUND_DELAY_CYCLES,
                     },
                     "combat_player_hit_sound",
                 ),

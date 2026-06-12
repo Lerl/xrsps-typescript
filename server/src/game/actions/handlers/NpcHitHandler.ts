@@ -28,7 +28,7 @@ import type { CombatActionServices, SpecialAttackPayload } from "./CombatActionH
 // Constants
 // ============================================================================
 
-const COMBAT_SOUND_DELAY_MS = 150;
+const COMBAT_SOUND_DELAY_CYCLES = 8;
 
 // ============================================================================
 // Types
@@ -146,7 +146,11 @@ export class NpcHitHandler {
         if (npcHitsplat.hpCurrent > 0) {
             const npcCombatSeq = this.services.getNpcCombatSequences(npc.typeId);
             if (npcCombatSeq?.block !== undefined) {
-                this.services.broadcastNpcSequence(npc, npcCombatSeq.block);
+                // Blocks never replace a sequence already broadcast this tick
+                // (e.g. the NPC's own attack when the hit lands on its swing tick).
+                this.services.broadcastNpcSequence(npc, npcCombatSeq.block, {
+                    yieldToExisting: true,
+                });
             }
         }
 
@@ -229,7 +233,7 @@ export class NpcHitHandler {
             const hitSoundId = special.hitSounds[Math.min(hitIndex, special.hitSounds.length - 1)];
             if (hitSoundId && hitSoundId > 0) {
                 // Stagger sounds: hit 0 = 0ms, hit 1 = 150ms, hit 2 = 300ms, hit 3 = 450ms
-                const soundDelay = hitIndex * 150;
+                const soundDelay = hitIndex * 8;
                 this.services.withDirectSendBypass("special_hit_sound", () =>
                     this.services.broadcastSound(
                         {
@@ -300,7 +304,7 @@ export class NpcHitHandler {
                         x: npc.tileX,
                         y: npc.tileY,
                         level: npc.level,
-                        delay: COMBAT_SOUND_DELAY_MS,
+                        delay: COMBAT_SOUND_DELAY_CYCLES,
                     },
                     "combat_npc_death_sound",
                 ),
@@ -519,7 +523,7 @@ export class NpcHitHandler {
                         x: npc.tileX,
                         y: npc.tileY,
                         level: npc.level,
-                        delay: COMBAT_SOUND_DELAY_MS,
+                        delay: COMBAT_SOUND_DELAY_CYCLES,
                     },
                     "combat_spell_impact_sound",
                 ),
