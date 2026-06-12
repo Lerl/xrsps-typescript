@@ -36,7 +36,7 @@ import type { OverlayFloorType } from "../../rs/config/floortype/OverlayFloorTyp
 import { LocModelLoader } from "../../rs/config/loctype/LocModelLoader";
 import { LocModelType } from "../../rs/config/loctype/LocModelType";
 import { NpcModelLoader } from "../../rs/config/npctype/NpcModelLoader";
-import { NpcDrawPriority } from "../../rs/config/npctype/NpcType";
+import { NpcDrawPriority, NpcType } from "../../rs/config/npctype/NpcType";
 import { PlayerAppearance } from "../../rs/config/player/PlayerAppearance";
 import { PlayerModelLoader } from "../../rs/config/player/PlayerModelLoader";
 import { decodeInteractionIndex } from "../../rs/interaction/InteractionIndex";
@@ -858,7 +858,6 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         number,
         { kind: "player" | "npc"; id: number; priority: number }
     > = new Map();
-    private frameActorSelectionSeenNpcIds: Set<number> = new Set();
     // Double-buffered actor data textures to avoid GPU sync issues
     private actorDataTextures: [Texture | undefined, Texture | undefined] = [undefined, undefined];
     private actorDataCurrentIndex: number = 0;
@@ -10850,7 +10849,6 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         this.frameActorTileSelectionId = frameId;
         this.frameActorTileSelectionBuilt = false;
         this.frameWinningActorByTile.clear();
-        this.frameActorSelectionSeenNpcIds.clear();
     }
 
     private getActorTileSelectionKey(tileX: number, tileY: number, plane: number): number {
@@ -10896,7 +10894,6 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         this.frameActorTileSelectionBuilt = true;
 
         const pe = this.osrsClient.playerEcs;
-        const playerCount = pe.size?.() ?? (pe as any).size?.() ?? 0;
         const renderSelf = this.osrsClient.renderSelf !== false;
         const controlledServerId = this.osrsClient.controlledPlayerServerId | 0;
         const controlledPid =
@@ -10919,33 +10916,21 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
             this.registerPlayerSceneTileCandidate(combatTargetPid | 0, 4);
         }
 
-        const combatTargetNpcEcsId = this.getCombatTargetNpcEcsId();
-        if (
-            combatTargetNpcEcsId !== undefined &&
-            this.isNpcSceneTileMarkerCandidate(combatTargetNpcEcsId | 0)
-        ) {
-            const npcEcs = this.osrsClient.npcEcs;
-            this.frameActorSelectionSeenNpcIds.add(combatTargetNpcEcsId | 0);
-            this.registerActorTileCandidate(
-                "npc",
-                combatTargetNpcEcsId | 0,
-                (npcEcs.getWorldX(combatTargetNpcEcsId) >> 7) | 0,
-                (npcEcs.getWorldY(combatTargetNpcEcsId) >> 7) | 0,
-                npcEcs.getLevel(combatTargetNpcEcsId) | 0,
-                4,
-            );
-        }
-
         this.registerNpcSceneTileCandidatesByPriority(NpcDrawPriority.DRAW_PRIORITY_FIRST, 3);
 
-        for (let pid = 0; pid < playerCount; pid++) {
+        const activeServerIds = Array.from(pe.getAllServerIds()).sort((a, b) => a - b);
+        for (const serverId of activeServerIds) {
+            const pid = pe.getIndexForServerId(serverId | 0);
+            if (pid === undefined) {
+                continue;
+            }
             if (controlledPid !== undefined && (pid | 0) === (controlledPid | 0)) {
                 continue;
             }
             if (combatTargetPid !== undefined && (pid | 0) === (combatTargetPid | 0)) {
                 continue;
             }
-            if (!this.isPlayerSceneTileMarkerCandidate(pid)) {
+            if (!this.isPlayerSceneTileMarkerCandidate(pid | 0)) {
                 continue;
             }
 
@@ -10973,7 +10958,6 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         priority: number,
     ): void {
         const npcEcs = this.osrsClient.npcEcs;
-        const seenNpcIds = this.frameActorSelectionSeenNpcIds;
         for (let i = 0; i < this.mapManager.visibleMapCount; i++) {
             const map = this.mapManager.visibleMaps[i];
             const ids = map?.npcEntityIds;
@@ -10983,20 +10967,22 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
 
             for (let j = 0; j < ids.length; j++) {
                 const ecsId = ids[j] | 0;
-                if (seenNpcIds.has(ecsId)) {
-                    continue;
-                }
                 if (!this.shouldRenderNpcOwnershipFromMap(map, ecsId)) {
                     continue;
                 }
                 if (!this.isNpcSceneTileMarkerCandidate(ecsId)) {
                     continue;
                 }
-                if ((this.getNpcSceneDrawPriority(ecsId) | 0) !== (drawPriority | 0)) {
+                const npcType = this.getEffectiveNpcType(npcEcs.getNpcTypeId(ecsId) | 0);
+                if (!npcType) {
+                    continue;
+                }
+                const npcDrawPriority =
+                    npcType.drawPriority ?? NpcDrawPriority.DRAW_PRIORITY_DEFAULT;
+                if ((npcDrawPriority | 0) !== (drawPriority | 0)) {
                     continue;
                 }
 
-                seenNpcIds.add(ecsId);
                 this.registerActorTileCandidate(
                     "npc",
                     ecsId,
@@ -11027,19 +11013,25 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         return (worldX & 127) === 64 && (worldY & 127) === 64;
     }
 
-    private getNpcSceneDrawPriority(ecsId: number): NpcDrawPriority {
-        const npcTypeId = this.osrsClient.npcEcs.getNpcTypeId(ecsId) | 0;
+    // Resolves the NPC's transformed definition; undefined when the NPC has no
+    // definition or its transform resolves to -1 (invisible), in which case the
+    // NPC must neither draw nor claim its tile.
+    private getEffectiveNpcType(npcTypeId: number): NpcType | undefined {
         if (npcTypeId < 0) {
-            return NpcDrawPriority.DRAW_PRIORITY_DEFAULT;
+            return undefined;
         }
 
         try {
             const base = this.osrsClient.npcTypeLoader.load(npcTypeId);
-            const transformed =
-                base.transform(this.osrsClient.varManager, this.osrsClient.npcTypeLoader) ?? base;
-            return transformed.drawPriority ?? NpcDrawPriority.DRAW_PRIORITY_DEFAULT;
+            if (!base) {
+                return undefined;
+            }
+            if (!base.transforms) {
+                return base;
+            }
+            return base.transform(this.osrsClient.varManager, this.osrsClient.npcTypeLoader);
         } catch {
-            return NpcDrawPriority.DRAW_PRIORITY_DEFAULT;
+            return undefined;
         }
     }
 
@@ -11050,26 +11042,6 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         }
 
         return this.osrsClient.playerEcs.getIndexForServerId(targetServerId | 0);
-    }
-
-    private getCombatTargetNpcEcsId(): number | undefined {
-        const controlledServerId = this.osrsClient.controlledPlayerServerId | 0;
-        if (controlledServerId <= 0) {
-            return undefined;
-        }
-
-        const controlledPid = this.osrsClient.playerEcs.getIndexForServerId(controlledServerId);
-        if (controlledPid === undefined) {
-            return undefined;
-        }
-
-        const rawIdx = this.osrsClient.playerEcs.getInteractionIndex(controlledPid) | 0;
-        const decoded = decodeInteractionIndex(rawIdx);
-        if (!decoded || decoded.type !== "npc") {
-            return undefined;
-        }
-
-        return this.osrsClient.npcEcs.getEcsIdForServer(decoded.id | 0);
     }
 
     shouldRenderPlayerIndex(pid: number): boolean {
@@ -11145,6 +11117,9 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
 
     shouldRenderNpcFromMap(map: WebGLMapSquare, ecsId: number): boolean {
         if (!this.shouldRenderNpcOwnershipFromMap(map, ecsId)) {
+            return false;
+        }
+        if (!this.getEffectiveNpcType(this.osrsClient.npcEcs.getNpcTypeId(ecsId) | 0)) {
             return false;
         }
         if (!this.isNpcSceneTileMarkerCandidate(ecsId)) {

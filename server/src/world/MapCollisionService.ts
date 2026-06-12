@@ -27,8 +27,6 @@ export type ServerMapSquare = {
     tileShapes?: Uint8Array[][];
     tileRotations?: Uint8Array[][];
     tileLightOcclusions?: Uint8Array[][];
-    // Precomputed per-tile minimum levels (editor scene.ts logic)
-    tileMinLevels?: number[][][]; // [level][x][y]
     // v2 collision cache metadata (compact): bridge/min-plane flags to resolve collision planes
     linkBelowMask?: Uint8Array; // bitset over (size*size) tiles
     forceMin0Masks?: Uint8Array[]; // [level] bitset over (size*size) tiles
@@ -254,17 +252,6 @@ export class MapCollisionService {
                 false,
                 this.includeModels ? LocLoadType.MODELS : LocLoadType.NO_MODELS,
             );
-            const tileMinLevels: number[][][] = new Array(scene.levels);
-            for (let l = 0; l < scene.levels; l++) {
-                tileMinLevels[l] = new Array(size);
-                for (let x = 0; x < size; x++) {
-                    tileMinLevels[l][x] = new Array<number>(size);
-                    for (let y = 0; y < size; y++) {
-                        tileMinLevels[l][x][y] = scene.getTileMinLevel(l, x, y);
-                    }
-                }
-            }
-
             return {
                 mapX,
                 mapY,
@@ -280,7 +267,6 @@ export class MapCollisionService {
                 tileShapes: scene.tileShapes,
                 tileRotations: scene.tileRotations,
                 tileLightOcclusions: scene.tileLightOcclusions,
-                tileMinLevels,
             };
         } catch (err) {
             logger.warn(`[MapCollisionService] failed to build scene for ${mapX}_${mapY}:`, err);
@@ -390,7 +376,13 @@ export class MapCollisionService {
         return ms.tileRenderFlags[l][lx][ly];
     }
 
-    getTileMinLevelAt(worldX: number, worldY: number, plane: number): number | undefined {
+    /**
+     * Plane to read collision from at a tile. Bridge columns shift their
+     * collision down one plane at build time (Scene.applyBridgeLinks), so reads
+     * follow the link-below. Force-lowest tiles (flag 0x8) are render-only and
+     * keep their collision on the original plane.
+     */
+    getCollisionPlaneAt(worldX: number, worldY: number, plane: number): number | undefined {
         const mapX = this.mapSquareCoord(worldX);
         const mapY = this.mapSquareCoord(worldY);
         if (mapX < 0 || mapY < 0) return undefined;
@@ -400,16 +392,14 @@ export class MapCollisionService {
         const ly = worldY - ms.baseY;
         if (lx < 0 || ly < 0 || lx >= ms.size || ly >= ms.size) return undefined;
         const l = Math.max(0, Math.min(plane, 3));
-        if (ms.tileMinLevels) {
-            return ms.tileMinLevels[l][lx][ly];
+        if (l === 0) return 0;
+        if (ms.tileRenderFlags) {
+            return (ms.tileRenderFlags[1][lx][ly] & 0x2) !== 0 ? l - 1 : l;
         }
-        if (!ms.linkBelowMask || !ms.forceMin0Masks || ms.forceMin0Masks.length < 4) {
-            return undefined;
+        if (ms.linkBelowMask) {
+            const idx = lx * ms.size + ly;
+            return bitsetGet(ms.linkBelowMask, idx) ? l - 1 : l;
         }
-        const idx = lx * ms.size + ly;
-        const force0 = !!ms.forceMin0Masks[l] && bitsetGet(ms.forceMin0Masks[l], idx);
-        if (force0) return 0;
-        if (l > 0 && bitsetGet(ms.linkBelowMask, idx)) return l - 1;
         return l;
     }
 
