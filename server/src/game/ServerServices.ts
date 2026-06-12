@@ -96,6 +96,7 @@ import type { ScriptRegistry, ScriptRuntime } from "./scripts";
 // ── Game – services ─────────────────────────────────────────────────────────
 import type { ActionDispatchService } from "./services/ActionDispatchService";
 import type { AppearanceService } from "./services/AppearanceService";
+import type { ClientInputService } from "./services/ClientInputService";
 import type { CollectionLogService } from "./services/CollectionLogService";
 import type { CombatDataService } from "./services/CombatDataService";
 import type { CombatEffectService } from "./services/CombatEffectService";
@@ -188,6 +189,7 @@ export interface ServerServices {
     readonly equipmentStatsUiService: EquipmentStatsUiService;
     readonly tickPhaseService: TickPhaseService;
     readonly tickFrameService: TickFrameService;
+    readonly clientInputService: ClientInputService;
     readonly actionDispatchService: ActionDispatchService;
     spellCastingService?: SpellCastingService;
     projectileTimingService?: ProjectileTimingService;

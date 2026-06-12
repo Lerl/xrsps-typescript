@@ -863,6 +863,12 @@ export class NpcManager {
                                 { x: targetPlayer.tileX, y: targetPlayer.tileY },
                                 { maxQueuedSteps: 2 },
                             );
+                        } else {
+                            // The chase queues steps toward the target's own tile, so a
+                            // leftover step can remain once the NPC reaches attack
+                            // position. Discard it, or the NPC walks onto/past the
+                            // target after swinging.
+                            npc.clearPath();
                         }
                     } else {
                         npc.disengageCombat();

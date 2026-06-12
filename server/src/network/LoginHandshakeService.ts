@@ -1,4 +1,5 @@
 import { WebSocket } from "ws";
+import type { RawData } from "ws";
 
 import {
     QUEST_LIST_ENTRY_EVENT_FLAGS,
@@ -17,13 +18,13 @@ import type { ServerServices } from "../game/ServerServices";
 import type { PlayerState } from "../game/player";
 import { buildPlayerSaveKey, normalizePlayerAccountName } from "../game/state/PlayerSessionKeys";
 import { logger } from "../utils/logger";
+import { INVENTORY_EVENT_FLAGS } from "../widgets/InterfaceService";
 import {
     DisplayMode,
     getDefaultInterfaces,
     getMainmodalUid,
     getRootInterfaceId,
 } from "../widgets/WidgetManager";
-import { INVENTORY_EVENT_FLAGS } from "../widgets/InterfaceService";
 import { getViewportRootInitScripts } from "../widgets/viewport";
 import { ADMIN_CROWN_ICON } from "./AuthenticationService";
 import type { RoutedMessage } from "./MessageRouter";
@@ -678,20 +679,16 @@ export class LoginHandshakeService {
             ),
         );
 
-        ws.on("message", (raw) => {
+        const handleRawMessage = (raw: RawData) => {
             let binaryParsed: RoutedMessage | null = null;
 
             if (isBinaryData(raw)) {
                 if (isNewProtocolPacket(raw as Buffer | ArrayBuffer)) {
                     const decoded = decodeClientPacket(toUint8Array(raw));
-                    if (decoded) {
-                        if (this.svc.messageRouter!.dispatch(ws, decoded)) {
-                            return;
-                        }
-                        binaryParsed = decoded;
-                    } else {
+                    if (!decoded) {
                         return;
                     }
+                    binaryParsed = decoded;
                 } else {
                     const data = toUint8Array(raw);
                     const packets = parsePacketsAsMessages(data);
@@ -831,12 +828,8 @@ export class LoginHandshakeService {
                             continue;
                         }
 
-                        if (msg) {
-                            if (this.svc.messageRouter!.dispatch(ws, msg)) {
-                                continue;
-                            }
-                            this.svc.messageRouter!.dispatch(ws, msg) ||
-                                logger.info(`[binary] Unhandled: ${msg.type}`);
+                        if (msg && !this.svc.messageRouter!.dispatch(ws, msg)) {
+                            logger.info(`[binary] Unhandled: ${msg.type}`);
                         }
                     }
                     return;
@@ -855,17 +848,27 @@ export class LoginHandshakeService {
 
             if (parsed.type === "login") {
                 this.handleLoginMessage(ws, parsed.payload);
-                return;
             } else if (parsed.type === "handshake") {
                 this.handleHandshakeMessage(ws, parsed.payload as any);
-                return;
             } else {
-                this.svc.messageRouter!.dispatch(ws, parsed) ||
-                    logger.info(`[binary] Unhandled: ${parsed.type}`);
+                logger.info(`[binary] Unhandled: ${parsed.type}`);
+            }
+        };
+        this.svc.clientInputService.registerConnection(ws, handleRawMessage);
+
+        ws.on("message", (raw) => {
+            // In-world input is queued and drained at a fixed point at the
+            // start of the game tick; pre-login traffic (handshake/login) is
+            // handled immediately since the player is not yet in the world.
+            if (this.svc.players?.get(ws)) {
+                this.svc.clientInputService.enqueue(ws, raw);
+            } else {
+                handleRawMessage(raw);
             }
         });
 
         ws.on("close", () => {
+            this.svc.clientInputService.removeConnection(ws);
             try {
                 this.svc.movementService.getPendingWalkCommands().delete(ws);
                 const player = this.svc.players?.get(ws);

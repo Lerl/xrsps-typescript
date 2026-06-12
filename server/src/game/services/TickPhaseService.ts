@@ -68,16 +68,10 @@ const NPC_SIM_RADIUS_TILES = NPC_STREAM_EXIT_RADIUS_TILES + 12;
 
 /**
  * Extracts tick phase logic from wsServer into a standalone service.
- * Implements TickPhaseProvider so the TickPhaseOrchestrator can call each phase.
+ * The TickPhaseOrchestrator drives these phases in order each tick.
  */
 export class TickPhaseService {
     constructor(private readonly svc: ServerServices) {}
-
-    broadcastTick(_frame: TickFrame): void {
-        // broadcastTick is handled separately by the BroadcastScheduler in wsServer.
-        // This method exists to satisfy the interface; the orchestrator wires it to
-        // the scheduler's broadcastTick call directly.
-    }
 
     runPreMovementPhase(frame: TickFrame): void {
         const { npcManager, players, followerManager, followerCombatManager, npcSyncManager } =
@@ -674,8 +668,11 @@ export class TickPhaseService {
         });
     }
 
-    runBroadcastPhase(frame: TickFrame): void {
+    runScheduledScriptsPhase(frame: TickFrame): void {
         this.svc.scriptScheduler.process(frame.tick);
+    }
+
+    runBroadcastPhase(frame: TickFrame): void {
         this.svc.networkLayer.setBroadcastPhase(true);
         try {
             const ctx = this.buildBroadcastContext();

@@ -59,6 +59,7 @@ import { SailingInstanceManager } from "../game/sailing/SailingInstanceManager";
 import { ScriptRegistry, ScriptRuntime, bootstrapScripts } from "../game/scripts";
 import { ActionDispatchService } from "../game/services/ActionDispatchService";
 import { AppearanceService } from "../game/services/AppearanceService";
+import { ClientInputService } from "../game/services/ClientInputService";
 import { CollectionLogService } from "../game/services/CollectionLogService";
 import { CombatDataService } from "../game/services/CombatDataService";
 import { CombatEffectService } from "../game/services/CombatEffectService";
@@ -251,6 +252,7 @@ export class WSServer {
     // Extracted services (Broadcast + TickFrame)
     private broadcastService!: BroadcastService;
     private tickFrameService!: TickFrameService;
+    private clientInputService!: ClientInputService;
 
     // Extracted services (Phase 8)
     private combatEffectService!: CombatEffectService;
@@ -348,6 +350,7 @@ export class WSServer {
         this.initDeferredDeps(opts);
         this.broadcastService = new BroadcastService(this.svc);
         this.tickFrameService = new TickFrameService(this.svc, this.autosaveIntervalTicks);
+        this.clientInputService = new ClientInputService(this.svc);
         this.loginHandshakeService = new LoginHandshakeService(this.svc);
         this.tickPhaseService = new TickPhaseService(this.svc);
         this.populateServiceContext();
@@ -357,6 +360,14 @@ export class WSServer {
         this.initTestBots();
         this.wss.on("connection", (ws) => this.loginHandshakeService.onConnection(ws));
         opts.ticker.on("tick", (data) => this.tickFrameService.handleTick(data));
+    }
+
+    /**
+     * Persist all connected players immediately. Used by graceful shutdown so
+     * progress since the last autosave is not lost.
+     */
+    async flushPlayerSaves(): Promise<void> {
+        await this.tickFrameService.runAutosave(this.options.ticker.currentTick());
     }
 
     /**
@@ -459,6 +470,7 @@ export class WSServer {
         s.equipmentStatsUiService = this.equipmentStatsUiService;
         s.tickPhaseService = this.tickPhaseService;
         s.tickFrameService = this.tickFrameService;
+        s.clientInputService = this.clientInputService;
         s.actionDispatchService = this.actionDispatchService;
         s.inventoryMessageService = this.inventoryMessageService;
         s.broadcastService = this.broadcastService;
