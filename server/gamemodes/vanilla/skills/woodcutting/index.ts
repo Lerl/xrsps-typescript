@@ -8,6 +8,13 @@ import type {
 } from "../../../../src/game/scripts/types";
 import { ResourceNodeTracker, buildTileKey } from "../../systems/ResourceNodeTracker";
 import {
+    SKILL_ERROR_SOUND,
+    buildMessageEffect,
+    describeItem,
+    failGatheringPrecheck,
+    hasAnyCarriedItem,
+} from "../gatheringPrecheck";
+import {
     type HatchetDefinition,
     buildWoodcuttingLocMap,
     getWoodcuttingTreeById,
@@ -17,7 +24,6 @@ import {
 
 const WOODCUT_ACTIONS = ["chop down", "chop-down"];
 const WOODCUTTING_DEPLETE_SOUND = 2734;
-const WOODCUTTING_INVENTORY_FULL_SOUND = 2277;
 const ECHO_AXE_ITEM_IDS = [25110];
 
 interface WoodcuttingActionData {
@@ -30,16 +36,6 @@ interface WoodcuttingActionData {
     ticksInSwing: number;
 }
 
-function buildMessageEffect(player: PlayerState, message: string): ActionEffect {
-    return { type: "message", playerId: player.id, message };
-}
-
-function hasAnyCarriedItem(carriedItemIds: number[], candidateItemIds: number[]): boolean {
-    if (carriedItemIds.length === 0 || candidateItemIds.length === 0) return false;
-    const carried = new Set(carriedItemIds);
-    return candidateItemIds.some((id) => carried.has(id));
-}
-
 function rollWoodcuttingSuccess(
     level: number,
     treeLevel: number,
@@ -50,20 +46,6 @@ function rollWoodcuttingSuccess(
     const ratio = effective / difficulty;
     const baseChance = Math.min(0.85, Math.max(0.05, ratio * 0.3));
     return Math.random() < baseChance * hatchet.accuracy;
-}
-
-function describeItem(services: ScriptServices, itemId: number): string {
-    return services.data.getObjType(itemId)?.name?.toLowerCase() ?? "item";
-}
-
-function failGatheringPrecheck(
-    player: PlayerState,
-    services: ScriptServices,
-    message: string,
-): ActionExecutionResult {
-    services.stopGatheringInteraction?.(player);
-    const effects: ActionEffect[] = message ? [buildMessageEffect(player, message)] : [];
-    return { ok: true, effects };
 }
 
 function executeWoodcutAction(ctx: ScriptActionHandlerContext): ActionExecutionResult {
@@ -100,6 +82,7 @@ function executeWoodcutAction(ctx: ScriptActionHandlerContext): ActionExecutionR
             player,
             services,
             `You need Woodcutting level ${tree.level} to chop this tree.`,
+            { errorSound: true },
         );
     }
 
@@ -110,17 +93,18 @@ function executeWoodcutAction(ctx: ScriptActionHandlerContext): ActionExecutionR
             player,
             services,
             "You need an axe that you have the Woodcutting level to use.",
+            { errorSound: true },
         );
     }
     const hasEchoAxePerk = hasAnyCarriedItem(hatchetIds, ECHO_AXE_ITEM_IDS);
 
     if (!hasEchoAxePerk && !services.inventory.hasInventorySlot(player)) {
         const logName = describeItem(services, tree.logItemId);
-        services.sound.sendSound(player, WOODCUTTING_INVENTORY_FULL_SOUND);
         return failGatheringPrecheck(
             player,
             services,
             `Your inventory is too full to hold any more ${logName}.`,
+            { errorSound: true },
         );
     }
 
@@ -182,6 +166,7 @@ function executeWoodcutAction(ctx: ScriptActionHandlerContext): ActionExecutionR
                     player,
                     services,
                     `Your bank is too full to hold any more ${logName}.`,
+                    { errorSound: true },
                 );
             }
             bankSnapshot = true;
@@ -189,11 +174,11 @@ function executeWoodcutAction(ctx: ScriptActionHandlerContext): ActionExecutionR
             const result = services.inventory.addItemToInventory(player, tree.logItemId, 1);
             if (result.added <= 0) {
                 const logName = describeItem(services, tree.logItemId);
-                services.sound.sendSound(player, WOODCUTTING_INVENTORY_FULL_SOUND);
                 return failGatheringPrecheck(
                     player,
                     services,
                     `Your inventory is too full to hold any more ${logName}.`,
+                    { errorSound: true },
                 );
             }
             inventorySnapshot = true;
@@ -250,7 +235,7 @@ function executeWoodcutAction(ctx: ScriptActionHandlerContext): ActionExecutionR
         if (!hasEchoAxePerk && !services.inventory.hasInventorySlot(player)) {
             continueChopping = false;
             const logName = describeItem(services, tree.logItemId);
-            services.sound.sendSound(player, WOODCUTTING_INVENTORY_FULL_SOUND);
+            services.sound.sendSound(player, SKILL_ERROR_SOUND);
             effects.push(
                 buildMessageEffect(
                     player,

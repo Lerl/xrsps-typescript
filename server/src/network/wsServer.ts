@@ -13,6 +13,7 @@ import type { LocTypeLoader } from "../../../src/rs/config/loctype/LocTypeLoader
 import type { NpcTypeLoader } from "../../../src/rs/config/npctype/NpcTypeLoader";
 import type { ObjTypeLoader } from "../../../src/rs/config/objtype/ObjTypeLoader";
 import { ACCOUNT_SUMMARY_GROUP_ID } from "../../../src/shared/ui/accountSummary";
+import { MUSIC_GROUP_ID } from "../../../src/shared/ui/music";
 import { VARP_FOLLOWER_INDEX } from "../../../src/shared/vars";
 import { MusicCatalogService } from "../audio/MusicCatalogService";
 import { MusicRegionService } from "../audio/MusicRegionService";
@@ -562,7 +563,8 @@ export class WSServer {
             getInventory: (player) => this.inventoryService.getInventory(player),
         });
         this.widgetBroadcaster = new WidgetBroadcaster({
-            syncPostWidgetOpenState: () => {},
+            syncPostWidgetOpenState: (playerId, action) =>
+                this.syncPostWidgetOpenState(playerId, action),
         });
         this.combatBroadcaster = new CombatBroadcaster({
             forEachPlayer: (fn) => this.players?.forEach(fn),
@@ -1403,6 +1405,20 @@ export class WSServer {
 
     private queueActivateQuestSideTab(playerId: number): void {
         this.gamemodeUi.activateQuestTab(playerId);
+    }
+
+    private syncPostWidgetOpenState(playerId: number, action: WidgetAction): void {
+        if ((action.groupId ?? 0) !== MUSIC_GROUP_ID) {
+            return;
+        }
+        if (action.action !== "open_sub" && action.action !== "open") {
+            return;
+        }
+        const player = this.players?.getById(playerId);
+        if (!player) {
+            return;
+        }
+        this.soundManager?.syncMusicInterfaceForPlayer(player);
     }
 
     private queueWidgetEvent(playerId: number, action: WidgetAction): void {

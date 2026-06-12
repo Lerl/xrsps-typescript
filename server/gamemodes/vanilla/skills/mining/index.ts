@@ -8,6 +8,13 @@ import type {
 } from "../../../../src/game/scripts/types";
 import { ResourceNodeTracker, buildTileKey } from "../../systems/ResourceNodeTracker";
 import {
+    SKILL_ERROR_SOUND,
+    buildMessageEffect,
+    describeItem,
+    failGatheringPrecheck,
+    hasAnyCarriedItem,
+} from "../gatheringPrecheck";
+import {
     type PickaxeDefinition,
     buildMiningLocMap,
     getMiningRockById,
@@ -28,36 +35,12 @@ interface MiningActionData {
     echoMinedCount: number;
 }
 
-function buildMessageEffect(player: PlayerState, message: string): ActionEffect {
-    return { type: "message", playerId: player.id, message };
-}
-
-function hasAnyCarriedItem(carriedItemIds: number[], candidateItemIds: number[]): boolean {
-    if (carriedItemIds.length === 0 || candidateItemIds.length === 0) return false;
-    const carried = new Set(carriedItemIds);
-    return candidateItemIds.some((id) => carried.has(id));
-}
-
 function rollMiningSuccess(level: number, rockLevel: number, pickaxe: PickaxeDefinition): boolean {
     const effective = Math.max(1, level);
     const difficulty = Math.max(1, rockLevel);
     const ratio = effective / difficulty;
     const baseChance = Math.min(0.85, Math.max(0.05, ratio * 0.3));
     return Math.random() < baseChance * pickaxe.accuracy;
-}
-
-function describeItem(services: ScriptServices, itemId: number): string {
-    return services.data.getObjType(itemId)?.name?.toLowerCase() ?? "item";
-}
-
-function failMiningPrecheck(
-    player: PlayerState,
-    services: ScriptServices,
-    message: string,
-): ActionExecutionResult {
-    services.stopGatheringInteraction?.(player);
-    const effects: ActionEffect[] = message ? [buildMessageEffect(player, message)] : [];
-    return { ok: true, effects };
 }
 
 function executeMineAction(ctx: ScriptActionHandlerContext): ActionExecutionResult {
