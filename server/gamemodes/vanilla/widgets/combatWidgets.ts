@@ -139,9 +139,9 @@ function tryActivateInstantUtilitySpecial(
     }
     markInstantUtilitySpecialHandledAtTick(player, currentTick);
 
-    const currentEnergy = player.getSpecialEnergyUnits?.() ?? 0;
+    const currentEnergy = player.specEnergy.getUnits();
     if (currentEnergy < 100) {
-        player.setSpecialActivated?.(false);
+        player.specEnergy.setActivated(false);
         player.varps.setVarpValue(VARP_SPECIAL_ATTACK, 0);
         services.variables.sendVarp?.(player, VARP_SPECIAL_ATTACK, 0);
         services.combat.queueCombatState(player);
@@ -149,9 +149,9 @@ function tryActivateInstantUtilitySpecial(
         return true;
     }
 
-    const consumed = player.consumeSpecialEnergy?.(100) ?? false;
+    const consumed = player.specEnergy.consume(100);
     if (!consumed) {
-        player.setSpecialActivated?.(false);
+        player.specEnergy.setActivated(false);
         player.varps.setVarpValue(VARP_SPECIAL_ATTACK, 0);
         services.variables.sendVarp?.(player, VARP_SPECIAL_ATTACK, 0);
         services.combat.queueCombatState(player);
@@ -167,7 +167,7 @@ function tryActivateInstantUtilitySpecial(
         applyLumberUpWoodcuttingBoost(player);
     }
 
-    player.setSpecialActivated?.(false);
+    player.specEnergy.setActivated(false);
     player.varps.setVarpValue(VARP_SPECIAL_ATTACK, 0);
     services.variables.sendVarp?.(player, VARP_SPECIAL_ATTACK, 0);
     services.combat.queueCombatState(player);
@@ -235,7 +235,7 @@ export function registerCombatWidgetHandlers(
     // varp 301 is special attack toggle (0 = off, 1 = on)
     registry.onButton(COMBAT_WIDGET_GROUP_ID, SPECIAL_ATTACK_BUTTON_COMPONENT, (event) => {
         const player = event.player;
-        const currentlyActivated = player.isSpecialActivated?.() ?? false;
+        const currentlyActivated = player.specEnergy.isActivated();
         const newState = !currentlyActivated;
         const equip = player.appearance?.equip;
         const weaponObjId = Array.isArray(equip) ? equip[EquipmentSlot.WEAPON] : 0;
@@ -247,11 +247,12 @@ export function registerCombatWidgetHandlers(
             return;
         }
 
-        // Toggle the state
-        player.setSpecialActivated?.(newState);
+        // Toggle the state. Activation is refused with no special energy left,
+        // so mirror the resulting server state into the varp rather than the request.
+        player.specEnergy.setActivated(newState);
 
         // Update varp (0 = off, 1 = on)
-        const varpValue = newState ? 1 : 0;
+        const varpValue = player.specEnergy.isActivated() ? 1 : 0;
         player.varps.setVarpValue(VARP_SPECIAL_ATTACK, varpValue);
 
         // Send varp to client to update the UI
