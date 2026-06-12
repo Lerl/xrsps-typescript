@@ -19,7 +19,10 @@ import {
  */
 
 const EMOTE_WIDGET_GROUP_ID = 216;
-const EMOTE_CONTAINER_COMPONENT = 1; // Container for emote buttons
+// Contents container the emote buttons are created on ($com_emote_contents
+// in the 216:0 onLoad args). Clicks on dynamic children transmit the parent
+// component id, so IF_BUTTON arrives as 216:2 with slot = emote index.
+const EMOTE_CONTAINER_COMPONENT = 2;
 const SKILLCAPE_EMOTE_INDEX = 43;
 const SKILLCAPE_SPOT_HEIGHT = 120; // ~0.94 tiles (head height)
 

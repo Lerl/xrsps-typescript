@@ -581,6 +581,23 @@ export class LoginHandshakeService {
                         toSlot: QUEST_LIST_ENTRY_MAX_SLOT,
                         flags: QUEST_LIST_ENTRY_EVENT_FLAGS,
                     });
+
+                    // IF_SETEVENTS for emote tab dynamic children (216:2).
+                    // emote_init creates one clickable rect per emote at slots 0-55
+                    // on the contents container ($com_emote_contents = 216:2 per the
+                    // 216:0 onLoad args); ops (Perform/Loop) come from cc_setop.
+                    const EMOTE_GROUP_ID = 216;
+                    const EMOTE_CONTENTS_COMPONENT = 2;
+                    const EMOTE_MAX_SLOT = 55;
+                    const EMOTE_EVENT_FLAGS = (1 << 1) | (1 << 2); // op1 + op2
+
+                    this.svc.queueWidgetEvent(p.id, {
+                        action: "set_flags_range",
+                        uid: (EMOTE_GROUP_ID << 16) | EMOTE_CONTENTS_COMPONENT,
+                        fromSlot: 0,
+                        toSlot: EMOTE_MAX_SLOT,
+                        flags: EMOTE_EVENT_FLAGS,
+                    });
                 }
 
                 if (p.account.accountStage === 0) {
