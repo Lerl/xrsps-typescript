@@ -21,7 +21,7 @@ import type { CombatActionServices } from "./CombatActionHandler";
 // Constants
 // ============================================================================
 
-const COMBAT_SOUND_DELAY_MS = 150;
+const COMBAT_SOUND_DELAY_CYCLES = 8;
 
 // ============================================================================
 // Handler Class
@@ -306,7 +306,7 @@ export class PvpCombatHandler {
                         x: target.tileX,
                         y: target.tileY,
                         level: target.level,
-                        delay: COMBAT_SOUND_DELAY_MS,
+                        delay: COMBAT_SOUND_DELAY_CYCLES,
                     },
                     "combat_player_hit_sound",
                 ),

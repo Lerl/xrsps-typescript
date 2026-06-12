@@ -2755,19 +2755,22 @@ export class OsrsClient {
                     loops?: number;
                     delay?: number;
                     radius?: number;
-                    volume?: number;
+                    attenuation?: number;
                 }) => {
                     try {
                         if (!this.soundEffectSystem) return;
                         const hasPosition = payload.x !== undefined && payload.y !== undefined;
-                        // SOUND_AREA: radius in tiles -> scene units (128 per tile)
+                        // Wire loops: n = play n times; skip if zero
+                        const wireLoops = payload.loops !== undefined ? payload.loops | 0 : 1;
+                        if (wireLoops <= 0) return;
+                        // Radius in tiles -> scene units (128 per tile)
                         const radiusScene =
                             payload.radius !== undefined && payload.radius > 0
                                 ? (payload.radius | 0) * 128
                                 : undefined;
                         this.soundEffectSystem.playSoundEffect(payload.soundId, {
-                            loops: payload.loops,
-                            delayMs: payload.delay,
+                            loops: wireLoops - 1,
+                            delayMs: payload.delay !== undefined ? payload.delay * 20 : undefined,
                             position: hasPosition
                                 ? {
                                       x: ((payload.x! | 0) * 128 + 64) | 0,
@@ -2776,7 +2779,7 @@ export class OsrsClient {
                                   }
                                 : undefined,
                             radius: radiusScene,
-                            volume: payload.volume,
+                            attenuation: payload.attenuation,
                         });
                     } catch (err) {
                         console.warn("[OsrsClient] sound playback failed", err);

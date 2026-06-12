@@ -208,7 +208,6 @@ export interface MovementTeleportActionData {
     endSpotDelay?: number;
     arriveSoundId?: number;
     arriveSoundRadius?: number;
-    arriveSoundVolume?: number;
     arriveMessage?: string;
     arriveSeqId?: number;
     arriveFaceTileX?: number;

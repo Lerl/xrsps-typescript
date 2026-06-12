@@ -7,7 +7,7 @@ import type { ActionEffect, ActionExecutionResult } from "../types";
 import type { CombatActionServices, InteractionState } from "./CombatActionHandler";
 
 const DEFAULT_BLOCK_SEQ = 403;
-const COMBAT_SOUND_DELAY_MS = 150;
+const COMBAT_SOUND_DELAY_CYCLES = 8;
 
 export class NpcRetaliationHandler {
     private readonly services: CombatActionServices;
@@ -133,7 +133,7 @@ export class NpcRetaliationHandler {
                     x: npc.tileX,
                     y: npc.tileY,
                     level: npc.level,
-                    delay: COMBAT_SOUND_DELAY_MS,
+                    delay: COMBAT_SOUND_DELAY_CYCLES,
                 },
                 "combat_npc_sound",
             ),

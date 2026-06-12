@@ -52,7 +52,6 @@ interface TeleportActionRequest {
     endSpotDelay?: number;
     arriveSoundId?: number;
     arriveSoundRadius?: number;
-    arriveSoundVolume?: number;
     arriveMessage?: string;
     requireCanTeleport?: boolean;
     rejectIfPending?: boolean;

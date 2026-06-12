@@ -19,7 +19,7 @@ import type { PendingNpcDrop } from "../npcManager";
 import type { PlayerState } from "../player";
 import { CombatEngine } from "../systems/combat/CombatEngine";
 
-export const COMBAT_SOUND_DELAY_MS = 50;
+export const COMBAT_SOUND_DELAY_CYCLES = 3;
 const RESPAWN_DELAY_TICKS = 17;
 
 export const PROTECTION_PRAYER_MAP: Record<AttackType, PrayerName> = {
@@ -344,7 +344,7 @@ export class CombatEffectService {
                         x: npc.tileX,
                         y: npc.tileY,
                         level: npc.level,
-                        delay: COMBAT_SOUND_DELAY_MS,
+                        delay: COMBAT_SOUND_DELAY_CYCLES,
                     },
                     "combat_npc_death_sound",
                 ),

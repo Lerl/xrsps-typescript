@@ -1152,7 +1152,6 @@ function executeTeleport(
         endSpotDelay: 0,
         arriveSoundId: spell.arriveSoundId,
         arriveSoundRadius: 5,
-        arriveSoundVolume: 255,
         arriveMessage: `You arrive at ${destination.name}.`,
         requireCanTeleport: true,
         rejectIfPending: true,
@@ -1208,7 +1207,6 @@ function executeTeleport(
             tile: { x: player.tileX, y: player.tileY },
             level: player.level,
             radius: 5,
-            volume: 255,
         });
     }
 
@@ -1252,7 +1250,6 @@ function executeHomeTeleport(
             tile: { x: player.tileX, y: player.tileY },
             level: player.level,
             radius: HOME_TELEPORT_SOUND_RANGE,
-            volume: 255,
         });
     };
 

@@ -23,6 +23,7 @@ import {
     getMainmodalUid,
     getRootInterfaceId,
 } from "../widgets/WidgetManager";
+import { INVENTORY_EVENT_FLAGS } from "../widgets/InterfaceService";
 import { getViewportRootInitScripts } from "../widgets/viewport";
 import { ADMIN_CROWN_ICON } from "./AuthenticationService";
 import type { RoutedMessage } from "./MessageRouter";
@@ -528,7 +529,7 @@ export class LoginHandshakeService {
                     const INVENTORY_GROUP_ID = 149;
                     const INVENTORY_CONTAINER_COMPONENT = 0;
                     const INVENTORY_SLOT_COUNT = 28;
-                    const INVENTORY_FLAGS = 1181694;
+                    const INVENTORY_FLAGS = INVENTORY_EVENT_FLAGS;
 
                     this.svc.queueWidgetEvent(p.id, {
                         action: "set_flags_range",

@@ -348,12 +348,14 @@ export type SoundEffectPayload = {
     x?: number;
     y?: number;
     level?: number;
+    /** Number of times to play (1 = once). */
     loops?: number;
+    /** Delay before playing, in client cycles (20ms each). */
     delay?: number;
-    /** SOUND_AREA: radius in tiles (0-15) for client-side distance falloff */
+    /** Radius in tiles (0-31): distance at which the sound becomes silent. */
     radius?: number;
-    /** SOUND_AREA: volume (0-255, default 255) */
-    volume?: number;
+    /** Full-volume distance: full volume up to (attenuation & 31) - 1 tiles, then fades to radius. */
+    attenuation?: number;
 };
 
 export type LoginResponsePayload = {
@@ -869,7 +871,7 @@ function encodeMessageToBinaryDirect(msg: ServerToClient): Uint8Array {
                 payload.loops,
                 payload.delay,
                 payload.radius,
-                payload.volume,
+                payload.attenuation,
             );
 
         case "play_jingle":

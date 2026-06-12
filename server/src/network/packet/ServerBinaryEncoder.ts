@@ -688,7 +688,7 @@ export class ServerBinaryEncoder {
         loops?: number,
         delay?: number,
         radius?: number,
-        volume?: number,
+        attenuation?: number,
     ): Uint8Array {
         this.buffer.reset();
         this.buffer.writeShort(soundId);
@@ -698,10 +698,10 @@ export class ServerBinaryEncoder {
             this.buffer.writeShort(y ?? 0);
             this.buffer.writeByte(level ?? 0);
         }
-        this.buffer.writeByte(loops ?? 0);
+        this.buffer.writeByte(loops ?? 1);
         this.buffer.writeShort(delay ?? 0);
         this.buffer.writeByte(radius ?? 0);
-        this.buffer.writeByte(volume ?? 255);
+        this.buffer.writeByte(attenuation ?? 0);
         return this.buffer.toPacket(ServerPacketId.SOUND);
     }
 

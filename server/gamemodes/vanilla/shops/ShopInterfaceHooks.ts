@@ -18,10 +18,13 @@
  * ```
  */
 import type { PlayerState } from "../../../src/game/player";
-import type { InterfaceHookContext, InterfaceService } from "../../../src/widgets/InterfaceService";
 import {
     GameframeTab,
+    type InterfaceHookContext,
+    type InterfaceService,
     PLAYER_INV_ID,
+} from "../../../src/widgets/InterfaceService";
+import {
     SCRIPT_INTERFACE_INV_INIT,
     SCRIPT_SHOP_MAIN_INIT,
     SHOP_INTERFACE_ID,
@@ -135,6 +138,7 @@ function initializeShopInventorySidePanel(service: InterfaceService, player: Pla
 
     service.openInventorySidePanel(player, {
         interfaceId: SHOP_INVENTORY_INTERFACE_ID,
+        destination: "inventory_tab",
         initScript: {
             scriptId: SCRIPT_INTERFACE_INV_INIT,
             args: [

@@ -55,7 +55,6 @@ export function registerDoorHandlers(registry: IScriptRegistry, services: Script
                     tile: { x: event.tile.x, y: event.tile.y },
                     level: event.level,
                     radius: 5,
-                    volume: 255,
                 });
             }
         });

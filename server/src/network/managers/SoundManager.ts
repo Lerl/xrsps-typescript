@@ -42,9 +42,11 @@ export interface SoundBroadcastRequest {
     x: number;
     y: number;
     level: number;
+    /** Delay in client cycles (20ms each). */
     delay?: number;
+    loops?: number;
     radius?: number;
-    volume?: number;
+    attenuation?: number;
 }
 
 /** Loc sound request */
@@ -55,7 +57,7 @@ export interface LocSoundRequest {
     delay?: number;
     loops?: number;
     radius?: number;
-    volume?: number;
+    attenuation?: number;
 }
 
 /** Area sound request */
@@ -65,7 +67,7 @@ export interface AreaSoundRequest {
     y: number;
     level?: number;
     radius?: number;
-    volume?: number;
+    attenuation?: number;
 }
 
 /** Tick frame for music phase */
@@ -161,8 +163,9 @@ export class SoundManager {
             y: number;
             level: number;
             delay?: number;
+            loops?: number;
             radius?: number;
-            volume?: number;
+            attenuation?: number;
         } = {
             soundId: payload.soundId,
             x,
@@ -173,15 +176,21 @@ export class SoundManager {
         if (payload.delay !== undefined && payload.delay > 0) {
             msgPayload.delay = payload.delay;
         }
-        if (payload.radius !== undefined) {
-            msgPayload.radius = Math.max(0, Math.min(15, payload.radius));
+        if (payload.loops !== undefined) {
+            msgPayload.loops = Math.max(1, payload.loops);
         }
-        if (payload.volume !== undefined) {
-            msgPayload.volume = Math.max(0, Math.min(255, payload.volume));
+        let soundRadius = 0;
+        if (payload.radius !== undefined) {
+            soundRadius = Math.max(0, Math.min(31, payload.radius));
+            msgPayload.radius = soundRadius;
+        }
+        if (payload.attenuation !== undefined) {
+            msgPayload.attenuation = Math.max(0, Math.min(31, payload.attenuation));
         }
 
         const message = encodeMessage({ type: "sound", payload: msgPayload });
-        this.svc.broadcastService.broadcastToNearby(x, y, level, radiusTiles, message, context);
+        const broadcastRadius = Math.max(radiusTiles, soundRadius + 1);
+        this.svc.broadcastService.broadcastToNearby(x, y, level, broadcastRadius, message, context);
     }
 
     /**
@@ -190,16 +199,7 @@ export class SoundManager {
     playLocSound(opts: LocSoundRequest): void {
         if (!opts || !(opts.soundId > 0)) return;
 
-        const msgPayload: {
-            soundId: number;
-            x: number;
-            y: number;
-            level: number;
-            delay?: number;
-            loops?: number;
-            radius?: number;
-            volume?: number;
-        } = {
+        const msgPayload: SoundBroadcastRequest = {
             soundId: opts.soundId,
             x: opts.tile.x,
             y: opts.tile.y,
@@ -214,51 +214,40 @@ export class SoundManager {
         }
 
         if (opts.radius !== undefined) {
-            msgPayload.radius = Math.max(0, Math.min(15, opts.radius));
+            msgPayload.radius = Math.max(0, Math.min(31, opts.radius));
         }
-        if (opts.volume !== undefined) {
-            msgPayload.volume = Math.max(0, Math.min(255, opts.volume));
+        if (opts.attenuation !== undefined) {
+            msgPayload.attenuation = Math.max(0, Math.min(31, opts.attenuation));
         }
 
         this.svc.networkLayer.withDirectSendBypass("script_loc_sound", () =>
-            this.broadcastSound(msgPayload as SoundBroadcastRequest, "script_loc_sound"),
+            this.broadcastSound(msgPayload, "script_loc_sound"),
         );
     }
 
     /**
-     * Play an area sound with radius and volume.
+     * Play an area sound with distance falloff.
      */
     playAreaSound(opts: AreaSoundRequest): void {
         if (!opts || !(opts.soundId > 0)) return;
 
-        const x = opts.x;
-        const y = opts.y;
-        const level = opts.level ?? 0;
-
-        const msgPayload: {
-            soundId: number;
-            x: number;
-            y: number;
-            level: number;
-            radius?: number;
-            volume?: number;
-        } = {
+        const msgPayload: SoundBroadcastRequest = {
             soundId: opts.soundId,
-            x,
-            y,
-            level,
+            x: opts.x,
+            y: opts.y,
+            level: opts.level ?? 0,
         };
 
         if (opts.radius !== undefined) {
-            msgPayload.radius = Math.max(0, Math.min(15, opts.radius));
+            msgPayload.radius = Math.max(0, Math.min(31, opts.radius));
         }
 
-        if (opts.volume !== undefined) {
-            msgPayload.volume = Math.max(0, Math.min(255, opts.volume));
+        if (opts.attenuation !== undefined) {
+            msgPayload.attenuation = Math.max(0, Math.min(31, opts.attenuation));
         }
 
         this.svc.networkLayer.withDirectSendBypass("area_sound", () =>
-            this.broadcastSound(msgPayload as SoundBroadcastRequest, "area_sound"),
+            this.broadcastSound(msgPayload, "area_sound"),
         );
     }
 

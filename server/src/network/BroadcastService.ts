@@ -58,7 +58,7 @@ export class BroadcastService {
             loops?: number;
             delay?: number;
             radius?: number;
-            volume?: number;
+            attenuation?: number;
         },
         context = "sound",
         radiusTiles = SOUND_BROADCAST_RADIUS_TILES,
@@ -81,14 +81,16 @@ export class BroadcastService {
             loops?: number;
             delay?: number;
             radius?: number;
-            volume?: number;
+            attenuation?: number;
         } = { ...payload };
         if (level !== undefined) msgPayload.level = level;
+        let soundRadius = 0;
         if (payload.radius !== undefined && payload.radius > 0) {
-            msgPayload.radius = Math.min(15, Math.max(0, payload.radius));
+            soundRadius = Math.min(31, Math.max(0, payload.radius));
+            msgPayload.radius = soundRadius;
         }
-        if (payload.volume !== undefined && payload.volume < 255) {
-            msgPayload.volume = Math.min(255, Math.max(0, payload.volume));
+        if (payload.attenuation !== undefined && payload.attenuation > 0) {
+            msgPayload.attenuation = Math.min(31, Math.max(0, payload.attenuation));
         }
         const msg = encodeMessage({
             type: "sound",
@@ -102,7 +104,7 @@ export class BroadcastService {
         }
         const px = payload.x as number;
         const py = payload.y as number;
-        const broadcastRadius = Math.max(0, radiusTiles);
+        const broadcastRadius = Math.max(0, radiusTiles, soundRadius + 1);
         players.forEach((sock, p) => {
             if (!sock || sock.readyState !== WebSocket.OPEN) return;
             if (level !== undefined && p.level !== level) return;
@@ -122,7 +124,7 @@ export class BroadcastService {
             loops?: number;
             delay?: number;
             radius?: number;
-            volume?: number;
+            attenuation?: number;
         },
         context = "sound",
         radiusTiles = SOUND_BROADCAST_RADIUS_TILES,
@@ -137,19 +139,21 @@ export class BroadcastService {
             loops?: number;
             delay?: number;
             radius?: number;
-            volume?: number;
+            attenuation?: number;
         } = { ...payload };
+        let soundRadius = 0;
         if (payload.radius !== undefined && payload.radius > 0) {
-            msgPayload.radius = Math.min(15, Math.max(0, payload.radius));
+            soundRadius = Math.min(31, Math.max(0, payload.radius));
+            msgPayload.radius = soundRadius;
         }
-        if (payload.volume !== undefined && payload.volume < 255) {
-            msgPayload.volume = Math.min(255, Math.max(0, payload.volume));
+        if (payload.attenuation !== undefined && payload.attenuation > 0) {
+            msgPayload.attenuation = Math.min(31, Math.max(0, payload.attenuation));
         }
         const message = encodeMessage({
             type: "sound",
             payload: msgPayload,
         });
-        const broadcastRadius = Math.max(0, radiusTiles);
+        const broadcastRadius = Math.max(0, radiusTiles, soundRadius + 1);
         players.forEach((sock, player) => {
             if (!sock || sock.readyState !== WebSocket.OPEN) return;
             if (player.level !== payload.level) return;

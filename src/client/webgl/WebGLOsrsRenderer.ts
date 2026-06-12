@@ -646,8 +646,8 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
     // Throttle ambient sound collection to every N frames (reduces tick cost)
     private ambientSoundFrameCounter: number = 0;
     private static readonly AMBIENT_SOUND_THROTTLE_FRAMES = 3;
-    // Max audio range in scene units for spatial culling (32 tiles = 4096 units)
-    private static readonly MAX_AUDIO_RANGE = 4096;
+    // Memoized "does this loc (or any of its transforms) emit ambient sound"
+    private locSoundPotentialCache: Map<number, boolean> = new Map();
     private groundItemStacks: Map<number, ClientGroundItemStack[]> = new Map();
     private groundItemStackHashes: Map<number, string> = new Map();
 
@@ -10709,8 +10709,6 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         // Reuse buffers instead of allocating new arrays each frame
         const visibleMaps = this.visibleMapsBuffer;
         visibleMaps.length = 0;
-        // Reset ambient sound buffer index for object reuse
-        this.ambientSoundBufferIndex = 0;
 
         this.gfxManager?.resetWorldBindings?.();
         // PERF: Use cached callback to avoid per-frame closure allocation
@@ -10720,6 +10718,9 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
             this.ambientSoundFrameCounter >= WebGLOsrsRenderer.AMBIENT_SOUND_THROTTLE_FRAMES;
         if (shouldCollectAmbient) {
             this.ambientSoundFrameCounter = 0;
+            // Reset only on collect frames; between collects the previous
+            // instances stay live so volumes keep tracking the listener
+            this.ambientSoundBufferIndex = 0;
         }
         for (let i = 0; i < this.mapManager.visibleMapCount; i++) {
             const map = this.mapManager.visibleMaps[i];
@@ -10771,21 +10772,25 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                     const level = peListener.getLevel(idxListener) | 0;
                     soundSystem.updateListenerPosition(px, py, level * 128);
                 } else {
+                    // z is the listener plane (level * 128), not a world height
                     soundSystem.updateListenerPosition(
                         this.osrsClient.camera.getPosX() * 128,
                         this.osrsClient.camera.getPosZ() * 128,
-                        this.osrsClient.camera.getPosY() * 128,
+                        0,
                     );
                 }
             } catch {
                 soundSystem.updateListenerPosition(
                     this.osrsClient.camera.getPosX() * 128,
                     this.osrsClient.camera.getPosZ() * 128,
-                    this.osrsClient.camera.getPosY() * 128,
+                    0,
                 );
             }
-            // Truncate buffer to actual size and pass to sound system
-            this.ambientSoundBuffer.length = this.ambientSoundBufferIndex;
+            // Truncate the buffer only on collect frames; the update itself
+            // runs every frame so volumes track the listener continuously
+            if (shouldCollectAmbient) {
+                this.ambientSoundBuffer.length = this.ambientSoundBufferIndex;
+            }
             soundSystem.updateAmbientSounds(this.ambientSoundBuffer);
         }
 
@@ -11458,14 +11463,18 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         }
     }
 
-    // Helper to add ambient sound instance with object pooling
+    // Helper to add ambient sound instance with object pooling.
+    // soundType carries the resolved (possibly varbit-transformed) sound
+    // fields; the emitter footprint always comes from the base loc.
     private addAmbientSoundInstance(
         locId: number,
-        locType: any,
+        soundType: any,
         x: number,
         y: number,
         z: number,
-        orientation: number = 0,
+        orientation: number,
+        sizeX: number,
+        sizeY: number,
     ): void {
         const idx = this.ambientSoundBufferIndex;
         const buffer = this.ambientSoundBuffer;
@@ -11479,173 +11488,163 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
 
         // Update all properties
         inst.locId = locId;
-        inst.soundId = locType.ambientSoundId;
+        inst.soundId = soundType ? soundType.ambientSoundId : -1;
         inst.x = x;
         inst.y = y;
         inst.z = z;
-        inst.maxDistance = locType.soundMaxDistance;
-        inst.minDistance = locType.soundMinDistance;
-        inst.changeTicksMin = locType.ambientSoundChangeTicksMin;
-        inst.changeTicksMax = locType.ambientSoundChangeTicksMax;
-        inst.soundIds = locType.ambientSoundIds;
-        inst.sizeX = locType.sizeX;
-        inst.sizeY = locType.sizeY;
+        inst.maxDistance = soundType ? soundType.soundMaxDistance : 0;
+        inst.minDistance = soundType ? soundType.soundMinDistance : 0;
+        inst.changeTicksMin = soundType ? soundType.ambientSoundChangeTicksMin : 0;
+        inst.changeTicksMax = soundType ? soundType.ambientSoundChangeTicksMax : 0;
+        inst.soundIds = soundType ? soundType.ambientSoundIds : undefined;
+        inst.sizeX = sizeX;
+        inst.sizeY = sizeY;
         inst.orientation = orientation;
-        inst.fadeInDurationMs = locType.soundFadeInDuration || undefined;
-        inst.fadeOutDurationMs = locType.soundFadeOutDuration || undefined;
-        inst.fadeInCurve = locType.soundFadeInCurve || undefined;
-        inst.fadeOutCurve = locType.soundFadeOutCurve || undefined;
-        inst.distanceFadeCurve = locType.soundDistanceFadeCurve || undefined;
-        inst.distanceOverride = locType.soundAreaRadiusOverride ?? undefined;
-        inst.loopSequentially = locType.loopMultiSoundSequentially;
-        inst.deferSwap = locType.deferredAmbientSwap;
-        inst.exactPosition = locType.useExactSoundPosition;
-        inst.resetOnLoop = locType.resetAmbientOnLoopRestart;
+        inst.fadeInDurationMs = (soundType && soundType.soundFadeInDuration) || undefined;
+        inst.fadeOutDurationMs = (soundType && soundType.soundFadeOutDuration) || undefined;
+        inst.fadeInCurve = (soundType && soundType.soundFadeInCurve) || undefined;
+        inst.fadeOutCurve = (soundType && soundType.soundFadeOutCurve) || undefined;
+        inst.distanceFadeCurve = (soundType && soundType.soundDistanceFadeCurve) || undefined;
+        inst.distanceOverride = soundType
+            ? (soundType.soundAreaRadiusOverride ?? undefined)
+            : undefined;
+        inst.loopSequentially = soundType ? soundType.loopMultiSoundSequentially : false;
+        inst.deferSwap = soundType ? soundType.deferredAmbientSwap : false;
+        inst.exactPosition = soundType ? soundType.useExactSoundPosition : false;
+        inst.resetOnLoop = soundType ? soundType.resetAmbientOnLoopRestart : false;
 
         this.ambientSoundBufferIndex = idx + 1;
     }
 
-    collectAmbientSounds(map: WebGLMapSquare): void {
-        const mapBaseX = map.mapX * 64;
-        const mapBaseY = map.mapY * 64;
+    private static locTypeHasSound(locType: any): boolean {
+        return (
+            !!locType &&
+            (locType.ambientSoundId !== -1 ||
+                (locType.ambientSoundIds && locType.ambientSoundIds.length > 0))
+        );
+    }
 
-        // Use the player's position for distance filtering (matches reference).
-        // The reference uses playerTopLevelPosition for 2D distance; plane is filtered separately.
-        let playerX: number;
-        let playerY: number;
-        let playerLevel: number;
-        try {
-            const pe = this.osrsClient.playerEcs;
-            const idx = pe.getIndexForServerId(this.osrsClient.controlledPlayerServerId);
-            if (idx !== undefined) {
-                playerX = pe.getX(idx) | 0;
-                playerY = pe.getY(idx) | 0;
-                playerLevel = pe.getLevel(idx) | 0;
-            } else {
-                playerX = this.osrsClient.camera.getPosX() * 128;
-                playerY = this.osrsClient.camera.getPosZ() * 128;
-                playerLevel = 0;
-            }
-        } catch {
-            playerX = this.osrsClient.camera.getPosX() * 128;
-            playerY = this.osrsClient.camera.getPosZ() * 128;
-            playerLevel = 0;
-        }
-
-        const playerTileX = (playerX / 128) | 0;
-        const playerTileY = (playerY / 128) | 0;
-        const playerLocalX = playerTileX - mapBaseX;
-        const playerLocalY = playerTileY - mapBaseY;
-
-        // Max audio range in tiles (MAX_AUDIO_RANGE / 128)
-        const maxRangeTiles = (WebGLOsrsRenderer.MAX_AUDIO_RANGE / 128) | 0;
-
-        // Collect from animated locs (these are sparse, iterate all)
-        // Only include locs on the player's current level.
-        if (map.locsAnimated) {
-            for (const loc of map.locsAnimated) {
-                if (loc.level !== playerLevel) continue;
-
-                const locType = this.osrsClient.locTypeLoader.load(loc.id);
-                if (!locType) continue;
-
-                if (
-                    locType.ambientSoundId !== -1 ||
-                    (locType.ambientSoundIds && locType.ambientSoundIds.length > 0)
-                ) {
-                    // 2D distance check (reference uses 2D only; plane is binary)
-                    const dx = loc.x - playerX;
-                    const dy = loc.y - playerY;
-                    const distSq = dx * dx + dy * dy;
-                    const distTiles = Math.max(
-                        0,
-                        locType.soundAreaRadiusOverride !== undefined &&
-                            locType.soundAreaRadiusOverride >= 0
-                            ? locType.soundAreaRadiusOverride
-                            : locType.soundMaxDistance,
-                    );
-                    const filterBase = distTiles * 128;
-                    const filterDist = filterBase > 0 ? filterBase + 2048 : 4096;
-
-                    if (distSq <= filterDist * filterDist) {
-                        this.addAmbientSoundInstance(
-                            loc.id,
-                            locType,
-                            loc.x,
-                            loc.y,
-                            loc.level * 128,
-                            loc.rotation,
-                        );
+    // A loc emits ambient sound if its base def or any varbit transform does
+    private locHasSoundPotential(locId: number): boolean {
+        const cached = this.locSoundPotentialCache.get(locId);
+        if (cached !== undefined) return cached;
+        let result = false;
+        const locType = this.osrsClient.locTypeLoader.load(locId);
+        if (locType) {
+            result = WebGLOsrsRenderer.locTypeHasSound(locType);
+            if (!result && locType.transforms) {
+                for (const transformId of locType.transforms) {
+                    if (transformId === -1) continue;
+                    const transformed = this.osrsClient.locTypeLoader.load(transformId);
+                    if (WebGLOsrsRenderer.locTypeHasSound(transformed)) {
+                        result = true;
+                        break;
                     }
                 }
             }
         }
+        this.locSoundPotentialCache.set(locId, result);
+        return result;
+    }
 
-        // Collect from static locs — only on the player's current level.
-        const minLocalX = Math.max(0, playerLocalX - maxRangeTiles);
-        const maxLocalX = Math.min(63, playerLocalX + maxRangeTiles);
-        const minLocalY = Math.max(0, playerLocalY - maxRangeTiles);
-        const maxLocalY = Math.min(63, playerLocalY + maxRangeTiles);
+    // Build (or reuse) the per-map list of static sound-emitting locs.
+    // The cache covers all levels and is cleared when scene data refreshes.
+    private getMapSoundEmitters(
+        map: WebGLMapSquare,
+    ): { locId: number; x: number; y: number; level: number; rot: number }[] {
+        if (map.ambientSoundEmitters) return map.ambientSoundEmitters;
 
-        if (minLocalX > 63 || maxLocalX < 0 || minLocalY > 63 || maxLocalY < 0) {
-            return;
-        }
+        const emitters: { locId: number; x: number; y: number; level: number; rot: number }[] = [];
+        const mapBaseX = map.mapX * 64;
+        const mapBaseY = map.mapY * 64;
+        const offsetsByLevel = map.tileLocOffsetsByLevel;
+        const idsByLevel = map.tileLocIdsByLevel;
+        const typeRotsByLevel = map.tileLocTypeRotByLevel;
 
-        const maxDistSq = WebGLOsrsRenderer.MAX_AUDIO_RANGE * WebGLOsrsRenderer.MAX_AUDIO_RANGE;
-        const level = playerLevel;
+        if (offsetsByLevel && idsByLevel) {
+            for (let level = 0; level < offsetsByLevel.length; level++) {
+                const offsets = offsetsByLevel[level];
+                const ids = idsByLevel[level];
+                if (!offsets || !ids || offsets.length < 2) continue;
+                const typeRots = typeRotsByLevel?.[level];
+                const span = Math.round(Math.sqrt(offsets.length - 1));
 
-        for (let localX = minLocalX; localX <= maxLocalX; localX++) {
-            const worldSceneX = (mapBaseX + localX) * 128 + 64;
-            const dxTile = worldSceneX - playerX;
-            const dxSqTile = dxTile * dxTile;
-
-            if (dxSqTile > maxDistSq) continue;
-
-            for (let localY = minLocalY; localY <= maxLocalY; localY++) {
-                const locIds = map.getLocIdsAtLocal(level, localX, localY);
-                if (locIds.length === 0) continue;
-                const locTypeRots = map.getLocTypeRotsAtLocal(level, localX, localY);
-
-                const worldSceneY = (mapBaseY + localY) * 128 + 64;
-                const dyTile = worldSceneY - playerY;
-                const distSqTile = dxSqTile + dyTile * dyTile;
-
-                if (distSqTile > maxDistSq) continue;
-
-                for (let li = 0; li < locIds.length; li++) {
-                    const locId = locIds[li];
-                    const locType = this.osrsClient.locTypeLoader.load(locId);
-                    if (!locType) continue;
-
-                    if (
-                        locType.ambientSoundId !== -1 ||
-                        (locType.ambientSoundIds && locType.ambientSoundIds.length > 0)
-                    ) {
-                        const distTiles2 = Math.max(
-                            0,
-                            locType.soundAreaRadiusOverride !== undefined &&
-                                locType.soundAreaRadiusOverride >= 0
-                                ? locType.soundAreaRadiusOverride
-                                : locType.soundMaxDistance,
-                        );
-                        const filterBase2 = distTiles2 * 128;
-                        const filterDist = filterBase2 > 0 ? filterBase2 + 2048 : 4096;
-
-                        if (distSqTile <= filterDist * filterDist) {
-                            const packed = li < locTypeRots.length ? locTypeRots[li] : 0;
-                            const rot = (packed >> 6) & 3;
-                            this.addAmbientSoundInstance(
+                for (let localY = 0; localY < span; localY++) {
+                    for (let localX = 0; localX < span; localX++) {
+                        const tileIdx = localY * span + localX;
+                        const start = offsets[tileIdx] | 0;
+                        const end = offsets[tileIdx + 1] | 0;
+                        for (let i = start; i < end; i++) {
+                            const locId = ids[i] | 0;
+                            if (!this.locHasSoundPotential(locId)) continue;
+                            const packed = typeRots ? typeRots[i] | 0 : 0;
+                            emitters.push({
                                 locId,
-                                locType,
-                                worldSceneX,
-                                worldSceneY,
-                                level * 128,
-                                rot,
-                            );
+                                x: (mapBaseX + localX) * 128 + 64,
+                                y: (mapBaseY + localY) * 128 + 64,
+                                level,
+                                rot: (packed >> 6) & 3,
+                            });
                         }
                     }
                 }
             }
+        }
+
+        map.ambientSoundEmitters = emitters;
+        return emitters;
+    }
+
+    private addAmbientEmitter(
+        locId: number,
+        x: number,
+        y: number,
+        level: number,
+        rot: number,
+    ): void {
+        const baseType = this.osrsClient.locTypeLoader.load(locId);
+        if (!baseType) return;
+
+        // Resolve varbit transforms for the active sound fields; the emitter
+        // persists with no sound while the active transform is silent so it
+        // can fade between states without losing loop phase or timers.
+        let soundType: any = baseType;
+        if (baseType.transforms) {
+            soundType = baseType.transform(
+                this.osrsClient.varManager,
+                this.osrsClient.locTypeLoader,
+            );
+        }
+        if (soundType && !WebGLOsrsRenderer.locTypeHasSound(soundType)) {
+            soundType = undefined;
+        }
+
+        this.addAmbientSoundInstance(
+            locId,
+            soundType,
+            x,
+            y,
+            level * 128,
+            rot,
+            baseType.sizeX || 1,
+            baseType.sizeY || 1,
+        );
+    }
+
+    collectAmbientSounds(map: WebGLMapSquare): void {
+        // Animated locs (sparse, iterate all levels)
+        if (map.locsAnimated) {
+            for (const loc of map.locsAnimated) {
+                if (!this.locHasSoundPotential(loc.id)) continue;
+                this.addAmbientEmitter(loc.id, loc.x, loc.y, loc.level, loc.rotation);
+            }
+        }
+
+        // Static locs from the cached per-map emitter list
+        const emitters = this.getMapSoundEmitters(map);
+        for (let i = 0; i < emitters.length; i++) {
+            const emitter = emitters[i];
+            this.addAmbientEmitter(emitter.locId, emitter.x, emitter.y, emitter.level, emitter.rot);
         }
     }
 

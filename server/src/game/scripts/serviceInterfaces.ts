@@ -520,13 +520,15 @@ export interface SoundFacade {
         level?: number;
         loops?: number;
         delayMs?: number;
+        radius?: number;
+        attenuation?: number;
     }): void;
     playAreaSound(opts: {
         soundId: number;
         tile: { x: number; y: number };
         level?: number;
         radius?: number;
-        volume?: number;
+        attenuation?: number;
         delay?: number;
     }): void;
     playSong(player: PlayerState, trackId: number, trackName?: string): void;
@@ -617,7 +619,6 @@ export interface MovementFacade {
             endSpotDelay?: number;
             arriveSoundId?: number;
             arriveSoundRadius?: number;
-            arriveSoundVolume?: number;
             arriveMessage?: string;
             arriveSeqId?: number;
             arriveFaceTileX?: number;
