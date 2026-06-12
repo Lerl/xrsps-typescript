@@ -6,11 +6,13 @@ import { CacheSystem } from "../../../../src/rs/cache/CacheSystem";
 import { CombatCategoryConst as CombatCategory } from "../../../src/game/combat/WeaponDataProvider";
 import { getWeaponData } from "../../../src/game/combat/WeaponDataProvider";
 import { applyProjectileDefaults } from "../../../src/game/data/ProjectileParamsProvider";
+import { VARP_DESERT_TREASURE } from "../../../../src/shared/vars";
 import {
     type AutocastCompatibilityResult,
     type PoweredStaffSpellData,
     type SpellDataEntry,
     type SpellDataProvider,
+    type SpellUnlockRequirement,
     buildSpellNameToWidgetMap,
 } from "../../../src/game/spells/SpellDataProvider";
 
@@ -1102,10 +1104,20 @@ function getAlternateSpellNames(name: string): string[] {
     return alts;
 }
 
+const DESERT_TREASURE_UNLOCK: SpellUnlockRequirement = {
+    varpId: VARP_DESERT_TREASURE,
+    minValue: 15,
+    message: "You need to have completed Desert Treasure I to cast this spell.",
+};
+
 export function createSpellDataProvider(): SpellDataProvider {
     // Apply projectile defaults to all entries
     for (const entry of ENTRIES) {
         applyProjectileDefaults(entry.projectileId, entry);
+        // The whole Ancient Magicks book is locked behind Desert Treasure I
+        if (entry.spellbook === "ancient") {
+            entry.unlockRequirements = [DESERT_TREASURE_UNLOCK];
+        }
     }
 
     const SPELL_DATA_MAP = new Map<number, SpellDataEntry>();

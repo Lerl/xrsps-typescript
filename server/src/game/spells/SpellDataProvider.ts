@@ -10,6 +10,19 @@ export type RuneCost = {
     quantity: number;
 };
 
+/**
+ * A quest/unlock gate for casting a spell, mirroring the var checks the
+ * spellbook cs2 performs client-side. Exactly one of varpId/varbitId is set.
+ */
+export type SpellUnlockRequirement = {
+    varpId?: number;
+    varbitId?: number;
+    /** Minimum var value for the spell to be unlocked */
+    minValue: number;
+    /** Game message sent when the requirement is not met */
+    message: string;
+};
+
 export type SpellDataEntry = {
     id: number;
     /** Widget child index within the spellbook interface (set at runtime from cache) */
@@ -25,6 +38,7 @@ export type SpellDataEntry = {
     splashSpotAnim?: number;
     castAnimId?: number;
     runeCosts?: RuneCost[];
+    unlockRequirements?: SpellUnlockRequirement[];
     spellbook?: "standard" | "ancient" | "lunar" | "arceuus";
     category?: "combat" | "teleport" | "utility" | "binding";
     experienceGained?: number;

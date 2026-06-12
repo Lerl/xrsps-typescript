@@ -4,6 +4,7 @@ import { VARP_LAST_HOME_TELEPORT } from "../../../../src/shared/vars";
 import { SpellbookName } from "../../../src/data/spellWidgetLoader";
 import { RUNE_IDS } from "../../../src/game/data/RuneDataProvider";
 import type { PlayerState } from "../../../src/game/player";
+import { SpellCaster } from "../../../src/game/spells/SpellCaster";
 import {
     type SkillBoltEnchantActionData as BoltEnchantActionData,
     HOME_TELEPORT_TIMER,
@@ -492,6 +493,16 @@ function handleAutocast(
     }
 
     const spellId = spellData.id;
+
+    // Check quest/unlock requirements
+    const unmetUnlock = SpellCaster.getUnmetUnlockRequirement(
+        player,
+        spellData.unlockRequirements,
+    );
+    if (unmetUnlock) {
+        services.messaging.sendGameMessage(player, unmetUnlock.message);
+        return;
+    }
 
     // Check if spell is autocastable
     if (!isSpellAutocastable(spellId)) {
@@ -1092,6 +1103,13 @@ function executeTeleport(
     services: ScriptServices,
 ): void {
     if (!spell) return;
+
+    // Check quest/unlock requirements
+    const unmetUnlock = SpellCaster.getUnmetUnlockRequirement(player, spell.unlockRequirements);
+    if (unmetUnlock) {
+        services.messaging.sendGameMessage(player, unmetUnlock.message);
+        return;
+    }
 
     // Home Teleport uses a multi-phase 24-tick coroutine sequence — route separately.
     if (spell.name === "Home Teleport") {

@@ -222,6 +222,14 @@ export class SpellCastingService {
             case "out_of_runes":
                 text = "You do not have enough runes to cast this spell.";
                 break;
+            case "spell_locked": {
+                const unmet = SpellCaster.getUnmetUnlockRequirement(
+                    player,
+                    sd?.unlockRequirements,
+                );
+                text = unmet?.message ?? "You haven't unlocked that spell yet.";
+                break;
+            }
             case "out_of_range":
                 text = "You need to be closer to use that spell.";
                 break;
