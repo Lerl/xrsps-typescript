@@ -1043,18 +1043,9 @@ export class WSServer {
                     this.activeFrame as unknown as ReturnType<
                         ProjectileTimingServiceDeps["getActiveFrame"]
                     >,
-                getSeqTypeLoader: () => this.dataLoaderService.getSeqTypeLoader(),
                 getNpcManager: () => this.npcManager,
                 getProjectileSystem: () => this.projectileSystem,
                 getPathService: () => this.options.pathService,
-                pickSpellCastSequence: (player, spellId, isAutocast) =>
-                    this.playerCombatService?.pickSpellCastSequence(
-                        player,
-                        spellId,
-                        isAutocast,
-                    ) ?? -1,
-                pickAttackSequence: (player) =>
-                    this.playerCombatService?.pickAttackSequence(player) ?? -1,
             });
             // Initialize GatheringSystemManager
             this.gatheringSystem = new GatheringSystemManager(this.svc);

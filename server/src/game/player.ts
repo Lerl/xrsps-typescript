@@ -232,7 +232,7 @@ export class PlayerState extends Actor {
      * OSRS PID-style processing priority. Lower values execute first
      * for same-tick player actions. Randomized per session.
      */
-    private readonly pidPriority: number;
+    private pidPriority: number;
     /** Composed combat state (weapon, style, targets, freeze, special energy, etc.) */
     readonly combat = new PlayerCombatState();
 
@@ -598,6 +598,10 @@ export class PlayerState extends Actor {
 
     getPidPriority(): number {
         return this.pidPriority;
+    }
+
+    setPidPriority(value: number): void {
+        this.pidPriority = value;
     }
 
     /** @deprecated Use player.items.setInventorySlot() directly */

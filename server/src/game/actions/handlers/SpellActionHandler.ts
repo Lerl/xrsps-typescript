@@ -206,6 +206,24 @@ export class SpellActionHandler {
         return this.svc.ticker.currentTick();
     }
 
+    /** OSRS: MagicDelay = 1 + floor((1 + chebyshev distance) / 3) ticks to the hitsplat. */
+    private magicHitDelayTicks(
+        player: PlayerState,
+        targetNpc?: NpcState,
+        targetPlayer?: PlayerState,
+    ): number {
+        let distance = 0;
+        if (targetNpc) {
+            distance = this.svc.combatEffectService.getDistanceToNpcBounds(player, targetNpc);
+        } else if (targetPlayer) {
+            distance = Math.max(
+                Math.abs(player.tileX - targetPlayer.tileX),
+                Math.abs(player.tileY - targetPlayer.tileY),
+            );
+        }
+        return 1 + Math.floor((1 + Math.max(0, distance)) / 3);
+    }
+
     private getDeliveryTick(): number {
         return this.svc.activeFrame ? this.svc.activeFrame.tick : this.svc.ticker.currentTick() + 1;
     }
@@ -1055,9 +1073,10 @@ export class SpellActionHandler {
             }
         }
 
-        // Schedule damage for NPC target
+        // Schedule damage for NPC target. The hit tick comes from the OSRS magic
+        // hit-delay formula; the projectile visuals run on their own cycle timing.
         if (targetNpc && timing) {
-            const impactDelay = scheduledImpactDelayTicks ?? 1;
+            const impactDelay = this.magicHitDelayTicks(player, targetNpc);
             const currentTick = deliveryTick;
             let outcome: { landed: boolean; maxHit: number; damage: number };
             if (TEST_HIT_FORCE !== undefined && TEST_HIT_FORCE >= 0) {
@@ -1138,8 +1157,7 @@ export class SpellActionHandler {
                 outcome = { landed: dmg > 0, maxHit: spellData.baseMaxHit ?? 0, damage: dmg };
             }
 
-            const hitDelayTicks =
-                scheduledImpactDelayTicks ?? Math.max(1, Math.ceil(timing.hitDelay));
+            const hitDelayTicks = this.magicHitDelayTicks(player, undefined, targetPlayer);
             const expectedHitTick = currentTick + hitDelayTicks;
             this.svc.actionScheduler.requestAction(
                 player.id,

@@ -52,24 +52,25 @@ export class PlayerSpecialEnergyState {
     }
 
     tick(currentTick: number): boolean {
-        if (this.getUnits() >= SPECIAL_ENERGY_MAX) {
-            this.combat.nextSpecialRegenTick = currentTick + SPECIAL_ENERGY_REGEN_INTERVAL_TICKS;
-            return false;
-        }
+        // The regen cycle runs continuously and is NOT reset by spending energy
+        // or sitting at full — the first chunk after a spec arrives in 1-50 ticks.
         if (this.combat.nextSpecialRegenTick <= 0) {
             this.combat.nextSpecialRegenTick = currentTick + SPECIAL_ENERGY_REGEN_INTERVAL_TICKS;
             return false;
         }
-        if (currentTick >= this.combat.nextSpecialRegenTick) {
-            this.combat.specialEnergy = Math.min(
-                SPECIAL_ENERGY_MAX,
-                this.getUnits() + SPECIAL_ENERGY_REGEN_CHUNK,
-            );
-            this.combat.nextSpecialRegenTick = currentTick + SPECIAL_ENERGY_REGEN_INTERVAL_TICKS;
-            this.combat.specialEnergyDirty = true;
-            return true;
+        if (currentTick < this.combat.nextSpecialRegenTick) {
+            return false;
         }
-        return false;
+        this.combat.nextSpecialRegenTick = currentTick + SPECIAL_ENERGY_REGEN_INTERVAL_TICKS;
+        if (this.getUnits() >= SPECIAL_ENERGY_MAX) {
+            return false;
+        }
+        this.combat.specialEnergy = Math.min(
+            SPECIAL_ENERGY_MAX,
+            this.getUnits() + SPECIAL_ENERGY_REGEN_CHUNK,
+        );
+        this.combat.specialEnergyDirty = true;
+        return true;
     }
 
     hasUpdate(): boolean {

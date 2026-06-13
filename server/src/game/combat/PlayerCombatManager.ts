@@ -251,6 +251,10 @@ export class PlayerCombatManager {
     /** Player-vs-NPC engagements keyed by player PID. */
     private readonly engagements = new CombatEngagementRegistry();
 
+    /** Resolves the shuffled PID priority for processing order; falls back to player ID. */
+    private readonly resolvePidPriority = (playerId: number): number =>
+        this.playerManager?.getPlayerById(playerId)?.getPidPriority() ?? playerId;
+
     constructor(opts?: {
         scheduler?: ActionScheduler;
         players?: PlayerManager;
@@ -459,10 +463,10 @@ export class PlayerCombatManager {
         const attacksScheduled: Array<{ playerId: number; npcId: number; attackSpeed: number }> =
             [];
 
-        // Process combat in PID order (ascending player ID)
+        // Process combat in PID order (shuffled priority, not raw player ID)
         // Map iteration order is insertion order, not PID order
         // Reference: docs/tick-cycle-order.md
-        const sortedStates = this.engagements.entriesSortedByPid();
+        const sortedStates = this.engagements.entriesSortedByPid(this.resolvePidPriority);
 
         for (const [playerId, entry] of sortedStates) {
             const state = entry.state;
@@ -870,7 +874,9 @@ export class PlayerCombatManager {
         const pathService = ctx.pathService;
         if (!pathService) return;
 
-        for (const [playerId, entry] of this.engagements.entriesSortedByPid()) {
+        for (const [playerId, entry] of this.engagements.entriesSortedByPid(
+            this.resolvePidPriority,
+        )) {
             const state = entry.state;
             if (!state.engagement.playerAutoAttack) continue;
 
@@ -957,7 +963,9 @@ export class PlayerCombatManager {
         const pathService = ctx.pathService;
         if (!pathService) return;
 
-        for (const [playerId, entry] of this.engagements.entriesSortedByPid()) {
+        for (const [playerId, entry] of this.engagements.entriesSortedByPid(
+            this.resolvePidPriority,
+        )) {
             const state = entry.state;
             const npcId = state.engagement.npcId;
             if (!this.shouldLockPreMovement(playerId, npcId, ctx.tick)) continue;
@@ -1211,6 +1219,8 @@ export class PlayerCombatManager {
                 plans[i].damage = dmg;
                 plans[i].hitLanded = dmg > 0;
                 plans[i].hitsplatStyle = dmg > 0 ? plans[i].hitsplatStyle : HITMARK_BLOCK;
+                // Hits 1-2 land on the swing tick, hits 3-4 one tick later.
+                plans[i].hitDelay = basePlan.hitDelay + (i >= 2 ? 1 : 0);
             }
         }
 

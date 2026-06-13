@@ -53,7 +53,13 @@ export class CombatEngagementRegistry {
         return this.byPlayerId.keys();
     }
 
-    entriesSortedByPid(): Array<[number, CombatEngagementEntry]> {
-        return Array.from(this.byPlayerId.entries()).sort(([a], [b]) => a - b);
+    entriesSortedByPid(
+        pidOf?: (playerId: number) => number,
+    ): Array<[number, CombatEngagementEntry]> {
+        const entries = Array.from(this.byPlayerId.entries());
+        if (!pidOf) {
+            return entries.sort(([a], [b]) => a - b);
+        }
+        return entries.sort(([a], [b]) => pidOf(a) - pidOf(b) || a - b);
     }
 }

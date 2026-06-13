@@ -77,6 +77,8 @@ export class TickPhaseService {
         const { npcManager, players, followerManager, followerCombatManager, npcSyncManager } =
             this.svc;
 
+        players?.shufflePidsIfDue(frame.tick);
+
         if (npcManager) {
             try {
                 const playerLookup = (id: number) =>

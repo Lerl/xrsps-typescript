@@ -1,7 +1,6 @@
 import type { ProjectileLaunch } from "../../../../src/shared/projectiles/ProjectileLaunch";
 import { PLAYER_CHEST_OFFSET_UNITS } from "../../../../src/shared/projectiles/projectileHeights";
 import type { PathService } from "../../pathfinding/PathService";
-import { logger } from "../../utils/logger";
 import type { ProjectileParams } from "../data/ProjectileParamsProvider";
 import type { NpcState } from "../npc";
 import type { NpcManager } from "../npcManager";
@@ -9,11 +8,6 @@ import type { PlayerState } from "../player";
 import type { SpellDataEntry } from "../spells/SpellDataProvider";
 
 const TILE_UNIT = 128;
-
-interface SeqType {
-    frameLengths?: number[];
-    frameSounds?: Map<number, unknown[]>;
-}
 
 interface ProjectileSystemView {
     buildRangedProjectileLaunch(opts: Record<string, unknown>): ProjectileLaunch | undefined;
@@ -31,7 +25,6 @@ export interface ProjectileTimingServiceDeps {
     getTickMs: () => number;
     getCurrentTick: () => number;
     getActiveFrame: () => TickFrameView | undefined;
-    getSeqTypeLoader: () => { load(id: number): SeqType | undefined } | undefined;
     getNpcManager: () => NpcManager | undefined;
     getProjectileSystem: () => ProjectileSystemView | undefined;
     getPathService: () =>
@@ -39,8 +32,6 @@ export interface ProjectileTimingServiceDeps {
               sampleHeight?: (x: number, y: number, plane: number) => number | undefined;
           })
         | undefined;
-    pickSpellCastSequence: (player: PlayerState, spellId: number, isAutocast: boolean) => number;
-    pickAttackSequence: (player: PlayerState) => number;
 }
 
 export class ProjectileTimingService {
@@ -61,19 +52,15 @@ export class ProjectileTimingService {
         const projectileId = opts.spellData?.projectileId ?? -1;
 
         let startDelay = 0;
-        let usedCacheDelay = false;
         if (opts.spellData?.projectileStartDelay !== undefined) {
             startDelay = Math.max(0, opts.spellData.projectileStartDelay);
-            usedCacheDelay = true;
         } else if (opts.projectileDefaults?.startDelay !== undefined) {
             startDelay = Math.max(0, opts.projectileDefaults.startDelay);
-            usedCacheDelay = true;
         } else if (
             opts.projectileDefaults?.delayFrames !== undefined &&
             opts.projectileDefaults.delayFrames > 0
         ) {
             startDelay = Math.max(0, opts.projectileDefaults.delayFrames / framesPerTick);
-            usedCacheDelay = true;
         }
 
         let travelTime: number | undefined;
@@ -117,65 +104,10 @@ export class ProjectileTimingService {
 
         if (opts.spellData?.projectileReleaseDelayTicks !== undefined) {
             startDelay += Math.max(0, opts.spellData.projectileReleaseDelayTicks);
-        } else if (!usedCacheDelay) {
-            try {
-                let castSeq = -1;
-                if (opts.spellData) {
-                    if (opts.spellData.castAnimId !== undefined) {
-                        castSeq = opts.spellData.castAnimId;
-                    } else if (opts.spellData.id > 0) {
-                        const isAutocast =
-                            !!opts.player.combat.autocastEnabled &&
-                            (opts.player.combat.spellId ?? -1) === opts.spellData.id;
-                        castSeq = this.deps.pickSpellCastSequence(
-                            opts.player,
-                            opts.spellData.id,
-                            isAutocast,
-                        );
-                    }
-                } else {
-                    castSeq = this.deps.pickAttackSequence(opts.player);
-                }
-                const extra = this.estimateReleaseOffsetFromSeq(castSeq, framesPerTick);
-                if (extra !== undefined && extra > 0) {
-                    startDelay += extra;
-                }
-            } catch (err) {
-                logger.warn("[combat] attack sequence estimation failed", err);
-            }
         }
 
         const hitDelay = startDelay + travelTime;
         return { startDelay, travelTime, hitDelay, lineOfSight };
-    }
-
-    estimateReleaseOffsetFromSeq(seqId: number, framesPerTick: number): number | undefined {
-        if (!(seqId >= 0)) return undefined;
-        const loader = this.deps.getSeqTypeLoader();
-        if (!loader?.load) return undefined;
-        try {
-            const seq = loader.load(seqId);
-            if (!seq) return undefined;
-            const sounds = seq.frameSounds;
-            let frameIndex: number | undefined;
-            if (sounds) {
-                let best: number | undefined;
-                sounds.forEach((_v: unknown[], k: number) => {
-                    if (best === undefined || k < best) best = k;
-                });
-                frameIndex = best;
-            }
-            if (frameIndex === undefined) return undefined;
-            let frames = 0;
-            for (let i = 0; i <= Math.min(frameIndex, (seq.frameLengths?.length ?? 0) - 1); i++) {
-                const fl = seq.frameLengths![i] ?? 1;
-                frames += fl > 0 ? fl : 1;
-            }
-            const ticks = frames / Math.max(1, framesPerTick);
-            return Math.max(0, ticks);
-        } catch {
-            return undefined;
-        }
     }
 
     estimateProjectileTravelFramesForParams(
@@ -197,12 +129,7 @@ export class ProjectileTimingService {
         if (Number.isFinite(ticksPerTile as number) && (ticksPerTile as number) > 0) {
             return Math.max(1, Math.round(tiles * (ticksPerTile as number) * framesPerTick));
         }
-        const byModel = this.estimateFramesFromLifeModel(
-            defaults?.lifeModel,
-            tiles,
-            rayTiles,
-            framesPerTick,
-        );
+        const byModel = this.estimateFramesFromLifeModel(defaults?.lifeModel, tiles, rayTiles);
         if (byModel !== undefined) {
             return byModel;
         }
@@ -213,11 +140,9 @@ export class ProjectileTimingService {
         model: ProjectileParams["lifeModel"],
         distanceTiles: number,
         rayTiles?: number,
-        framesPerTick?: number,
     ): number | undefined {
         if (!model) return undefined;
         const tiles = Math.max(1, Math.round(distanceTiles));
-        const fpt = Math.max(1, Math.round(framesPerTick ?? 30));
         switch (model) {
             case "linear5":
                 return tiles * 5;
@@ -226,9 +151,9 @@ export class ProjectileTimingService {
             case "javelin":
                 return tiles * 3 + 2;
             case "magic": {
+                // Magic lifespan = 5 + (raycast path tiles * 10) client cycles.
                 const pathTiles = Math.max(1, Math.round(rayTiles ?? distanceTiles));
-                const travelTicks = 1 + Math.floor((1 + pathTiles) / 3);
-                return travelTicks * fpt;
+                return 5 + pathTiles * 10;
             }
             default:
                 return undefined;

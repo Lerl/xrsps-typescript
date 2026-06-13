@@ -83,8 +83,8 @@ export const PROJECTILE_ARCHETYPES: Record<ProjectileArchetypeName, ProjectileAr
 };
 
 /**
- * Convert RSMod projectile lifespan heuristics into client-frame units (20ms steps).
- * @returns number of client frames the projectile should persist, or -1 to signal caller-provided logic.
+ * Projectile flight lifespan in client cycles (20ms steps), excluding the launch delay.
+ * Magic uses raycast path tiles where available; callers without a raycast pass distance.
  */
 export function calculateProjectileLifeFrames(
     archetype: ProjectileArchetypeName,
@@ -101,6 +101,6 @@ export function calculateProjectileLifeFrames(
             return dist * 3 + 2;
         case "magic":
         default:
-            return -1;
+            return 5 + dist * 10;
     }
 }

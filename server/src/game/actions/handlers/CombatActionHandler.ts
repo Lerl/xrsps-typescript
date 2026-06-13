@@ -11,7 +11,6 @@
  */
 import { WebSocket } from "ws";
 
-import type { ProjectileLaunch } from "../../../../../src/shared/projectiles/ProjectileLaunch";
 import { encodeMessage } from "../../../network/messages";
 import type { PathService } from "../../../pathfinding/PathService";
 import { logger } from "../../../utils/logger";
@@ -270,24 +269,6 @@ export interface CombatActionServices {
     ): void;
     /** Estimate NPC despawn delay from death sequence. */
     estimateNpcDespawnDelayTicksFromSeq(seqId: number | undefined): number;
-
-    // --- Projectile ---
-    /** Estimate projectile timing. */
-    estimateProjectileTiming(params: {
-        player: PlayerState;
-        targetX?: number;
-        targetY?: number;
-        projectileDefaults?: ProjectileParams;
-        spellData?: unknown;
-        pathService?: PathService;
-    }): ProjectileTiming | undefined;
-    /** Build ranged projectile launch. */
-    buildPlayerRangedProjectileLaunch(params: {
-        player: PlayerState;
-        npc: NpcState;
-        projectile: ProjectileParams;
-        timing?: ProjectileTiming;
-    }): ProjectileLaunch | undefined;
 
     // --- Spell/Magic ---
     /** Process spell cast request. */
@@ -679,17 +660,6 @@ export class CombatActionHandler {
                 svc.combatEffectService.broadcastNpcSequence(npc, seqId, opts),
             estimateNpcDespawnDelayTicksFromSeq: (seqId) =>
                 svc.combatEffectService.estimateNpcDespawnDelayTicksFromSeq(seqId),
-
-            estimateProjectileTiming: (params) =>
-                svc.projectileTimingService!.estimateProjectileTiming(
-                    params as unknown as {
-                        player: PlayerState;
-                        targetX?: number;
-                        targetY?: number;
-                    },
-                ),
-            buildPlayerRangedProjectileLaunch: (params) =>
-                svc.projectileTimingService!.buildPlayerRangedProjectileLaunch(params),
 
             processSpellCastRequest: (player, request) =>
                 svc.spellActionHandler!.processSpellCastRequest(
@@ -1136,19 +1106,10 @@ export class CombatActionHandler {
         attackDelay = Math.max(1, attackDelay);
         player.combat.attackDelay = attackDelay;
 
-        // Keep combat hit resolution aligned with projectile travel so impact never resolves
-        // before the launched projectile can actually arrive.
+        // Hit ticks come purely from the OSRS hit-delay formulas (set in the attack
+        // plan); projectile visuals are an independent channel with their own cycles.
         const projectileSpec = data.projectile as ProjectileParams | undefined;
-        const minimumProjectileHitDelay = this.calculateMinimumProjectileHitDelay(
-            player,
-            npc,
-            projectileSpec,
-            plannedAttackType,
-        );
-        let fallbackHitDelay =
-            minimumProjectileHitDelay !== undefined
-                ? minimumProjectileHitDelay
-                : Math.max(0, this.svc.playerCombatService!.pickHitDelay(player));
+        const fallbackHitDelay = Math.max(0, this.svc.playerCombatService!.pickHitDelay(player));
 
         // Award magic base XP on cast
         // Skip if onMagicAttack already awarded base XP at schedule time (prevents double XP)
@@ -1173,7 +1134,7 @@ export class CombatActionHandler {
                 spellId,
                 ammoEffect,
             } = entryData;
-            const hitDelay = Math.max(0, Math.ceil(rawHitDelay), minimumProjectileHitDelay ?? 0);
+            const hitDelay = Math.max(0, Math.ceil(rawHitDelay));
             const damage = Math.max(0, rawDamage);
             const maxHit = Math.max(0, rawMaxHit);
             const style = explicitStyle ?? (damage > 0 || landed ? HITMARK_DAMAGE : HITMARK_BLOCK);
@@ -1408,52 +1369,6 @@ export class CombatActionHandler {
         const dy = toY - fromY;
         const angle = Math.atan2(dx, dy);
         return ((Math.round(angle * (2048 / (2 * Math.PI))) % 2048) + 2048) % 2048;
-    }
-
-    private calculateMinimumProjectileHitDelay(
-        player: PlayerState,
-        npc: NpcState,
-        projectileSpec: ProjectileParams | undefined,
-        attackType: AttackType | undefined,
-    ): number | undefined {
-        const pathService = this.svc.pathService;
-
-        if (projectileSpec && projectileSpec.projectileId) {
-            const timing = this.svc.projectileTimingService!.estimateProjectileTiming({
-                player,
-                targetX: npc.tileX,
-                targetY: npc.tileY,
-                projectileDefaults:
-                    projectileSpec as import("../../data/ProjectileParamsProvider").ProjectileParams,
-                pathService,
-            });
-            if (timing) {
-                return Math.max(1, Math.ceil(timing.startDelay + timing.travelTime));
-            }
-        }
-
-        if (attackType !== AttackType.Magic) {
-            return undefined;
-        }
-
-        const spellId = player.combat.spellId ?? -1;
-        const spellData = spellId > 0 ? getSpellData(spellId) : undefined;
-        if (spellData && spellData.category === "combat") {
-            const projectileDefaults = getProjectileParams(spellData.projectileId);
-            const timing = this.svc.projectileTimingService!.estimateProjectileTiming({
-                player,
-                targetX: npc.tileX,
-                targetY: npc.tileY,
-                projectileDefaults,
-                spellData,
-                pathService,
-            });
-            if (timing) {
-                return Math.max(1, Math.ceil(timing.startDelay + timing.travelTime));
-            }
-        }
-
-        return undefined;
     }
 
     private resolveHitLanded(landed: unknown, style: number, damage: number): boolean {

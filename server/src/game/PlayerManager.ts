@@ -42,6 +42,7 @@ export class PlayerManager implements PlayerRepository {
     private pathService: PathService;
     // Headless players (no websocket) for testing/simulation
     private bots: PlayerState[] = [];
+    private nextPidShuffleTick = 0;
     /**
      * Orphaned players - disconnected while in combat.
      * Key is saveKey (username), value is orphan data.
@@ -447,6 +448,21 @@ export class PlayerManager implements PlayerRepository {
 
     forEachBot(cb: (p: PlayerState) => void): void {
         for (const p of this.bots) cb(p);
+    }
+
+    /**
+     * Reassigns every player's PID priority at a random interval of 100-150
+     * ticks, mirroring the periodic PID shuffle. Fresh random priorities are
+     * equivalent to drawing a uniform random processing order.
+     */
+    shufflePidsIfDue(tick: number): void {
+        if (tick < this.nextPidShuffleTick) return;
+        this.nextPidShuffleTick = tick + 100 + Math.floor(Math.random() * 51);
+        for (const p of this.players.values()) p.setPidPriority(Math.random() * 0x7fffffff);
+        for (const orphan of this.orphanedPlayers.values()) {
+            orphan.player.setPidPriority(Math.random() * 0x7fffffff);
+        }
+        for (const p of this.bots) p.setPidPriority(Math.random() * 0x7fffffff);
     }
 
     getById(id: number): PlayerState | undefined {

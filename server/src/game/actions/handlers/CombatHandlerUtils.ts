@@ -5,7 +5,7 @@ import { HITMARK_DAMAGE } from "../../combat/HitEffects";
 import type { NpcState } from "../../npc";
 import type { PlayerState } from "../../player";
 import type { ActionEffect, ActionExecutionResult } from "../types";
-import type { CombatActionServices, HitPayload, ProjectileParams } from "./CombatActionHandler";
+import type { CombatActionServices, HitPayload } from "./CombatActionHandler";
 
 // Equipment slots (matches EquipmentSlot enum from Equipment.ts)
 // Note: AMMO is 10, not 13 - 13 is EquipmentDisplaySlot.AMMO for widget indices
@@ -219,52 +219,6 @@ export function handleAutocastRuneConsumption(
 
     player.markInventoryDirty();
     return { ok: true };
-}
-
-export function calculateMinimumProjectileHitDelay(
-    services: CombatActionServices,
-    player: PlayerState,
-    npc: NpcState,
-    projectileSpec: ProjectileParams | undefined,
-    attackType: AttackType | undefined,
-): number | undefined {
-    const pathService = services.getPathService();
-
-    if (projectileSpec && projectileSpec.projectileId) {
-        const timing = services.estimateProjectileTiming({
-            player,
-            targetX: npc.tileX,
-            targetY: npc.tileY,
-            projectileDefaults: projectileSpec,
-            pathService,
-        });
-        if (timing) {
-            return Math.max(1, Math.ceil(timing.startDelay + timing.travelTime));
-        }
-    }
-
-    if (attackType !== AttackType.Magic) {
-        return undefined;
-    }
-
-    const spellId = player.combat.spellId ?? -1;
-    const spellData = spellId > 0 ? services.getSpellData(spellId) : undefined;
-    if (spellData && spellData.category === "combat") {
-        const projectileDefaults = services.getProjectileParams(spellData.projectileId);
-        const timing = services.estimateProjectileTiming({
-            player,
-            targetX: npc.tileX,
-            targetY: npc.tileY,
-            projectileDefaults,
-            spellData,
-            pathService,
-        });
-        if (timing) {
-            return Math.max(1, Math.ceil(timing.startDelay + timing.travelTime));
-        }
-    }
-
-    return undefined;
 }
 
 export function resolveHitLanded(landed: unknown, style: number, damage: number): boolean {

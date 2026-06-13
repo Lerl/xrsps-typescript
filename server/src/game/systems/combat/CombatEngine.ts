@@ -672,16 +672,9 @@ export class CombatEngine {
     }
 
     private getTileDistance(player: PlayerState, npc: NpcState): number {
-        const px = player.tileX;
-        const py = player.tileY;
-        const minX = npc.tileX;
-        const minY = npc.tileY;
-        const size = Math.max(1, npc.size);
-        const maxX = minX + size - 1;
-        const maxY = minY + size - 1;
-        const clampedX = Math.max(minX, Math.min(px, maxX));
-        const clampedY = Math.max(minY, Math.min(py, maxY));
-        return Math.max(Math.abs(clampedX - px), Math.abs(clampedY - py));
+        // Hit-delay distance is Chebyshev between entity coordinates, which are
+        // south-west tiles — large NPC footprints do not shorten the distance.
+        return Math.max(Math.abs(npc.tileX - player.tileX), Math.abs(npc.tileY - player.tileY));
     }
 
     private estimateProjectileTravel(
