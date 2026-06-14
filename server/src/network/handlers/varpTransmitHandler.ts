@@ -3,9 +3,11 @@ import type { WebSocket } from "ws";
 import { EquipmentSlot } from "../../../../src/rs/config/player/Equipment";
 import { decodeSideJournalTabFromStateVarp } from "../../../../src/shared/ui/sideJournal";
 import {
+    VARBIT_KEYBINDING_ESC_TO_CLOSE,
     VARBIT_SHOP_QUANTITY,
     VARP_ATTACK_STYLE,
     VARP_AUTO_RETALIATE,
+    VARP_KEYBINDING_ESC_TO_CLOSE,
     VARP_MUSICPLAY,
     VARP_MUSIC_VOLUME,
     VARP_OPTION_RUN,
@@ -57,6 +59,9 @@ export function createVarpTransmitHandler(
 
             if (varpId === VARP_SHOP_QUANTITY) {
                 p.varps.setVarbitValue(VARBIT_SHOP_QUANTITY, value & 0x7);
+            }
+            if (varpId === VARP_KEYBINDING_ESC_TO_CLOSE) {
+                p.varps.setVarbitValue(VARBIT_KEYBINDING_ESC_TO_CLOSE, (value >>> 31) & 0x1);
             }
             if (varpId === VARP_SIDE_JOURNAL_STATE) {
                 handleSideJournalVarp(services, ctx.ws, p, value, previousVarpValue);

@@ -311,8 +311,6 @@ interface SelectedSpellInfo {
     sourceWidget?: any;
 }
 
-const SETTINGS_MODAL_GROUP_ID = 134;
-const SETTINGS_MODAL_SEARCH_BAR_CHILD_ID = 32;
 const DEVICE_OPTION_INTERFACE_SCALING = 27;
 
 // OSRS draw distance is constrained in Scene.setDrawDistanceRaw(25..90).
@@ -739,10 +737,6 @@ export class OsrsClient {
     private itemSpawnerSearchResultsVersion: number = 0;
     private itemSpawnerRenderedResultsVersion: number = -1;
     private itemSpawnerVisibleStartRow: number = -1;
-
-    // Track settings modal state for reliable close detection
-    private _settingsModalOpen: boolean = false;
-    private _settingsModalContainerUid: number = -1;
 
     // Script event queues (like OSRS's 3-tier priority system)
     private scriptEvents: ScriptEvent[] = []; // Normal priority
@@ -2199,14 +2193,6 @@ export class OsrsClient {
                         payload.groupId
                     } into widget ${payload.targetUid} (0x${(payload.targetUid | 0).toString(16)})`,
                 );
-                // Track when settings modal opens
-                if (payload.groupId === SETTINGS_MODAL_GROUP_ID) {
-                    this._settingsModalOpen = true;
-                    this._settingsModalContainerUid = payload.targetUid | 0;
-                    console.log(
-                        `[OsrsClient] Settings modal opened, container UID: ${this._settingsModalContainerUid}`,
-                    );
-                }
                 // Apply varps/varbits BEFORE opening the interface so scripts can read them.
                 if (this.varManager) {
                     this._serverVarpSync = true;
@@ -2280,39 +2266,12 @@ export class OsrsClient {
                     `[OsrsClient] Server closing sub-interface at widget ${targetUid} (ESC or close button)`,
                 );
 
-                // Check if this is closing the settings modal using our tracked state
-                const isSettingsModalClosing =
-                    this._settingsModalOpen && this._settingsModalContainerUid === targetUid;
-
-                // Try to get the closing parent normally
-                let closingParent = this.widgetManager?.getSubInterface(targetUid);
-                let closingGroupId = closingParent?.group ?? -1;
-
-                // If normal detection failed but our tracking says it's settings, use that
-                if (closingGroupId === -1 && isSettingsModalClosing) {
-                    closingGroupId = SETTINGS_MODAL_GROUP_ID;
-                    console.log("[OsrsClient] Identified settings modal closing via tracked state");
-                }
+                const closingParent = this.widgetManager?.getSubInterface(targetUid);
+                const closingGroupId = closingParent?.group ?? -1;
 
                 console.log(`[OsrsClient] Closing group ID: ${closingGroupId}`);
 
                 if (this.widgetManager) {
-                    // When closing an interface, any active text input should be cleared
-                    if (closingGroupId === SETTINGS_MODAL_GROUP_ID) {
-                        const groupInstance = this.widgetManager.getGroup(closingGroupId);
-                        if (groupInstance) {
-                            for (const widget of groupInstance.widgetsByUid.values()) {
-                                if (widget.type === 12) {
-                                    console.log(
-                                        `[OsrsClient] Found text input widget ${widget.uid} in closing interface, invalidating`,
-                                    );
-                                    this.widgetManager.invalidateWidgetRender(widget);
-                                    markWidgetInteractionDirty(widget);
-                                }
-                            }
-                        }
-                    }
-
                     this.widgetManager.closeSubInterface(targetUid);
                     this.cs2Vm.clearHandlerCaches();
                     if (this.widgetManager.meslayerContinueWidget) {
@@ -2321,67 +2280,6 @@ export class OsrsClient {
                         );
                         this.widgetManager.meslayerContinueWidget = null;
                     }
-                }
-
-                // CRITICAL FIX: When closing the settings modal, reset keyboard input mode
-                if (closingGroupId === SETTINGS_MODAL_GROUP_ID) {
-                    console.log(
-                        "[OsrsClient] Settings modal closed - resetting keyboard input mode",
-                    );
-
-                    // Clear our tracking flags
-                    this._settingsModalOpen = false;
-                    this._settingsModalContainerUid = -1;
-
-                    // Find and invalidate the search bar widget
-                    const searchBarUid =
-                        (SETTINGS_MODAL_GROUP_ID << 16) | SETTINGS_MODAL_SEARCH_BAR_CHILD_ID;
-                    const searchBar = this.widgetManager?.getWidgetByUid(searchBarUid);
-                    if (searchBar && searchBar.type === 12) {
-                        this.widgetManager.invalidateWidgetRender(searchBar);
-                        markWidgetInteractionDirty(searchBar);
-                        console.log("[OsrsClient] Invalidated settings search bar widget");
-                    }
-
-                    // Reset input dialog state
-                    this.cs2Vm.inputDialogType = 0;
-                    this.cs2Vm.inputDialogWidgetId = -1;
-                    this.cs2Vm.inputDialogString = "";
-                    this.varManager.setVarcString(335, "");
-                    this.varManager.setVarcInt(416, 0);
-                    this.varManager.setVarcInt(415, 0);
-
-                    // Clear active widget to release keyboard focus
-                    (this.cs2Vm as any).activeWidget = null;
-                    (this.cs2Vm as any).dotWidget = null;
-                    this.clickedWidget = null;
-                    this.clickedWidgetParent = null;
-                    this.dragSourceWidget = null;
-
-                    // Make chatbox visible
-                    const chatboxUid = 162 << 16;
-                    const chatboxWidget = this.widgetManager?.getWidgetByUid(chatboxUid);
-                    if (chatboxWidget && (chatboxWidget.hidden || chatboxWidget.isHidden)) {
-                        chatboxWidget.hidden = false;
-                        chatboxWidget.isHidden = false;
-                        this.widgetManager?.invalidateWidgetRender(chatboxWidget);
-                    }
-
-                    // Set the key varbits that enable chat input
-                    this.varManager.setVarbit(10662, 1);
-                    this.varManager.setVarbit(10663, 2);
-                    this.varManager.setVarbit(11583, 1);
-                    this.varManager.setVarbit(11584, 1);
-                    this.varManager.setVarbit(11585, 1);
-                    this.varManager.setVarbit(11693, 2);
-
-                    // Trigger chatbox onLoad to reinitialize
-                    if (chatboxWidget && chatboxWidget.onLoad) {
-                        console.log("[OsrsClient] Triggering chatbox onLoad");
-                        this.executeScriptListener(chatboxWidget, chatboxWidget.onLoad);
-                    }
-
-                    console.log("[OsrsClient] Chat input restored after close");
                 }
 
                 if (closingGroupId === ITEM_SPAWNER_MODAL_GROUP_ID) {

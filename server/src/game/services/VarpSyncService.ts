@@ -6,6 +6,7 @@ import {
     VARBIT_AUTOCAST_DEFMODE,
     VARBIT_AUTOCAST_SET,
     VARBIT_AUTOCAST_SPELL,
+    VARBIT_KEYBINDING_ESC_TO_CLOSE,
     VARBIT_MUSIC_UNLOCK_TEXT_TOGGLE,
     VARBIT_XPDROPS_ENABLED,
     VARP_AREA_SOUNDS_VOLUME,
@@ -343,6 +344,23 @@ export class VarpSyncService {
                     payload: {
                         varbitId: VARBIT_XPDROPS_ENABLED,
                         value: xpDropsEnabledValue,
+                    },
+                }),
+                "varbit",
+            ),
+        );
+
+        const escClosesInterfaceValue = player.varps.getVarbitValue(
+            VARBIT_KEYBINDING_ESC_TO_CLOSE,
+        );
+        this.services.networkLayer.withDirectSendBypass("varbit", () =>
+            this.services.networkLayer.sendWithGuard(
+                sock,
+                encodeMessage({
+                    type: "varbit",
+                    payload: {
+                        varbitId: VARBIT_KEYBINDING_ESC_TO_CLOSE,
+                        value: escClosesInterfaceValue,
                     },
                 }),
                 "varbit",

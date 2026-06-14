@@ -1,9 +1,11 @@
 import {
     VARBIT_HAM_TRAPDOOR,
+    VARBIT_KEYBINDING_ESC_TO_CLOSE,
     VARBIT_SHOP_QUANTITY,
     VARBIT_XPDROPS_ENABLED,
     VARP_AREA_SOUNDS_VOLUME,
     VARP_COMBAT_TARGET_PLAYER_INDEX,
+    VARP_KEYBINDING_ESC_TO_CLOSE,
     VARP_MASTER_VOLUME,
     VARP_MUSIC_VOLUME,
     VARP_SHOP_QUANTITY,
@@ -26,10 +28,14 @@ const NON_PERSISTENT_VARPS = new Set<number>([VARP_COMBAT_TARGET_PLAYER_INDEX, V
 const NON_PERSISTENT_VARBITS = new Set<number>([VARBIT_HAM_TRAPDOOR, VARBIT_SHOP_QUANTITY]);
 
 /** Varbits that should persist even when their value is 0. */
-const ZERO_PERSISTENT_VARBITS = new Set<number>([VARBIT_XPDROPS_ENABLED]);
+const ZERO_PERSISTENT_VARBITS = new Set<number>([
+    VARBIT_KEYBINDING_ESC_TO_CLOSE,
+    VARBIT_XPDROPS_ENABLED,
+]);
 
 /** Default value for XP drops varbit when no persisted value exists. */
 const DEFAULT_XPDROPS_ENABLED = 1;
+const DEFAULT_KEYBINDING_ESC_TO_CLOSE = 1;
 
 export interface VarpSerializedData {
     varps?: Record<number, number>;
@@ -147,6 +153,7 @@ export class PlayerVarpState implements PersistentSubState<VarpSerializedData> {
         this.varpValues.clear();
         this.varbitValues.clear();
         if (!data) {
+            this.setVarbitValue(VARBIT_KEYBINDING_ESC_TO_CLOSE, DEFAULT_KEYBINDING_ESC_TO_CLOSE);
             this.setVarbitValue(VARBIT_XPDROPS_ENABLED, DEFAULT_XPDROPS_ENABLED);
             return;
         }
@@ -165,6 +172,21 @@ export class PlayerVarpState implements PersistentSubState<VarpSerializedData> {
                     this.setVarbitValue(id, value);
                 }
             }
+        }
+        const hasEscClosesInterfaceVarbit =
+            !!data.varbits &&
+            Object.prototype.hasOwnProperty.call(
+                data.varbits,
+                String(VARBIT_KEYBINDING_ESC_TO_CLOSE),
+            );
+        if (!hasEscClosesInterfaceVarbit) {
+            const savedBackingVarp = this.varpValues.get(VARP_KEYBINDING_ESC_TO_CLOSE);
+            this.setVarbitValue(
+                VARBIT_KEYBINDING_ESC_TO_CLOSE,
+                savedBackingVarp === undefined
+                    ? DEFAULT_KEYBINDING_ESC_TO_CLOSE
+                    : (savedBackingVarp >>> 31) & 0x1,
+            );
         }
         if (
             !data.varbits ||

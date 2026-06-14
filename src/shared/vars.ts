@@ -80,6 +80,14 @@ export const VARP_OPTION_ATTACK_PRIORITY_PLAYER = 1107;
 export const VARP_OPTION_ATTACK_PRIORITY_NPC = 1306;
 
 /**
+ * "Esc closes the current interface" keybinding option.
+ * Reference CS2: %keybinding_esc_to_close.
+ * Cache-verified from OSRS rev 237: varbit 4681 -> varp 1224, bit 31.
+ */
+export const VARBIT_KEYBINDING_ESC_TO_CLOSE = 4681;
+export const VARP_KEYBINDING_ESC_TO_CLOSE = 1224;
+
+/**
  * Active follower NPC server index.
  * Cache-verified from local rev 236 varp definitions: varp 447 has client option type 17.
  * OSRS uses this to gate follower menus to the player's current active follower only.
@@ -322,6 +330,7 @@ export const TRANSMIT_VARPS: ReadonlySet<number> = new Set([
     VARP_ATTACK_STYLE, // Combat attack style
     VARP_AUTO_RETALIATE, // Auto-retaliate toggle
     VARP_SPECIAL_ATTACK, // Special attack toggle
+    VARP_KEYBINDING_ESC_TO_CLOSE, // %keybinding_esc_to_close
     VARP_SHOP_QUANTITY, // Shop quantity selector (%shop_quantity)
     VARP_SIDE_JOURNAL_STATE, // Side journal tab selection (drives IF_OPENSUB swap for 629:43)
     ...XPDROPS_TRANSMIT_VARPS, // XP drops setup/tracker persistence
