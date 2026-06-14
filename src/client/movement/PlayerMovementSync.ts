@@ -46,7 +46,11 @@ export class PlayerMovementSync {
         private readonly npcEcs?: NpcEcs,
         private readonly seqTypeLoader?: SeqTypeLoader,
         private readonly getCollisionFlagAt?: CollisionFlagAtFn,
-    ) {}
+    ) {
+        this.playerEcs.setInteractionOrientationProvider?.((ecsIndex) =>
+            this.computeInteractionOrientation(ecsIndex),
+        );
+    }
 
     /**
      * Clears all pending movement for the given serverId.

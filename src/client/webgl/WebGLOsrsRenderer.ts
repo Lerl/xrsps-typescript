@@ -13216,10 +13216,6 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                     mapY: localY,
                     tile: walkTile ? { tileX, tileY, plane: (walkTile as any)?.plane } : undefined,
                     onClick: (_entry, evt?: MouseEvent) => {
-                        // Cancel any active follow/interact
-                        try {
-                            this.osrsClient.playerInteractionSystem.cancel("walk here");
-                        } catch {}
                         try {
                             if (isServerConnected()) sendInteractStop();
                         } catch {}
@@ -14207,9 +14203,6 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                 // For "Walk here", handle directly using clicked tile (menu coords may be stale)
                 const isWalk = defaultEntry.option === "Walk here";
                 if (isWalk && clicked) {
-                    try {
-                        this.osrsClient.playerInteractionSystem.cancel("walk here");
-                    } catch {}
                     try {
                         if (isServerConnected()) sendInteractStop();
                     } catch {}

@@ -99,6 +99,7 @@ type SpecialAttackPayload = {
         prayerDisableTicks?: number;
         drainMagicByDamage?: boolean;
         drainCombatStatByDamage?: boolean;
+        ignoreProtectionPrayer?: boolean;
     };
     /** Dark bow specific: minimum damage per hit */
     minDamagePerHit?: number;
@@ -1128,6 +1129,9 @@ export class PlayerCombatManager {
                 )?.drainCombatStatByDamage;
                 if (drainCombatStatByDamage || specialDef.effects?.drainAllCombatByDamage) {
                     effects.drainCombatStatByDamage = true;
+                }
+                if (specialDef.effects?.ignoreProtectionPrayer) {
+                    effects.ignoreProtectionPrayer = true;
                 }
                 const hasEffects = Object.values(effects).some((v) => v !== undefined);
 

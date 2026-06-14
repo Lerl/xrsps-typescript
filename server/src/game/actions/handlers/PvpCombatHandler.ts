@@ -128,6 +128,7 @@ export class PvpCombatHandler {
             expectedHitTick = 0,
             spellId: explicitSpellIdRaw,
             attackType: rawAttackType,
+            special,
         } = data;
         const damage = Math.max(0, rawDamage);
         const maxHit = Math.max(0, rawMaxHit);
@@ -152,12 +153,9 @@ export class PvpCombatHandler {
         // Apply damage with protection prayers
         const currentHp = target.skillSystem.getHitpointsCurrent?.() ?? 0;
         const actualDamage = Math.min(damage, currentHp);
-        const mitigatedDamage = this.services.applyProtectionPrayers(
-            target,
-            actualDamage,
-            attackType,
-            "player",
-        );
+        const mitigatedDamage = special?.effects?.ignoreProtectionPrayer
+            ? actualDamage
+            : this.services.applyProtectionPrayers(target, actualDamage, attackType, "player");
         const landedFlag = landed === true ? true : landed === false ? false : undefined;
 
         // Apply damage

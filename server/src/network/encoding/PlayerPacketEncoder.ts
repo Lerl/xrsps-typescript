@@ -501,10 +501,16 @@ export class PlayerPacketEncoder {
 
         // Emit interaction + movementType + appearance blocks
         for (const id of activeNow) {
-            const interaction = interactionIndices.get(id) ?? -1;
-            this.computeInteractionDelta(session, id, interaction, markMask);
-
             const view = viewById.get(id);
+            const interaction = interactionIndices.get(id) ?? -1;
+            this.computeInteractionDelta(
+                session,
+                id,
+                interaction,
+                markMask,
+                view?.interactionDirty === true,
+            );
+
             if (view && (spawnSet.has(id) || this.shouldWriteAppearance(session, id, view))) {
                 const entry = markMask(id, PLAYER_MASKS.APPEARANCE);
                 entry.appearance = this.serializeAppearancePayload(view);
@@ -1443,17 +1449,18 @@ export class PlayerPacketEncoder {
         id: number,
         nextIndex: number,
         markMask: (id: number, mask: number) => PlayerUpdateInfo,
+        force: boolean = false,
     ): boolean {
         const normalized = nextIndex >= 0 ? nextIndex : -1;
         const last = session.lastInteractionIndex.get(id);
         if (normalized < 0) {
-            if (last === undefined) return false;
+            if (last === undefined && !force) return false;
             session.lastInteractionIndex.delete(id);
             const entry = markMask(id, PLAYER_MASKS.FACE_ENTITY);
             entry.face = -1;
             return true;
         }
-        if (last === normalized) {
+        if (last === normalized && !force) {
             return false;
         }
         session.lastInteractionIndex.set(id, normalized);

@@ -305,9 +305,9 @@ export class PlayerInteractionSystem {
      * RSMod parity: Called alongside player.resetInteractions() when player walks
      * and whenever a new click intent replaces an old one.
      *
-     * IMPORTANT: For NPC combat, we preserve the intent state here.
-     * Walking away should stop auto-attack in PlayerCombatManager without immediately
-     * deleting the combat-facing intent.
+     * Walking away stops auto-attack and clears the combat-facing intent. A later
+     * attack click recreates it, which makes the player update mask clear/re-send
+     * interactingIndex just like the reference client expects.
      */
     clearAllInteractions(ws: WebSocket): void {
         const st = this.interactions.get(ws);
@@ -320,12 +320,8 @@ export class PlayerInteractionSystem {
                 me.combat.setInteractingPlayer(null);
             }
 
-            if (st.kind === "npcCombat") {
-                if (me) {
-                    this.onStopAutoAttack?.(me.id);
-                }
-                this.pendingLocInteractions.delete(ws);
-                return;
+            if (st.kind === "npcCombat" && me) {
+                this.onStopAutoAttack?.(me.id);
             }
         }
         this.interactions.delete(ws);

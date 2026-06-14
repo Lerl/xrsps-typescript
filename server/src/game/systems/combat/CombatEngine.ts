@@ -15,6 +15,8 @@ import {
     type EquipmentBonusResult,
     type SlayerTaskInfo,
     type TargetInfo,
+    applyTumekenMagicAttackBonus,
+    applyTumekenMagicDamageBonus,
     calculateEquipmentBonuses,
 } from "../../combat/EquipmentBonusProvider";
 import { HITMARK_BLOCK, HITMARK_DAMAGE } from "../../combat/HitEffects";
@@ -307,17 +309,53 @@ export class CombatEngine {
             this.getPrayerMultiplier(attacker, "magic"),
             atkStance.magic ?? 0,
         );
-        const atkBonus = atkBonuses[atkStyle.bonusIndex] ?? 0;
-        const attackRoll = CombatFormulas.attackRoll({
-            effectiveLevel: atkEffective,
-            bonus: this.clampEquipmentBonus(atkBonus),
-        });
+        const equipment = this.getPlayerEquipment(attacker);
+        const hp = this.getPlayerHitpoints(attacker);
+        const targetInfo: TargetInfo = {
+            species: [],
+            magicLevel: this.getBoostedLevel(defender, SkillId.Magic),
+            isUndead: false,
+            isDemon: false,
+            isDragon: false,
+            isKalphite: false,
+        };
+        const equipmentEffects = calculateEquipmentBonuses(
+            equipment,
+            AttackType.Magic,
+            targetInfo,
+            { onTask: false },
+            hp.current,
+            hp.max,
+            this.getBoostedLevel(attacker, SkillId.Magic),
+            this.getActiveSpellId(attacker),
+        );
+        const atkBonus = applyTumekenMagicAttackBonus(
+            atkBonuses[atkStyle.bonusIndex] ?? 0,
+            equipmentEffects.tumekenMagicAttackMultiplier,
+        );
+        const atkAccuracyLevel = this.applyEffectiveLevelMultiplier(
+            atkEffective,
+            equipmentEffects.accuracyLevelMultiplier,
+        );
+        const attackRoll = Math.floor(
+            CombatFormulas.attackRoll({
+                effectiveLevel: atkAccuracyLevel,
+                bonus: this.clampEquipmentBonus(atkBonus),
+            }) * Math.max(0, equipmentEffects.accuracyMultiplier),
+        );
 
         // Max hit (baseMaxHit with magic damage%)
-        const magicDamagePct = atkBonuses[MAGIC_DAMAGE_INDEX] ?? 0;
+        const magicDamagePct = applyTumekenMagicDamageBonus(
+            atkBonuses[MAGIC_DAMAGE_INDEX] ?? 0,
+            equipmentEffects.tumekenMagicDamageMultiplier,
+        );
         const baseDamage = this.resolveMagicBaseDamage(attacker, atkEffective);
-        const maxHit = Math.floor(
+        const baseMaxHit = Math.floor(
             Math.max(0, baseDamage) * (1 + Math.max(0, magicDamagePct) / 100),
+        );
+        const maxHit = Math.floor(
+            Math.max(0, baseMaxHit + equipmentEffects.maxHitBonus) *
+                Math.max(0, equipmentEffects.damageMultiplier),
         );
 
         // Defender profile (magic defence)
@@ -400,9 +438,21 @@ export class CombatEngine {
         const attackProfile = { ...baseProfile, attackRoll, maxHit };
         const defenceRoll = this.computeNpcDefenceRoll(context, attackProfile);
         const forceHit = !!modifiers?.forceHit;
+        const ammoId =
+            attackProfile.style.kind === AttackType.Ranged
+                ? this.getEquippedAmmoId(context.player)
+                : -1;
+        const boltEffect = ammoId > 0 ? getEnchantedBoltEffect(ammoId) : undefined;
+        const preRolledBoltEffect =
+            boltEffect?.effectType === BoltEffectType.DefenseDrain &&
+            doesBoltEffectActivate(ammoId, false, () => this.rng.next())
+                ? boltEffect
+                : undefined;
+        const effectiveDefenceRoll =
+            preRolledBoltEffect?.effectType === BoltEffectType.DefenseDrain ? 0 : defenceRoll;
         const hitChance = forceHit
             ? 1
-            : this.computeHitChance(attackProfile.attackRoll, defenceRoll);
+            : this.computeHitChance(attackProfile.attackRoll, effectiveDefenceRoll);
         // Hit delays: Melee 0 (hitsplat on the swing tick), Ranged 1 + floor((3+dist)/6),
         // Magic 1 + floor((1+dist)/3).
         const hitDelay = this.computeHitDelay(context, attackProfile.style);
@@ -419,17 +469,22 @@ export class CombatEngine {
         }
         let ammoEffect: AmmoEffectPlan | undefined;
         if (hitLanded && attackProfile.style.kind === AttackType.Ranged) {
-            const ammoId = this.getEquippedAmmoId(context.player);
-            const boltEffect = ammoId > 0 ? getEnchantedBoltEffect(ammoId) : undefined;
-            if (boltEffect && doesBoltEffectActivate(ammoId, false, () => this.rng.next())) {
+            const activatedBoltEffect =
+                preRolledBoltEffect ??
+                (boltEffect &&
+                boltEffect.effectType !== BoltEffectType.DefenseDrain &&
+                doesBoltEffectActivate(ammoId, false, () => this.rng.next())
+                    ? boltEffect
+                    : undefined);
+            if (activatedBoltEffect) {
                 ammoEffect = {
-                    effectType: boltEffect.effectType,
-                    graphicId: boltEffect.graphicId,
+                    effectType: activatedBoltEffect.effectType,
+                    graphicId: activatedBoltEffect.graphicId,
                 };
-                switch (boltEffect.effectType) {
+                switch (activatedBoltEffect.effectType) {
                     case BoltEffectType.HpDrain: {
                         const targetHp = Math.max(0, context.npc.getHitpoints());
-                        const percent = boltEffect.damageMultiplier ?? 0;
+                        const percent = activatedBoltEffect.damageMultiplier ?? 0;
                         let drained = Math.floor(targetHp * Math.max(0, percent));
                         if (percent > 0.2) {
                             drained = Math.min(drained, 110);
@@ -437,20 +492,20 @@ export class CombatEngine {
                             drained = Math.min(drained, 100);
                         }
                         damage = Math.max(0, drained);
-                        if (boltEffect.selfDamagePercent) {
+                        if (activatedBoltEffect.selfDamagePercent) {
                             const selfDamage = Math.floor(
-                                hp.current * Math.max(0, boltEffect.selfDamagePercent),
+                                hp.current * Math.max(0, activatedBoltEffect.selfDamagePercent),
                             );
                             ammoEffect.selfDamage = Math.max(0, selfDamage);
                         }
                         break;
                     }
                     case BoltEffectType.LifeLeech: {
-                        if (boltEffect.damageMultiplier && damage > 0) {
-                            damage = Math.floor(damage * boltEffect.damageMultiplier);
+                        if (activatedBoltEffect.damageMultiplier && damage > 0) {
+                            damage = Math.floor(damage * activatedBoltEffect.damageMultiplier);
                         }
-                        if (boltEffect.leechPercent) {
-                            ammoEffect.leechPercent = Math.max(0, boltEffect.leechPercent);
+                        if (activatedBoltEffect.leechPercent) {
+                            ammoEffect.leechPercent = Math.max(0, activatedBoltEffect.leechPercent);
                         }
                         break;
                     }
@@ -464,8 +519,8 @@ export class CombatEngine {
                     }
                     case BoltEffectType.DamageBoost:
                     case BoltEffectType.DefenseDrain: {
-                        if (boltEffect.damageMultiplier && damage > 0) {
-                            damage = Math.floor(damage * boltEffect.damageMultiplier);
+                        if (activatedBoltEffect.damageMultiplier && damage > 0) {
+                            damage = Math.floor(damage * activatedBoltEffect.damageMultiplier);
                         }
                         break;
                     }
@@ -1031,7 +1086,10 @@ export class CombatEngine {
                     this.getPrayerMultiplier(context.player, "magic"),
                     stanceBonus.magic ?? 0,
                 );
-                const attackBonus = equipmentBonuses[style.bonusIndex] ?? 0;
+                const attackBonus = applyTumekenMagicAttackBonus(
+                    equipmentBonuses[style.bonusIndex] ?? 0,
+                    equipmentEffects?.tumekenMagicAttackMultiplier,
+                );
                 // Void scales the accuracy level only; powered-staff base damage
                 // continues to use the unscaled effective magic level.
                 const accuracyLevel = this.applyEffectiveLevelMultiplier(
@@ -1043,7 +1101,10 @@ export class CombatEngine {
                     bonus: this.clampEquipmentBonus(attackBonus),
                 });
 
-                const magicDamagePct = equipmentBonuses[MAGIC_DAMAGE_INDEX] ?? 0;
+                const magicDamagePct = applyTumekenMagicDamageBonus(
+                    equipmentBonuses[MAGIC_DAMAGE_INDEX] ?? 0,
+                    equipmentEffects?.tumekenMagicDamageMultiplier,
+                );
                 const baseDamage = this.resolveMagicBaseDamage(context.player, effectiveLevel);
                 const maxHit = Math.floor(
                     Math.max(0, baseDamage) * (1 + Math.max(0, magicDamagePct) / 100),

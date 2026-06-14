@@ -94,6 +94,7 @@ const CRYSTAL_BOW_IDS = new Set([
 const BOW_OF_FAERDHINEN = 25862;
 
 const TOME_OF_FIRE = 20714;
+const TOME_OF_FIRE_SPELL_IDS = new Set<number>([3279, 3291, 3307, 3321, 21879]);
 
 const SMOKE_BATTLESTAFF = 11998;
 const MYSTIC_SMOKE_STAFF = 12000;
@@ -667,7 +668,8 @@ function applyMagicBonuses(
     const shield = equipment[EquipmentSlot.SHIELD];
     const hands = equipment[EquipmentSlot.GLOVES];
 
-    if (shield === TOME_OF_FIRE) {
+    if (shield === TOME_OF_FIRE && spellId !== undefined && TOME_OF_FIRE_SPELL_IDS.has(spellId)) {
+        result.damageMultiplier *= 1.5;
         result.notes.push("Tome of Fire equipped (fire spells: +50% damage)");
     }
 

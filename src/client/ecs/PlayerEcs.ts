@@ -21,6 +21,7 @@ export type PlayerAnimKey =
     | "turnRight";
 
 type PlayerAnimSet = Partial<Record<PlayerAnimKey, number | undefined>>;
+type InteractionOrientationProvider = (ecsIndex: number) => number | undefined;
 
 export class PlayerEcs {
     private capacity = 0;
@@ -220,6 +221,7 @@ export class PlayerEcs {
     private colorOverrideEndCycle!: Int32Array; // End cycle
 
     private seqTypeLoader?: SeqTypeLoader;
+    private interactionOrientationProvider?: InteractionOrientationProvider;
 
     constructor(initialCapacity: number = 16) {
         this.ensureCapacity(initialCapacity);
@@ -227,6 +229,10 @@ export class PlayerEcs {
 
     setSeqTypeLoader(loader?: SeqTypeLoader): void {
         this.seqTypeLoader = loader;
+    }
+
+    setInteractionOrientationProvider(provider?: InteractionOrientationProvider): void {
+        this.interactionOrientationProvider = provider;
     }
 
     // Server ID management
@@ -2253,6 +2259,16 @@ export class PlayerEcs {
                         (((this.srvT?.[i] as number) ?? 1.0) < 1.0 ? 1 : 0) +
                         (this._queueLen(i) | 0);
 
+                    if ((this.getInteractionIndex(i) | 0) !== NO_INTERACTION) {
+                        const interactionOrientation = this.interactionOrientationProvider?.(i);
+                        if (
+                            typeof interactionOrientation === "number" &&
+                            Number.isFinite(interactionOrientation)
+                        ) {
+                            this.targetRot[i] = interactionOrientation & 2047;
+                        }
+                    }
+
                     // When idle or movement-delayed, apply face tile/direction once and clear.
                     if (pathLengthLike === 0 || (this.movementDelayCounter[i] | 0) > 0) {
                         let faceOrientation = -1;
@@ -2675,17 +2691,6 @@ export class PlayerEcs {
         if (!this.interactionIndex) return;
         const prev = this.interactionIndex[i] | 0;
         const next = typeof index === "number" && index >= 0 ? index | 0 : NO_INTERACTION;
-        if (prev !== next) {
-            try {
-                const serverId = this.getServerIdForIndex(i);
-                console.log("[client] interaction index update", {
-                    serverId,
-                    index: i,
-                    prev,
-                    next,
-                });
-            } catch {}
-        }
         this.interactionIndex[i] = next;
     }
     getInteractionIndex(i: number): number {

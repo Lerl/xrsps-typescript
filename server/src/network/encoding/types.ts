@@ -87,6 +87,8 @@ export interface PlayerViewSnapshot {
     appearance?: PlayerAppearance;
     name?: string;
     anim?: PlayerAnimSet;
+    interactionIndex?: number;
+    interactionDirty?: boolean;
     moved: boolean;
     turned: boolean;
     snap: boolean;

@@ -82,6 +82,7 @@ export interface CombatSpecialEffectsData {
     prayerDisableTicks?: number;
     drainMagicByDamage?: boolean;
     drainCombatStatByDamage?: boolean;
+    ignoreProtectionPrayer?: boolean;
 }
 
 export interface CombatSpecialPayloadData {
