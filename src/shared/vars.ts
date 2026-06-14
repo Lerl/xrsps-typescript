@@ -150,6 +150,14 @@ export const VARBIT_MULTICOMBAT_AREA = 4605;
 /** PvP spec orb - 1 when in PvP area (affects spec orb visibility), 0 otherwise */
 export const VARBIT_PVP_SPEC_ORB = 8121;
 
+/**
+ * Shop stock primary action quantity selector.
+ * Cache-verified from OSRS rev 237: varbit 6348 -> varp 1022, bits 0..2.
+ * Values: 0 = Value, 1 = Buy 1, 2 = Buy 5, 3 = Buy 10, 4 = Buy 50.
+ */
+export const VARBIT_SHOP_QUANTITY = 6348;
+export const VARP_SHOP_QUANTITY = 1022;
+
 /** Last Man Standing / Battle Royale in-game - 1 when in LMS match, 0 otherwise */
 export const VARBIT_IN_LMS = 5314;
 
@@ -314,6 +322,7 @@ export const TRANSMIT_VARPS: ReadonlySet<number> = new Set([
     VARP_ATTACK_STYLE, // Combat attack style
     VARP_AUTO_RETALIATE, // Auto-retaliate toggle
     VARP_SPECIAL_ATTACK, // Special attack toggle
+    VARP_SHOP_QUANTITY, // Shop quantity selector (%shop_quantity)
     VARP_SIDE_JOURNAL_STATE, // Side journal tab selection (drives IF_OPENSUB swap for 629:43)
     ...XPDROPS_TRANSMIT_VARPS, // XP drops setup/tracker persistence
     // Sound/music settings - transmit so server can persist them

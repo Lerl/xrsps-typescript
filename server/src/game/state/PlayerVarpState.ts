@@ -1,10 +1,12 @@
 import {
     VARBIT_HAM_TRAPDOOR,
+    VARBIT_SHOP_QUANTITY,
     VARBIT_XPDROPS_ENABLED,
     VARP_AREA_SOUNDS_VOLUME,
     VARP_COMBAT_TARGET_PLAYER_INDEX,
     VARP_MASTER_VOLUME,
     VARP_MUSIC_VOLUME,
+    VARP_SHOP_QUANTITY,
     VARP_SOUND_EFFECTS_VOLUME,
 } from "../../../../src/shared/vars";
 import type { PersistentSubState } from "./PersistentSubState";
@@ -18,10 +20,10 @@ const ZERO_PERSISTENT_VARPS = new Set<number>([
 ]);
 
 /** Varps that are session-only and must NOT be saved to disk. */
-const NON_PERSISTENT_VARPS = new Set<number>([VARP_COMBAT_TARGET_PLAYER_INDEX]);
+const NON_PERSISTENT_VARPS = new Set<number>([VARP_COMBAT_TARGET_PLAYER_INDEX, VARP_SHOP_QUANTITY]);
 
 /** Varbits that are session-only and must NOT be saved to disk. */
-const NON_PERSISTENT_VARBITS = new Set<number>([VARBIT_HAM_TRAPDOOR]);
+const NON_PERSISTENT_VARBITS = new Set<number>([VARBIT_HAM_TRAPDOOR, VARBIT_SHOP_QUANTITY]);
 
 /** Varbits that should persist even when their value is 0. */
 const ZERO_PERSISTENT_VARBITS = new Set<number>([VARBIT_XPDROPS_ENABLED]);
