@@ -288,6 +288,14 @@ export class HealthBarOverlay implements Overlay {
             const displayDuration = (definition?.int5 ?? 70) | 0;
             const fadeOutStartCycle = (definition?.int3 ?? -1) | 0;
             const secondarySaturation = (definition?.stepIncrement ?? 1) | 0;
+            const elapsed = gameCycle - (entry.cycle | 0);
+            if (elapsed < 0) {
+                continue;
+            }
+            const remaining = displayDuration + (entry.cycleOffset | 0) - elapsed;
+            if (remaining <= 0) {
+                continue;
+            }
 
             let pad = 0;
             let usable: number;
@@ -302,7 +310,6 @@ export class HealthBarOverlay implements Overlay {
             }
 
             let alpha256 = 255;
-            const elapsed = gameCycle - (entry.cycle | 0);
             const target = Math.trunc((usable * (entry.health2 | 0)) / barWidth);
             let fill: number;
             if ((entry.cycleOffset | 0) > elapsed) {
@@ -314,7 +321,6 @@ export class HealthBarOverlay implements Overlay {
                 fill = Math.trunc((step * (target - start)) / (entry.cycleOffset | 0)) + start;
             } else {
                 fill = target;
-                const remaining = displayDuration + (entry.cycleOffset | 0) - elapsed;
                 if (fadeOutStartCycle >= 0) {
                     alpha256 = Math.trunc(
                         (remaining << 8) / (displayDuration - fadeOutStartCycle),
