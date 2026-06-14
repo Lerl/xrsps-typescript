@@ -1314,7 +1314,7 @@ function sanitizeSkillEntry(raw: any): SkillEntryMessage {
     const baseLevel = Math.max(1, Number(raw?.baseLevel) || 1);
     const virtualLevel = Math.max(baseLevel, Number(raw?.virtualLevel) || baseLevel);
     const boost = Number.isFinite(raw?.boost) ? Number(raw.boost) : 0;
-    const minCurrent = id === SkillId.Hitpoints ? 0 : 1;
+    const minCurrent = id === SkillId.Hitpoints || id === SkillId.Prayer ? 0 : 1;
     const fallbackCurrent = baseLevel + boost;
     const rawCurrent = Number(raw?.currentLevel);
     const currentLevel = Math.max(

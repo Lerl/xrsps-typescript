@@ -1,3 +1,4 @@
+import { PRAYER_RECHARGE_SOUND_ID } from "../../../../../src/rs/prayer/prayers";
 import { SkillId } from "../../../../../src/rs/skill/skills";
 import type { IScriptRegistry, ScriptServices } from "../../../../src/game/scripts/types";
 import { BURIABLE_BONES_XP } from "./prayerData";
@@ -73,7 +74,6 @@ export function register(registry: IScriptRegistry, services: ScriptServices): v
             const pid = player.id;
             const tick = event.tick;
             if (hasCooldown(lastPrayTickByPlayer, pid, tick, PRAY_COOLDOWN_TICKS)) return;
-            services.animation.playPlayerSeq(player, PRAY_AT_ALTAR_ANIM);
             const prayerSkill = services.skills.getSkill(player, SkillId.Prayer);
             const baseLevel = Math.max(1, prayerSkill?.baseLevel ?? 1);
             const currentLevel = Math.max(0, baseLevel + (prayerSkill?.boost ?? 0));
@@ -82,8 +82,10 @@ export function register(registry: IScriptRegistry, services: ScriptServices): v
                 markCooldown(lastPrayTickByPlayer, pid, tick);
                 return;
             }
+            services.animation.playPlayerSeq(player, PRAY_AT_ALTAR_ANIM);
             player.skillSystem.setSkillBoost(SkillId.Prayer, baseLevel);
             player.prayer.resetDrainAccumulator();
+            services.sound.sendSound(player, PRAYER_RECHARGE_SOUND_ID);
             services.messaging.sendGameMessage(player, "You recharge your Prayer points.");
             markCooldown(lastPrayTickByPlayer, pid, tick);
         });

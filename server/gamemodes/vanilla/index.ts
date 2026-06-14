@@ -41,6 +41,7 @@ import { registerWidgetCloseHandlers } from "./modals/widgetCloseHandlers";
 import { registerWidgetOpenHandlers } from "./modals/widgetOpenHandlers";
 import { registerQuestHandlers } from "./quests";
 import { registerAlKharidBorderHandlers } from "./scripts/content/alKharidBorder";
+import { registerBobHandlers } from "./scripts/content/bob";
 import { registerClimbingHandlers } from "./scripts/content/climbing";
 import { registerDefaultTalkHandlers } from "./scripts/content/defaultTalk";
 import { registerDemoInteractionHandlers } from "./scripts/content/demoInteractions";
@@ -198,6 +199,7 @@ export class VanillaGamemode extends BaseGamemode {
         registerPohPoolHandlers(registry, services);
         registerWildernessAccessHandlers(registry, services);
         registerAlKharidBorderHandlers(registry, services);
+        registerBobHandlers(registry, services);
         registerRomeoHandlers(registry, services);
         registerDemoInteractionHandlers(registry, services);
 

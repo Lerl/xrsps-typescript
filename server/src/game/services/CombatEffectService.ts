@@ -1,4 +1,4 @@
-import type { PrayerName } from "../../../../src/rs/prayer/prayers";
+import { PRAYER_DEACTIVATE_SOUND_ID, type PrayerName } from "../../../../src/rs/prayer/prayers";
 import { SkillId } from "../../../../src/rs/skill/skills";
 import { logger } from "../../utils/logger";
 import type { ServerServices } from "../ServerServices";
@@ -47,6 +47,7 @@ export class CombatEffectService {
         player.prayer.resetDrainAccumulator();
         const hadPrayers = (player.prayer.getActivePrayers()?.size ?? 0) > 0;
         if (hadPrayers) {
+            this.svc.soundService.sendSound(player, PRAYER_DEACTIVATE_SOUND_ID);
             player.prayer.clearActivePrayers();
             this.svc.queueCombatState(player);
         }

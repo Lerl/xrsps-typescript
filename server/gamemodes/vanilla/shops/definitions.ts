@@ -32,6 +32,27 @@ const VARROCK_GENERAL_STORE: ShopDefinition = {
     ],
 };
 
+const BOBS_BRILLIANT_AXES: ShopDefinition = {
+    id: "bobs_brilliant_axes",
+    name: "Bob's Brilliant Axes.",
+    npcIds: [10619],
+    currencyItemId: 995,
+    capacity: 40,
+    generalStore: false,
+    restockTicks: 100,
+    buyPriceMultiplier: 1,
+    sellPriceMultiplier: 0.6,
+    stock: [
+        { itemId: 1265, quantity: 5, restockTicks: 100 }, // Bronze pickaxe
+        { itemId: 1351, quantity: 10, restockTicks: 100 }, // Bronze axe
+        { itemId: 1349, quantity: 5, restockTicks: 200 }, // Iron axe
+        { itemId: 1353, quantity: 3, restockTicks: 400 }, // Steel axe
+        { itemId: 1363, quantity: 5, restockTicks: 100 }, // Iron battleaxe
+        { itemId: 1365, quantity: 2, restockTicks: 200 }, // Steel battleaxe
+        { itemId: 1369, quantity: 1, restockTicks: 3000 }, // Mithril battleaxe
+    ],
+};
+
 const TEST_WEAPONS_SHOP: ShopDefinition = {
     id: "test_weapons_shop",
     name: "Test Weapons Shop",
@@ -206,6 +227,7 @@ const ZAFFS_SUPERIOR_STAFFS: ShopDefinition = {
 
 const SHOP_DEFINITIONS: ShopDefinition[] = [
     VARROCK_GENERAL_STORE,
+    BOBS_BRILLIANT_AXES,
     TEST_WEAPONS_SHOP,
     AUBURY_RUNE_SHOP,
     CATHERBY_RANGE_SHOP,

@@ -610,6 +610,7 @@ export const PRAYER_DEFINITIONS: PrayerDefinition[] = BASE_DEFINITIONS.map((def)
 });
 export const PRAYER_NAME_SET = new Set<PrayerName>(PRAYER_DEFINITIONS.map((p) => p.id));
 export const PRAYER_DEACTIVATE_SOUND_ID = 2663;
+export const PRAYER_RECHARGE_SOUND_ID = 2674;
 export const PRAYER_BY_NAME = new Map<PrayerName, PrayerDefinition>(
     PRAYER_DEFINITIONS.map((p) => [p.id, p]),
 );
