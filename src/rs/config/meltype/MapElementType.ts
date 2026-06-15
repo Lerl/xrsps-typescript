@@ -17,6 +17,8 @@ export class MapElementType extends Type {
     minimapVisible: boolean = false;
 
     randomizePosition: boolean = true;
+    horizontalAlignment: number = 0;
+    verticalAlignment: number = 1;
 
     ops: (string | undefined)[] = new Array(5);
 
@@ -123,8 +125,10 @@ export class MapElementType extends Type {
             buffer.readUnsignedByte();
         } else if (opcode === 29) {
             const hAlign = buffer.readUnsignedByte();
+            this.horizontalAlignment = hAlign === 0 ? 1 : hAlign === 1 ? 0 : 2;
         } else if (opcode === 30) {
             const vAlign = buffer.readUnsignedByte();
+            this.verticalAlignment = vAlign === 0 ? 2 : vAlign === 1 ? 1 : 0;
         } else if (opcode === 249) {
             this.params = Type.readParamsMap(buffer);
         } else {

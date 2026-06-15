@@ -4,6 +4,7 @@ import { profiler } from "../../client/webgl/PerformanceProfiler";
 import { CacheIndex } from "../../rs/cache/CacheIndex";
 import { CacheSystem } from "../../rs/cache/CacheSystem";
 import { BitmapFont } from "../../rs/font/BitmapFont";
+import { FONT_VERDANA_11, FONT_VERDANA_13, FONT_VERDANA_15 } from "../fonts";
 import { menuAction } from "../menu/MenuAction";
 import { MenuOpcode, MenuState } from "../menu/MenuState";
 import type { WidgetManager } from "../widgets/WidgetManager";
@@ -1130,7 +1131,8 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                                     scheduleRender,
                                     menuState,
                                     label: {
-                                        includeExamineIds: !!(opts.game as any)?.osrsClient?.debugId,
+                                        includeExamineIds: !!(opts.game as any)?.osrsClient
+                                            ?.debugId,
                                     },
                                 });
                                 ui.menu = {
@@ -2542,6 +2544,10 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                     1,
                     4 * ((worldMapState.zoomPercentage ?? 100) / 100) * renderScale,
                 );
+                const logicalPixelsPerTile = Math.max(
+                    1,
+                    4 * ((worldMapState.zoomPercentage ?? 100) / 100),
+                );
                 const centerX = x + width / 2;
                 const centerY = y + height / 2;
                 const displayX = worldMapState.displayX | 0;
@@ -2551,70 +2557,152 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                 const maxVisibleTileX = displayX + width / (2 * pixelsPerTile) + 64;
                 const minVisibleTileY = displayY - height / (2 * pixelsPerTile) - 64;
                 const maxVisibleTileY = displayY + height / (2 * pixelsPerTile) + 64;
-                const minMapX = Math.max(
-                    bounds.minX >> 6,
-                    Math.floor(minVisibleTileX / 64),
-                );
-                const maxMapX = Math.min(
-                    bounds.maxX >> 6,
-                    Math.floor(maxVisibleTileX / 64),
-                );
-                const minMapY = Math.max(
-                    bounds.minY >> 6,
-                    Math.floor(minVisibleTileY / 64),
-                );
-                const maxMapY = Math.min(
-                    bounds.maxY >> 6,
-                    Math.floor(maxVisibleTileY / 64),
-                );
+                const minMapX = Math.max(bounds.minX >> 6, Math.floor(minVisibleTileX / 64));
+                const maxMapX = Math.min(bounds.maxX >> 6, Math.floor(maxVisibleTileX / 64));
+                const minMapY = Math.max(bounds.minY >> 6, Math.floor(minVisibleTileY / 64));
+                const maxMapY = Math.min(bounds.maxY >> 6, Math.floor(maxVisibleTileY / 64));
                 const tileDrawSize = 64 * pixelsPerTile;
                 const worldMapLevel = Math.max(0, Math.min(3, currentArea.origin.plane | 0));
 
                 for (let mapY = minMapY; mapY <= maxMapY; mapY++) {
                     for (let mapX = minMapX; mapX <= maxMapX; mapX++) {
-                        const url = osrsClient?.getWorldMapImageUrl?.(
-                            mapX,
-                            mapY,
-                            worldMapLevel,
-                        );
+                        const url = osrsClient?.getWorldMapImageUrl?.(mapX, mapY, worldMapLevel);
                         if (!url) continue;
                         const tileTex = tc.getTextureFromUrl(url);
                         if (!tileTex) continue;
 
                         const drawX = centerX + (mapX * 64 - displayX) * pixelsPerTile;
-                        const drawY =
-                            centerY - ((mapY * 64 + 64) - displayY) * pixelsPerTile;
+                        const drawY = centerY - (mapY * 64 + 64 - displayY) * pixelsPerTile;
                         glr.drawTexture(tileTex, drawX, drawY, tileDrawSize, tileDrawSize, 1, 1);
                     }
                 }
 
+                const mapElementCache = new Map<number, any>();
+                const getMapElement = (elementId: number) => {
+                    if (mapElementCache.has(elementId)) return mapElementCache.get(elementId);
+                    let element;
+                    try {
+                        element = osrsClient?.mapElementTypeLoader?.load?.(elementId | 0);
+                    } catch {
+                        element = undefined;
+                    }
+                    mapElementCache.set(elementId, element);
+                    return element;
+                };
+                const getWorldMapLabelFontId = (textSize: number) => {
+                    if ((textSize | 0) === 1) return FONT_VERDANA_13;
+                    if ((textSize | 0) === 2) return FONT_VERDANA_15;
+                    return FONT_VERDANA_11;
+                };
+                const isWorldMapLabelVisible = (textSize: number) => {
+                    if ((textSize | 0) === 0) return logicalPixelsPerTile >= 3;
+                    if ((textSize | 0) === 1) return logicalPixelsPerTile >= 2;
+                    return true;
+                };
+                const getSpriteXOffset = (textureWidth: number, horizontalAlignment: number) => {
+                    if ((horizontalAlignment | 0) === 0) return -textureWidth / 2;
+                    if ((horizontalAlignment | 0) === 1) return -textureWidth;
+                    return 0;
+                };
+                const getSpriteYOffset = (textureHeight: number, verticalAlignment: number) => {
+                    if ((verticalAlignment | 0) === 0) return -textureHeight / 2;
+                    if ((verticalAlignment | 0) === 2) return 0;
+                    return -textureHeight;
+                };
+
                 for (let mapY = minMapY; mapY <= maxMapY; mapY++) {
                     for (let mapX = minMapX; mapX <= maxMapX; mapX++) {
-                        const icons = osrsClient?.getWorldMapIcons?.(
-                            mapX,
-                            mapY,
-                            worldMapLevel,
-                        );
+                        const icons = osrsClient?.getWorldMapIcons?.(mapX, mapY, worldMapLevel);
                         if (!icons || icons.length === 0) continue;
 
                         for (const icon of icons) {
-                            const iconTex = tc.getBySpriteId(icon.spriteId | 0);
-                            if (!iconTex) continue;
+                            const elementId = (icon.elementId ?? -1) | 0;
+                            if (elementId < 0) continue;
+                            const element = getMapElement(elementId);
+                            const category = (element?.category ?? icon.category ?? -1) | 0;
+                            if (
+                                worldMapState.elementsEnabled === false ||
+                                !worldMapState.isElementEnabled?.(elementId) ||
+                                (category >= 0 && !worldMapState.isCategoryEnabled?.(category))
+                            ) {
+                                continue;
+                            }
+                            if (
+                                (element?.worldMapVisible ?? icon.worldMapVisible ?? true) === false
+                            ) {
+                                continue;
+                            }
+
                             const worldX = mapX * 64 + (icon.localX | 0) + 0.5;
                             const worldY = mapY * 64 + (icon.localY | 0) + 0.5;
                             const iconX = centerX + (worldX - displayX) * pixelsPerTile;
                             const iconY = centerY - (worldY - displayY) * pixelsPerTile;
-                            const iconW = iconTex.w * renderScale;
-                            const iconH = iconTex.h * renderScale;
-                            glr.drawTexture(
-                                iconTex,
-                                iconX - iconW / 2,
-                                iconY - iconH / 2,
-                                iconW,
-                                iconH,
-                                1,
-                                1,
-                            );
+                            const spriteId = (element?.spriteId ?? icon.spriteId ?? -1) | 0;
+                            const iconTex = spriteId >= 0 ? tc.getBySpriteId(spriteId) : null;
+                            if (iconTex) {
+                                const iconW = iconTex.w * renderScale;
+                                const iconH = iconTex.h * renderScale;
+                                glr.drawTexture(
+                                    iconTex,
+                                    iconX +
+                                        getSpriteXOffset(
+                                            iconW,
+                                            element?.horizontalAlignment ??
+                                                icon.horizontalAlignment ??
+                                                0,
+                                        ),
+                                    iconY +
+                                        getSpriteYOffset(
+                                            iconH,
+                                            element?.verticalAlignment ??
+                                                icon.verticalAlignment ??
+                                                1,
+                                        ),
+                                    iconW,
+                                    iconH,
+                                    1,
+                                    1,
+                                );
+                            }
+
+                            const label = element?.name ?? icon.name;
+                            const textSize = (element?.textSize ?? icon.textSize ?? 0) | 0;
+                            if (label && isWorldMapLabelVisible(textSize)) {
+                                const fontId = getWorldMapLabelFontId(textSize);
+                                const font = opts.fontLoader(fontId);
+                                const labelLines = String(label)
+                                    .replace(/<br\s*\/?\s*>/gi, "\n")
+                                    .split(/\n/);
+                                const labelLogicalWidth = Math.max(
+                                    1,
+                                    ...labelLines.map(
+                                        (line) => (font?.measure?.(line) ?? line.length * 6) | 0,
+                                    ),
+                                );
+                                const fontBaseline =
+                                    ((font as any)?.lineHeight ?? (font as any)?.ascent ?? 12) |
+                                        0 || 12;
+                                const labelLineHeight = Math.max(1, (fontBaseline / 2) | 0);
+                                const labelLogicalHeight = Math.max(
+                                    1,
+                                    ((labelLines.length * fontBaseline) / 2) | 0,
+                                );
+                                const labelW = labelLogicalWidth * rootScaleX;
+                                const labelH = labelLogicalHeight * rootScaleY;
+                                drawWrappedTextGL(
+                                    label,
+                                    iconX - labelW / 2,
+                                    iconY,
+                                    labelW,
+                                    labelH,
+                                    fontId,
+                                    element?.textColor ?? icon.textColor ?? 0,
+                                    labelLineHeight,
+                                    false,
+                                    0,
+                                    1,
+                                );
+                            }
                         }
                     }
                 }
@@ -2735,11 +2823,7 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                         for (let my = 0; my < 3; my++) {
                             const mapX = cameraMapX - 1 + mx;
                             const mapY = cameraMapY - 1 + my;
-                            const url = osrsClient.getMinimapImageUrl?.(
-                                mapX,
-                                mapY,
-                                playerLevel,
-                            );
+                            const url = osrsClient.getMinimapImageUrl?.(mapX, mapY, playerLevel);
                             if (!url) continue;
 
                             // Get or trigger load of minimap tile texture
@@ -2856,9 +2940,7 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                     if (npcEcs?.getAllActiveIds && npcDot) {
                         for (const ecsIdx of npcEcs.getAllActiveIds()) {
                             if (!npcEcs.isActive?.(ecsIdx)) continue;
-                            if (
-                                ((npcEcs.getLevel?.(ecsIdx) ?? playerLevel) | 0) !== playerLevel
-                            ) {
+                            if (((npcEcs.getLevel?.(ecsIdx) ?? playerLevel) | 0) !== playerLevel) {
                                 continue;
                             }
 
@@ -2900,7 +2982,10 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
 
                     // Draw player marker at center (white square, scaled for render resolution)
                     const localEcsIdx = osrsClient.playerEcs?.getIndexForServerId?.(localPlayerId);
-                    if (localEcsIdx === undefined || !osrsClient.playerEcs.getIsHidden(localEcsIdx)) {
+                    if (
+                        localEcsIdx === undefined ||
+                        !osrsClient.playerEcs.getIsHidden(localEcsIdx)
+                    ) {
                         const markerSize = 4 * minimapRenderScale;
                         minimapRenderer.drawSolidRect(
                             centerX,

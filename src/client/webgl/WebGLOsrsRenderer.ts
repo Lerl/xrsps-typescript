@@ -136,11 +136,11 @@ import {
     resolveInteractionPlaneForLocal,
     resolveInteractionPlaneForWorldTile,
 } from "../scene/PlaneResolver";
+import { SceneRaycastHit, SceneRaycaster } from "../scene/SceneRaycaster";
 import {
     TILE_FLAG_BRIDGE,
     getTileRenderFlagAt as lookupTileRenderFlagAt,
 } from "../scene/TileRenderFlags";
-import { SceneRaycastHit, SceneRaycaster } from "../scene/SceneRaycaster";
 import { LoadingRequirement } from "../state/LoadingTracker";
 import type { PlayerSpotAnimationEvent } from "../sync/PlayerSyncTypes";
 import { RAD_TO_RS_UNITS, computeFacingRotation } from "../utils/rotation";
@@ -159,7 +159,7 @@ import { getModelFaces, isModelFaceTransparent } from "./buffer/SceneBuffer";
 import { GfxManager } from "./gfx/GfxManager";
 import { GfxRenderer } from "./gfx/GfxRenderer";
 import { buildGroundItemGeometry } from "./ground/GroundItemMeshBuilder";
-import { SdMapData, type MinimapIcon } from "./loader/SdMapData";
+import { type MinimapIcon, SdMapData } from "./loader/SdMapData";
 import { SdMapDataLoader } from "./loader/SdMapDataLoader";
 import { SdMapLoaderInput } from "./loader/SdMapLoaderInput";
 import {
@@ -1027,12 +1027,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         for (let level = 0; level < Scene.MAX_LEVELS; level++) {
             const blob = mapData.minimapBlobs?.[level];
             if (blob) {
-                this.osrsClient.setMinimapImageUrl(
-                    mapX,
-                    mapY,
-                    URL.createObjectURL(blob),
-                    level,
-                );
+                this.osrsClient.setMinimapImageUrl(mapX, mapY, URL.createObjectURL(blob), level);
             }
 
             const key = getMapPlaneId(mapX, mapY, level);
@@ -2411,7 +2406,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
     }
 
     private makeActorGroupKey(isNpc: boolean, serverId: number): number {
-        return (((isNpc ? 1 : 0) << 24) | ((serverId | 0) & 0xffffff)) | 0;
+        return ((isNpc ? 1 : 0) << 24) | ((serverId | 0) & 0xffffff) | 0;
     }
 
     private appendPlayerOverheadText(
@@ -5302,11 +5297,16 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
             }
         }
 
-        this.textureMaterials = this.app.createTexture2D(data, textureCount, MATERIAL_TEXTURE_ROWS, {
-            minFilter: PicoGL.NEAREST,
-            magFilter: PicoGL.NEAREST,
-            internalFormat: PicoGL.RGBA8I,
-        });
+        this.textureMaterials = this.app.createTexture2D(
+            data,
+            textureCount,
+            MATERIAL_TEXTURE_ROWS,
+            {
+                minFilter: PicoGL.NEAREST,
+                magFilter: PicoGL.NEAREST,
+                internalFormat: PicoGL.RGBA8I,
+            },
+        );
     }
 
     private clearControlledPlayerAppearanceCache(): void {
@@ -6293,7 +6293,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         if (!blob) return undefined;
         return {
             blob,
-            icons: mapData.minimapIcons?.[clampedLevel] ?? [],
+            icons: mapData.worldMapIcons?.[clampedLevel] ?? [],
         };
     }
 
@@ -7570,7 +7570,10 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                                 fallbackX,
                                 fallbackY,
                                 fallbackLevel,
-                                { radius: groundOverlayRadius, maxEntries: groundOverlayMaxEntries },
+                                {
+                                    radius: groundOverlayRadius,
+                                    maxEntries: groundOverlayMaxEntries,
+                                },
                             ),
                         );
                         if (overlayEntries.length > 0) {
@@ -8267,8 +8270,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                   return color !== destinationColor && color !== defaultNativeDestinationColor;
               })
             : nativeTileHighlights;
-        state.tileHighlights =
-            visibleTileHighlights.length > 0 ? visibleTileHighlights : undefined;
+        state.tileHighlights = visibleTileHighlights.length > 0 ? visibleTileHighlights : undefined;
 
         if (!tileMarkersConfig.enabled) {
             return;
@@ -9011,10 +9013,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         // A tile is a valid pick target only while it is drawn (draw plane within the
         // roof plane limit) and not above the player's plane; among the candidates the
         // nearest hit along the ray wins.
-        const selectLimit = Math.min(
-            this.getPlayerRawPlane() | 0,
-            this.getRoofPlaneLimit() | 0,
-        );
+        const selectLimit = Math.min(this.getPlayerRawPlane() | 0, this.getRoofPlaneLimit() | 0);
 
         const visibleCount = this.mapManager.visibleMapCount | 0;
         const visibleMaps = this.mapManager.visibleMaps;
@@ -9080,7 +9079,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                 const triEnd = offsets[tileIndex + 1] | 0;
                 for (let tri = triStart; tri < triEnd; tri++) {
                     const packedPlanes = map.terrainPickPlanes[tri] | 0;
-                    if (planeOverride < 0 && (packedPlanes >> 2) > selectLimit) {
+                    if (planeOverride < 0 && packedPlanes >> 2 > selectLimit) {
                         continue;
                     }
                     const t = this.intersectTerrainPickTriangle(
@@ -9134,9 +9133,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         if (!bestFromOverride) {
             const playerTile = this.getPlayerTileXY();
             const overDistance =
-                Math.floor(
-                    Math.hypot(playerTile.x - bestTileX, playerTile.y - bestTileY),
-                ) - 70;
+                Math.floor(Math.hypot(playerTile.x - bestTileX, playerTile.y - bestTileY)) - 70;
             if (overDistance > 0) {
                 bestTileX = Math.floor(
                     (bestTileX * 70 + overDistance * playerTile.x) / (overDistance + 70),
@@ -10229,9 +10226,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         const map = this.getPreferredMapForWorldTile(tileX, tileY);
         const local = map ? this.getMapLocalTile(map, tileX, tileY) : undefined;
         const samplePlane =
-            map && local
-                ? resolveHeightSamplePlaneForLocal(map, plane, local.x, local.y)
-                : plane;
+            map && local ? resolveHeightSamplePlaneForLocal(map, plane, local.x, local.y) : plane;
         return this.sampleHeightAtExactPlane(worldX, worldY, samplePlane);
     }
 
@@ -12719,7 +12714,13 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         stacks: ClientGroundItemStack[] | undefined,
     ): void {
         if (!this.mainProgram || !this.mainAlphaProgram) return;
-        if (!this.textureArray || !this.textureMaterials || !this.waterTextures || !this.sceneUniformBuffer) return;
+        if (
+            !this.textureArray ||
+            !this.textureMaterials ||
+            !this.waterTextures ||
+            !this.sceneUniformBuffer
+        )
+            return;
         const objModelLoader = this.osrsClient.objModelLoader;
         const textureLoader = this.osrsClient.textureLoader;
         if (!objModelLoader || !textureLoader) return;

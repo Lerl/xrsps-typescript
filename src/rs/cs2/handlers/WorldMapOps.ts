@@ -1,9 +1,9 @@
 /**
  * World map operations
  */
+import { packWorldMapCoord, unpackWorldMapCoord } from "../../map/WorldMapArea";
 import { Opcodes } from "../Opcodes";
 import type { HandlerMap } from "./HandlerTypes";
-import { packWorldMapCoord, unpackWorldMapCoord } from "../../map/WorldMapArea";
 
 export function registerWorldMapOps(handlers: HandlerMap): void {
     handlers.set(Opcodes.WORLDMAP_INIT, (ctx) => {
@@ -30,6 +30,7 @@ export function registerWorldMapOps(handlers: HandlerMap): void {
     handlers.set(Opcodes.WORLDMAP_SETZOOM, (ctx) => {
         const zoom = ctx.popInt();
         ctx.worldMapState?.setZoomPercentage(zoom);
+        ctx.widgetManager.invalidateAll();
     });
 
     handlers.set(Opcodes.WORLDMAP_ISLOADED, (ctx) => {

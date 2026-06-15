@@ -16,9 +16,9 @@ import { Scene } from "../../../rs/scene/Scene";
 import { LocLoadType } from "../../../rs/scene/SceneBuilder";
 import { SceneTile } from "../../../rs/scene/SceneTile";
 import { getIdFromTag } from "../../../rs/scene/entity/EntityTag";
-import { INVALID_HSL_COLOR, hslToRgb } from "../../../rs/util/ColorUtil";
 import { LocEntity } from "../../../rs/scene/entity/LocEntity";
 import { TextureLoader } from "../../../rs/texture/TextureLoader";
+import { INVALID_HSL_COLOR, hslToRgb } from "../../../rs/util/ColorUtil";
 import { getBridgeLinkedBelow, isBridgeSurfaceTile } from "../../scene/BridgeTiles";
 import { loadMinimapBlob } from "../../worker/MinimapData";
 import { RenderDataLoader, RenderDataResult } from "../../worker/RenderDataLoader";
@@ -381,9 +381,7 @@ function extractMinimapIcons(
     locTypeLoader: LocTypeLoader,
     borderSize: number,
     level: number,
-    mapFunctionToSprite: (
-        mapFunctionId: number,
-    ) => { spriteId: number; minimapVisible: boolean; category: number } | undefined,
+    mapFunctionToSprite: (mapFunctionId: number) => MapElementMetadata | undefined,
 ): MinimapIcon[] {
     const icons: MinimapIcon[] = [];
 
@@ -399,8 +397,8 @@ function extractMinimapIcons(
             const locType = locTypeLoader.load(locId);
 
             if (locType.mapFunctionId !== -1) {
-                const sprite = mapFunctionToSprite(locType.mapFunctionId);
-                if (!sprite || sprite.spriteId === -1 || !sprite.minimapVisible) continue;
+                const element = mapFunctionToSprite(locType.mapFunctionId);
+                if (!element || element.spriteId === -1 || !element.minimapVisible) continue;
 
                 // Convert from scene coords to local map square coords
                 const localX = tx - borderSize;
@@ -410,9 +408,106 @@ function extractMinimapIcons(
                     localX,
                     localY,
                     elementId: locType.mapFunctionId,
-                    category: sprite.category,
-                    spriteId: sprite.spriteId,
+                    category: element.category,
+                    spriteId: element.spriteId,
+                    worldMapVisible: element.worldMapVisible,
+                    name: element.name,
+                    textColor: element.textColor,
+                    textSize: element.textSize,
+                    horizontalAlignment: element.horizontalAlignment,
+                    verticalAlignment: element.verticalAlignment,
                 });
+            }
+        }
+    }
+
+    return icons;
+}
+
+type MapElementMetadata = {
+    spriteId: number;
+    minimapVisible: boolean;
+    worldMapVisible: boolean;
+    category: number;
+    name?: string;
+    textColor: number;
+    textSize: number;
+    horizontalAlignment: number;
+    verticalAlignment: number;
+};
+
+function createMapIcon(
+    locId: number,
+    localX: number,
+    localY: number,
+    locTypeLoader: LocTypeLoader,
+    mapFunctionToElement: (mapFunctionId: number) => MapElementMetadata | undefined,
+): MinimapIcon | undefined {
+    const locType = locTypeLoader.load(locId | 0);
+    if ((locType.mapFunctionId | 0) === -1) return undefined;
+
+    const element = mapFunctionToElement(locType.mapFunctionId | 0);
+    if (!element || !element.worldMapVisible) return undefined;
+    if ((element.spriteId | 0) === -1 && !element.name) return undefined;
+
+    return {
+        localX: localX | 0,
+        localY: localY | 0,
+        elementId: locType.mapFunctionId | 0,
+        category: element.category | 0,
+        spriteId: element.spriteId | 0,
+        worldMapVisible: element.worldMapVisible,
+        name: element.name,
+        textColor: element.textColor | 0,
+        textSize: element.textSize | 0,
+        horizontalAlignment: element.horizontalAlignment | 0,
+        verticalAlignment: element.verticalAlignment | 0,
+    };
+}
+
+function extractWorldMapIcons(
+    scene: Scene,
+    locTypeLoader: LocTypeLoader,
+    borderSize: number,
+    level: number,
+    mapFunctionToElement: (mapFunctionId: number) => MapElementMetadata | undefined,
+): MinimapIcon[] {
+    const icons: MinimapIcon[] = [];
+    const seen = new Set<string>();
+
+    const pushIcon = (locId: number, localX: number, localY: number) => {
+        const icon = createMapIcon(locId, localX, localY, locTypeLoader, mapFunctionToElement);
+        if (!icon) return false;
+        const key = `${icon.elementId}:${icon.localX}:${icon.localY}`;
+        if (seen.has(key)) return true;
+        seen.add(key);
+        icons.push(icon);
+        return true;
+    };
+
+    for (let tx = borderSize; tx < scene.sizeX - borderSize; tx++) {
+        for (let ty = borderSize; ty < scene.sizeY - borderSize; ty++) {
+            const tile = scene.tiles[level]?.[tx]?.[ty];
+            if (!tile) continue;
+
+            const localX = tx - borderSize;
+            const localY = ty - borderSize;
+
+            if (tile.floorDecoration?.tag) {
+                pushIcon(getIdFromTag(tile.floorDecoration.tag), localX, localY);
+            }
+
+            if (tile.wall?.tag) {
+                pushIcon(getIdFromTag(tile.wall.tag), localX, localY);
+            }
+
+            if (tile.wallDecoration?.tag) {
+                pushIcon(getIdFromTag(tile.wallDecoration.tag), localX, localY);
+            }
+
+            for (const loc of tile.locs) {
+                if ((loc.startX | 0) !== tx || (loc.startY | 0) !== ty) continue;
+                pushIcon(getIdFromTag(loc.tag), localX, localY);
             }
         }
     }
@@ -1130,7 +1225,7 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
                 const matchType =
                     typeof overrideValue.matchType === "number" &&
                     Number.isFinite(overrideValue.matchType)
-                        ? (overrideValue.matchType | 0)
+                        ? overrideValue.matchType | 0
                         : undefined;
                 const matchRotation =
                     typeof overrideValue.matchRotation === "number" &&
@@ -1691,10 +1786,7 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
         }
 
         // Extract minimap icons for dynamic rendering
-        let mapFunctionToSprite: (
-            id: number,
-        ) => { spriteId: number; minimapVisible: boolean; category: number } | undefined =
-            () => undefined;
+        let mapFunctionToSprite: (id: number) => MapElementMetadata | undefined = () => undefined;
         try {
             const configIndex = state.cacheSystem.getIndex(IndexType.DAT2.configs);
             const cacheInfo = state.cache.info;
@@ -1704,21 +1796,22 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
             ) {
                 const mapElementArchive = configIndex.getArchive(ConfigType.OSRS.mapFunctions);
                 const melLoader = new ArchiveMapElementTypeLoader(cacheInfo, mapElementArchive);
-                const spriteCache = new Map<
-                    number,
-                    { spriteId: number; minimapVisible: boolean; category: number } | undefined
-                >();
+                const spriteCache = new Map<number, MapElementMetadata | undefined>();
                 mapFunctionToSprite = (mapFuncId: number) => {
                     if (!spriteCache.has(mapFuncId)) {
-                        let sprite:
-                            | { spriteId: number; minimapVisible: boolean; category: number }
-                            | undefined = undefined;
+                        let sprite: MapElementMetadata | undefined = undefined;
                         try {
                             const mel = melLoader.load(mapFuncId);
                             sprite = {
                                 spriteId: mel.spriteId,
                                 minimapVisible: mel.minimapVisible,
+                                worldMapVisible: mel.worldMapVisible,
                                 category: mel.category,
+                                name: mel.name,
+                                textColor: mel.textColor,
+                                textSize: mel.textSize,
+                                horizontalAlignment: mel.horizontalAlignment,
+                                verticalAlignment: mel.verticalAlignment,
                             };
                         } catch {
                             sprite = undefined;
@@ -1732,8 +1825,16 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
             console.warn("Failed to load MapElementTypeLoader for minimap icons", e);
         }
         const minimapIcons: MinimapIcon[][] = new Array(Scene.MAX_LEVELS);
+        const worldMapIcons: MinimapIcon[][] = new Array(Scene.MAX_LEVELS);
         for (let level = 0; level < Scene.MAX_LEVELS; level++) {
             minimapIcons[level] = extractMinimapIcons(
+                scene,
+                state.locTypeLoader,
+                usedBorderSize,
+                level,
+                mapFunctionToSprite,
+            );
+            worldMapIcons[level] = extractWorldMapIcons(
                 scene,
                 state.locTypeLoader,
                 usedBorderSize,
@@ -1872,6 +1973,7 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
 
                 minimapBlobs,
                 minimapIcons,
+                worldMapIcons,
 
                 vertices,
                 indices,

@@ -36,11 +36,7 @@ interface WorldMapSection {
 }
 
 export function packWorldMapCoord(coord: WorldMapCoord): number {
-    return (
-        ((coord.plane & 0x3) << 28) |
-        ((coord.x & 0x3fff) << 14) |
-        (coord.y & 0x3fff)
-    );
+    return ((coord.plane & 0x3) << 28) | ((coord.x & 0x3fff) << 14) | (coord.y & 0x3fff);
 }
 
 export function unpackWorldMapCoord(packed: number): WorldMapCoord {
@@ -53,6 +49,68 @@ export function unpackWorldMapCoord(packed: number): WorldMapCoord {
 
 function readCoord(buffer: ByteBuffer): WorldMapCoord {
     return unpackWorldMapCoord(buffer.readInt());
+}
+
+function skipNullableLargeSmart(buffer: ByteBuffer): void {
+    buffer.readBigSmart();
+}
+
+function skipWorldMapData0(buffer: ByteBuffer): void {
+    buffer.readUnsignedByte();
+    buffer.readUnsignedByte();
+    buffer.readUnsignedByte();
+    buffer.readUnsignedShort();
+    buffer.readUnsignedShort();
+    buffer.readUnsignedShort();
+    buffer.readUnsignedShort();
+    skipNullableLargeSmart(buffer);
+    skipNullableLargeSmart(buffer);
+}
+
+function skipWorldMapData1(buffer: ByteBuffer): void {
+    buffer.readUnsignedByte();
+    buffer.readUnsignedByte();
+    buffer.readUnsignedByte();
+    buffer.readUnsignedShort();
+    buffer.readUnsignedShort();
+    buffer.readUnsignedByte();
+    buffer.readUnsignedByte();
+    buffer.readUnsignedShort();
+    buffer.readUnsignedShort();
+    buffer.readUnsignedByte();
+    buffer.readUnsignedByte();
+    skipNullableLargeSmart(buffer);
+    skipNullableLargeSmart(buffer);
+}
+
+function decodeCompositeMapIcons(data: Int8Array, includeHidden: boolean): WorldMapIconEntry[] {
+    const buffer = new ByteBuffer(data);
+    const data0Count = buffer.readUnsignedShort();
+    for (let i = 0; i < data0Count; i++) {
+        skipWorldMapData0(buffer);
+    }
+
+    const data1Count = buffer.readUnsignedShort();
+    for (let i = 0; i < data1Count; i++) {
+        skipWorldMapData1(buffer);
+    }
+
+    const iconCount = buffer.readUnsignedShort();
+    const icons: WorldMapIconEntry[] = [];
+    for (let i = 0; i < iconCount; i++) {
+        const element = buffer.readBigSmart();
+        const coord = buffer.readInt();
+        const hidden = buffer.readUnsignedByte() === 1;
+        if (includeHidden || !hidden) {
+            icons.push({
+                element,
+                category: -1,
+                spriteId: -1,
+                coord,
+            });
+        }
+    }
+    return icons;
 }
 
 class WorldMapSection0 implements WorldMapSection {
@@ -359,11 +417,7 @@ class WorldMapSectionChunk implements WorldMapSection {
 
 function readWorldMapSection(buffer: ByteBuffer): WorldMapSection {
     const type = buffer.readUnsignedByte();
-    let section:
-        | WorldMapSection0
-        | WorldMapSection1
-        | WorldMapSection2
-        | WorldMapSectionChunk;
+    let section: WorldMapSection0 | WorldMapSection1 | WorldMapSection2 | WorldMapSectionChunk;
     switch (type) {
         case 0:
             section = new WorldMapSection2();
@@ -501,6 +555,7 @@ export class WorldMapState {
     readonly disabledCategories = new Set<number>();
     private loaded = false;
     private readonly tileIcons = new Map<number, WorldMapIconEntry[]>();
+    private readonly staticIconsByTile = new Map<number, WorldMapIconEntry[]>();
     private iconIterator: WorldMapIconEntry[] = [];
     private iconIteratorIndex = 0;
 
@@ -523,6 +578,11 @@ export class WorldMapState {
         }
 
         const archive = index.getArchive(detailsArchiveId);
+        const compositeMapArchiveId = index.getArchiveId("compositemap");
+        const compositeMapArchive =
+            compositeMapArchiveId >= 0 && index.archiveExists(compositeMapArchiveId)
+                ? index.getArchive(compositeMapArchiveId)
+                : undefined;
         for (const file of archive.files) {
             try {
                 const area = WorldMapArea.decode(file.id, file.data);
@@ -530,6 +590,10 @@ export class WorldMapState {
                 state.areasByInternalName.set(area.internalName, area);
                 if (area.isMain) {
                     state.mainArea = area;
+                }
+                const compositeMapFile = compositeMapArchive?.getFileNamed(area.internalName);
+                if (compositeMapFile) {
+                    state.addStaticIcons(decodeCompositeMapIcons(compositeMapFile.data, true));
                 }
             } catch (error) {
                 console.log("[WorldMapState] Failed to decode world map area", {
@@ -540,8 +604,7 @@ export class WorldMapState {
         }
 
         state.loaded = state.areasById.size > 0;
-        state.currentArea =
-            state.mainArea ?? state.areasById.values().next().value ?? undefined;
+        state.currentArea = state.mainArea ?? state.areasById.values().next().value ?? undefined;
         if (state.currentArea) {
             state.zoomPercentage = state.currentArea.zoom > 0 ? state.currentArea.zoom : 100;
             state.jumpToSourceCoordInstant(
@@ -685,9 +748,13 @@ export class WorldMapState {
         this.iconIteratorIndex = 0;
     }
 
+    getStaticIconsForTile(mapX: number, mapY: number, level: number): WorldMapIconEntry[] {
+        return this.staticIconsByTile.get(WorldMapState.getTileKey(mapX, mapY, level)) ?? [];
+    }
+
     getNearestIconCoord(elementId: number, sourcePackedCoord: number): number {
         const source = unpackWorldMapCoord(sourcePackedCoord);
-        if (this.currentArea && !this.currentArea.containsPosition(source.x, source.y)) {
+        if (this.currentArea && !this.currentArea.containsCoord(source.plane, source.x, source.y)) {
             return -1;
         }
         let nearest: WorldMapIconEntry | undefined;
@@ -743,17 +810,36 @@ export class WorldMapState {
     private getVisibleIcons(): WorldMapIconEntry[] {
         const icons: WorldMapIconEntry[] = [];
         const area = this.currentArea;
-        for (const tileIcons of this.tileIcons.values()) {
-            for (const icon of tileIcons) {
-                if (!this.isIconVisible(icon)) continue;
-                if (area) {
-                    const coord = unpackWorldMapCoord(icon.coord);
-                    if (!area.containsCoord(coord.plane, coord.x, coord.y)) continue;
+        const iconGroups = [this.staticIconsByTile, this.tileIcons];
+        for (const iconGroup of iconGroups) {
+            for (const tileIcons of iconGroup.values()) {
+                for (const icon of tileIcons) {
+                    if (!this.isIconVisible(icon)) continue;
+                    if (area) {
+                        const coord = unpackWorldMapCoord(icon.coord);
+                        if (!area.containsCoord(coord.plane, coord.x, coord.y)) continue;
+                    }
+                    icons.push(icon);
                 }
-                icons.push(icon);
             }
         }
         return icons;
+    }
+
+    private addStaticIcons(icons: WorldMapIconEntry[]): void {
+        for (const icon of icons) {
+            if ((icon.element | 0) < 0) continue;
+            const coord = unpackWorldMapCoord(icon.coord);
+            const mapX = coord.x >> 6;
+            const mapY = coord.y >> 6;
+            const key = WorldMapState.getTileKey(mapX, mapY, coord.plane);
+            let tileIcons = this.staticIconsByTile.get(key);
+            if (!tileIcons) {
+                tileIcons = [];
+                this.staticIconsByTile.set(key, tileIcons);
+            }
+            tileIcons.push(icon);
+        }
     }
 
     private isIconVisible(icon: WorldMapIconEntry): boolean {

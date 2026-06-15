@@ -79,8 +79,8 @@ import {
 import { ClientPacketId, createPacket, queuePacket } from "../network/packet";
 import { MenuTargetType, type OsrsMenuEntry } from "../rs/MenuEntry";
 import { SoundEffectLoader } from "../rs/audio/SoundEffectLoader";
-import { ConfigType } from "../rs/cache/ConfigType";
 import { CacheSystem } from "../rs/cache/CacheSystem";
+import { ConfigType } from "../rs/cache/ConfigType";
 import { IndexType } from "../rs/cache/IndexType";
 import { CacheLoaderFactory, getCacheLoaderFactory } from "../rs/cache/loader/CacheLoaderFactory";
 import { getPlayerTypeInfo } from "../rs/chat/PlayerType";
@@ -115,7 +115,7 @@ import {
     getMapPlaneId,
     getMapSquareId,
 } from "../rs/map/MapFileIndex";
-import { WorldMapState } from "../rs/map/WorldMapArea";
+import { WorldMapState, unpackWorldMapCoord } from "../rs/map/WorldMapArea";
 import { SeqFrameLoader } from "../rs/model/seq/SeqFrameLoader";
 import type { SkeletalSeqLoader } from "../rs/model/skeletal/SkeletalSeqLoader";
 import {
@@ -236,7 +236,6 @@ import { OsrsRendererType, createRenderer } from "./GameRenderers";
 import { ClickMode, InputManager } from "./InputManager";
 import { MapManager } from "./MapManager";
 import { PlayerAnimController } from "./PlayerAnimController";
-import type { MinimapIcon } from "./webgl/loader/SdMapData";
 import {
     type TransmitCycles,
     getTransmitCycles,
@@ -310,6 +309,7 @@ import { PlayerSyncManager } from "./sync/PlayerSyncManager";
 import type { PlayerSpotAnimationEvent } from "./sync/PlayerSyncTypes";
 import { clampPlane } from "./utils/PlaneUtil";
 import { WebGLMapSquare } from "./webgl/WebGLMapSquare";
+import type { MinimapIcon } from "./webgl/loader/SdMapData";
 import type { NpcInstance } from "./webgl/npc/NpcRenderTemplate";
 import { RenderDataWorkerPool } from "./worker/RenderDataWorkerPool";
 import { WorldViewManager } from "./worldview/WorldViewManager";
@@ -3030,7 +3030,9 @@ export class OsrsClient {
                         : [];
                     this.localChatNamePrefix = typeof chatPrefix === "string" ? chatPrefix : "";
                     this.localPlayerIsAdmin =
-                        typeof isAdmin === "boolean" ? isAdmin : this.localChatNameIcons.includes(1);
+                        typeof isAdmin === "boolean"
+                            ? isAdmin
+                            : this.localChatNameIcons.includes(1);
                     if (this.controlledPlayerServerId === -1) {
                         this.controlledPlayerServerId = id | 0;
                     } else if (this.controlledPlayerServerId !== (id | 0)) {
@@ -4340,8 +4342,7 @@ export class OsrsClient {
 
             // Determine the op index (1-based) for onOp handlers.
             // Menu entries pass the explicit op index; fall back to option-text inference.
-            const opIndex =
-                event.opIndex ?? this.inferWidgetOpId(event.widget, event.option) ?? 1;
+            const opIndex = event.opIndex ?? this.inferWidgetOpId(event.widget, event.option) ?? 1;
             const widgetGroupId = event.widget.groupId ?? event.widget.uid >>> 16;
 
             // CS2 event coords are relative to the widget ("event_mousex/y").
@@ -5955,7 +5956,7 @@ export class OsrsClient {
                     entryTarget = chosen.target;
                     entryOpIndex =
                         typeof (chosen as any).opIndex === "number"
-                            ? ((chosen as any).opIndex | 0)
+                            ? (chosen as any).opIndex | 0
                             : undefined;
                 }
 
@@ -6138,7 +6139,7 @@ export class OsrsClient {
                 const menuMouseX = Math.round(input.mouseX * inputScaleX);
                 const menuMouseY = Math.round(input.mouseY * inputScaleY);
                 const rotation = input.wheelDeltaY > 0 ? 1 : -1;
-                const margin = (menuRt.closeMargin | 0) || 10;
+                const margin = menuRt.closeMargin | 0 || 10;
                 const withinRect = (r: any): boolean =>
                     !!r &&
                     menuMouseX >= r.x - margin &&
@@ -11151,11 +11152,7 @@ export class OsrsClient {
         return isTouchDevice ? OsrsClient.MAX_WORLDMAP_URLS_MOBILE : OsrsClient.MAX_WORLDMAP_URLS;
     }
 
-    getMinimapImageUrl(
-        mapX: number,
-        mapY: number,
-        level: number = 0,
-    ): string | undefined {
+    getMinimapImageUrl(mapX: number, mapY: number, level: number = 0): string | undefined {
         if (mapX < 0 || mapY < 0 || mapX >= MapManager.MAX_MAP_X || mapY >= MapManager.MAX_MAP_Y) {
             return undefined;
         }
@@ -11167,12 +11164,7 @@ export class OsrsClient {
         return url;
     }
 
-    setMinimapImageUrl(
-        mapX: number,
-        mapY: number,
-        url: string,
-        level: number = 0,
-    ): void {
+    setMinimapImageUrl(mapX: number, mapY: number, url: string, level: number = 0): void {
         const mapId = this.getMinimapImageKey(mapX, mapY, level);
         const old = this.minimapImageUrls.get(mapId);
         if (old) {
@@ -11224,11 +11216,7 @@ export class OsrsClient {
         }
     }
 
-    getWorldMapImageUrl(
-        mapX: number,
-        mapY: number,
-        level: number = 0,
-    ): string | undefined {
+    getWorldMapImageUrl(mapX: number, mapY: number, level: number = 0): string | undefined {
         if (mapX < 0 || mapY < 0 || mapX >= MapManager.MAX_MAP_X || mapY >= MapManager.MAX_MAP_Y) {
             return undefined;
         }
@@ -11243,7 +11231,48 @@ export class OsrsClient {
     }
 
     getWorldMapIcons(mapX: number, mapY: number, level: number = 0): MinimapIcon[] | undefined {
-        return this.worldMapIcons.get(this.getMinimapImageKey(mapX, mapY, level));
+        const dynamicIcons = this.worldMapIcons.get(this.getMinimapImageKey(mapX, mapY, level));
+        const staticIcons = this.worldMapState.getStaticIconsForTile(mapX, mapY, level);
+        if (staticIcons.length === 0) return dynamicIcons;
+
+        const icons = dynamicIcons ? dynamicIcons.slice() : [];
+        const seen = new Set(
+            icons.map((icon) => `${icon.elementId | 0}:${icon.localX | 0}:${icon.localY | 0}`),
+        );
+
+        for (const icon of staticIcons) {
+            const coord = unpackWorldMapCoord(icon.coord);
+            const localX = coord.x - ((mapX | 0) << 6);
+            const localY = coord.y - ((mapY | 0) << 6);
+            if (localX < 0 || localX >= 64 || localY < 0 || localY >= 64) continue;
+
+            const key = `${icon.element | 0}:${localX | 0}:${localY | 0}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+
+            let element;
+            try {
+                element = this.mapElementTypeLoader?.load(icon.element | 0);
+            } catch {
+                element = undefined;
+            }
+
+            icons.push({
+                localX,
+                localY,
+                elementId: icon.element | 0,
+                category: element?.category ?? icon.category,
+                spriteId: element?.spriteId ?? icon.spriteId,
+                worldMapVisible: element?.worldMapVisible ?? true,
+                name: element?.name,
+                textColor: element?.textColor ?? 0,
+                textSize: element?.textSize ?? 0,
+                horizontalAlignment: element?.horizontalAlignment ?? 0,
+                verticalAlignment: element?.verticalAlignment ?? 1,
+            });
+        }
+
+        return icons.length > 0 ? icons : undefined;
     }
 
     private queueLoadWorldMapImage(mapX: number, mapY: number, level: number): void {

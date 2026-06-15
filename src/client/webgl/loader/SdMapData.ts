@@ -12,6 +12,12 @@ export interface MinimapIcon {
     elementId: number; // Map element ID from the object map function
     category: number; // Map element category, or -1 if unset
     spriteId: number; // Sprite ID to load (resolved from MapElementType.spriteId)
+    worldMapVisible?: boolean;
+    name?: string;
+    textColor?: number;
+    textSize?: number;
+    horizontalAlignment?: number;
+    verticalAlignment?: number;
 }
 
 export type SdMapData = {
@@ -38,6 +44,7 @@ export type SdMapData = {
 
     minimapBlobs: Blob[];
     minimapIcons: MinimapIcon[][];
+    worldMapIcons: MinimapIcon[][];
 
     vertices: Uint8Array;
     indices: Int32Array;

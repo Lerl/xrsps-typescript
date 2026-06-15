@@ -1,5 +1,4 @@
 import { logger } from "../../utils/logger";
-import { closeWorldMapInterfaces } from "../../widgets/worldMapInterfaces";
 import type { ServerServices } from "../ServerServices";
 import type { PlayerState } from "../player";
 
@@ -149,7 +148,6 @@ export class InterfaceManager {
         if (this.svc.interfaceService && closedEntries.length > 0) {
             this.svc.interfaceService.triggerCloseHooksForEntries(player, closedEntries);
         }
-        closeWorldMapInterfaces(player, this.svc.interfaceService);
 
         this.svc.eventBus?.emit("interfaces:closeInterruptible", { player });
 
