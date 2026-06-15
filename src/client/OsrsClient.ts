@@ -243,7 +243,6 @@ import {
     GroundItemOverlayEntry,
     GroundItemStore,
 } from "./data/ground/GroundItemStore";
-import { ObjSpawn } from "./data/obj/ObjSpawn";
 import { NpcEcs } from "./ecs/NpcEcs";
 import { PlayerEcs } from "./ecs/PlayerEcs";
 import { TileHighlightManager } from "./highlights/TileHighlightManager";
@@ -1072,7 +1071,6 @@ export class OsrsClient {
     constructor(
         readonly workerPool: RenderDataWorkerPool,
         readonly cacheList: CacheList,
-        readonly objSpawns: ObjSpawn[],
         readonly mapImageCache: Cache,
         rendererType: OsrsRendererType,
         cache?: LoadedCache,
@@ -9687,7 +9685,7 @@ export class OsrsClient {
         this.cacheSystem = CacheSystem.fromFiles(cache.type, cache.files);
 
         // Initialize worker pool early - it needs cache files but not indices
-        this.workerPool.initCache(cache, this.objSpawns, []);
+        this.workerPool.initCache(cache, []);
 
         this.clearNpcInstancesLocal();
         this.clearMapImageUrls();

@@ -773,7 +773,6 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
     msaaEnabled: boolean = false;
     fxaaEnabled: boolean = false;
 
-    loadObjs: boolean = true;
     loadNpcs: boolean = true;
     // RuneLite-style animation smoothing (non-) is applied to the local player only.
 
@@ -5535,12 +5534,6 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
             ),
             Entity: folder(
                 {
-                    Items: {
-                        value: this.loadObjs,
-                        onChange: (v: boolean) => {
-                            this.setLoadObjs(v);
-                        },
-                    },
                     Npcs: {
                         value: this.loadNpcs,
                         onChange: (v: boolean) => {
@@ -5571,7 +5564,6 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
             mapX,
             mapY,
             maxLevel: Math.max(0, Math.min(Scene.MAX_LEVELS - 1, this.maxLevel | 0)),
-            loadObjs: this.loadObjs,
             loadNpcs: this.loadNpcs,
             smoothTerrain: this.smoothTerrain,
             minimizeDrawCalls: !this.hasMultiDraw,
@@ -5665,7 +5657,6 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
             mapX: playerMapX,
             mapY: playerMapY,
             maxLevel: Math.max(0, Math.min(Scene.MAX_LEVELS - 1, this.maxLevel | 0)),
-            loadObjs: this.loadObjs,
             loadNpcs: this.loadNpcs,
             smoothTerrain: this.smoothTerrain,
             minimizeDrawCalls: !this.hasMultiDraw,
@@ -5878,7 +5869,6 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
             mapX: overlayMapX,
             mapY: overlayMapY,
             maxLevel: Math.max(0, Math.min(Scene.MAX_LEVELS - 1, this.maxLevel | 0)),
-            loadObjs: this.loadObjs,
             loadNpcs: this.loadNpcs,
             smoothTerrain: this.smoothTerrain,
             minimizeDrawCalls: !this.hasMultiDraw,
@@ -6255,7 +6245,6 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
     isValidMapData(mapData: SdMapData): boolean {
         return (
             mapData.cacheName === this.osrsClient.loadedCache?.info?.name &&
-            mapData.loadObjs === this.loadObjs &&
             mapData.loadNpcs === this.loadNpcs &&
             mapData.smoothTerrain === this.smoothTerrain
         );
@@ -6420,14 +6409,6 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
             this.osrsClient.debugText = `Frame Time GL: ${this.timer.gpuTime.toFixed(
                 2,
             )}ms\n JS: ${this.timer.cpuTime.toFixed(2)}ms`;
-        }
-    }
-
-    setLoadObjs(enabled: boolean): void {
-        const updated = this.loadObjs !== enabled;
-        this.loadObjs = enabled;
-        if (updated) {
-            this.clearMaps();
         }
     }
 
@@ -7841,7 +7822,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
             for (const pendingMap of toApply) {
                 if (!this.isValidMapData(pendingMap)) {
                     console.warn(
-                        `[WebGLOsrsRenderer] mapsToLoad rejected: mapX=${pendingMap.mapX} mapY=${pendingMap.mapY} cacheName=${pendingMap.cacheName} loadObjs=${pendingMap.loadObjs} loadNpcs=${pendingMap.loadNpcs} smooth=${pendingMap.smoothTerrain}`,
+                        `[WebGLOsrsRenderer] mapsToLoad rejected: mapX=${pendingMap.mapX} mapY=${pendingMap.mapY} cacheName=${pendingMap.cacheName} loadNpcs=${pendingMap.loadNpcs} smooth=${pendingMap.smoothTerrain}`,
                     );
                     continue;
                 }

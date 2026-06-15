@@ -35,7 +35,6 @@ import { SpriteLoader } from "../../rs/sprite/SpriteLoader";
 import { TextureLoader } from "../../rs/texture/TextureLoader";
 import { Hasher } from "../../util/Hasher";
 import { LoadedCache } from "../Caches";
-import { ObjSpawn } from "../data/obj/ObjSpawn";
 import { NpcGeometryData } from "../webgl/loader/NpcGeometryData";
 import { SdMapDataLoader } from "../webgl/loader/SdMapDataLoader";
 import type { NpcInstance } from "../webgl/npc/NpcRenderTemplate";
@@ -77,7 +76,6 @@ export type WorkerState = {
     mapImageRenderer: MapImageRenderer;
     mapImageCache: Cache | undefined;
 
-    objSpawns: ObjSpawn[];
     npcInstances: NpcInstance[];
 };
 
@@ -112,11 +110,7 @@ function requiredIndexIds(cache: LoadedCache): number[] {
     return ids;
 }
 
-async function initWorker(
-    cache: LoadedCache,
-    objSpawns: ObjSpawn[],
-    npcInstances: NpcInstance[],
-): Promise<WorkerState> {
+async function initWorker(cache: LoadedCache, npcInstances: NpcInstance[]): Promise<WorkerState> {
     await compressionPromise;
     await hasherPromise;
 
@@ -222,7 +216,6 @@ async function initWorker(
         mapImageRenderer,
         mapImageCache,
 
-        objSpawns,
         npcInstances,
     };
 }
@@ -241,9 +234,9 @@ function clearCache(workerState: WorkerState): void {
 }
 
 const worker = {
-    initCache(cache: LoadedCache, objSpawns: ObjSpawn[], npcInstances: NpcInstance[]) {
+    initCache(cache: LoadedCache, npcInstances: NpcInstance[]) {
         console.log("init worker", cache.info);
-        workerStatePromise = initWorker(cache, objSpawns, npcInstances);
+        workerStatePromise = initWorker(cache, npcInstances);
     },
     initDataLoader<I, D>(dataLoader: RenderDataLoader<I, D>) {
         dataLoader.init();

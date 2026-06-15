@@ -27,7 +27,6 @@ import { fetchCacheList, loadCacheFiles } from "./Caches";
 import { GameContainer } from "./GameContainer";
 import { getAvailableRenderers } from "./GameRenderers";
 import { OsrsClient } from "./OsrsClient";
-import { ObjSpawn, fetchObjSpawns } from "./data/obj/ObjSpawn";
 import { useSafariLandscapeLock } from "./useSafariLandscapeLock";
 import { useViewportCssVars } from "./useViewportCssVars";
 import { renderDataLoaderSerializer } from "./worker/RenderDataLoader";
@@ -179,8 +178,6 @@ function OsrsClientApp() {
         const abortController = new AbortController();
 
         const load = async () => {
-            const objSpawnsPromise = fetchObjSpawns();
-
             const cacheList = await cachesPromise;
             if (!cacheList) {
                 setErrorMessage("Failed to load cache list");
@@ -275,14 +272,10 @@ function OsrsClientApp() {
                 mapImageCache = { put: async () => {} } as unknown as Cache;
             }
 
-            // Await objSpawns early
-            const objSpawns: ObjSpawn[] = await objSpawnsPromise;
-
             // Create OsrsClient without cache - starts in DOWNLOADING state
             const client = new OsrsClient(
                 workerPool,
                 cacheList,
-                objSpawns,
                 mapImageCache,
                 rendererType,
                 // No cache yet - will be initialized after download

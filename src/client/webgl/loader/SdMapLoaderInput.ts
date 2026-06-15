@@ -1,11 +1,8 @@
-import type { ObjSpawn } from "../../data/obj/ObjSpawn";
-
 export type SdMapLoaderInput = {
     mapX: number;
     mapY: number;
 
     maxLevel: number;
-    loadObjs: boolean;
     loadNpcs: boolean;
 
     smoothTerrain: boolean;
@@ -21,7 +18,6 @@ export type SdMapLoaderInput = {
     >;
     // Dynamic loc spawns: Map<"x,y,level", {id,type,rotation}> - locs not in base map data
     locSpawns?: Map<string, { id: number; type: number; rotation: number }>;
-    extraObjSpawns?: ObjSpawn[];
 
     /**
      * Instance mode: when present, the loader uses buildInstanceScene() instead

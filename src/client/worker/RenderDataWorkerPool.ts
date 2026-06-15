@@ -4,7 +4,6 @@ import { WorkerDescriptor } from "threads/dist/master/pool-types";
 import { ObservablePromise } from "threads/dist/observable-promise";
 
 import { LoadedCache } from "../Caches";
-import { ObjSpawn } from "../data/obj/ObjSpawn";
 import { NpcGeometryData } from "../webgl/loader/NpcGeometryData";
 import type { NpcInstance } from "../webgl/npc/NpcRenderTemplate";
 import { MinimapData } from "./MinimapData";
@@ -31,9 +30,9 @@ export class RenderDataWorkerPool {
         readonly size: number,
     ) {}
 
-    initCache(cache: LoadedCache, objSpawns: ObjSpawn[], npcInstances: NpcInstance[]): void {
+    initCache(cache: LoadedCache, npcInstances: NpcInstance[]): void {
         for (const worker of this.workers) {
-            worker.init.then((w) => w.initCache(cache, objSpawns, npcInstances));
+            worker.init.then((w) => w.initCache(cache, npcInstances));
         }
     }
 
