@@ -149,6 +149,7 @@ export interface PendingSpotAnimation {
  * Loc animation broadcast data.
  */
 export interface PendingLocAnimation {
+    playerId?: number;
     locId: number;
     tile: { x: number; y: number };
     level: number;

@@ -6,6 +6,8 @@ import type { TickFrame } from "../../game/tick/TickPhaseOrchestrator";
 import { encodeMessage } from "../messages";
 import type { BroadcastContext, BroadcastDomain } from "./BroadcastDomain";
 
+const LOC_ANIMATION_BROADCAST_RADIUS_TILES = 52;
+
 export interface GamemodeSnapshotEncoder {
     encode(
         playerId: number,
@@ -46,8 +48,17 @@ export class MiscBroadcaster implements BroadcastDomain {
     flushLocAnimations(frame: TickFrame, ctx: BroadcastContext): void {
         if (!frame.locAnimations || frame.locAnimations.length === 0) return;
         for (const animation of frame.locAnimations) {
-            ctx.broadcast(
-                encodeMessage({ type: "loc_anim", payload: animation }),
+            const msg = encodeMessage({ type: "loc_anim", payload: animation });
+            if (typeof animation.playerId === "number") {
+                ctx.sendWithGuard(ctx.getSocketByPlayerId(animation.playerId | 0), msg, "loc_anim");
+                continue;
+            }
+            ctx.broadcastToNearby(
+                animation.tile.x | 0,
+                animation.tile.y | 0,
+                animation.level | 0,
+                LOC_ANIMATION_BROADCAST_RADIUS_TILES,
+                msg,
                 "loc_anim",
             );
         }

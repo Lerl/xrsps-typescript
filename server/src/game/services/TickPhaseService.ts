@@ -870,6 +870,8 @@ export class TickPhaseService {
             sendWithGuard: (sock, msg, context) =>
                 this.svc.networkLayer.sendWithGuard(sock, msg, context),
             broadcast: (msg, context) => this.svc.broadcastService.broadcast(msg, context),
+            broadcastToNearby: (x, y, level, radius, msg, context) =>
+                this.svc.broadcastService.broadcastToNearby(x, y, level, radius, msg, context),
             getSocketByPlayerId: (id) => this.svc.players?.getSocketByPlayerId(id),
             cyclesPerTick: Math.max(1, Math.round(tickMs / 20)),
         };

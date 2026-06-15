@@ -128,6 +128,7 @@ function playSpinVisuals(
     if (target) {
         services.location.faceTile(player, target.tile);
         services.animation.playLocAnimation({
+            playerId: player.id,
             locId: target.locId,
             tile: target.tile,
             level: target.level,

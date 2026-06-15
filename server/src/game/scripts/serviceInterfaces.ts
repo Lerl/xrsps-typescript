@@ -509,6 +509,7 @@ export interface AnimationFacade {
         delayTicks?: number;
     }): void;
     playLocAnimation(opts: {
+        playerId?: number;
         locId: number;
         tile: { x: number; y: number };
         level?: number;

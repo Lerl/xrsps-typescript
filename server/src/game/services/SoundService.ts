@@ -2,6 +2,7 @@ import type { SoundBroadcastRequest } from "../../network/managers/SoundManager"
 import { encodeMessage } from "../../network/messages";
 import type { ServerServices } from "../ServerServices";
 import type { PlayerState } from "../player";
+import type { PendingLocAnimation } from "../systems/BroadcastScheduler";
 
 export class SoundService {
     constructor(private readonly services: ServerServices) {}
@@ -26,6 +27,7 @@ export class SoundService {
     }
 
     playLocAnimation(opts: {
+        playerId?: number;
         locId: number;
         tile: { x: number; y: number };
         level?: number;
@@ -34,14 +36,18 @@ export class SoundService {
         animId: number;
     }): void {
         if (!opts || !(opts.locId > 0) || !(opts.animId > 0)) return;
-        this.services.broadcastService.enqueueLocAnimation({
+        const event: PendingLocAnimation = {
             locId: opts.locId | 0,
             tile: { x: opts.tile.x | 0, y: opts.tile.y | 0 },
             level: opts.level ?? 0,
             shape: opts.shape ?? 10,
             rotation: opts.rotation ?? 0,
             animId: opts.animId | 0,
-        });
+        };
+        if (opts.playerId !== undefined && Number.isFinite(opts.playerId)) {
+            event.playerId = opts.playerId | 0;
+        }
+        this.services.broadcastService.enqueueLocAnimation(event);
     }
 
     playLocSound(opts: {

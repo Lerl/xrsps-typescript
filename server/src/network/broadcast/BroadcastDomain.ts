@@ -14,6 +14,16 @@ export interface BroadcastContext {
     /** Broadcast a message to all connected players. */
     broadcast(msg: string | Uint8Array, context?: string): void;
 
+    /** Broadcast a message to players near a world tile. */
+    broadcastToNearby(
+        x: number,
+        y: number,
+        level: number,
+        radius: number,
+        msg: string | Uint8Array,
+        context?: string,
+    ): void;
+
     /** Look up a player's WebSocket by their player ID. */
     getSocketByPlayerId(playerId: number): WebSocket | undefined;
 
