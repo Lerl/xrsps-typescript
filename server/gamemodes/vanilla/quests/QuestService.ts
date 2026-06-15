@@ -1,5 +1,6 @@
 import type { PlayerState } from "../../../src/game/player";
 import type { IScriptRegistry, ScriptServices } from "../../../src/game/scripts/types";
+import { queuePlayerQuestListUi } from "../widgets/questListUi";
 import type { QuestDefinition, QuestItemRequirement } from "./types";
 
 // ============================================================================
@@ -44,6 +45,7 @@ export function setQuestStage(
 ): void {
     player.varps.setVarpValue(quest.varpId, value);
     services.variables.sendVarp(player, quest.varpId, value);
+    queuePlayerQuestListUi(player, services.dialog);
 }
 
 export function isQuestStarted(player: PlayerState, quest: QuestDefinition): boolean {

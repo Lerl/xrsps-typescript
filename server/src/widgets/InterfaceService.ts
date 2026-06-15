@@ -647,6 +647,14 @@ export class InterfaceService {
         });
     }
 
+    setWidgetText(player: PlayerState, uid: number, text: string): void {
+        this.dispatcher.queueWidgetEvent(player.id, {
+            action: "set_text",
+            uid,
+            text,
+        });
+    }
+
     /**
      * Run a client script for a player.
      */

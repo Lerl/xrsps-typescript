@@ -5,6 +5,7 @@ import type {
     GamemodeBridge,
     GamemodeDefinition,
     GamemodeInitContext,
+    GamemodeQuestListGroup,
     GamemodeUiBridge,
     GamemodeUiController,
     HandshakeBridge,
@@ -126,6 +127,10 @@ export abstract class BaseGamemode implements GamemodeDefinition {
 
     createUiController(_bridge: GamemodeUiBridge): GamemodeUiController {
         return new DefaultUiController();
+    }
+
+    getQuestListGroups(_player: PlayerState): readonly GamemodeQuestListGroup[] {
+        return [];
     }
 
     // === Content Data ===

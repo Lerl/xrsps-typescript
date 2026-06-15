@@ -125,6 +125,7 @@ import {
 } from "../shared/items/CacheItemSearchIndex";
 import type { ProjectileLaunch } from "../shared/projectiles/ProjectileLaunch";
 import { buildSelectedSpellPayload } from "../shared/spells/selectedSpellPayload";
+import type { QuestListWidgetGroup } from "../shared/ui/questList";
 import {
     INTERFACE_ACHIEVEMENT_DIARY_ID,
     INTERFACE_QUEST_LIST_ID,
@@ -190,6 +191,7 @@ import {
 import { markWidgetInteractionDirty } from "../ui/widgets/WidgetInteraction";
 import { WidgetManager } from "../ui/widgets/WidgetManager";
 import { WidgetSessionManager } from "../ui/widgets/WidgetSessionManager";
+import { applyQuestListWidgetGroups } from "../ui/widgets/custom/questList";
 import { layoutWidgets } from "../ui/widgets/layout/WidgetLayout";
 import {
     collectWidgetsAtPointAcrossRoots,
@@ -2418,6 +2420,14 @@ export class OsrsClient {
                         : undefined;
                     this.widgetManager.invalidateWidgetRender(w);
                 }
+            } else if (payload?.action === "set_quest_list") {
+                if (this.widgetManager && Array.isArray(payload.groups)) {
+                    applyQuestListWidgetGroups(
+                        this.widgetManager,
+                        payload.groups as QuestListWidgetGroup[],
+                    );
+                    markWidgetsLoaded();
+                }
             } else if (payload?.action === "set_flags") {
                 // Set widget flags override (enables/disables click permissions)
                 const uid = Number(payload.uid) | 0;
@@ -2425,6 +2435,8 @@ export class OsrsClient {
                 const w = this.widgetManager?.getWidgetByUid(uid);
                 if (w && this.widgetManager) {
                     this.widgetManager.setWidgetFlagsOverride(w, flags);
+                    markWidgetInteractionDirty(w);
+                    this.widgetManager.invalidateWidgetRender(w, "flags");
                 }
             } else if (payload?.action === "set_flags_range") {
                 // IF_SETEVENTS packet - sets flags for a range of child indices.
@@ -2440,18 +2452,24 @@ export class OsrsClient {
                 if (fromSlot === 65535) fromSlot = -1;
                 if (toSlot === 65535) toSlot = -1;
                 const flags = Number(payload.flags) | 0;
-                const groupId = (uid >> 16) & 0xffff;
-                const childId = uid & 0xffff;
-                console.log(
-                    `[OsrsClient] set_flags_range: uid=${uid} (group=${groupId}, child=${childId}), fromSlot=${fromSlot}, toSlot=${toSlot}, flags=${flags} (transmitOp1=${
-                        (flags & 2) !== 0
-                    })`,
-                );
                 if (this.widgetManager) {
+                    const parent = this.widgetManager.getWidgetByUid(uid);
+                    const children = Array.isArray((parent as any)?.children)
+                        ? ((parent as any).children as any[])
+                        : [];
                     // Set flags for each childIndex in the range [fromSlot, toSlot]
                     // The uid becomes the 'id' component of the key (matches dynamic child's id field)
                     for (let childIndex = fromSlot; childIndex <= toSlot; childIndex++) {
                         this.widgetManager.setWidgetFlagsByKey(uid, childIndex, flags);
+                        const child = childIndex >= 0 ? children[childIndex] : parent;
+                        if (child) {
+                            markWidgetInteractionDirty(child);
+                            this.widgetManager.invalidateWidgetRender(child, "flags-range");
+                        }
+                    }
+                    if (parent) {
+                        markWidgetInteractionDirty(parent);
+                        this.widgetManager.invalidateWidgetRender(parent, "flags-range");
                     }
                 }
             } else if (payload?.action === "run_script") {

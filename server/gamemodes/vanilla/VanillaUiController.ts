@@ -25,11 +25,13 @@ import {
 } from "../../../src/shared/ui/sideJournal";
 import { VARBIT_SIDE_JOURNAL_TAB, VARP_SIDE_JOURNAL_STATE } from "../../../src/shared/vars";
 import type {
+    GamemodeQuestListGroup,
     GamemodeUiBridge,
     GamemodeUiController,
 } from "../../src/game/gamemodes/GamemodeDefinition";
 import type { PlayerState } from "../../src/game/player";
 import { GameframeTab, SCRIPT_FOCUS_TAB } from "../../src/widgets/InterfaceService";
+import { queuePlayerQuestListUi } from "./widgets/questListUi";
 
 function normalizeVanillaSideJournalTab(tab: number): number {
     return tab >= SIDE_JOURNAL_CHARACTER_SUMMARY_TAB && tab <= SIDE_JOURNAL_ACHIEVEMENT_DIARY_TAB
@@ -38,7 +40,12 @@ function normalizeVanillaSideJournalTab(tab: number): number {
 }
 
 export class VanillaUiController implements GamemodeUiController {
-    constructor(private readonly bridge: GamemodeUiBridge) {}
+    constructor(
+        private readonly bridge: GamemodeUiBridge,
+        private readonly getQuestListGroups: (
+            player: PlayerState,
+        ) => readonly GamemodeQuestListGroup[] = () => [],
+    ) {}
 
     normalizeSideJournalState(
         player: PlayerState,
@@ -73,6 +80,7 @@ export class VanillaUiController implements GamemodeUiController {
         });
 
         if (contentGroup === INTERFACE_QUEST_LIST_ID) {
+            queuePlayerQuestListUi(player, this.bridge, this.getQuestListGroups(player));
             this.bridge.queueWidgetEvent(player.id, {
                 action: "set_flags_range",
                 uid: QUEST_LIST_ENTRY_LIST_UID,

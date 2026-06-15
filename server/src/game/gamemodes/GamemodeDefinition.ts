@@ -32,6 +32,15 @@ export interface GamemodeUiController {
     };
 }
 
+export interface GamemodeQuestListQuest {
+    key: string;
+}
+
+export interface GamemodeQuestListGroup {
+    title: string;
+    quests: readonly (string | GamemodeQuestListQuest)[];
+}
+
 export interface GamemodeBridge {
     getPlayer(playerId: number): PlayerState | undefined;
     queueVarp(playerId: number, varpId: number, value: number): void;
@@ -210,6 +219,9 @@ export interface GamemodeDefinition {
 
     // === UI Controller ===
     createUiController?(bridge: GamemodeUiBridge): GamemodeUiController;
+
+    // === Quest List ===
+    getQuestListGroups?(player: PlayerState): readonly GamemodeQuestListGroup[];
 
     // === Content Data ===
     /** Controls boot-time loading of server/data/npc-spawns.json. */

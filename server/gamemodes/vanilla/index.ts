@@ -5,6 +5,7 @@ import { BaseGamemode } from "../../src/game/gamemodes/BaseGamemode";
 import type {
     GamemodeDefinition,
     GamemodeInitContext,
+    GamemodeQuestListGroup,
     GamemodeServerServices,
     GamemodeUiBridge,
     GamemodeUiController,
@@ -41,7 +42,7 @@ import { computeTargetBonusPercentages } from "./equipment/targetBonuses";
 import { registerSmithingBarModalHandler } from "./modals/smithingBarModalHandler";
 import { registerWidgetCloseHandlers } from "./modals/widgetCloseHandlers";
 import { registerWidgetOpenHandlers } from "./modals/widgetOpenHandlers";
-import { registerQuestHandlers } from "./quests";
+import { getRegisteredQuests, registerQuestHandlers } from "./quests";
 import { registerAlKharidBorderHandlers } from "./scripts/content/alKharidBorder";
 import { registerBobHandlers } from "./scripts/content/bob";
 import { registerClimbingHandlers } from "./scripts/content/climbing";
@@ -111,7 +112,13 @@ export class VanillaGamemode extends BaseGamemode {
     }
 
     override createUiController(bridge: GamemodeUiBridge): GamemodeUiController {
-        return new VanillaUiController(bridge);
+        return new VanillaUiController(bridge, (player) => this.getQuestListGroups(player));
+    }
+
+    override getQuestListGroups(_player: PlayerState): readonly GamemodeQuestListGroup[] {
+        const quests = getRegisteredQuests().map((quest) => quest.key);
+        if (quests.length === 0) return [];
+        return [{ title: "Free Quests", quests }];
     }
 
     private registerProviders(): void {

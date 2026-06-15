@@ -10,6 +10,7 @@ import {
     ServerPacketId,
 } from "../../../../src/shared/packets/ServerPacketId";
 import type { ProjectileLaunch } from "../../../../src/shared/projectiles/ProjectileLaunch";
+import type { QuestListWidgetGroup } from "../../../../src/shared/ui/questList";
 import type { WorldEntityBuildArea } from "../../../../src/shared/worldentity/WorldEntityTypes";
 import { BitWriter } from "../BitWriter";
 
@@ -645,6 +646,24 @@ export class ServerBinaryEncoder {
         this.buffer.reset();
         this.buffer.writeInt(uid);
         return this.buffer.toPacket(ServerPacketId.WIDGET_SET_PLAYER_HEAD);
+    }
+
+    encodeWidgetSetQuestList(groups: QuestListWidgetGroup[]): Uint8Array {
+        this.buffer.reset();
+        const safeGroups = Array.isArray(groups) ? groups : [];
+        this.buffer.writeShort(safeGroups.length);
+        for (const group of safeGroups) {
+            this.buffer.writeString(group.title ?? "");
+            const quests = Array.isArray(group.quests) ? group.quests : [];
+            this.buffer.writeShort(quests.length);
+            for (const quest of quests) {
+                this.buffer.writeShort(quest.slot | 0);
+                this.buffer.writeByte(quest.status | 0);
+                this.buffer.writeString(quest.key ?? "");
+                this.buffer.writeString(quest.displayName ?? "");
+            }
+        }
+        return this.buffer.toPacket(ServerPacketId.WIDGET_SET_QUEST_LIST);
     }
 
     // ========================================

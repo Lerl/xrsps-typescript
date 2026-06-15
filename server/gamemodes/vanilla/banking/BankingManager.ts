@@ -6,7 +6,11 @@ import { EquipmentSlot } from "../../../../src/rs/config/player/Equipment";
 import { type BankEntry, type PlayerState } from "../../../src/game/player";
 import { getItemDefinition } from "../../../src/game/scripts/types";
 import { DEFAULT_BANK_CAPACITY } from "../../../src/game/state/PlayerBankSystem";
-import { BANK_INTERFACE_ID, type BankOpenData } from "./BankInterfaceHooks";
+import {
+    BANK_INTERFACE_ID,
+    SCRIPT_BANK_INTERFACE_UNDERLAY,
+    type BankOpenData,
+} from "./BankInterfaceHooks";
 import type {
     BankOperationResult,
     BankServerUpdate,
@@ -1354,17 +1358,20 @@ export class BankingManager implements BankingProvider {
             }
 
             // Build bank data for hooks
-            const bankData: BankOpenData = { varps, varbits };
+            const bankData: BankOpenData = {
+                varps,
+                varbits,
+                capacityText: this.formatBankCapacityText(capacity),
+            };
+
+            this.services.queueWidgetEvent(player.id, {
+                action: "run_script",
+                scriptId: SCRIPT_BANK_INTERFACE_UNDERLAY,
+                args: [-1, -2],
+            });
 
             // Open bank modal - InterfaceService handles side panel via hooks.
             interfaceService.openModal(player, BANK_INTERFACE_ID, bankData, { varps, varbits });
-
-            // CAPACITY (12:5) is server-authored text, not CS2-authored.
-            this.services.queueWidgetEvent(player.id, {
-                action: "set_text",
-                uid: ((WidgetGroup.BANK_MAIN & 0xffff) << 16) | BankMainChild.CAPACITY,
-                text: this.formatBankCapacityText(capacity),
-            });
 
             // Queue snapshot through the normal tick pipeline so bank data lands
             // after interface open/flag/script events in the same frame.

@@ -78,6 +78,7 @@ import {
 } from "../../../src/game/scripts/types";
 import { syncLeagueGeneralVarp } from "../leagueGeneral";
 import { getLeaguePackedVarpsForPlayer, syncLeaguePackedVarps } from "../leaguePackedVarps";
+import { queuePlayerQuestListUi } from "../../vanilla/widgets/questListUi";
 import {
     advanceLeagueTutorialHintTo,
     closeLeagueTutorialHints,
@@ -750,6 +751,7 @@ export function queueSideJournalLeagueOnlyUi(
         // unmounts, so the quest list entry flags must be re-sent on every open
         // or quest clicks stop transmitting after a subtab switch.
         if (contentGroup === INTERFACE_QUEST_LIST_ID) {
+            queuePlayerQuestListUi(player as unknown as PlayerState, bridge);
             bridge.queueWidgetEvent(playerId, {
                 action: "set_flags_range",
                 uid: QUEST_LIST_ENTRY_LIST_UID,

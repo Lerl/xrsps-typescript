@@ -1,4 +1,5 @@
 import { logger } from "../utils/logger";
+import type { QuestListWidgetGroup } from "../../../src/shared/ui/questList";
 import {
     ContainerChildIds,
     type DesktopInterfaceOptions,
@@ -92,6 +93,10 @@ export type WidgetAction =
           action: "set_varbit";
           varbitId: number;
           value: number;
+      }
+    | {
+          action: "set_quest_list";
+          groups: QuestListWidgetGroup[];
       };
 
 /**

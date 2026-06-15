@@ -17,7 +17,7 @@ export const BankMainChild = {
     CLOSE_BUTTON: 2,
     TITLE: 3,
     BANK_TUTORIAL: 4,
-    CAPACITY: 5, // Occupied slots / capacity text (for example "352/800")
+    CAPACITY: 8,
     ITEMS_CONTAINER: 9,
     TABS: 10, // Tab interaction target used for tab clicks and drag-to-tab.
     ITEMS: 12,
@@ -42,11 +42,13 @@ export const BankMainChild = {
     DEPOSIT_WORN_GRAPHIC: 44,
     INCINERATOR_TARGET: 48,
     INCINERATOR_CONFIRM: 49,
+    POTIONSTORE_ITEMS: 51,
     MENU_CONTAINER: 53,
     WORN_ITEMS_CONTAINER: 54,
     MENU_BUTTON: 99,
     WORN_ITEMS_BUTTON: 100,
     TOOLTIP: 104,
+    DROPDOWN_CONTENT: 114,
     GIM_STORAGE: 118,
 } as const;
 

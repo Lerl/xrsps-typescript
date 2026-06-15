@@ -251,7 +251,10 @@ function registerDoricAnvilGate(registry: IScriptRegistry, services: ScriptServi
 // Definition
 // ============================================================================
 
+export const DORICS_QUEST_KEY = "dorics_quest";
+
 export const doricsQuest: QuestDefinition = {
+    key: DORICS_QUEST_KEY,
     name: "Doric's Quest",
     varpId: VARP_DORICS_QUEST,
     startedValue: STAGE_STARTED,

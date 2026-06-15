@@ -41,5 +41,11 @@ export function registerQuestHandlers(registry: IScriptRegistry, services: Scrip
     services.system.logger.info?.(`[quests] Registered ${QUEST_DEFINITIONS.length} quest(s)`);
 }
 
-export { getQuestDefinition, getRegisteredQuests } from "./QuestRegistry";
+export {
+    getQuestDefinition,
+    getQuestDefinitionByKey,
+    getQuestDefinitionByName,
+    getRegisteredQuests,
+    normalizeQuestKey,
+} from "./QuestRegistry";
 export type { QuestDefinition, QuestItemRequirement, QuestRewards } from "./types";

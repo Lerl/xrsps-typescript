@@ -1054,6 +1054,8 @@ function encodeWidgetToBinary(payload: WidgetServerPayload): Uint8Array {
             return serverEncoder.encodeWidgetSetAnimation(payload.uid, payload.animationId);
         case "set_player_head":
             return serverEncoder.encodeWidgetSetPlayerHead(payload.uid);
+        case "set_quest_list":
+            return serverEncoder.encodeWidgetSetQuestList(payload.groups ?? []);
         case "set_varbit":
             // Widget-channel varbit update - use existing varbit encoder
             return serverEncoder.encodeVarbit(payload.varbitId, payload.value);

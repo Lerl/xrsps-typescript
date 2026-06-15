@@ -35,6 +35,8 @@ export interface QuestRewards {
 }
 
 export interface QuestDefinition {
+    /** Stable content key used by gamemodes and server systems */
+    key: string;
     /** Display name exactly as it appears in the cache quest DB (table 0) */
     name: string;
     /** Quest progress varp */
