@@ -228,12 +228,7 @@ function openDiaryJournal(player: PlayerState, areaId: number, services: ScriptS
     const displayMode = player.displayMode ?? 1;
     const mainmodalUid = services.viewport.getMainmodalUid(displayMode);
 
-    services.dialog.queueWidgetEvent(playerId, {
-        action: "open_sub",
-        targetUid: mainmodalUid,
-        groupId: DIARY_SCROLL_GROUP_ID,
-        type: 0, // modal: closes on walk/interaction like other journals
-    });
+    services.dialog.openSubInterface(player, mainmodalUid, DIARY_SCROLL_GROUP_ID, 0);
 
     const lines = buildDiaryJournalLines(player, area);
 

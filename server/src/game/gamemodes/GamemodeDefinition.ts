@@ -1,6 +1,7 @@
 import type { InterfaceService } from "../../widgets/InterfaceService";
 import type { WidgetAction } from "../../widgets/WidgetManager";
 import type { GameEventBus } from "../events/GameEventBus";
+import type { StaticGroundItemSpawn } from "../items/GroundItemManager";
 import type { NpcSpawnConfig, NpcState } from "../npc";
 import type { PlayerState } from "../player";
 import type { IScriptRegistry, ScriptServices } from "../scripts/types";
@@ -102,6 +103,7 @@ export interface GamemodeServerServices {
     getObjType(itemId: number): unknown;
     spawnNpc(config: NpcSpawnConfig): NpcState | undefined;
     removeNpc(npcId: number): boolean;
+    registerStaticGroundItem(spawn: StaticGroundItemSpawn): void;
     getInterfaceService(): InterfaceService | undefined;
     getCurrentTick(): number;
     registerTickCallback(callback: (tick: number) => void): void;

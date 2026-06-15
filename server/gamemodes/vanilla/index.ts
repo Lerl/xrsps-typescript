@@ -30,6 +30,7 @@ import { createSpecialAttackVisualProvider } from "./combat/SpecialAttackVisuals
 import { createSpellXpProvider } from "./combat/SpellXpData";
 import { DEFAULT_LOGIN_VARBITS } from "./data/loginVarbits";
 import { DEFAULT_LOGIN_VARPS } from "./data/loginVarps";
+import { registerVanillaGroundItemSpawns } from "./data/groundItemSpawns";
 import { NPC_LOOT_CONFIGS } from "./data/lootDistribution";
 import { createProjectileParamsProvider } from "./data/projectileParams";
 import { createRuneDataProvider } from "./data/runes";
@@ -281,6 +282,9 @@ export class VanillaGamemode extends BaseGamemode {
 
         // === Shops ===
         this.shopService = new ShopService({ serverServices: ss });
+
+        // === Static ground item spawns ===
+        registerVanillaGroundItemSpawns(ss);
 
         // === Interface hooks ===
         const interfaceService = ss.getInterfaceService();

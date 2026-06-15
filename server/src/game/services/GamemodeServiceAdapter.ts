@@ -4,6 +4,7 @@ import { logger } from "../../utils/logger";
 import type { InterfaceService } from "../../widgets/InterfaceService";
 import type { GameEventBus } from "../events/GameEventBus";
 import type { GamemodeServerServices } from "../gamemodes/GamemodeDefinition";
+import type { GroundItemManager } from "../items/GroundItemManager";
 import type { PlayerState } from "../player";
 import type { NpcManager } from "../npcManager";
 import type { AppearanceService } from "./AppearanceService";
@@ -50,6 +51,7 @@ export interface GamemodeServiceAdapterDeps {
     interfaceService: InterfaceService | undefined;
     eventBus: GameEventBus;
     npcManager?: NpcManager;
+    groundItems?: Pick<GroundItemManager, "registerStaticSpawn">;
 }
 
 /**
@@ -104,6 +106,9 @@ export function buildGamemodeServices(deps: GamemodeServiceAdapterDeps): Gamemod
         getObjType: (itemId) => deps.dataLoaders.getObjType(itemId),
         spawnNpc: (config) => deps.npcManager?.spawnTransientNpc(config),
         removeNpc: (npcId) => deps.npcManager?.removeNpc(npcId) ?? false,
+        registerStaticGroundItem: (spawn) => {
+            deps.groundItems?.registerStaticSpawn(spawn, deps.getCurrentTick());
+        },
         getInterfaceService: () => deps.interfaceService,
         getCurrentTick: () => deps.getCurrentTick(),
         registerTickCallback: (callback) => deps.gamemodeTickCallbacks.push(callback),

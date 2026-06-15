@@ -77,6 +77,13 @@ export class GroundItemHandler {
         return (mapX << 16) | (mapY & 0xffff);
     }
 
+    private static getGroundStreamKey(player: PlayerState): number {
+        const chunkKey = GroundItemHandler.getGroundChunkKey(player) >>> 0;
+        const worldViewId = (player.worldViewId ?? 0) & 0xffff;
+        const level = player.level & 0x3;
+        return (worldViewId * 4 + level) * 0x100000000 + chunkKey;
+    }
+
     clearPlayerState(playerIdRaw: number): void {
         const playerId = playerIdRaw;
         if (playerId < 0) return;
@@ -193,12 +200,10 @@ export class GroundItemHandler {
         const playerGroundChunk = this.svc.playerGroundChunk;
 
         const lastSerial = playerGroundSerial.get(playerId);
-        // Include worldViewId in chunk key so switching views forces a snapshot
-        const baseChunkKey = GroundItemHandler.getGroundChunkKey(player);
-        const chunkKey = baseChunkKey ^ ((player.worldViewId & 0xffff) << 16);
+        const streamKey = GroundItemHandler.getGroundStreamKey(player);
         const lastChunk = playerGroundChunk.get(playerId);
 
-        if (lastSerial === currentSerial && lastChunk === chunkKey) return;
+        if (lastSerial === currentSerial && lastChunk === streamKey) return;
 
         const stacks = groundItems
             .queryArea(
@@ -219,7 +224,7 @@ export class GroundItemHandler {
 
         const previousById = this.lastVisibleStacksByPlayer.get(playerId);
         const shouldSendSnapshot =
-            lastSerial === undefined || lastChunk !== chunkKey || previousById === undefined;
+            lastSerial === undefined || lastChunk !== streamKey || previousById === undefined;
 
         if (shouldSendSnapshot) {
             const payload: GroundItemsServerPayload = {
@@ -264,7 +269,7 @@ export class GroundItemHandler {
         }
 
         playerGroundSerial.set(playerId, currentSerial);
-        playerGroundChunk.set(playerId, chunkKey);
+        playerGroundChunk.set(playerId, streamKey);
         this.lastVisibleStacksByPlayer.set(playerId, currentById);
     }
 
@@ -452,18 +457,21 @@ export class GroundItemHandler {
                 targetPlayerIds: [player.id],
             });
 
-            // Respawn item - immediately visible in wilderness
-            const inWilderness = isInWilderness(tile.x, tile.y);
-            groundItems.spawn(
-                itemId,
-                removed.removed,
-                tile,
-                nowTick,
-                {
-                    privateTicks: inWilderness ? 0 : undefined,
-                },
-                player.worldViewId,
-            );
+            if (removed.staticSpawnKey) {
+                groundItems.restoreStaticSpawnNow(removed.staticSpawnKey, nowTick);
+            } else {
+                const inWilderness = isInWilderness(tile.x, tile.y);
+                groundItems.spawn(
+                    itemId,
+                    removed.removed,
+                    tile,
+                    nowTick,
+                    {
+                        privateTicks: inWilderness ? 0 : undefined,
+                    },
+                    player.worldViewId,
+                );
+            }
             return;
         }
 

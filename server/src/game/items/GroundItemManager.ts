@@ -28,6 +28,7 @@ export type GroundItemStack = {
     ownerId?: number;
     privateUntilTick?: number;
     expiresTick?: number;
+    staticSpawnKey?: string;
 };
 
 export type SpawnGroundItemOptions = {
@@ -40,15 +41,31 @@ export type SpawnGroundItemOptions = {
     isWilderness?: boolean;
     /** If true, item is a consumable (food/potion) - fast despawn in wilderness */
     isConsumable?: boolean;
+    staticSpawnKey?: string;
 };
 
 const TILE_KEY_SEPARATOR = ":";
 
 type StackIndexEntry = { key: string; stack: GroundItemStack };
 
+export type StaticGroundItemSpawn = {
+    key?: string;
+    itemId: number;
+    quantity: number;
+    tile: { x: number; y: number; level: number };
+    respawnTicks: number;
+    worldViewId?: number;
+};
+
+type StaticGroundItemSpawnRecord = Required<StaticGroundItemSpawn> & {
+    activeStackId?: number;
+    respawnTick?: number;
+};
+
 export class GroundItemManager {
     private stacksByTile = new Map<string, GroundItemStack[]>();
     private stacksById = new Map<number, StackIndexEntry>();
+    private staticSpawns = new Map<string, StaticGroundItemSpawnRecord>();
     private nextId = 1;
     private serial = 1;
 
@@ -80,6 +97,75 @@ export class GroundItemManager {
             privateUntilTick !== undefined &&
             privateUntilTick > currentTick
         );
+    }
+
+    private staticSpawnKey(spawn: StaticGroundItemSpawn): string {
+        const worldViewId = spawn.worldViewId ?? -1;
+        const key = String(spawn.key ?? "").trim();
+        if (key.length > 0) return key;
+        return [
+            worldViewId,
+            spawn.tile.level,
+            spawn.tile.x,
+            spawn.tile.y,
+            spawn.itemId,
+            spawn.quantity,
+        ].join(TILE_KEY_SEPARATOR);
+    }
+
+    registerStaticSpawn(
+        spawn: StaticGroundItemSpawn,
+        currentTick: number,
+    ): GroundItemStack | undefined {
+        if (!(spawn.itemId > 0) || !(spawn.quantity > 0)) return undefined;
+        const key = this.staticSpawnKey(spawn);
+        if (this.staticSpawns.has(key)) return undefined;
+
+        const record: StaticGroundItemSpawnRecord = {
+            key,
+            itemId: Math.trunc(spawn.itemId),
+            quantity: Math.trunc(spawn.quantity),
+            tile: {
+                x: Math.trunc(spawn.tile.x),
+                y: Math.trunc(spawn.tile.y),
+                level: Math.trunc(spawn.tile.level),
+            },
+            respawnTicks: Math.max(1, Math.trunc(spawn.respawnTicks)),
+            worldViewId: Math.trunc(spawn.worldViewId ?? -1),
+        };
+
+        this.staticSpawns.set(key, record);
+        return this.spawnStaticRecord(record, currentTick);
+    }
+
+    restoreStaticSpawnNow(staticSpawnKey: string, currentTick: number): GroundItemStack | undefined {
+        const record = this.staticSpawns.get(staticSpawnKey);
+        if (!record || record.activeStackId !== undefined) return undefined;
+        record.respawnTick = undefined;
+        return this.spawnStaticRecord(record, currentTick);
+    }
+
+    private spawnStaticRecord(
+        record: StaticGroundItemSpawnRecord,
+        currentTick: number,
+    ): GroundItemStack | undefined {
+        const stack = this.spawn(
+            record.itemId,
+            record.quantity,
+            record.tile,
+            currentTick,
+            {
+                privateTicks: 0,
+                durationTicks: 0,
+                staticSpawnKey: record.key,
+            },
+            record.worldViewId,
+        );
+        if (!stack) return undefined;
+
+        record.activeStackId = stack.id;
+        record.respawnTick = undefined;
+        return stack;
     }
 
     spawn(
@@ -132,11 +218,13 @@ export class GroundItemManager {
         const ownerId = opts?.ownerId !== undefined ? opts.ownerId : undefined;
         const privateUntilTick = privateTicks > 0 ? currentTick + privateTicks : undefined;
         const expiresTick = duration > 0 ? currentTick + duration : undefined;
+        const staticSpawnKey = opts?.staticSpawnKey;
         const newIsPrivate = this.isPrivateForOthers(ownerId, privateUntilTick, currentTick);
         const stack = isStackable
             ? list.find(
                   (entry) =>
                       entry.itemId === itemId &&
+                      entry.staticSpawnKey === staticSpawnKey &&
                       (() => {
                           const existingIsPrivate = this.isPrivateForOthers(
                               entry.ownerId,
@@ -163,6 +251,7 @@ export class GroundItemManager {
             createdTick: currentTick,
         };
         base.quantity += quantity;
+        base.staticSpawnKey = staticSpawnKey;
         base.ownerId = newIsPrivate ? ownerId : undefined;
         base.privateUntilTick = newIsPrivate
             ? Math.max(base.privateUntilTick ?? 0, privateUntilTick ?? 0)
@@ -189,7 +278,7 @@ export class GroundItemManager {
         quantity: number,
         currentTick: number,
         requesterPlayerId?: number,
-    ): { removed: number; remaining?: number } | undefined {
+    ): { removed: number; remaining?: number; staticSpawnKey?: string } | undefined {
         const idxEntry = this.stacksById.get(stackId);
         if (!idxEntry) return undefined;
         const { key, stack } = idxEntry;
@@ -215,6 +304,7 @@ export class GroundItemManager {
             ? Math.max(1, Math.min(2147483647, Math.floor(quantity)))
             : 1;
         const removeQty = Math.min(stack.quantity, requestedQty);
+        const staticSpawnKey = stack.staticSpawnKey;
         stack.quantity -= removeQty;
         if (stack.quantity <= 0) {
             list.splice(listIndex, 1);
@@ -222,9 +312,20 @@ export class GroundItemManager {
                 this.stacksByTile.delete(key);
             }
             this.stacksById.delete(stack.id);
+            if (staticSpawnKey) {
+                const staticSpawn = this.staticSpawns.get(staticSpawnKey);
+                if (staticSpawn?.activeStackId === stack.id) {
+                    staticSpawn.activeStackId = undefined;
+                    staticSpawn.respawnTick = currentTick + staticSpawn.respawnTicks;
+                }
+            }
         }
         this.bumpSerial();
-        return { removed: removeQty, remaining: stack.quantity > 0 ? stack.quantity : undefined };
+        return {
+            removed: removeQty,
+            remaining: stack.quantity > 0 ? stack.quantity : undefined,
+            staticSpawnKey,
+        };
     }
 
     tick(currentTick: number): void {
@@ -235,11 +336,32 @@ export class GroundItemManager {
                 if (stack.expiresTick && stack.expiresTick <= currentTick) {
                     stacks.splice(i, 1);
                     this.stacksById.delete(stack.id);
+                    if (stack.staticSpawnKey) {
+                        const staticSpawn = this.staticSpawns.get(stack.staticSpawnKey);
+                        if (staticSpawn?.activeStackId === stack.id) {
+                            staticSpawn.activeStackId = undefined;
+                            staticSpawn.respawnTick = currentTick + staticSpawn.respawnTicks;
+                        }
+                    }
                     touched = true;
                 }
             }
             if (stacks.length === 0) {
                 this.stacksByTile.delete(key);
+            }
+        }
+        for (const staticSpawn of this.staticSpawns.values()) {
+            if (
+                staticSpawn.activeStackId === undefined &&
+                staticSpawn.respawnTick !== undefined &&
+                staticSpawn.respawnTick <= currentTick
+            ) {
+                const stack = this.spawnStaticRecord(staticSpawn, currentTick);
+                if (!stack) {
+                    staticSpawn.respawnTick = currentTick + 1;
+                } else {
+                    touched = true;
+                }
             }
         }
         if (touched) this.bumpSerial();

@@ -2694,9 +2694,11 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                     // Draw ground items as red dots
                     const groundItems = osrsClient.groundItems;
                     if (groundItems && itemDot) {
+                        const playerLevel = playerState.level | 0;
                         const allStacks = groundItems.getAllStacks?.() ?? [];
                         for (const stack of allStacks) {
                             if (!stack || !stack.tile) continue;
+                            if (((stack.tile.level ?? 0) | 0) !== playerLevel) continue;
                             const itemTileX = stack.tile.x | 0;
                             const itemTileY = stack.tile.y | 0;
 
