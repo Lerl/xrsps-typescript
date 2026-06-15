@@ -44,7 +44,7 @@ export function registerWorldMapOps(handlers: HandlerMap): void {
 
     handlers.set(Opcodes.WORLDMAP_JUMPTODISPLAYCOORD_INSTANT, (ctx) => {
         const coord = unpackWorldMapCoord(ctx.popInt());
-        ctx.worldMapState?.setWorldMapPositionTarget(coord.x, coord.y);
+        ctx.worldMapState?.setWorldMapPositionTargetInstant(coord.x, coord.y);
     });
 
     handlers.set(Opcodes.WORLDMAP_JUMPTOSOURCECOORD, (ctx) => {
@@ -112,19 +112,25 @@ export function registerWorldMapOps(handlers: HandlerMap): void {
     });
 
     handlers.set(Opcodes.WORLDMAP_JUMPTOMAP, (ctx) => {
-        const coord = ctx.popInt();
+        const fallback = unpackWorldMapCoord(ctx.popInt());
         const mapAreaId = ctx.popInt();
-        ctx.worldMapState?.setCurrentMapAreaId(mapAreaId);
-        const source = unpackWorldMapCoord(coord);
-        ctx.worldMapState?.jumpToSourceCoord(source.plane, source.x, source.y);
+        const preferred = {
+            plane: ctx.getPlayerPlane?.() ?? 0,
+            x: ctx.getPlayerLocalX?.() ?? 0,
+            y: ctx.getPlayerLocalY?.() ?? 0,
+        };
+        ctx.worldMapState?.jumpToMapArea(mapAreaId, preferred, fallback, false);
     });
 
     handlers.set(Opcodes.WORLDMAP_JUMPTOMAP_INSTANT, (ctx) => {
-        const coord = ctx.popInt();
+        const fallback = unpackWorldMapCoord(ctx.popInt());
         const mapAreaId = ctx.popInt();
-        ctx.worldMapState?.setCurrentMapAreaId(mapAreaId);
-        const source = unpackWorldMapCoord(coord);
-        ctx.worldMapState?.jumpToSourceCoordInstant(source.plane, source.x, source.y);
+        const preferred = {
+            plane: ctx.getPlayerPlane?.() ?? 0,
+            x: ctx.getPlayerLocalX?.() ?? 0,
+            y: ctx.getPlayerLocalY?.() ?? 0,
+        };
+        ctx.worldMapState?.jumpToMapArea(mapAreaId, preferred, fallback, true);
     });
 
     handlers.set(Opcodes.WORLDMAP_COORDINMAP, (ctx) => {

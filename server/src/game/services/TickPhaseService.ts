@@ -30,6 +30,12 @@ import type { NpcUpdateDelta } from "../npc";
 import type { PlayerState } from "../player";
 import type { TickFrame } from "../tick/TickPhaseOrchestrator";
 import { EQUIPMENT_STATS_GROUP_ID } from "./EquipmentStatsUiService";
+import {
+    SCRIPT_WORLDMAP_TRANSMIT_DATA,
+    WORLD_MAP_GROUP_ID,
+    getWorldMapTransmitDataArgs,
+    packWorldMapPlayerCoord,
+} from "../../widgets/worldMapInterfaces";
 
 type StepRecord = {
     x: number;
@@ -71,6 +77,8 @@ const NPC_SIM_RADIUS_TILES = NPC_STREAM_EXIT_RADIUS_TILES + 12;
  * The TickPhaseOrchestrator drives these phases in order each tick.
  */
 export class TickPhaseService {
+    private readonly lastWorldMapCoordByPlayer = new WeakMap<PlayerState, number>();
+
     constructor(private readonly svc: ServerServices) {}
 
     runPreMovementPhase(frame: TickFrame): void {
@@ -363,6 +371,7 @@ export class TickPhaseService {
             if (player.energy.hasRunEnergyUpdate()) {
                 this.svc.movementService.queueRunEnergySnapshot(player);
             }
+            this.queueWorldMapTransmitData(player);
 
             const tileX = player.x / 128;
             const tileY = player.y / 128;
@@ -558,6 +567,24 @@ export class TickPhaseService {
         } catch (err) {
             logger.warn("Failed to run post-movement phase", err);
         }
+    }
+
+    private queueWorldMapTransmitData(player: PlayerState): void {
+        if (!player.widgets.isOpen(WORLD_MAP_GROUP_ID)) {
+            this.lastWorldMapCoordByPlayer.delete(player);
+            return;
+        }
+
+        const packedCoord = packWorldMapPlayerCoord(player);
+        if (this.lastWorldMapCoordByPlayer.get(player) === packedCoord) {
+            return;
+        }
+        this.lastWorldMapCoordByPlayer.set(player, packedCoord);
+        this.svc.broadcastService.queueClientScript(
+            player.id,
+            SCRIPT_WORLDMAP_TRANSMIT_DATA,
+            ...getWorldMapTransmitDataArgs(packedCoord),
+        );
     }
 
     runCombatPhase(frame: TickFrame): void {

@@ -2782,31 +2782,6 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                     }
                 }
 
-                const localPlayerId = osrsClient?.controlledPlayerServerId | 0;
-                const playerState = osrsClient?.playerMovementSync?.getState?.(localPlayerId);
-                if (playerState) {
-                    const playerPos = currentArea.position(
-                        playerState.level | 0,
-                        playerState.tileX | 0,
-                        playerState.tileY | 0,
-                    );
-                    if (playerPos) {
-                        const markerPos = projectDisplayToScreen(
-                            playerPos.x + 0.5,
-                            playerPos.y + 0.5,
-                        );
-                        const markerX = markerPos.x;
-                        const markerY = markerPos.y;
-                        const markerSize = Math.max(3, Math.round(4 * renderScale));
-                        glr.drawRect(
-                            markerX - markerSize / 2,
-                            markerY - markerSize / 2,
-                            markerSize,
-                            markerSize,
-                            [1, 1, 1, 1],
-                        );
-                    }
-                }
             }
         }
 

@@ -19,9 +19,11 @@ import {
 } from "../../../src/widgets/minimapOrbs";
 import {
     FLOATER_BLANKMODAL_GROUP_ID,
+    SCRIPT_WORLDMAP_TRANSMIT_DATA,
     WORLD_MAP_CLOSE_WIDGET_ID,
     WORLD_MAP_GROUP_ID,
     closeWorldMapInterfaces,
+    getWorldMapTransmitDataArgs,
 } from "../../../src/widgets/worldMapInterfaces";
 
 function getXpCounterMountUid(displayMode: number): number {
@@ -48,7 +50,6 @@ const XP_DROPS_ORB_WIDGET_ID = (MINIMAP_WIDGET_GROUP_ID << 16) | XP_DROPS_ORB_CO
 const WORLD_MAP_TOGGLES_UID = (WORLD_MAP_GROUP_ID << 16) | 21;
 const WORLD_MAP_TOGGLES_LAST_SLOT = 4;
 const IF_SETEVENTS_TRANSMIT_OP1 = 1 << 1;
-const SCRIPT_WORLDMAP_OPEN = 1749;
 const VARBIT_BUSY = 12393;
 const ROOT_FULLSCREEN_GROUP_ID = 165;
 const FULLSCREEN_DISPLAY_MODAL_UID = (ROOT_FULLSCREEN_GROUP_ID << 16) | 40;
@@ -113,11 +114,6 @@ function getWorldMapFloaterUid(displayMode: DisplayMode): number {
     return (getRootGroupId(displayMode) << 16) | 18;
 }
 
-function packPlayerCoord(player: PlayerState): number {
-    const level = Math.max(0, Math.min(3, player.level | 0));
-    return (level << 28) | ((player.tileX & 0x3fff) << 14) | (player.tileY & 0x3fff);
-}
-
 function queueRunScript(
     services: ScriptServices,
     playerId: number,
@@ -132,7 +128,12 @@ function queueRunScript(
 }
 
 function queueWorldMapOpenScript(player: PlayerState, services: ScriptServices): void {
-    queueRunScript(services, player.id, SCRIPT_WORLDMAP_OPEN, [packPlayerCoord(player), -1, -1]);
+    queueRunScript(
+        services,
+        player.id,
+        SCRIPT_WORLDMAP_TRANSMIT_DATA,
+        getWorldMapTransmitDataArgs(player),
+    );
 }
 
 function queueWorldMapToggleEvents(player: PlayerState, services: ScriptServices): void {

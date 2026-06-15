@@ -726,6 +726,8 @@ export class OsrsClient {
     private worldMapDragStartDisplayY: number = 0;
     private worldMapDragPixelsPerTileX: number = 1;
     private worldMapDragPixelsPerTileY: number = 1;
+    private pendingWorldMapDragDisplayX: number | undefined;
+    private pendingWorldMapDragDisplayY: number | undefined;
 
     // PERF: Cache drag hit test - only recompute when mouse moves
     private _lastDragHitX: number = -1;
@@ -3501,6 +3503,8 @@ export class OsrsClient {
     private setWorldMapState(state: WorldMapState): void {
         this.worldMapState = state;
         this.resetWorldMapDrag();
+        this.pendingWorldMapDragDisplayX = undefined;
+        this.pendingWorldMapDragDisplayY = undefined;
         if (this.cs2Vm?.context) {
             this.cs2Vm.context.worldMapState = state;
         }
@@ -3588,14 +3592,41 @@ export class OsrsClient {
             this.worldMapDragStartDisplayX - Math.trunc(deltaX / this.worldMapDragPixelsPerTileX);
         const nextY =
             this.worldMapDragStartDisplayY + Math.trunc(deltaY / this.worldMapDragPixelsPerTileY);
+        const currentX =
+            this.pendingWorldMapDragDisplayX !== undefined
+                ? this.pendingWorldMapDragDisplayX
+                : this.worldMapState.displayX | 0;
+        const currentY =
+            this.pendingWorldMapDragDisplayY !== undefined
+                ? this.pendingWorldMapDragDisplayY
+                : this.worldMapState.displayY | 0;
+        if (nextX !== currentX || nextY !== currentY) {
+            this.pendingWorldMapDragDisplayX = nextX;
+            this.pendingWorldMapDragDisplayY = nextY;
+        }
+        return true;
+    }
+
+    private applyPendingWorldMapDrag(): boolean {
+        if (
+            this.pendingWorldMapDragDisplayX === undefined ||
+            this.pendingWorldMapDragDisplayY === undefined
+        ) {
+            return false;
+        }
+        const nextX = this.pendingWorldMapDragDisplayX | 0;
+        const nextY = this.pendingWorldMapDragDisplayY | 0;
+        this.pendingWorldMapDragDisplayX = undefined;
+        this.pendingWorldMapDragDisplayY = undefined;
         if (
             nextX !== (this.worldMapState.displayX | 0) ||
             nextY !== (this.worldMapState.displayY | 0)
         ) {
             this.worldMapState.setDisplayPosition(nextX, nextY);
             this.widgetManager?.invalidateAll();
+            return true;
         }
-        return true;
+        return false;
     }
 
     private getOrInitPlayerDesignAppearance(): PlayerAppearance | undefined {
@@ -9758,6 +9789,12 @@ export class OsrsClient {
             } catch {}
             try {
                 this.npcEcs.updateClient(1);
+            } catch {}
+            try {
+                this.applyPendingWorldMapDrag();
+                if (this.worldMapState?.cycle?.()) {
+                    this.widgetManager?.invalidateAll?.();
+                }
             } catch {}
 
             // Widget transmit handlers and timers are processed on the client tick,

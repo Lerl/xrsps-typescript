@@ -583,6 +583,8 @@ export class WorldMapState {
     displayY = 0;
     displayWidth = 512;
     displayHeight = 334;
+    targetX = -1;
+    targetY = -1;
     elementsEnabled = true;
     perpetualFlash = false;
     readonly disabledElements = new Set<number>();
@@ -643,7 +645,7 @@ export class WorldMapState {
         state.currentArea = state.mainArea ?? state.areasById.values().next().value ?? undefined;
         if (state.currentArea) {
             if (state.currentArea.zoom > 0) state.setZoomPercentage(state.currentArea.zoom);
-            state.jumpToSourceCoordInstant(
+            state.jumpToSourceCoordOrOriginInstant(
                 state.currentArea.origin.plane,
                 state.currentArea.origin.x,
                 state.currentArea.origin.y,
@@ -687,15 +689,33 @@ export class WorldMapState {
         if (!area) return;
         this.currentArea = area;
         if (area.zoom > 0) this.setZoomPercentage(area.zoom);
-        this.jumpToSourceCoordInstant(area.origin.plane, area.origin.x, area.origin.y);
+        this.jumpToSourceCoordOrOriginInstant(area.origin.plane, area.origin.x, area.origin.y);
     }
 
     setCurrentMapAreaAndPosition(plane: number, x: number, y: number): void {
-        const area = this.mapAreaAtCoord(plane, x, y) ?? this.currentArea ?? this.mainArea;
+        const area = this.mapAreaAtCoord(plane, x, y) ?? this.mainArea ?? this.currentArea;
         if (!area) return;
         this.currentArea = area;
         if (area.zoom > 0) this.setZoomPercentage(area.zoom);
-        this.jumpToSourceCoordInstant(plane, x, y);
+        this.jumpToSourceCoordOrOriginInstant(plane, x, y);
+    }
+
+    jumpToMapArea(
+        mapAreaId: number,
+        preferredCoord: WorldMapCoord,
+        fallbackCoord: WorldMapCoord,
+        forceFallback: boolean,
+    ): void {
+        const area = this.getMapArea(mapAreaId);
+        if (!area) return;
+        this.currentArea = area;
+        if (area.zoom > 0) this.setZoomPercentage(area.zoom);
+        const coord =
+            !forceFallback &&
+            area.containsCoord(preferredCoord.plane, preferredCoord.x, preferredCoord.y)
+                ? preferredCoord
+                : fallbackCoord;
+        this.jumpToSourceCoordOrOriginInstant(coord.plane, coord.x, coord.y);
     }
 
     mapAreaAtCoord(plane: number, x: number, y: number): WorldMapArea | undefined {
@@ -719,33 +739,67 @@ export class WorldMapState {
     }
 
     setWorldMapPositionTarget(x: number, y: number): void {
-        if (this.currentArea && !this.currentArea.containsPosition(x | 0, y | 0)) return;
-        this.displayX = x | 0;
-        this.displayY = y | 0;
+        if (!this.currentArea || !this.currentArea.containsPosition(x | 0, y | 0)) return;
+        this.targetX = x | 0;
+        this.targetY = y | 0;
+    }
+
+    setWorldMapPositionTargetInstant(x: number, y: number): void {
+        if (!this.currentArea) return;
+        this.setDisplayPosition(x | 0, y | 0);
     }
 
     setDisplayPosition(x: number, y: number): void {
         this.displayX = x | 0;
         this.displayY = y | 0;
+        this.targetX = -1;
+        this.targetY = -1;
     }
 
     jumpToSourceCoord(plane: number, x: number, y: number): void {
-        this.jumpToSourceCoordInstant(plane, x, y);
+        const position = this.currentArea?.position(plane | 0, x | 0, y | 0);
+        if (position) {
+            this.setWorldMapPositionTarget(position.x, position.y);
+        }
     }
 
     jumpToSourceCoordInstant(plane: number, x: number, y: number): void {
-        const area = this.currentArea;
-        const position = area?.position(plane | 0, x | 0, y | 0);
+        const position = this.currentArea?.position(plane | 0, x | 0, y | 0);
         if (position) {
-            this.displayX = position.x | 0;
-            this.displayY = position.y | 0;
-            return;
+            this.setDisplayPosition(position.x, position.y);
         }
-        if (area) {
-            const origin = area.position(area.origin.plane, area.origin.x, area.origin.y);
-            this.displayX = origin?.x ?? area.origin.x;
-            this.displayY = origin?.y ?? area.origin.y;
+    }
+
+    private jumpToSourceCoordOrOriginInstant(plane: number, x: number, y: number): void {
+        const area = this.currentArea;
+        if (!area) return;
+        const position =
+            area.position(plane | 0, x | 0, y | 0) ??
+            area.position(area.origin.plane, area.origin.x, area.origin.y);
+        this.setDisplayPosition(position?.x ?? area.origin.x, position?.y ?? area.origin.y);
+    }
+
+    cycle(): boolean {
+        if (this.targetX === -1 || this.targetY === -1) {
+            return false;
         }
+        const deltaX = this.targetX - this.displayX;
+        const deltaY = this.targetY - this.displayY;
+        let stepX = deltaX;
+        let stepY = deltaY;
+        if (deltaX !== 0) {
+            stepX = Math.trunc(deltaX / Math.min(8, Math.abs(deltaX)));
+        }
+        if (deltaY !== 0) {
+            stepY = Math.trunc(deltaY / Math.min(8, Math.abs(deltaY)));
+        }
+        this.displayX = (this.displayX + stepX) | 0;
+        this.displayY = (this.displayY + stepY) | 0;
+        if (this.displayX === this.targetX && this.displayY === this.targetY) {
+            this.targetX = -1;
+            this.targetY = -1;
+        }
+        return stepX !== 0 || stepY !== 0;
     }
 
     sourceToDisplay(packedCoord: number): WorldMapPosition | undefined {
