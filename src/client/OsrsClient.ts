@@ -10294,6 +10294,23 @@ export class OsrsClient {
         }
     }
 
+    onLocAnim(
+        locId: number,
+        tile: { x: number; y: number },
+        level: number,
+        shape: number,
+        rotation: number,
+        animId: number,
+    ): void {
+        try {
+            if (this.renderer && typeof (this.renderer as any).onLocAnim === "function") {
+                (this.renderer as any).onLocAnim(locId, tile, level, shape, rotation, animId);
+            }
+        } catch (err) {
+            console.warn("onLocAnim error", err);
+        }
+    }
+
     private applyDisplayDefaults(): void {
         this.renderDistance = clampRenderDistance(this.renderDistance);
         try {

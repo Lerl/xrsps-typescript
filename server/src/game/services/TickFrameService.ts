@@ -53,6 +53,7 @@ export class TickFrameService {
         const forcedChats = scheduler.drainForcedChats();
         const forcedMovements = scheduler.drainForcedMovements();
         const spotAnimations = scheduler.drainSpotAnimations();
+        const locAnimations = scheduler.drainLocAnimations();
         const varps = scheduler.drainVarps();
         const varbits = scheduler.drainVarbits();
         const clientScripts = scheduler.drainClientScripts();
@@ -87,6 +88,7 @@ export class TickFrameService {
             npcPackets,
             projectilePackets,
             spotAnimations,
+            locAnimations,
             spellResults,
             varps,
             varbits,
@@ -178,6 +180,9 @@ export class TickFrameService {
         }
         if (frame.spotAnimations.length > 0) {
             scheduler.restoreSpotAnimations(frame.spotAnimations);
+        }
+        if (frame.locAnimations.length > 0) {
+            scheduler.restoreLocAnimations(frame.locAnimations);
         }
     }
 

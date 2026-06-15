@@ -71,6 +71,7 @@ export class WidgetManager {
      * Unlike `children`, this strips null gaps and excludes cache-linked IF1 children.
      */
     private dynamicChildrenByParent: Map<number, WidgetNode[]> = new Map();
+    private serverOwnedWidgets: Set<number> = new Set();
 
     /**
      * Tracks which groups have been loaded
@@ -997,6 +998,19 @@ export class WidgetManager {
         }
         // Last resort: reuse (should never happen).
         return (g << 16) | 0xffff;
+    }
+
+    setServerOwnedWidget(widgetUid: number, owned: boolean): void {
+        const uid = widgetUid | 0;
+        if (owned) {
+            this.serverOwnedWidgets.add(uid);
+        } else {
+            this.serverOwnedWidgets.delete(uid);
+        }
+    }
+
+    isServerOwnedWidget(widgetUid: number): boolean {
+        return this.serverOwnedWidgets.has(widgetUid | 0);
     }
 
     /**

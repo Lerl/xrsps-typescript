@@ -1022,6 +1022,24 @@ export class ServerBinaryEncoder {
         return this.buffer.toPacket(ServerPacketId.LOC_DEL);
     }
 
+    encodeLocAnim(
+        locId: number,
+        tile: { x: number; y: number },
+        level: number,
+        shape: number,
+        rotation: number,
+        animId: number,
+    ): Uint8Array {
+        this.buffer.reset();
+        this.buffer.writeShort(locId);
+        this.buffer.writeShort(tile.x);
+        this.buffer.writeShort(tile.y);
+        this.buffer.writeByte(level);
+        this.buffer.writeByte((shape << 2) | (rotation & 3));
+        this.buffer.writeShort(animId);
+        return this.buffer.toPacket(ServerPacketId.LOC_ANIM);
+    }
+
     // ========================================
     // COMBAT STATE
     // ========================================

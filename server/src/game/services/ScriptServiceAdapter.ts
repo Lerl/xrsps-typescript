@@ -528,6 +528,7 @@ export function buildScriptServices(deps: ScriptServiceAdapterDeps): ScriptServi
                 } catch {}
             },
             playLocGraphic: (opts) => deps.soundService.playLocGraphic(opts),
+            playLocAnimation: (opts) => deps.soundService.playLocAnimation(opts),
             stopPlayerAnimation: (player) => {
                 try {
                     player.stopAnimation();
@@ -576,6 +577,8 @@ export function buildScriptServices(deps: ScriptServiceAdapterDeps): ScriptServi
             openDialog: (player, request) => deps.widgetDialogHandler.openDialog(player, request),
             openDialogOptions: (player, options) =>
                 deps.widgetDialogHandler.openDialogOptions(player, options),
+            openSkillMulti: (player, request) =>
+                deps.widgetDialogHandler.openSkillMulti(player, request),
             closeDialog: (player, dialogId) =>
                 deps.widgetDialogHandler.closeDialog(player, dialogId),
             closeInterruptibleInterfaces: (player) => deps.closeInterruptibleInterfaces(player),

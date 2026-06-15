@@ -1117,6 +1117,14 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
                     Number.isFinite(overrideValue.moveToY)
                         ? overrideValue.moveToY | 0
                         : undefined;
+                const seqId =
+                    typeof overrideValue.seqId === "number" && Number.isFinite(overrideValue.seqId)
+                        ? overrideValue.seqId | 0
+                        : undefined;
+                const seqRandomStart =
+                    typeof overrideValue.seqRandomStart === "boolean"
+                        ? overrideValue.seqRandomStart
+                        : undefined;
                 console.log(`[SdMapDataLoader] Processing override: ${key} -> ${newId}`);
                 const parts = key.split(",");
                 if (parts.length === 4) {
@@ -1146,6 +1154,8 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
                         newRotation,
                         moveToSceneX,
                         moveToSceneY,
+                        seqId,
+                        seqRandomStart,
                     );
                 }
             }

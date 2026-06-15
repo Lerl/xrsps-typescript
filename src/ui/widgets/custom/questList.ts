@@ -130,6 +130,9 @@ export function applyQuestListWidgetGroups(
     const list = widgetManager.getWidgetByUid(QUEST_LIST_LIST_UID);
     if (!list) return;
 
+    widgetManager.setServerOwnedWidget(QUEST_LIST_LIST_UID, true);
+    widgetManager.setServerOwnedWidget(QUEST_LIST_TEXT_CONTAINER_UID, true);
+    widgetManager.setServerOwnedWidget(QUEST_LIST_SCROLLBAR_UID, true);
     clearDynamicChildren(widgetManager, list);
 
     let y = 0;

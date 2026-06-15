@@ -17,6 +17,7 @@ import {
 } from "../../src/game/providers/ProviderRegistry";
 import type { IScriptRegistry, ScriptServices } from "../../src/game/scripts/types";
 import { encodeMessage } from "../../src/network/messages";
+import { VanillaUiController } from "./VanillaUiController";
 import { BankingManager, registerBankInterfaceHooks, registerBankingHandlers } from "./banking";
 import type { BankingProviderServices } from "./banking/BankingProvider";
 import "./combat/BossCombatScript";
@@ -28,9 +29,9 @@ import { createSkillConfiguration } from "./combat/SkillConfiguration";
 import { createSpecialAttackProvider } from "./combat/SpecialAttackRegistry";
 import { createSpecialAttackVisualProvider } from "./combat/SpecialAttackVisuals";
 import { createSpellXpProvider } from "./combat/SpellXpData";
+import { registerVanillaGroundItemSpawns } from "./data/groundItemSpawns";
 import { DEFAULT_LOGIN_VARBITS } from "./data/loginVarbits";
 import { DEFAULT_LOGIN_VARPS } from "./data/loginVarps";
-import { registerVanillaGroundItemSpawns } from "./data/groundItemSpawns";
 import { NPC_LOOT_CONFIGS } from "./data/lootDistribution";
 import { createProjectileParamsProvider } from "./data/projectileParams";
 import { createRuneDataProvider } from "./data/runes";
@@ -75,7 +76,6 @@ import { registerQuestJournalWidgetHandlers } from "./widgets/questJournalWidget
 import { registerSettingsWidgetHandlers } from "./widgets/settingsWidgets";
 import { registerSkillGuideWidgetHandlers } from "./widgets/skillGuideWidgets";
 import { registerSpellbookWidgetHandlers } from "./widgets/spellbookWidgets";
-import { VanillaUiController } from "./VanillaUiController";
 
 export class VanillaGamemode extends BaseGamemode {
     override readonly id: string = "vanilla";

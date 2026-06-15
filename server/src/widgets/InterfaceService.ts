@@ -48,6 +48,9 @@ export const DIALOG_DOUBLE_SPRITE_ID = 11;
 /** Options dialog interface */
 export const DIALOG_OPTIONS_ID = 219;
 
+/** Skill make-X/make-all dialog interface */
+export const DIALOG_SKILLMULTI_ID = 270;
+
 // =============== CHATBOX CONSTANTS ===============
 
 /** Chatbox interface group */
@@ -64,6 +67,9 @@ export const VARBIT_CHATMODAL_UNCLAMP = 10670;
 
 /** Varbit for dialog mode */
 export const VARBIT_DIALOG_MODE = 5983;
+
+/** Busy/modal interaction varbit used by make-X style chatbox flows */
+export const VARBIT_BUSY = 12393;
 
 // =============== IF_SETEVENTS FLAGS ===============
 

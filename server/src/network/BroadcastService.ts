@@ -3,6 +3,7 @@ import { WebSocket } from "ws";
 import type { ServerServices } from "../game/ServerServices";
 import type {
     ForcedMovementBroadcast,
+    PendingLocAnimation,
     PendingSpotAnimation,
 } from "../game/systems/BroadcastScheduler";
 import { logger } from "../utils/logger";
@@ -214,6 +215,15 @@ export class BroadcastService {
             frame.spotAnimations.push(event);
         } else {
             this.svc.broadcastScheduler.queueSpotAnimation(event);
+        }
+    }
+
+    enqueueLocAnimation(event: PendingLocAnimation): void {
+        const frame = this.svc.activeFrame;
+        if (frame) {
+            frame.locAnimations.push(event);
+        } else {
+            this.svc.broadcastScheduler.queueLocAnimation(event);
         }
     }
 

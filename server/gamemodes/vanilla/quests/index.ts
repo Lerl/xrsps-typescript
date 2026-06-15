@@ -6,9 +6,10 @@ import {
     setQuestStage,
 } from "./QuestService";
 import { doricsQuest } from "./definitions/dorics";
+import { sheepShearerQuest } from "./definitions/sheepShearer";
 import type { QuestDefinition } from "./types";
 
-const QUEST_DEFINITIONS: QuestDefinition[] = [doricsQuest];
+const QUEST_DEFINITIONS: QuestDefinition[] = [doricsQuest, sheepShearerQuest];
 
 /**
  * Register all implemented quests: their interaction handlers, the shared

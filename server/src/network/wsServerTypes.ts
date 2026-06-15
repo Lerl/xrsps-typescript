@@ -8,6 +8,7 @@ import type {
     ForcedChatBroadcast,
     ForcedMovementBroadcast,
     HitsplatBroadcast,
+    PendingLocAnimation,
     PendingSpotAnimation,
     PlayerAnimSet,
 } from "../game/systems";
@@ -187,6 +188,7 @@ export interface TickFrame {
         { snapshots: NpcViewSnapshot[]; updates: NpcUpdatePayload[]; despawns: number[] }
     >;
     spotAnimations: PendingSpotAnimation[];
+    locAnimations: PendingLocAnimation[];
     spellResults: Array<{ playerId: number; payload: SpellResultPayload }>;
     projectilePackets?: Map<number, ProjectileLaunch[]>;
     varps?: Array<{ playerId: number; varpId: number; value: number }>;

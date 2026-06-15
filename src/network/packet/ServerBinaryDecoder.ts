@@ -1279,6 +1279,25 @@ export function decodeServerPacket(data: Uint8Array | ArrayBuffer): DecodedServe
             };
         }
 
+        case ServerPacketId.LOC_ANIM: {
+            const locId = reader.readShort();
+            const tile = { x: reader.readShort(), y: reader.readShort() };
+            const level = reader.readByte();
+            const shapeRot = reader.readByte();
+            const animId = reader.readShort();
+            return {
+                type: "loc_anim",
+                payload: {
+                    locId,
+                    tile,
+                    level,
+                    shape: shapeRot >> 2,
+                    rotation: shapeRot & 3,
+                    animId,
+                },
+            };
+        }
+
         // ========================================
         // COMBAT STATE
         // ========================================

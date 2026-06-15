@@ -172,6 +172,20 @@ export interface ScriptDialogOptionRequest {
     onClose?: () => void;
 }
 
+export interface ScriptSkillMultiRequest {
+    id?: string;
+    title: string;
+    products: Array<{
+        itemId: number;
+        label: string;
+        maxQuantity?: number;
+    }>;
+    maxQuantity?: number;
+    defaultQuantity?: number;
+    onSelect?: (productIndex: number, quantity: number) => void;
+    onClose?: () => void;
+}
+
 export const ScriptDialogKind = {
     Npc: "npc",
     Player: "player",

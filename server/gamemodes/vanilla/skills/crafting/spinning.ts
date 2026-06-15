@@ -17,7 +17,11 @@ import {
     SINEW_ITEM_ID,
     SINEW_SOURCE_ITEM_IDS,
     SPINNING_RECIPES,
+    SPINNING_SOUND_ID,
+    SPINNING_WHEEL_ANIMATION_ID,
+    SPINNING_WHEEL_DEFAULT_ROTATION,
     SPINNING_WHEEL_LOC_IDS,
+    SPINNING_WHEEL_SHAPE,
     type SpinningRecipe,
     getSpinningRecipeById,
     isSinewSourceItem,
@@ -32,7 +36,14 @@ type CraftableChoice = {
     recipe: SpinningRecipe;
     batch: number;
     levelMet: boolean;
-    label: string;
+};
+
+type SpinVisualTarget = {
+    locId: number;
+    tile: { x: number; y: number };
+    level: number;
+    shape?: number;
+    rotation?: number;
 };
 
 const countItem = (entries: InventoryEntry[], itemId: number): number => {
@@ -52,27 +63,9 @@ const computeBatchCount = (entries: InventoryEntry[], recipe: SpinningRecipe): n
     return Math.max(0, Math.min(MAX_BATCH, Math.floor(total / perSpin)));
 };
 
-const buildBatchOptions = (maxBatch: number): Array<{ label: string; count: number }> => {
-    if (!(maxBatch > 0)) return [];
-    const base = [1, 5, 10, maxBatch];
-    return base
-        .filter((value, idx, arr) => value > 0 && value <= maxBatch && arr.indexOf(value) === idx)
-        .sort((a, b) => a - b)
-        .map((count) => ({
-            label: count === maxBatch ? `Make All (${maxBatch})` : `Make ${count}`,
-            count,
-        }));
-};
-
-const formatProductLabel = (
-    recipe: SpinningRecipe,
-    opts: { levelMet: boolean; batch: number },
-): string => {
-    const baseName = recipe.name;
-    if (!opts.levelMet) {
-        return `${baseName} (Lvl ${recipe.level})`;
-    }
-    return `${baseName} (${opts.batch} available)`;
+const formatProductLabel = (recipe: SpinningRecipe): string => {
+    if (!recipe.name) return "";
+    return recipe.name.charAt(0).toUpperCase() + recipe.name.slice(1);
 };
 
 const enqueueSpinAction = (
@@ -80,15 +73,20 @@ const enqueueSpinAction = (
     player: PlayerState,
     recipe: SpinningRecipe,
     desiredCount: number,
+    visualTarget?: SpinVisualTarget,
     tick?: number,
 ): boolean => {
     const delay = Math.max(1, recipe.delayTicks);
-    const currentTick = Number.isFinite(tick) ? (tick as number) : 0;
+    const currentTick = Number.isFinite(tick) ? (tick as number) : services.system.getCurrentTick();
     const result = services.combat.requestAction(
         player,
         {
             kind: "skill.spin",
-            data: { recipeId: recipe.id, count: Math.max(1, desiredCount) },
+            data: {
+                recipeId: recipe.id,
+                count: Math.max(1, desiredCount),
+                target: visualTarget,
+            },
             delayTicks: delay,
             cooldownTicks: delay,
             groups: [SPIN_GROUP],
@@ -105,6 +103,7 @@ const enqueueSpinAction = (
 interface SpinActionData {
     recipeId: string;
     count: number;
+    target?: SpinVisualTarget;
 }
 
 interface SinewActionData {
@@ -117,6 +116,27 @@ interface SinewActionData {
 
 function buildMessageEffect(player: PlayerState, message: string): ActionEffect {
     return { type: "message", playerId: player.id, message };
+}
+
+function playSpinVisuals(
+    services: ScriptServices,
+    player: PlayerState,
+    recipe: SpinningRecipe,
+    target?: SpinVisualTarget,
+): void {
+    services.animation.playPlayerSeq(player, recipe.animation);
+    if (target) {
+        services.location.faceTile(player, target.tile);
+        services.animation.playLocAnimation({
+            locId: target.locId,
+            tile: target.tile,
+            level: target.level,
+            shape: target.shape ?? SPINNING_WHEEL_SHAPE,
+            rotation: target.rotation ?? SPINNING_WHEEL_DEFAULT_ROTATION,
+            animId: SPINNING_WHEEL_ANIMATION_ID,
+        });
+    }
+    services.sound.sendSound(player, SPINNING_SOUND_ID);
 }
 
 function executeSpinAction(ctx: ScriptActionHandlerContext): ActionExecutionResult {
@@ -188,18 +208,14 @@ function executeSpinAction(ctx: ScriptActionHandlerContext): ActionExecutionResu
         }
     }
 
-    services.animation.playPlayerSeq(player, recipe.animation);
     services.skills.addSkillXp(player, SkillId.Crafting, recipe.xp);
     services.system.eventBus?.emit("item:craft", {
         playerId: player.id,
-        itemId: recipe.outputItemId,
+        itemId: recipe.productItemId,
         count: 1,
     });
 
-    const effects: ActionEffect[] = [
-        { type: "inventorySnapshot", playerId: player.id },
-        buildMessageEffect(player, recipe.successMessage),
-    ];
+    const effects: ActionEffect[] = [{ type: "inventorySnapshot", playerId: player.id }];
 
     const remaining = Math.max(0, totalCount - 1);
 
@@ -208,7 +224,7 @@ function executeSpinAction(ctx: ScriptActionHandlerContext): ActionExecutionResu
             player.id,
             {
                 kind: "skill.spin",
-                data: { recipeId: recipe.id, count: remaining },
+                data: { recipeId: recipe.id, count: remaining, target: data.target },
                 delayTicks: recipe.delayTicks,
                 cooldownTicks: recipe.delayTicks,
                 groups: ["skill.spin"],
@@ -219,6 +235,8 @@ function executeSpinAction(ctx: ScriptActionHandlerContext): ActionExecutionResu
             effects.push(
                 buildMessageEffect(player, "You stop spinning because you're already busy."),
             );
+        } else {
+            playSpinVisuals(services, player, recipe, data.target);
         }
     }
 
@@ -281,10 +299,14 @@ export function register(registry: IScriptRegistry, services: ScriptServices): v
     registry.registerActionHandler("skill.sinew", executeSinewAction);
 
     const getInventoryItems = services.inventory.getInventoryItems;
-    const openDialogOptions = services.dialog.openDialogOptions;
-    const closeDialog = services.dialog.closeDialog;
 
-    const handleSpinRequest = ({ player, tick }: { player: PlayerState; tick?: number }) => {
+    const handleSpinRequest = ({
+        player,
+        target,
+    }: {
+        player: PlayerState;
+        target?: SpinVisualTarget;
+    }) => {
         const inventory = getInventoryItems(player);
         const level = services.skills.getSkill(player, SkillId.Crafting)?.baseLevel ?? 1;
 
@@ -295,7 +317,6 @@ export function register(registry: IScriptRegistry, services: ScriptServices): v
                 recipe,
                 batch,
                 levelMet,
-                label: formatProductLabel(recipe, { levelMet, batch }),
             };
         }).filter((choice) => choice.batch > 0);
 
@@ -319,99 +340,72 @@ export function register(registry: IScriptRegistry, services: ScriptServices): v
             return;
         }
 
-        const attemptEnqueue = (target: CraftableChoice) => {
-            const batches = buildBatchOptions(target.batch);
-            if (batches.length === 0) {
-                services.messaging.sendGameMessage(player, "You decide not to spin anything.");
-                return;
-            }
-            const dialogId = `spin_batch_${target.recipe.id}`;
-            if (openDialogOptions) {
-                openDialogOptions(player, {
-                    id: dialogId,
-                    modal: true,
-                    title: `How many ${target.recipe.name}?`,
-                    options: batches.map((option) => option.label),
-                    onSelect: (index) => {
-                        const selected = batches[index];
-                        if (!selected) {
-                            services.messaging.sendGameMessage(
-                                player,
-                                "You decide not to spin anything.",
-                            );
-                            return;
-                        }
-                        closeDialog?.(player, dialogId);
-                        const ok = enqueueSpinAction(
-                            services,
-                            player,
-                            target.recipe,
-                            selected.count,
-                            tick,
-                        );
-                        if (!ok) {
-                            services.messaging.sendGameMessage(
-                                player,
-                                "You're too busy to spin anything right now.",
-                            );
-                        }
-                    },
-                });
-                return;
-            }
-            const fallbackCount = batches[batches.length - 1]?.count ?? 1;
-            const ok = enqueueSpinAction(services, player, target.recipe, fallbackCount, tick);
-            if (!ok) {
-                services.messaging.sendGameMessage(
-                    player,
-                    "You're too busy to spin anything right now.",
-                );
-            }
-        };
-
-        const showProductDialog = (): void => {
-            const dialogId = `spin_products_${player.id}`;
-            openDialogOptions?.(player, {
-                id: dialogId,
-                modal: true,
-                title: "What would you like to spin?",
-                options: choices.map((choice) => choice.label),
-                onSelect: (index) => {
-                    const selected = choices[index];
-                    if (!selected) {
-                        services.messaging.sendGameMessage(
-                            player,
-                            "You step away from the spinning wheel.",
-                        );
-                        return;
-                    }
-                    if (!selected.levelMet) {
-                        services.messaging.sendGameMessage(
-                            player,
-                            `You need Crafting level ${selected.recipe.level} to spin ${selected.recipe.name}.`,
-                        );
-                        return;
-                    }
-                    closeDialog?.(player, dialogId);
-                    attemptEnqueue(selected);
-                },
-            });
-        };
-
-        if (!openDialogOptions || craftableChoices.length === 1) {
-            attemptEnqueue(craftableChoices[0]!);
-            return;
+        if (target) {
+            services.location.faceTile(player, target.tile);
         }
-        showProductDialog();
+
+        const maxQuantity = Math.max(...craftableChoices.map((choice) => choice.batch));
+        services.dialog.openSkillMulti(player, {
+            id: `spin_skillmulti_${player.id}`,
+            title: "How many would you like to spin?",
+            products: craftableChoices.map((choice) => ({
+                itemId: choice.recipe.productItemId,
+                label: formatProductLabel(choice.recipe),
+                maxQuantity: choice.batch,
+            })),
+            maxQuantity,
+            defaultQuantity: 1,
+            onSelect: (index, quantity) => {
+                const selected = craftableChoices[index];
+                if (!selected) {
+                    services.messaging.sendGameMessage(player, "You decide not to spin anything.");
+                    return;
+                }
+                const desiredCount = Math.max(1, Math.min(selected.batch, quantity | 0));
+                const ok = enqueueSpinAction(
+                    services,
+                    player,
+                    selected.recipe,
+                    desiredCount,
+                    target,
+                );
+                if (!ok) {
+                    services.messaging.sendGameMessage(
+                        player,
+                        "You're too busy to spin anything right now.",
+                    );
+                    return;
+                }
+                playSpinVisuals(services, player, selected.recipe, target);
+            },
+        });
     };
 
+    const buildSpinTarget = (
+        locId: number,
+        tile: { x: number; y: number },
+        level: number,
+    ): SpinVisualTarget => ({
+        locId,
+        tile: { x: tile.x, y: tile.y },
+        level,
+        shape: SPINNING_WHEEL_SHAPE,
+        rotation: SPINNING_WHEEL_DEFAULT_ROTATION,
+    });
+
     const handler = (event: LocInteractionEvent) =>
-        handleSpinRequest({ player: event.player, tick: event.tick });
+        handleSpinRequest({
+            player: event.player,
+            target: buildSpinTarget(event.locId, event.tile, event.level),
+        });
 
     for (const locId of SPINNING_WHEEL_LOC_IDS) {
         registry.registerLocInteraction(locId, handler, SPIN_ACTION);
         registry.registerItemOnLoc(ANY_ITEM_ID, locId, (event) => {
-            handleSpinRequest({ player: event.player, tick: event.tick });
+            handleSpinRequest({
+                player: event.player,
+                target: buildSpinTarget(event.target.locId, event.target.tile, event.target.level),
+            });
         });
     }
 

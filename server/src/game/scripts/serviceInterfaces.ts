@@ -40,6 +40,7 @@ import type {
     ScriptActionRequestFn,
     ScriptDialogOptionRequest,
     ScriptDialogRequest,
+    ScriptSkillMultiRequest,
     ScriptInventoryAddResult,
     ScriptInventoryEntry,
 } from "./types";
@@ -507,6 +508,14 @@ export interface AnimationFacade {
         height?: number;
         delayTicks?: number;
     }): void;
+    playLocAnimation(opts: {
+        locId: number;
+        tile: { x: number; y: number };
+        level?: number;
+        shape?: number;
+        rotation?: number;
+        animId: number;
+    }): void;
     stopPlayerAnimation(player: PlayerState): void;
     getEmoteSeq(index: number): number | undefined;
     getSkillcapeSeqId(capeItemId: number | undefined): number | undefined;
@@ -557,6 +566,7 @@ export interface AppearanceFacade {
 export interface DialogFacade {
     openDialog(player: PlayerState, request: ScriptDialogRequest): void;
     openDialogOptions(player: PlayerState, options: ScriptDialogOptionRequest): void;
+    openSkillMulti(player: PlayerState, request: ScriptSkillMultiRequest): void;
     closeDialog(player: PlayerState, dialogId?: string): void;
     closeInterruptibleInterfaces(player: PlayerState): void;
     openSubInterface(

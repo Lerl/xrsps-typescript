@@ -481,11 +481,19 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
 
     dataLoader = new SdMapDataLoader();
 
-    // Track dynamic loc changes: Map<"x,y,level,oldId", {newId,newRotation?,moveToX?,moveToY?}>
+    // Track dynamic loc changes: Map<"x,y,level,oldId", {newId,newRotation?,moveToX?,moveToY?,seqId?,seqRandomStart?}>
     private locOverrides: Map<
         string,
-        { newId: number; newRotation?: number; moveToX?: number; moveToY?: number }
+        {
+            newId: number;
+            newRotation?: number;
+            moveToX?: number;
+            moveToY?: number;
+            seqId?: number;
+            seqRandomStart?: boolean;
+        }
     > = new Map();
+    private locAnimTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
     /** When true, an instance scene is active and normal map streaming is suppressed. */
     private instanceActive: boolean = false;
     private instanceTemplateChunks: number[][][] | null = null;
@@ -3724,21 +3732,22 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                                 }
                             }
 
+                            const widgetAny = params.widget as any;
+                            const itemId = widgetAny?.itemId;
+                            if (typeof itemId === "number" && itemId >= 0) {
+                                try {
+                                    const qty = (widgetAny?.itemQuantity ?? 0) | 0 || 1;
+                                    return this.model2DRenderer.renderItemToCanvasExtents(
+                                        itemId | 0,
+                                        qty,
+                                        params,
+                                        width,
+                                        height,
+                                    );
+                                } catch {}
+                            }
+
                             if (modelId < 0) {
-                                const widgetAny = params.widget as any;
-                                const itemId = widgetAny?.itemId;
-                                if (typeof itemId === "number" && itemId >= 0) {
-                                    try {
-                                        const qty = (widgetAny?.itemQuantity ?? 0) | 0 || 1;
-                                        return this.model2DRenderer.renderItemToCanvasExtents(
-                                            itemId | 0,
-                                            qty,
-                                            params,
-                                            width,
-                                            height,
-                                        );
-                                    } catch {}
-                                }
                                 return undefined;
                             }
 
@@ -5662,6 +5671,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
             minimizeDrawCalls: !this.hasMultiDraw,
             loadedTextureIds: this.loadedTextureIds,
             instance: { templateChunks, regionX, regionY },
+            locOverrides: this.locOverrides,
             extraLocs,
         };
 
@@ -14447,6 +14457,10 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
 
         // Clear loc overrides and spawns (door state changes accumulate)
         this.locOverrides.clear();
+        for (const timer of this.locAnimTimers.values()) {
+            clearTimeout(timer);
+        }
+        this.locAnimTimers.clear();
         this.locSpawns.clear();
         this.mapsToLoad.clear();
         this.pendingStreamMapsByGeneration.clear();
@@ -14810,6 +14824,106 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
             this.scheduleLocReload(mapX, mapY);
         } catch (err) {
             console.warn("onLocDel error", err);
+        }
+    }
+
+    onLocAnim(
+        locId: number,
+        tile: { x: number; y: number },
+        level: number,
+        shape: number,
+        rotation: number,
+        animId: number,
+    ): void {
+        try {
+            if ((shape | 0) < 0) return;
+            const key = `${tile.x | 0},${tile.y | 0},${level | 0},${locId | 0}`;
+            const existingTimer = this.locAnimTimers.get(key);
+            if (existingTimer) {
+                clearTimeout(existingTimer);
+            }
+
+            if (
+                this.interactHighlightActiveTarget?.kind === "loc" &&
+                (this.interactHighlightActiveTarget.plane | 0) === (level | 0) &&
+                (this.interactHighlightActiveTarget.tileX | 0) === (tile.x | 0) &&
+                (this.interactHighlightActiveTarget.tileY | 0) === (tile.y | 0)
+            ) {
+                this.clearInteractHighlightActiveTarget();
+            }
+            if (
+                this.interactHighlightHoverTarget?.kind === "loc" &&
+                (this.interactHighlightHoverTarget.plane | 0) === (level | 0) &&
+                (this.interactHighlightHoverTarget.tileX | 0) === (tile.x | 0) &&
+                (this.interactHighlightHoverTarget.tileY | 0) === (tile.y | 0)
+            ) {
+                this.clearInteractHighlightHoverTarget();
+            }
+
+            this.locOverrides.set(key, {
+                newId: locId | 0,
+                newRotation: rotation & 0x3,
+                seqId: animId | 0,
+                seqRandomStart: false,
+            });
+            this.reloadLocAnimationTile(tile);
+
+            const durationMs = this.getLocAnimationDurationMs(animId);
+            const timer = setTimeout(() => {
+                const current = this.locOverrides.get(key);
+                if (
+                    current &&
+                    (current.newId | 0) === (locId | 0) &&
+                    typeof current.seqId === "number" &&
+                    (current.seqId | 0) === (animId | 0)
+                ) {
+                    this.locOverrides.delete(key);
+                    this.reloadLocAnimationTile(tile);
+                }
+                this.locAnimTimers.delete(key);
+            }, durationMs);
+            this.locAnimTimers.set(key, timer);
+        } catch (err) {
+            console.warn("onLocAnim error", err);
+        }
+    }
+
+    private reloadLocAnimationTile(tile: { x: number; y: number }): void {
+        const mapX = Math.floor((tile.x | 0) / 64);
+        const mapY = Math.floor((tile.y | 0) / 64);
+        if (this.instanceActive) {
+            this.scheduleInstanceLocRebuild();
+            return;
+        }
+        const mapId = getMapSquareId(mapX, mapY);
+        this.pendingLocUpdates.add(mapId);
+        this.scheduleLocReload(mapX, mapY);
+    }
+
+    private getLocAnimationDurationMs(seqId: number): number {
+        const fallbackMs = 2400;
+        try {
+            const seqType = this.osrsClient.seqTypeLoader.load(seqId | 0) as any;
+            if (!seqType) return fallbackMs;
+            let cycles = 0;
+            const isSkeletal =
+                (typeof seqType.isSkeletalSeq === "function" && seqType.isSkeletalSeq()) ||
+                (seqType.skeletalId ?? -1) >= 0;
+            if (isSkeletal) {
+                const duration =
+                    typeof seqType.getSkeletalDuration === "function"
+                        ? seqType.getSkeletalDuration()
+                        : 0;
+                cycles = Math.max(1, duration | 0);
+            } else if (Array.isArray(seqType.frameLengths)) {
+                for (const frameLength of seqType.frameLengths) {
+                    cycles += Math.max(1, Number(frameLength) | 0);
+                }
+            }
+            if (!(cycles > 0)) return fallbackMs;
+            return Math.max(600, Math.min(10000, cycles * 20 + 120));
+        } catch {
+            return fallbackMs;
         }
     }
 

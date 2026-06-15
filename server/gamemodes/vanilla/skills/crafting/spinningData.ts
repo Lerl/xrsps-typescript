@@ -23,8 +23,12 @@ type RecipeSeed = Omit<
     delayTicks?: number;
 };
 
-const DEFAULT_DELAY_TICKS = 4;
-export const SPINNING_ANIMATION_ID = 894;
+const DEFAULT_DELAY_TICKS = 3;
+export const SPINNING_ANIMATION_ID = 13138;
+export const SPINNING_WHEEL_ANIMATION_ID = 466;
+export const SPINNING_SOUND_ID = 2590;
+export const SPINNING_WHEEL_SHAPE = 10;
+export const SPINNING_WHEEL_DEFAULT_ROTATION = 2;
 
 const RECIPE_SEEDS: RecipeSeed[] = [
     {

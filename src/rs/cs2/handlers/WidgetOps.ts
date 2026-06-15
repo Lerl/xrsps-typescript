@@ -122,6 +122,62 @@ function setTargetWidget(ctx: HandlerContext, intOp: number, w: WidgetNode | nul
     }
 }
 
+function createDetachedDynamicWidget(
+    parent: WidgetNode,
+    parentUid: number,
+    type: number,
+    childIndex: number,
+): WidgetNode {
+    return {
+        uid: -1,
+        id: parentUid,
+        parentUid,
+        groupId: parent.groupId,
+        fileId: -1,
+        type,
+        contentType: 0,
+        childIndex,
+        isIf3: true,
+        hidden: false,
+        isHidden: false,
+        children: null,
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0,
+        rawX: 0,
+        rawY: 0,
+        rawWidth: 0,
+        rawHeight: 0,
+        widthMode: 0,
+        heightMode: 0,
+        xPositionMode: 0,
+        yPositionMode: 0,
+        scrollX: 0,
+        scrollY: 0,
+        scrollWidth: 0,
+        scrollHeight: 0,
+        itemId: -1,
+        itemQuantity: 0,
+        isDraggable: false,
+        actions: [],
+        rootIndex: -1,
+        cycle: -1,
+        modelFrame: 0,
+        modelFrameCycle: 0,
+        aspectWidth: 1,
+        aspectHeight: 1,
+        isLayoutValid: false,
+        color: 0,
+        textColor: 0,
+        filled: false,
+        transparency: 0,
+        spriteId: -1,
+        spriteId2: -1,
+        params: new Map(),
+    } as WidgetNode;
+}
+
 /**
  * Pop a CS2 value using the script-var-type id from int stack.
  * Pops a CS2 value using the script-var-type id from int stack.
@@ -310,33 +366,50 @@ function ensureWidgetLayout(ctx: HandlerContext, w: WidgetNode): void {
     ctx.widgetManager.ensureLayout(w);
 }
 
-/**
- * CC_SETOBJECT derives itemQuantityMode from ItemComposition.isStackable.
- *
- * Cache the computed mode per item id to avoid repeated loader lookups when large interfaces
- * (e.g., bank) rebuild many slots.
- */
-const SET_OBJECT_QTY_MODE_CACHE_MAX_SIZE = 2048; // Limit cache size to prevent memory leak
+function applySetObjectWidget(
+    ctx: HandlerContext,
+    w: WidgetNode | undefined | null,
+    itemId: number,
+    amount: number,
+    quantityMode: 0 | 1 | 2,
+): void {
+    if (!w) return;
 
-function getSetObjectQuantityMode(ctx: HandlerContext, itemId: number): 1 | 2 {
-    if (!(itemId >= 0)) return 2;
-    const cache: Map<number, 1 | 2> = ((ctx as any).__setObjectQtyModeCache ??= new Map());
-    const cached = cache.get(itemId);
-    if (cached) return cached;
-    let mode: 1 | 2 = 2;
+    w.itemId = itemId;
+    w.itemQuantity = amount;
+    w.itemAmount = amount;
+    w.itemQuantityMode = quantityMode;
+    w.itemShowQuantity = quantityMode === 0 ? false : quantityMode === 1 ? true : undefined;
+
     try {
         const obj = ctx.objTypeLoader?.load(itemId) as any;
-        if ((obj?.stackability ?? 0) === 1) mode = 1;
+        if (obj) {
+            const xan2d = (obj.xan2d ?? 0) | 0;
+            const yan2d = (obj.yan2d ?? 0) | 0;
+            const zan2d = (obj.zan2d ?? 0) | 0;
+
+            w.rotationX = xan2d;
+            w.rotationY = zan2d;
+            w.rotationZ = yan2d;
+            w.modelAngleX = xan2d;
+            w.modelAngleY = zan2d;
+            w.modelAngleZ = yan2d;
+            w.modelOffsetX = (obj.offsetX2d ?? 0) | 0;
+            w.modelOffsetY = (obj.offsetY2d ?? 0) | 0;
+
+            let zoom = Math.max(1, (obj.zoom2d ?? 0) | 0);
+            const zoomWidthUnits = ((w as any).modelZoomWidthUnits ?? 0) | 0;
+            if (zoomWidthUnits > 0) {
+                zoom = Math.max(1, Math.floor((zoom * 32) / zoomWidthUnits));
+            } else if (((w.rawWidth ?? 0) | 0) > 0) {
+                zoom = Math.max(1, Math.floor((zoom * 32) / ((w.rawWidth ?? 1) | 0)));
+            }
+            w.modelZoom = zoom;
+        }
     } catch {}
 
-    // PERF: Limit cache size to prevent unbounded growth
-    // When cache is full, clear it entirely (simple LRU alternative)
-    if (cache.size >= SET_OBJECT_QTY_MODE_CACHE_MAX_SIZE) {
-        cache.clear();
-    }
-
-    cache.set(itemId, mode);
-    return mode;
+    markWidgetInteractionDirty(w);
+    invalidateWidgetRender(ctx, w);
 }
 
 function getCurrentWidgetGroupId(ctx: HandlerContext): number {
@@ -363,7 +436,12 @@ export function registerWidgetOps(handlers: HandlerMap): void {
 
         const parent = ctx.widgetManager.getWidgetByUid(uid);
         let w: WidgetNode | null = null;
-        if (parent && parent.children) {
+        if (parent && ctx.widgetManager.isServerOwnedWidget(uid)) {
+            const groupId = (uid >>> 16) & 0xffff;
+            if (groupId !== 0) {
+                w = createDetachedDynamicWidget(parent, uid, 4, childIndex);
+            }
+        } else if (parent && parent.children) {
             // Direct index lookup - this is how OSRS works
             // Static widgets from cache are at their array index
             // Dynamic widgets created via CC_CREATE also go at their specified index
@@ -545,6 +623,15 @@ export function registerWidgetOps(handlers: HandlerMap): void {
             throw new Error("RuntimeException");
         }
 
+        if (ctx.widgetManager.isServerOwnedWidget(parentUid)) {
+            setTargetWidget(
+                ctx,
+                intOp,
+                createDetachedDynamicWidget(parent, parentUid, type, childIndex),
+            );
+            return;
+        }
+
         if (!parent.children) parent.children = [];
         if (childIndex > 0 && !parent.children[childIndex - 1]) {
             throw new Error("RuntimeException");
@@ -713,6 +800,9 @@ export function registerWidgetOps(handlers: HandlerMap): void {
         const uid = ctx.intStack[--ctx.intStackSize];
         const w = ctx.widgetManager.getWidgetByUid(uid);
         if (w) {
+            if (ctx.widgetManager.isServerOwnedWidget(uid)) {
+                return;
+            }
             // Unregister all dynamic children first
             if (w.children) {
                 for (const child of w.children) {
@@ -749,6 +839,15 @@ export function registerWidgetOps(handlers: HandlerMap): void {
         const groupId = (parentUid >>> 16) & 0xffff;
         if (groupId === 0) {
             throw new Error("RuntimeException");
+        }
+
+        if (ctx.widgetManager.isServerOwnedWidget(parentUid)) {
+            setTargetWidget(
+                ctx,
+                intOp,
+                createDetachedDynamicWidget(parent, parentUid, type, childIndex),
+            );
+            return;
         }
 
         const newUid =
@@ -840,6 +939,15 @@ export function registerWidgetOps(handlers: HandlerMap): void {
         const groupId = (parentUid >>> 16) & 0xffff;
         if (groupId === 0) {
             throw new Error("RuntimeException");
+        }
+
+        if (ctx.widgetManager.isServerOwnedWidget(parentUid)) {
+            setTargetWidget(
+                ctx,
+                intOp,
+                createDetachedDynamicWidget(parent, parentUid, type, childIndex),
+            );
+            return;
         }
 
         const newUid =
@@ -1080,6 +1188,7 @@ export function registerWidgetOps(handlers: HandlerMap): void {
         const wMode = ctx.intStack[ctx.intStackSize + 2];
         const hMode = ctx.intStack[ctx.intStackSize + 3];
         const w = getTargetWidget(ctx, intOp);
+        if (w && ctx.widgetManager.isServerOwnedWidget(w.uid)) return;
         // PERF: Only invalidate if size actually changed
         if (
             w &&
@@ -1107,6 +1216,7 @@ export function registerWidgetOps(handlers: HandlerMap): void {
         const wMode = ctx.intStack[ctx.intStackSize + 2];
         const hMode = ctx.intStack[ctx.intStackSize + 3];
         const w = ctx.widgetManager.getWidgetByUid(uid);
+        if (w && ctx.widgetManager.isServerOwnedWidget(uid)) return;
         // PERF: Only invalidate if size actually changed
         if (
             w &&
@@ -1128,6 +1238,7 @@ export function registerWidgetOps(handlers: HandlerMap): void {
     handlers.set(Opcodes.CC_SETHIDE, (ctx, intOp) => {
         const hidden = ctx.intStack[--ctx.intStackSize] === 1;
         const w = getTargetWidget(ctx, intOp);
+        if (w && ctx.widgetManager.isServerOwnedWidget(w.uid)) return;
 
         if (w && (w.hidden !== hidden || w.isHidden !== hidden)) {
             w.hidden = hidden;
@@ -1147,6 +1258,7 @@ export function registerWidgetOps(handlers: HandlerMap): void {
     handlers.set(Opcodes.IF_SETHIDE, (ctx) => {
         const w = getWidgetFromStack(ctx);
         const hidden = ctx.intStack[--ctx.intStackSize] === 1;
+        if (w && ctx.widgetManager.isServerOwnedWidget(w.uid)) return;
 
         if (w && (w.hidden !== hidden || w.isHidden !== hidden)) {
             w.hidden = hidden;
@@ -2129,6 +2241,7 @@ export function registerWidgetOps(handlers: HandlerMap): void {
         const scrollX = ctx.intStack[ctx.intStackSize];
         const scrollY = ctx.intStack[ctx.intStackSize + 1];
         const w = getTargetWidget(ctx, intOp);
+        if (w && ctx.widgetManager.isServerOwnedWidget(w.uid)) return;
         if (w) {
             // scroll clamping uses the widget's current computed width/height.
             ensureWidgetLayout(ctx, w);
@@ -2149,6 +2262,7 @@ export function registerWidgetOps(handlers: HandlerMap): void {
         const scrollX = ctx.intStack[ctx.intStackSize];
         const scrollY = ctx.intStack[ctx.intStackSize + 1];
         const w = ctx.widgetManager.getWidgetByUid(uid);
+        if (w && ctx.widgetManager.isServerOwnedWidget(uid)) return;
         if (w) {
             // scroll clamping uses the widget's current computed width/height.
             ensureWidgetLayout(ctx, w);
@@ -2166,6 +2280,7 @@ export function registerWidgetOps(handlers: HandlerMap): void {
         const width = ctx.intStack[ctx.intStackSize];
         const height = ctx.intStack[ctx.intStackSize + 1];
         const w = getTargetWidget(ctx, intOp);
+        if (w && ctx.widgetManager.isServerOwnedWidget(w.uid)) return;
         if (w) {
             const sizeChanged = w.scrollWidth !== width || w.scrollHeight !== height;
             if (sizeChanged) {
@@ -2193,6 +2308,7 @@ export function registerWidgetOps(handlers: HandlerMap): void {
         const width = ctx.intStack[ctx.intStackSize];
         const height = ctx.intStack[ctx.intStackSize + 1];
         const w = ctx.widgetManager.getWidgetByUid(uid);
+        if (w && ctx.widgetManager.isServerOwnedWidget(uid)) return;
         if (w) {
             const sizeChanged = w.scrollWidth !== width || w.scrollHeight !== height;
             if (sizeChanged) {
@@ -2300,16 +2416,7 @@ export function registerWidgetOps(handlers: HandlerMap): void {
         const itemId = ctx.intStack[ctx.intStackSize];
         const amount = ctx.intStack[ctx.intStackSize + 1];
         const w = getTargetWidget(ctx, intOp);
-        // PERF: Only invalidate if item or quantity changed
-        if (w && (w.itemId !== itemId || w.itemQuantity !== amount)) {
-            w.itemId = itemId;
-            w.itemQuantity = amount;
-            // CC_SETOBJECT sets quantity mode based on stackability; stackable items force mode=1.
-            w.itemQuantityMode = getSetObjectQuantityMode(ctx, itemId);
-            w.itemShowQuantity = undefined;
-            markWidgetInteractionDirty(w);
-            invalidateWidgetRender(ctx, w);
-        }
+        applySetObjectWidget(ctx, w, itemId, amount, 2);
     });
 
     handlers.set(Opcodes.IF_SETOBJECT, (ctx) => {
@@ -2319,15 +2426,7 @@ export function registerWidgetOps(handlers: HandlerMap): void {
         const itemId = ctx.intStack[ctx.intStackSize];
         const amount = ctx.intStack[ctx.intStackSize + 1];
         const w = ctx.widgetManager.getWidgetByUid(uid);
-        // PERF: Only invalidate if item or quantity changed
-        if (w && (w.itemId !== itemId || w.itemQuantity !== amount)) {
-            w.itemId = itemId;
-            w.itemQuantity = amount;
-            w.itemQuantityMode = getSetObjectQuantityMode(ctx, itemId);
-            w.itemShowQuantity = undefined;
-            markWidgetInteractionDirty(w);
-            invalidateWidgetRender(ctx, w);
-        }
+        applySetObjectWidget(ctx, w, itemId, amount, 2);
     });
 
     handlers.set(Opcodes.CC_SETOBJECT_NONUM, (ctx, intOp) => {
@@ -2336,15 +2435,7 @@ export function registerWidgetOps(handlers: HandlerMap): void {
         const itemId = ctx.intStack[ctx.intStackSize];
         const amount = ctx.intStack[ctx.intStackSize + 1];
         const w = getTargetWidget(ctx, intOp);
-        // PERF: Only invalidate if item or quantity changed
-        if (w && (w.itemId !== itemId || w.itemQuantity !== amount)) {
-            w.itemId = itemId;
-            w.itemQuantity = amount;
-            w.itemQuantityMode = 0;
-            w.itemShowQuantity = false;
-            markWidgetInteractionDirty(w);
-            invalidateWidgetRender(ctx, w);
-        }
+        applySetObjectWidget(ctx, w, itemId, amount, 0);
     });
 
     handlers.set(Opcodes.IF_SETOBJECT_NONUM, (ctx) => {
@@ -2354,15 +2445,7 @@ export function registerWidgetOps(handlers: HandlerMap): void {
         const itemId = ctx.intStack[ctx.intStackSize];
         const amount = ctx.intStack[ctx.intStackSize + 1];
         const w = ctx.widgetManager.getWidgetByUid(uid);
-        // PERF: Only invalidate if item or quantity changed
-        if (w && (w.itemId !== itemId || w.itemQuantity !== amount)) {
-            w.itemId = itemId;
-            w.itemQuantity = amount;
-            w.itemQuantityMode = 0;
-            w.itemShowQuantity = false;
-            markWidgetInteractionDirty(w);
-            invalidateWidgetRender(ctx, w);
-        }
+        applySetObjectWidget(ctx, w, itemId, amount, 0);
     });
 
     handlers.set(Opcodes.CC_SETOBJECT_ALWAYS_NUM, (ctx, intOp) => {
@@ -2371,15 +2454,7 @@ export function registerWidgetOps(handlers: HandlerMap): void {
         const itemId = ctx.intStack[ctx.intStackSize];
         const amount = ctx.intStack[ctx.intStackSize + 1];
         const w = getTargetWidget(ctx, intOp);
-        // PERF: Only invalidate if item or quantity changed
-        if (w && (w.itemId !== itemId || w.itemQuantity !== amount)) {
-            w.itemId = itemId;
-            w.itemQuantity = amount;
-            w.itemQuantityMode = 1;
-            w.itemShowQuantity = true;
-            markWidgetInteractionDirty(w);
-            invalidateWidgetRender(ctx, w);
-        }
+        applySetObjectWidget(ctx, w, itemId, amount, 1);
     });
 
     handlers.set(Opcodes.IF_SETOBJECT_ALWAYS_NUM, (ctx) => {
@@ -2389,15 +2464,7 @@ export function registerWidgetOps(handlers: HandlerMap): void {
         const itemId = ctx.intStack[ctx.intStackSize];
         const amount = ctx.intStack[ctx.intStackSize + 1];
         const w = ctx.widgetManager.getWidgetByUid(uid);
-        // PERF: Only invalidate if item or quantity changed
-        if (w && (w.itemId !== itemId || w.itemQuantity !== amount)) {
-            w.itemId = itemId;
-            w.itemQuantity = amount;
-            w.itemQuantityMode = 1;
-            w.itemShowQuantity = true;
-            markWidgetInteractionDirty(w);
-            invalidateWidgetRender(ctx, w);
-        }
+        applySetObjectWidget(ctx, w, itemId, amount, 1);
     });
 
     handlers.set(Opcodes.CC_GETINVOBJECT, (ctx, intOp) => {

@@ -29,6 +29,7 @@ export class MiscBroadcaster implements BroadcastDomain {
 
     flush(frame: TickFrame, ctx: BroadcastContext): void {
         this.flushLocChanges(frame, ctx);
+        this.flushLocAnimations(frame, ctx);
         this.flushPostWidgetEvents(frame, ctx);
     }
 
@@ -39,6 +40,16 @@ export class MiscBroadcaster implements BroadcastDomain {
         if (!frame.locChanges || frame.locChanges.length === 0) return;
         for (const change of frame.locChanges) {
             ctx.broadcast(encodeMessage({ type: "loc_change", payload: change }), "loc_change");
+        }
+    }
+
+    private flushLocAnimations(frame: TickFrame, ctx: BroadcastContext): void {
+        if (!frame.locAnimations || frame.locAnimations.length === 0) return;
+        for (const animation of frame.locAnimations) {
+            ctx.broadcast(
+                encodeMessage({ type: "loc_anim", payload: animation }),
+                "loc_anim",
+            );
         }
     }
 

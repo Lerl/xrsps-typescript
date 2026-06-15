@@ -13,6 +13,7 @@ export {
     type ForcedChatBroadcast,
     type ForcedMovementBroadcast,
     type PendingSpotAnimation,
+    type PendingLocAnimation,
     type VarpUpdate,
     type VarbitUpdate,
     type ClientScriptInvocation,

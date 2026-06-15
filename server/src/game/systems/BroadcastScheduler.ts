@@ -146,6 +146,18 @@ export interface PendingSpotAnimation {
 }
 
 /**
+ * Loc animation broadcast data.
+ */
+export interface PendingLocAnimation {
+    locId: number;
+    tile: { x: number; y: number };
+    level: number;
+    shape: number;
+    rotation: number;
+    animId: number;
+}
+
+/**
  * Varp update data.
  */
 export interface VarpUpdate {
@@ -209,6 +221,7 @@ export class BroadcastScheduler {
     private pendingForcedChats: ForcedChatBroadcast[] = [];
     private pendingForcedMovements: ForcedMovementBroadcast[] = [];
     private pendingSpotAnimations: PendingSpotAnimation[] = [];
+    private pendingLocAnimations: PendingLocAnimation[] = [];
 
     // Player state snapshots
     private pendingSkillSnapshots: Array<{ playerId: number; update: SkillSyncUpdate }> = [];
@@ -307,6 +320,10 @@ export class BroadcastScheduler {
         this.pendingSpotAnimations.push(animation);
     }
 
+    queueLocAnimation(animation: PendingLocAnimation): void {
+        this.pendingLocAnimations.push(animation);
+    }
+
     drainHitsplats(): HitsplatBroadcast[] {
         const hitsplats = this.pendingHitsplats;
         this.pendingHitsplats = [];
@@ -328,6 +345,12 @@ export class BroadcastScheduler {
     drainSpotAnimations(): PendingSpotAnimation[] {
         const animations = this.pendingSpotAnimations;
         this.pendingSpotAnimations = [];
+        return animations;
+    }
+
+    drainLocAnimations(): PendingLocAnimation[] {
+        const animations = this.pendingLocAnimations;
+        this.pendingLocAnimations = [];
         return animations;
     }
 
@@ -420,6 +443,10 @@ export class BroadcastScheduler {
 
     restoreSpotAnimations(animations: PendingSpotAnimation[]): void {
         this.pendingSpotAnimations = animations.concat(this.pendingSpotAnimations);
+    }
+
+    restoreLocAnimations(animations: PendingLocAnimation[]): void {
+        this.pendingLocAnimations = animations.concat(this.pendingLocAnimations);
     }
 
     restoreSkillSnapshots(snapshots: Array<{ playerId: number; update: SkillSyncUpdate }>): void {

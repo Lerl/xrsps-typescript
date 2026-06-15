@@ -25,6 +25,25 @@ export class SoundService {
         });
     }
 
+    playLocAnimation(opts: {
+        locId: number;
+        tile: { x: number; y: number };
+        level?: number;
+        shape?: number;
+        rotation?: number;
+        animId: number;
+    }): void {
+        if (!opts || !(opts.locId > 0) || !(opts.animId > 0)) return;
+        this.services.broadcastService.enqueueLocAnimation({
+            locId: opts.locId | 0,
+            tile: { x: opts.tile.x | 0, y: opts.tile.y | 0 },
+            level: opts.level ?? 0,
+            shape: opts.shape ?? 10,
+            rotation: opts.rotation ?? 0,
+            animId: opts.animId | 0,
+        });
+    }
+
     playLocSound(opts: {
         soundId: number;
         tile?: { x: number; y: number };

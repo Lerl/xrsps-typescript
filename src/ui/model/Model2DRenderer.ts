@@ -19,6 +19,7 @@ export type Model2DParams = {
     zoom3d?: number;
     offsetX2d?: number;
     offsetY2d?: number;
+    modelHeightOffset2d?: number;
     orthographic?: boolean;
     // UI/item sprites in OSRS do not z-test; default to no depth testing
     depthTest?: boolean;
@@ -142,7 +143,15 @@ export class Model2DRenderer {
         if (!model) return undefined;
 
         const animated = this.applySequence(model, params.sequenceId, params.sequenceFrame);
-        return this.renderModelExtents(animated, params, itemId | 0);
+        animated.calculateBoundsCylinder?.();
+        return this.renderModelExtents(
+            animated,
+            {
+                ...params,
+                modelHeightOffset2d: ((animated.height ?? 0) / 2) | 0,
+            },
+            itemId | 0,
+        );
     }
 
     renderModelInstanceToCanvasExtents(
@@ -271,6 +280,7 @@ export class Model2DRenderer {
             zoom3d: params.zoom3d,
             offsetX2d: params.offsetX2d ?? 0,
             offsetY2d: params.offsetY2d ?? 0,
+            modelHeightOffset2d: params.modelHeightOffset2d ?? 0,
         };
 
         // First pass: project vertices to 2D to determine tight bounds (no center or dx/dy applied)
@@ -280,7 +290,10 @@ export class Model2DRenderer {
         const var3 = (it.zan2d | 0) & 2047;
         const var4 = (it.xan2d | 0) & 2047;
         const var5 = it.offsetX2d | 0;
-        const var6 = (((it.zoom2d | 0) * SINE[var4]) >> 16) + (it.offsetY2d | 0);
+        const var6 =
+            (((it.zoom2d | 0) * SINE[var4]) >> 16) +
+            (it.offsetY2d | 0) +
+            (it.modelHeightOffset2d | 0);
         const var7 = (((it.zoom2d | 0) * COSINE[var4]) >> 16) + (it.offsetY2d | 0);
 
         const var10 = SINE[var1],
@@ -428,6 +441,7 @@ export class Model2DRenderer {
             zoom3d?: number;
             offsetX2d: number;
             offsetY2d: number;
+            modelHeightOffset2d?: number;
         },
         sw: number,
         sh: number,
@@ -468,7 +482,10 @@ export class Model2DRenderer {
         const var3 = (it.zan2d | 0) & 2047;
         const var4 = (it.xan2d | 0) & 2047;
         const var5 = it.offsetX2d | 0;
-        const var6 = (((it.zoom2d | 0) * SINE[var4]) >> 16) + (it.offsetY2d | 0);
+        const var6 =
+            (((it.zoom2d | 0) * SINE[var4]) >> 16) +
+            (it.offsetY2d | 0) +
+            ((it.modelHeightOffset2d ?? 0) | 0);
         const var7 = (((it.zoom2d | 0) * COSINE[var4]) >> 16) + (it.offsetY2d | 0);
 
         const var10 = SINE[var1],

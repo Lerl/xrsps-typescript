@@ -487,6 +487,17 @@ export type ServerToClient =
               newRotation?: number;
           };
       }
+    | {
+          type: "loc_anim";
+          payload: {
+              locId: number;
+              tile: { x: number; y: number };
+              level: number;
+              shape: number;
+              rotation: number;
+              animId: number;
+          };
+      }
     | { type: "sound"; payload: SoundEffectPayload }
     | { type: "play_jingle"; payload: { jingleId: number; delay?: number } }
     | {
@@ -930,6 +941,16 @@ function encodeMessageToBinaryDirect(msg: ServerToClient): Uint8Array {
                 payload.oldRotation,
                 payload.newRotation,
                 payload.newTile,
+            );
+
+        case "loc_anim":
+            return serverEncoder.encodeLocAnim(
+                payload.locId,
+                payload.tile,
+                payload.level,
+                payload.shape,
+                payload.rotation,
+                payload.animId,
             );
 
         case "combat":

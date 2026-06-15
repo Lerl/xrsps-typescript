@@ -12,9 +12,10 @@ import {
     setOptionsDialogFlags,
     setSpriteDialogFlags,
 } from "../../../widgets/hooks/DialogInterfaceHooks";
+import { VARBIT_BUSY } from "../../../widgets/InterfaceService";
 import type { ServerServices } from "../../ServerServices";
 import type { PlayerState } from "../../player";
-import { ScriptDialogKind } from "../../scripts/types";
+import { ScriptDialogKind, type ScriptSkillMultiRequest } from "../../scripts/types";
 
 // ============================================================================
 // Types
@@ -112,6 +113,9 @@ type ActiveChatboxDialogState = {
     resumeChildIndex?: number;
     optionCount?: number;
     onSelect?: (choice: number) => void;
+    skillMultiProductCount?: number;
+    skillMultiMaxQuantity?: number;
+    onSkillMultiSelect?: (productIndex: number, quantity: number) => void;
     onContinue?: () => void;
     onClose?: () => void;
 };
@@ -125,6 +129,7 @@ const DIALOG_GROUP_PLAYER = 217;
 const DIALOG_GROUP_SPRITE = 193;
 const DIALOG_GROUP_DOUBLE_SPRITE = 11;
 const DIALOG_GROUP_OPTIONS = 219;
+const DIALOG_GROUP_SKILLMULTI = 270;
 
 const CHAT_DIALOG_HEAD_COMPONENT = 2;
 const CHAT_DIALOG_INNER_COMPONENT = 1;
@@ -135,6 +140,12 @@ const DOUBLE_SPRITE_LEFT_ITEM_COMPONENT = 1;
 const DOUBLE_SPRITE_TEXT_COMPONENT = 2;
 const DOUBLE_SPRITE_RIGHT_ITEM_COMPONENT = 3;
 const DOUBLE_SPRITE_CONTINUE_COMPONENT = 4;
+const SKILLMULTI_FIRST_ITEM_COMPONENT = 15;
+const SKILLMULTI_ITEM_COMPONENT_COUNT = 18;
+const SKILLMULTI_MODE_QUANTITY = 16;
+const SKILLMULTI_SETUP_SCRIPT = 2046;
+const SKILLMULTI_CLICK_FLAGS = 1;
+const SKILLMULTI_MAX_QUANTITY = 28;
 
 // ============================================================================
 // WidgetDialogHandler
@@ -495,6 +506,97 @@ export class WidgetDialogHandler {
         });
     }
 
+    openSkillMulti(player: PlayerState, request: ScriptSkillMultiRequest): void {
+        if (!request || !Array.isArray(request.products) || request.products.length === 0) {
+            return;
+        }
+        const dialogId = String(request.id || "skillmulti");
+        const products = request.products
+            .slice(0, SKILLMULTI_ITEM_COMPONENT_COUNT)
+            .map((product) => ({
+                itemId: product.itemId | 0,
+                label: String(product.label ?? ""),
+                maxQuantity: Math.max(1, product.maxQuantity ?? 1),
+            }))
+            .filter((product) => product.itemId >= 0 && product.label.length > 0);
+        if (products.length === 0) {
+            return;
+        }
+
+        this.closeDialog(player, undefined, true);
+
+        const labels = new Array<string>(SKILLMULTI_ITEM_COMPONENT_COUNT).fill("");
+        const itemIds = new Array<number>(SKILLMULTI_ITEM_COMPONENT_COUNT).fill(-1);
+        let productMaxQuantity = 1;
+        for (let i = 0; i < products.length; i++) {
+            labels[i] = products[i]!.label;
+            itemIds[i] = products[i]!.itemId;
+            productMaxQuantity = Math.max(productMaxQuantity, products[i]!.maxQuantity);
+        }
+
+        const maxQuantity = Math.max(
+            1,
+            Math.min(SKILLMULTI_MAX_QUANTITY, request.maxQuantity ?? productMaxQuantity),
+        );
+        const scriptQuantityRange = Math.max(4, Math.min(SKILLMULTI_MAX_QUANTITY, maxQuantity));
+        const defaultQuantity = Math.max(
+            1,
+            Math.min(scriptQuantityRange, request.defaultQuantity ?? 1),
+        );
+        const text = [String(request.title ?? ""), ...labels].join("|");
+
+        this.svc.interfaceService!.openChatboxModal(
+            player,
+            DIALOG_GROUP_SKILLMULTI,
+            { dialogId },
+            {
+                preScripts: [{ scriptId: 2379, args: [] }],
+                varbits: { [VARBIT_BUSY]: 1 },
+                postScripts: [
+                    {
+                        scriptId: SKILLMULTI_SETUP_SCRIPT,
+                        args: [
+                            SKILLMULTI_MODE_QUANTITY,
+                            text,
+                            scriptQuantityRange,
+                            ...itemIds,
+                            defaultQuantity,
+                        ],
+                    },
+                ],
+            },
+        );
+
+        for (let i = 0; i < products.length; i++) {
+            const uid = (DIALOG_GROUP_SKILLMULTI << 16) | (SKILLMULTI_FIRST_ITEM_COMPONENT + i);
+            this.svc.interfaceService!.setWidgetFlags(
+                player,
+                uid,
+                0,
+                scriptQuantityRange,
+                SKILLMULTI_CLICK_FLAGS,
+            );
+        }
+
+        this.activeChatboxDialogs.set(player.id, {
+            dialogId,
+            groupId: DIALOG_GROUP_SKILLMULTI,
+            skillMultiProductCount: products.length,
+            skillMultiMaxQuantity: maxQuantity,
+            onSkillMultiSelect: (productIndex, quantity) => {
+                try {
+                    request.onSelect?.(productIndex, quantity);
+                } catch (err) {
+                    logger.warn(
+                        `[dialog] skillmulti handler failed player=${player.id} dialog=${dialogId}`,
+                        err,
+                    );
+                }
+            },
+            onClose: request.onClose,
+        });
+    }
+
     /**
      * Close a dialog for a player.
      */
@@ -618,6 +720,32 @@ export class WidgetDialogHandler {
             return false;
         }
 
+        if (active.groupId === DIALOG_GROUP_SKILLMULTI && active.onSkillMultiSelect) {
+            const componentId = widgetId & 0xffff;
+            const productIndex = componentId - SKILLMULTI_FIRST_ITEM_COMPONENT;
+            const productCount = Math.max(0, active.skillMultiProductCount ?? 0);
+            if (productIndex < 0 || productIndex >= productCount) {
+                logger.info(
+                    `[dialog] invalid skillmulti selection player=${playerId} component=${componentId}`,
+                );
+                return true;
+            }
+
+            const maxQuantity = Math.max(1, active.skillMultiMaxQuantity ?? 1);
+            const quantity = Math.max(1, Math.min(maxQuantity, childIndex | 0));
+            this.activeChatboxDialogs.delete(playerId);
+            this.svc.interfaceService!.closeChatboxModal(player);
+            try {
+                active.onSkillMultiSelect(productIndex, quantity);
+            } catch (err) {
+                logger.warn(
+                    `[dialog] skillmulti handler execution failed player=${player.id} dialog=${active.dialogId}`,
+                    err,
+                );
+            }
+            return true;
+        }
+
         if (active.groupId === DIALOG_GROUP_OPTIONS && active.onSelect) {
             this.handleDialogOptionClick(ws, playerId, childIndex);
             return true;
@@ -655,6 +783,17 @@ export class WidgetDialogHandler {
             if (!player) return;
             const normalized = this.normalizeWidgetActionPayload(payload);
             if (!normalized) return;
+            if (
+                normalized.groupId === DIALOG_GROUP_SKILLMULTI &&
+                this.handleResumePauseButton(
+                    ws,
+                    player.id,
+                    normalized.widgetId,
+                    normalized.slot ?? normalized.childId ?? 1,
+                )
+            ) {
+                return;
+            }
 
             const tick = this.svc.ticker.currentTick();
             const dispatched = this.svc.scriptRuntime.queueWidgetAction({

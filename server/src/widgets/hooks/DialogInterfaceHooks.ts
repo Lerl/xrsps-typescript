@@ -22,7 +22,9 @@ import {
     DIALOG_NPC_ID,
     DIALOG_OPTIONS_ID,
     DIALOG_PLAYER_ID,
+    DIALOG_SKILLMULTI_ID,
     DIALOG_SPRITE_ID,
+    VARBIT_BUSY,
     VARBIT_CHATMODAL_UNCLAMP,
     VARBIT_DIALOG_MODE,
 } from "../InterfaceService";
@@ -109,6 +111,11 @@ export function registerDialogInterfaceHooks(interfaceService: InterfaceService)
         ctx.service.setVarbit(player, VARBIT_CHATMODAL_UNCLAMP, 0);
         // Reset dialog mode varbit
         ctx.service.setVarbit(player, VARBIT_DIALOG_MODE, 0);
+    });
+
+    interfaceService.onInterfaceClose(DIALOG_SKILLMULTI_ID, (player, ctx) => {
+        ctx.service.setVarbit(player, VARBIT_CHATMODAL_UNCLAMP, 0);
+        ctx.service.setVarbit(player, VARBIT_BUSY, 0);
     });
 }
 

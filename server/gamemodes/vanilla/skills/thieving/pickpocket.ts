@@ -667,6 +667,7 @@ const PICKPOCKET_SUCCESS_SOUND = 2581;
 const PICKPOCKET_STUN_SOUND = 2727;
 const PICKPOCKET_DAMAGE_SOUND = 519;
 const PICKPOCKET_DAMAGE_SOUND_DELAY = 20;
+const COIN_POUCH_OPEN_SOUND = 2115;
 const PICKPOCKET_HIT_STYLE = 16;
 const PICKPOCKET_BUSY_VARBIT = 12393;
 const PICKPOCKET_NOTIFY_SCRIPT = 7192;
@@ -1029,6 +1030,7 @@ export function register(registry: IScriptRegistry, _services: ScriptServices): 
 
             services.inventory.addItemToInventory(player, currencyId, totalCurrency);
             services.inventory.snapshotInventory(player);
+            services.sound.sendSound(player, COIN_POUCH_OPEN_SOUND);
             const pouchText = count === 1 ? "coin pouch" : "coin pouches";
             services.messaging.sendGameMessage(
                 player,

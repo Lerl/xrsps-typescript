@@ -2210,6 +2210,24 @@ function processServerMessage(msg: any): void {
         } catch (err) {
             console.warn("loc_del handler error", err);
         }
+    } else if (msg.type === "loc_anim") {
+        const payload = msg.payload;
+        try {
+            const g: any = (typeof window !== "undefined" ? window : globalThis) as any;
+            const mv = g?.__osrsClient;
+            if (mv && typeof mv.onLocAnim === "function") {
+                mv.onLocAnim(
+                    payload.locId,
+                    payload.tile,
+                    payload.level,
+                    payload.shape,
+                    payload.rotation,
+                    payload.animId,
+                );
+            }
+        } catch (err) {
+            console.warn("loc_anim handler error", err);
+        }
     } else if (msg.type === "vars") {
         const payload = msg.payload;
         try {

@@ -3211,9 +3211,12 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
             try {
                 const itemId = w.itemId;
                 const qty = (w.itemQuantity ?? 0) | 0 || 1;
-                if (typeof itemId === "number" && itemId >= 0 && (opts as any).objLoader?.load) {
-                    let it = (opts as any).objLoader.load(itemId);
-                    if (it && typeof it.getCountObj === "function") it = it.getCountObj(qty);
+                const objLoader = (opts as any).objLoader;
+                if (typeof itemId === "number" && itemId >= 0 && objLoader?.load) {
+                    let it = objLoader.load(itemId);
+                    if (it && typeof it.getCountObj === "function") {
+                        it = it.getCountObj(objLoader, qty);
+                    }
                     if (it) {
                         rx = (it.xan2d | 0) as number;
                         ry = (it.yan2d | 0) as number;
@@ -3296,10 +3299,14 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                 ((w.contentType ?? 0) | 0) === 328 ||
                 ((w.modelType ?? 0) | 0) === 7 ||
                 (w as any).isPlayerModel === true;
+            const modelCacheId =
+                typeof w.itemId === "number" && (w.itemId | 0) >= 0
+                    ? `item:${w.itemId | 0}:${(w.itemQuantity ?? 0) | 0}`
+                    : `model:${modelId}`;
             const cacheKey =
                 isAnimated || isPlayerDesignPreview || (isPlayerModel && !appearanceKey)
                     ? null // Animated models can't be cached (frame changes)
-                    : `wm:${modelId}:${rx}:${ry}:${rz}:${zoom}:${offX}:${offY}:o${
+                    : `wm:${modelCacheId}:${rx}:${ry}:${rz}:${zoom}:${offX}:${offY}:o${
                           ortho ? 1 : 0
                       }:${width}:${height}${cacheSuffix}`;
 
