@@ -55,7 +55,7 @@ export class SceneBuilder {
     newTerrainFormat: boolean;
     centerLocHeightWithSize: boolean;
 
-    // Dynamic loc overrides: Map<"x,y,level,oldId", {newId,newRotation?,moveToX?,moveToY?,seqId?,seqRandomStart?}>
+    // Dynamic loc overrides: Map<"x,y,level,oldId", {newId,newRotation?,moveToX?,moveToY?,seqId?,seqRandomStart?,matchType?,matchRotation?}>
     private locOverrides: Map<
         string,
         {
@@ -65,6 +65,8 @@ export class SceneBuilder {
             moveToY?: number;
             seqId?: number;
             seqRandomStart?: boolean;
+            matchType?: LocModelType;
+            matchRotation?: number;
         }
     > = new Map();
 
@@ -98,6 +100,8 @@ export class SceneBuilder {
         moveToY?: number,
         seqId?: number,
         seqRandomStart?: boolean,
+        matchType?: LocModelType,
+        matchRotation?: number,
     ): void {
         const key = `${x},${y},${level},${oldId}`;
         this.locOverrides.set(key, {
@@ -107,6 +111,8 @@ export class SceneBuilder {
             moveToY,
             seqId,
             seqRandomStart,
+            matchType,
+            matchRotation,
         });
         console.log(
             `[SceneBuilder] setLocOverride: key="${key}" -> {id: ${newId}, rot: ${
@@ -527,8 +533,25 @@ export class SceneBuilder {
 
                         // Check for dynamic loc override
                         const overrideKey = `${sceneX},${sceneY},${level},${id}`;
-                        const override = this.locOverrides.get(overrideKey);
-                        const finalId = override?.newId ?? id;
+                        const wildcardOverrideKey = `${sceneX},${sceneY},${level},-1`;
+                        let override = this.locOverrides.get(overrideKey);
+                        if (!override) {
+                            const wildcardOverride = this.locOverrides.get(wildcardOverrideKey);
+                            if (
+                                wildcardOverride &&
+                                (wildcardOverride.matchType === undefined ||
+                                    wildcardOverride.matchType === type) &&
+                                (wildcardOverride.matchRotation === undefined ||
+                                    (wildcardOverride.matchRotation & 0x3) === (rotation & 0x3))
+                            ) {
+                                override = wildcardOverride;
+                            }
+                        }
+                        const finalId = override
+                            ? (override.newId | 0) >= 0
+                                ? override.newId
+                                : id
+                            : id;
                         const finalRotation = override?.newRotation ?? rotation;
                         const moveToX = override?.moveToX;
                         const moveToY = override?.moveToY;

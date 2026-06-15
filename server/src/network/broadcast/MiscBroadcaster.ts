@@ -43,7 +43,7 @@ export class MiscBroadcaster implements BroadcastDomain {
         }
     }
 
-    private flushLocAnimations(frame: TickFrame, ctx: BroadcastContext): void {
+    flushLocAnimations(frame: TickFrame, ctx: BroadcastContext): void {
         if (!frame.locAnimations || frame.locAnimations.length === 0) return;
         for (const animation of frame.locAnimations) {
             ctx.broadcast(

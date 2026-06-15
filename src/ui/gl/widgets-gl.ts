@@ -1129,6 +1129,9 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                                     chosenWidget: w,
                                     scheduleRender,
                                     menuState,
+                                    label: {
+                                        includeExamineIds: !!(opts.game as any)?.osrsClient?.debugId,
+                                    },
                                 });
                                 ui.menu = {
                                     open: true,
@@ -1300,6 +1303,9 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                     chosenWidget: chosen,
                     scheduleRender,
                     menuState,
+                    label: {
+                        includeExamineIds: !!(opts.game as any)?.osrsClient?.debugId,
+                    },
                 });
                 ui.menu = {
                     open: true,
@@ -1336,6 +1342,9 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                     chosenWidget: blockingWidget ?? null,
                     scheduleRender,
                     menuState,
+                    label: {
+                        includeExamineIds: !!(opts.game as any)?.osrsClient?.debugId,
+                    },
                 });
                 ui.menu = {
                     open: true,

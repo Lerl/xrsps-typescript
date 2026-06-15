@@ -703,6 +703,7 @@ export class TickPhaseService {
             this.svc.skillBroadcaster.flush(frame, ctx);
             this.svc.combatBroadcaster.flush(frame, ctx);
             this.svc.actorSyncBroadcaster.flush(frame, ctx);
+            this.svc.miscBroadcaster.flushLocAnimations(frame, ctx);
             this.svc.widgetBroadcaster.flushCloseEvents(frame, ctx);
             this.svc.varBroadcaster.flush(frame, ctx);
             this.svc.widgetBroadcaster.flushOpenEvents(frame, ctx);

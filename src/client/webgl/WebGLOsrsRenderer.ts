@@ -481,7 +481,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
 
     dataLoader = new SdMapDataLoader();
 
-    // Track dynamic loc changes: Map<"x,y,level,oldId", {newId,newRotation?,moveToX?,moveToY?,seqId?,seqRandomStart?}>
+    // Track dynamic loc changes: Map<"x,y,level,oldId", {newId,newRotation?,moveToX?,moveToY?,seqId?,seqRandomStart?,matchType?,matchRotation?}>
     private locOverrides: Map<
         string,
         {
@@ -491,6 +491,8 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
             moveToY?: number;
             seqId?: number;
             seqRandomStart?: boolean;
+            matchType?: LocModelType;
+            matchRotation?: number;
         }
     > = new Map();
     private locAnimTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
@@ -14837,10 +14839,14 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
     ): void {
         try {
             if ((shape | 0) < 0) return;
-            const key = `${tile.x | 0},${tile.y | 0},${level | 0},${locId | 0}`;
-            const existingTimer = this.locAnimTimers.get(key);
-            if (existingTimer) {
-                clearTimeout(existingTimer);
+            const exactKey = `${tile.x | 0},${tile.y | 0},${level | 0},${locId | 0}`;
+            const matchKey = `${tile.x | 0},${tile.y | 0},${level | 0},-1`;
+            for (const key of [exactKey, matchKey]) {
+                const existingTimer = this.locAnimTimers.get(key);
+                if (existingTimer) {
+                    clearTimeout(existingTimer);
+                    this.locAnimTimers.delete(key);
+                }
             }
 
             if (
@@ -14860,29 +14866,43 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                 this.clearInteractHighlightHoverTarget();
             }
 
-            this.locOverrides.set(key, {
+            this.locOverrides.set(exactKey, {
                 newId: locId | 0,
                 newRotation: rotation & 0x3,
                 seqId: animId | 0,
                 seqRandomStart: false,
             });
+            this.locOverrides.set(matchKey, {
+                newId: -1,
+                newRotation: rotation & 0x3,
+                seqId: animId | 0,
+                seqRandomStart: false,
+                matchType: shape as LocModelType,
+                matchRotation: rotation & 0x3,
+            });
             this.reloadLocAnimationTile(tile);
 
             const durationMs = this.getLocAnimationDurationMs(animId);
             const timer = setTimeout(() => {
-                const current = this.locOverrides.get(key);
-                if (
-                    current &&
-                    (current.newId | 0) === (locId | 0) &&
-                    typeof current.seqId === "number" &&
-                    (current.seqId | 0) === (animId | 0)
-                ) {
-                    this.locOverrides.delete(key);
+                let changed = false;
+                for (const key of [exactKey, matchKey]) {
+                    const current = this.locOverrides.get(key);
+                    if (
+                        current &&
+                        typeof current.seqId === "number" &&
+                        (current.seqId | 0) === (animId | 0)
+                    ) {
+                        this.locOverrides.delete(key);
+                        changed = true;
+                    }
+                    this.locAnimTimers.delete(key);
+                }
+                if (changed) {
                     this.reloadLocAnimationTile(tile);
                 }
-                this.locAnimTimers.delete(key);
             }, durationMs);
-            this.locAnimTimers.set(key, timer);
+            this.locAnimTimers.set(exactKey, timer);
+            this.locAnimTimers.set(matchKey, timer);
         } catch (err) {
             console.warn("onLocAnim error", err);
         }

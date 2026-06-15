@@ -11,7 +11,7 @@ export type SdMapLoaderInput = {
 
     loadedTextureIds: Set<number>;
 
-    // Dynamic loc overrides: Map<"x,y,level,oldId", {newId,newRotation?,moveToX?,moveToY?,seqId?,seqRandomStart?}>
+    // Dynamic loc overrides: Map<"x,y,level,oldId", {newId,newRotation?,moveToX?,moveToY?,seqId?,seqRandomStart?,matchType?,matchRotation?}>
     locOverrides?: Map<
         string,
         {
@@ -21,6 +21,8 @@ export type SdMapLoaderInput = {
             moveToY?: number;
             seqId?: number;
             seqRandomStart?: boolean;
+            matchType?: number;
+            matchRotation?: number;
         }
     >;
     // Dynamic loc spawns: Map<"x,y,level", {id,type,rotation}> - locs not in base map data

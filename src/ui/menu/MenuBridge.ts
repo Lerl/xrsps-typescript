@@ -85,6 +85,12 @@ function formatNpcNameWithLevel(
     return out;
 }
 
+function appendDebugIdLabel(target: string | undefined, itemId: number | undefined): string | undefined {
+    if (typeof itemId !== "number" || !Number.isFinite(itemId) || itemId < 0) return target;
+    const idLabel = `ID: ${Math.trunc(itemId)}`;
+    return target && target.length ? `${target} (${idLabel})` : idLabel;
+}
+
 /**
  * Format the right-side target label for an OsrsMenuEntry in OSRS style.
  */
@@ -154,10 +160,10 @@ export function osrsTargetLabel(e: OsrsMenuEntry, opts: TargetLabelOptions = {})
         String(e.option).toLowerCase() === "examine" &&
         (e.targetType === MenuTargetType.NPC ||
             e.targetType === MenuTargetType.LOC ||
-            e.targetType === MenuTargetType.OBJ)
+            e.targetType === MenuTargetType.OBJ ||
+            e.targetType === MenuTargetType.ITEM)
     ) {
-        const idLabel = `ID: ${Math.trunc(e.targetId)}`;
-        t = t ? `${t} (${idLabel})` : idLabel;
+        t = appendDebugIdLabel(t, e.targetId) ?? t;
     }
     return t;
 }
@@ -262,10 +268,35 @@ export function widgetEntriesToSimple(
         chosenWidget: any;
         scheduleRender: () => void;
         menuState?: MenuState;
+        label?: TargetLabelOptions;
     },
 ): SimpleMenuEntry[] {
     const { ui, chosenWidget, scheduleRender, menuState } = ctx;
+    const includeIds = !!ctx.label?.includeExamineIds;
     if (menuState) menuState.reset();
+
+    const resolveWidgetItemId = (entry?: WidgetMenuEntryInput): number | undefined => {
+        const explicit = entry?.widgetAction?.itemId;
+        if (typeof explicit === "number" && Number.isFinite(explicit) && explicit >= 0) {
+            return explicit | 0;
+        }
+        const fallback = chosenWidget?.itemId;
+        if (typeof fallback === "number" && Number.isFinite(fallback) && fallback >= 0) {
+            return fallback | 0;
+        }
+        return undefined;
+    };
+
+    const formatWidgetTarget = (entry: WidgetMenuEntryInput): string | undefined => {
+        const target = entry.target;
+        const lower = String(entry.option || "")
+            .trim()
+            .toLowerCase();
+        if (!includeIds || (lower !== "examine" && lower !== "inspect")) {
+            return target;
+        }
+        return appendDebugIdLabel(target, resolveWidgetItemId(entry));
+    };
 
     const closeMenus = () => {
         if (ui?.menu) ui.menu.open = false;
@@ -349,14 +380,15 @@ export function widgetEntriesToSimple(
     };
 
     const list: SimpleMenuEntry[] = (entries || []).map((e) => {
+        const target = formatWidgetTarget(e);
         const mapped: SimpleMenuEntry = {
             option: e.option,
-            target: e.target,
+            target,
             action: inferMenuAction(e.option),
-            targetType: e.target ? MenuTargetType.ITEM : MenuTargetType.NONE,
+            targetType: target ? MenuTargetType.ITEM : MenuTargetType.NONE,
             opcode: e.opcode,
             forceLeftClick: e.forceLeftClick,
-            onClick: buildOnClick(e, e.option, e.target),
+            onClick: buildOnClick(e, e.option, target),
         };
         // Submenu entries dispatch the same widget op with a 1-based opSubIndex.
         // The submenu header shows the parent entry's target; sub rows have no target.

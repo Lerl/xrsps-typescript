@@ -1125,6 +1125,16 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
                     typeof overrideValue.seqRandomStart === "boolean"
                         ? overrideValue.seqRandomStart
                         : undefined;
+                const matchType =
+                    typeof overrideValue.matchType === "number" &&
+                    Number.isFinite(overrideValue.matchType)
+                        ? (overrideValue.matchType | 0)
+                        : undefined;
+                const matchRotation =
+                    typeof overrideValue.matchRotation === "number" &&
+                    Number.isFinite(overrideValue.matchRotation)
+                        ? overrideValue.matchRotation & 0x3
+                        : undefined;
                 console.log(`[SdMapDataLoader] Processing override: ${key} -> ${newId}`);
                 const parts = key.split(",");
                 if (parts.length === 4) {
@@ -1156,6 +1166,8 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
                         moveToSceneY,
                         seqId,
                         seqRandomStart,
+                        matchType,
+                        matchRotation,
                     );
                 }
             }
