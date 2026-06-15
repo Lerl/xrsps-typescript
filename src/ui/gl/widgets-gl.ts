@@ -2605,8 +2605,12 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                 if (visibleMapTiles.length > 1) {
                     visibleMapTiles.sort((a, b) => a.distance - b.distance);
                 }
+                const maxVisibleTileDistance =
+                    visibleMapTiles.length > 0
+                        ? visibleMapTiles[visibleMapTiles.length - 1].distance
+                        : 0;
 
-                for (const { mapX, mapY } of visibleMapTiles) {
+                for (const { mapX, mapY, distance } of visibleMapTiles) {
                     const sourceTile =
                         resolveSourceTileForDisplayTile(mapX, mapY) ??
                         ({
@@ -2618,6 +2622,7 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                         sourceTile.mapX,
                         sourceTile.mapY,
                         sourceTile.level,
+                        maxVisibleTileDistance - distance,
                     );
                     if (!url) continue;
                     const tileTex = tc.getTextureFromUrl(url);

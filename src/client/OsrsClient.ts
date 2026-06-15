@@ -11297,7 +11297,17 @@ export class OsrsClient {
     }
 
     private getWorldMapImageUrlLimit(): number {
-        return isTouchDevice ? OsrsClient.MAX_WORLDMAP_URLS_MOBILE : OsrsClient.MAX_WORLDMAP_URLS;
+        const baseLimit = isTouchDevice
+            ? OsrsClient.MAX_WORLDMAP_URLS_MOBILE
+            : OsrsClient.MAX_WORLDMAP_URLS;
+        const visibleTileWidth = Math.max(0, this.worldMapState.displayWidth | 0);
+        const visibleTileHeight = Math.max(0, this.worldMapState.displayHeight | 0);
+        const visibleRegionWidth = Math.max(1, Math.ceil((visibleTileWidth + 128) / 64) + 1);
+        const visibleRegionHeight = Math.max(1, Math.ceil((visibleTileHeight + 128) / 64) + 1);
+        const visibleRegionCount = visibleRegionWidth * visibleRegionHeight;
+        const dynamicLimit = visibleRegionCount * 2;
+        const maxLimit = isTouchDevice ? 256 : 1024;
+        return Math.min(maxLimit, Math.max(baseLimit, dynamicLimit));
     }
 
     private getWorldMapImagePendingLimit(): number {
@@ -11405,18 +11415,23 @@ export class OsrsClient {
         }
     }
 
-    getWorldMapImageUrl(mapX: number, mapY: number, level: number = 0): string | undefined {
+    getWorldMapImageUrl(
+        mapX: number,
+        mapY: number,
+        level: number = 0,
+        accessPriority: number = 0,
+    ): string | undefined {
         if (mapX < 0 || mapY < 0 || mapX >= MapManager.MAX_MAP_X || mapY >= MapManager.MAX_MAP_Y) {
             return undefined;
         }
-        const requestEpoch = this.updateWorldMapImageRequestEpoch();
+        this.updateWorldMapImageRequestEpoch();
         const mapId = this.getMinimapImageKey(mapX, mapY, level);
         const url = this.worldMapImageUrls.get(mapId);
         if (url) {
-            this.worldMapImageAccess.set(mapId, performance.now());
+            this.worldMapImageAccess.set(mapId, performance.now() + Math.max(0, accessPriority));
             return url;
         }
-        this.queueLoadWorldMapImage(mapX, mapY, level, requestEpoch);
+        this.queueLoadWorldMapImage(mapX, mapY, level);
         return undefined;
     }
 
@@ -11452,7 +11467,6 @@ export class OsrsClient {
         mapX: number,
         mapY: number,
         level: number,
-        requestEpoch: number,
     ): void {
         const mapId = this.getMinimapImageKey(mapX, mapY, level);
         if (
@@ -11484,9 +11498,6 @@ export class OsrsClient {
             .then((tile) => {
                 if (!tile?.blob) {
                     this.rememberFailedWorldMapImage(mapId);
-                    return;
-                }
-                if (requestEpoch !== this.worldMapImageRequestEpoch) {
                     return;
                 }
                 this.setWorldMapImageUrl(
