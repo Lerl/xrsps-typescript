@@ -6,18 +6,19 @@ import type { NpcState } from "../npc";
 import type { NpcManager } from "../npcManager";
 import type { PlayerState } from "../player";
 import type { SpellDataEntry } from "../spells/SpellDataProvider";
+import type { RangedProjectileParams } from "../systems/ProjectileSystem";
 
 const TILE_UNIT = 128;
 
 interface ProjectileSystemView {
-    buildRangedProjectileLaunch(opts: Record<string, unknown>): ProjectileLaunch | undefined;
+    buildRangedProjectileLaunch(opts: RangedProjectileParams): ProjectileLaunch | undefined;
     queueProjectileForViewers(launch: ProjectileLaunch): void;
-    setActiveFramePackets(packets: Map<number, unknown>): void;
+    setActiveFramePackets(packets: Map<number, ProjectileLaunch[]> | undefined): void;
 }
 
 interface TickFrameView {
     tick: number;
-    projectilePackets?: Map<number, unknown>;
+    projectilePackets?: Map<number, ProjectileLaunch[]>;
     [key: string]: unknown;
 }
 
