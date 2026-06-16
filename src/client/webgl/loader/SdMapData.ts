@@ -2,6 +2,7 @@ import { CollisionData } from "../../../rs/scene/CollisionMap";
 import { DrawRange } from "../DrawRange";
 import { LocAnimatedData } from "../loc/LocAnimatedData";
 import { NpcData } from "../npc/NpcData";
+import type { MinimapPixelData } from "../../worker/MinimapData";
 
 /**
  * Minimap icon entry: position + sprite ID for dynamic rendering
@@ -43,6 +44,7 @@ export type SdMapData = {
     collisionDatas: CollisionData[];
 
     minimapBlobs: Blob[];
+    minimapPixels?: MinimapPixelData[];
     minimapIcons: MinimapIcon[][];
     worldMapIcons: MinimapIcon[][];
 

@@ -20,7 +20,7 @@ import { LocEntity } from "../../../rs/scene/entity/LocEntity";
 import { TextureLoader } from "../../../rs/texture/TextureLoader";
 import { INVALID_HSL_COLOR, hslToRgb } from "../../../rs/util/ColorUtil";
 import { getBridgeLinkedBelow, isBridgeSurfaceTile } from "../../scene/BridgeTiles";
-import { loadMinimapBlob } from "../../worker/MinimapData";
+import { loadMinimapBlob, loadMinimapPixels } from "../../worker/MinimapData";
 import { RenderDataLoader, RenderDataResult } from "../../worker/RenderDataLoader";
 import { WorkerState } from "../../worker/RenderDataWorker";
 import { AnimationFrames } from "../AnimationFrames";
@@ -1159,6 +1159,10 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
         }
     }
 
+    shouldClearWorkerCacheAfterLoad(input: SdMapLoaderInput): boolean {
+        return !input.worldMapTileOnly;
+    }
+
     async load(
         state: WorkerState,
         {
@@ -1398,16 +1402,14 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
         if (worldMapTileOnly) {
             const level = Math.max(0, Math.min(Scene.MAX_LEVELS - 1, worldMapTileOnly.level | 0));
             const minimapBlobs: Blob[] = new Array(Scene.MAX_LEVELS);
-            minimapBlobs[level] =
-                typeof OffscreenCanvas !== "undefined"
-                    ? await loadMinimapBlob(
-                          state.minimapImageRenderer,
-                          scene,
-                          level,
-                          usedBorderSize,
-                          false,
-                      )
-                    : transparentPng1x1();
+            const minimapPixels = new Array(Scene.MAX_LEVELS);
+            minimapPixels[level] = loadMinimapPixels(
+                state.minimapImageRenderer,
+                scene,
+                level,
+                usedBorderSize,
+                false,
+            );
 
             const mapFunctionToSprite = createMapFunctionResolver(state);
             const minimapIcons: MinimapIcon[][] = new Array(Scene.MAX_LEVELS);
@@ -1435,10 +1437,11 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
                     renderPosX,
                     renderPosY,
                     minimapBlobs,
+                    minimapPixels,
                     minimapIcons,
                     worldMapIcons,
                 } as SdMapData,
-                transferables: [],
+                transferables: [minimapPixels[level].pixels.buffer],
             };
         }
 

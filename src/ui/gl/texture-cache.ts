@@ -415,6 +415,21 @@ export class TextureCache {
         return undefined;
     }
 
+    getTextureFromRgbaPixels(
+        key: string,
+        pixels: Uint8Array | Uint8ClampedArray,
+        width: number,
+        height: number,
+    ) {
+        const cached = this.glr.getTexture(key);
+        if (cached) return cached;
+        return this.glr.createTextureFromRgbaPixels(key, pixels, width, height);
+    }
+
+    evictTextureKey(key: string): void {
+        this.glr.deleteTexture(key);
+    }
+
     evictUrl(url: string): void {
         this.loadedImages.delete(url);
         this.pendingUrlLoads.delete(url);

@@ -2609,8 +2609,7 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                     visibleMapTiles.length > 0
                         ? visibleMapTiles[visibleMapTiles.length - 1].distance
                         : 0;
-
-                for (const { mapX, mapY, distance } of visibleMapTiles) {
+                const visibleWorldMapTiles = visibleMapTiles.map(({ mapX, mapY, distance }) => {
                     const sourceTile =
                         resolveSourceTileForDisplayTile(mapX, mapY) ??
                         ({
@@ -2618,15 +2617,51 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                             mapY,
                             level: worldMapLevel,
                         } as const);
-                    const url = osrsClient?.getWorldMapImageUrl?.(
+                    return { mapX, mapY, distance, sourceTile };
+                });
+                osrsClient?.retainWorldMapImageTiles?.(visibleWorldMapTiles);
+
+                let drawnWorldMapTileCount = 0;
+                let missingWorldMapUrlCount = 0;
+                let missingWorldMapTextureCount = 0;
+                let remappedWorldMapTileCount = 0;
+                let firstMissingWorldMapUrl: string | undefined;
+                let firstMissingWorldMapTexture: string | undefined;
+                for (const { mapX, mapY, distance, sourceTile } of visibleWorldMapTiles) {
+                    if (
+                        (sourceTile.mapX | 0) !== (mapX | 0) ||
+                        (sourceTile.mapY | 0) !== (mapY | 0) ||
+                        ((sourceTile.level ?? worldMapLevel) | 0) !== (worldMapLevel | 0)
+                    ) {
+                        remappedWorldMapTileCount++;
+                    }
+                    const source = osrsClient?.getWorldMapImageSource?.(
                         sourceTile.mapX,
                         sourceTile.mapY,
                         sourceTile.level,
                         maxVisibleTileDistance - distance,
                     );
-                    if (!url) continue;
-                    const tileTex = tc.getTextureFromUrl(url);
-                    if (!tileTex) continue;
+                    if (!source) {
+                        missingWorldMapUrlCount++;
+                        firstMissingWorldMapUrl ??= `${sourceTile.mapX | 0},${
+                            sourceTile.mapY | 0
+                        },${(sourceTile.level ?? 0) | 0} display=${mapX | 0},${mapY | 0}`;
+                        continue;
+                    }
+                    const tileTex = tc.getTextureFromRgbaPixels(
+                        source.key,
+                        source.pixels,
+                        source.width,
+                        source.height,
+                    );
+                    if (!tileTex) {
+                        missingWorldMapTextureCount++;
+                        firstMissingWorldMapTexture ??= `${sourceTile.mapX | 0},${
+                            sourceTile.mapY | 0
+                        },${(sourceTile.level ?? 0) | 0} display=${mapX | 0},${mapY | 0}`;
+                        continue;
+                    }
+                    drawnWorldMapTileCount++;
 
                     const tileTopLeft = projectDisplayToScreen(mapX * 64, mapY * 64 + 64);
                     glr.drawTexture(
@@ -2638,6 +2673,45 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                         1,
                         1,
                     );
+                }
+                if (
+                    osrsClient &&
+                    (missingWorldMapUrlCount > 0 ||
+                        missingWorldMapTextureCount > 0 ||
+                        visibleWorldMapTiles.length > 96 ||
+                        tileDrawWidth < 1 ||
+                        tileDrawHeight < 1)
+                ) {
+                    const now = performance.now();
+                    const diagnosticHost = osrsClient as any;
+                    const diagnostic = diagnosticHost.__worldMapRenderDiagnostic ?? {
+                        lastLogMs: -Infinity,
+                        suppressed: 0,
+                    };
+                    if (now - diagnostic.lastLogMs >= 1000) {
+                        const cacheStats =
+                            typeof diagnosticHost.getWorldMapImageDebugStats === "function"
+                                ? diagnosticHost.getWorldMapImageDebugStats()
+                                : undefined;
+                        console.log(
+                            `[worldmap-render] visible=${visibleWorldMapTiles.length} drawn=${drawnWorldMapTileCount} missingUrl=${missingWorldMapUrlCount} missingTexture=${missingWorldMapTextureCount} remapped=${remappedWorldMapTileCount} display=${displayX},${displayY} zoomScale=${logicalPixelsPerTile.toFixed(
+                                2,
+                            )} tilePx=${tileDrawWidth.toFixed(2)}x${tileDrawHeight.toFixed(
+                                2,
+                            )} cacheLoaded=${cacheStats?.loaded ?? "?"} cachePending=${
+                                cacheStats?.pending ?? "?"
+                            } cacheFailed=${cacheStats?.failed ?? "?"} cacheRetained=${
+                                cacheStats?.retained ?? "?"
+                            } firstMissingUrl=${firstMissingWorldMapUrl ?? "none"} firstMissingTexture=${
+                                firstMissingWorldMapTexture ?? "none"
+                            } suppressed=${diagnostic.suppressed | 0}`,
+                        );
+                        diagnostic.lastLogMs = now;
+                        diagnostic.suppressed = 0;
+                    } else {
+                        diagnostic.suppressed = (diagnostic.suppressed | 0) + 1;
+                    }
+                    diagnosticHost.__worldMapRenderDiagnostic = diagnostic;
                 }
 
                 const mapElementCache = new Map<number, any>();
@@ -2673,14 +2747,7 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                     return -textureHeight;
                 };
 
-                for (const { mapX, mapY } of visibleMapTiles) {
-                    const sourceTile =
-                        resolveSourceTileForDisplayTile(mapX, mapY) ??
-                        ({
-                            mapX,
-                            mapY,
-                            level: worldMapLevel,
-                        } as const);
+                for (const { sourceTile } of visibleWorldMapTiles) {
                     const icons = osrsClient?.getWorldMapIcons?.(
                         sourceTile.mapX,
                         sourceTile.mapY,
@@ -4539,7 +4606,7 @@ export function processWidgetUiInput(
     if (!inputManager) return;
     try {
         const input = ensureInput(glr, () => {}, undefined);
-        const targetCount = input.getClicks().getDebugRects().length;
+        const targetCount = input.getClicks().getTargetCount();
         if (targetCount > 0) {
             input.processInput(inputManager);
         }

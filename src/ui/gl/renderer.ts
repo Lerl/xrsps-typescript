@@ -905,6 +905,47 @@ void main(){
         return t;
     }
 
+    createTextureFromRgbaPixels(
+        key: string,
+        pixels: Uint8Array | Uint8ClampedArray,
+        width: number,
+        height: number,
+    ): Texture {
+        const gl = this.gl;
+        const existing = this.textures.get(key);
+        if (existing) return existing;
+        const texWidth = Math.max(1, width | 0);
+        const texHeight = Math.max(1, height | 0);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+        const tex = gl.createTexture();
+        if (!tex) {
+            console.warn("[GLRenderer] createTexture() returned null for key:", key);
+            return { tex: null as any, w: texWidth, h: texHeight };
+        }
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, 1);
+        gl.texImage2D(
+            gl.TEXTURE_2D,
+            0,
+            gl.RGBA,
+            texWidth,
+            texHeight,
+            0,
+            gl.RGBA,
+            gl.UNSIGNED_BYTE,
+            pixels,
+        );
+        gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, 0);
+        const t: Texture = { tex, w: texWidth, h: texHeight };
+        this.textures.set(key, t);
+        return t;
+    }
+
     getTexture(key: string) {
         return this.textures.get(key);
     }

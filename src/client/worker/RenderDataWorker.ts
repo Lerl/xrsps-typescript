@@ -237,7 +237,9 @@ const worker = {
 
         const { data, transferables } = await dataLoader.load(workerState, input);
 
-        clearCache(workerState);
+        if (dataLoader.shouldClearWorkerCacheAfterLoad?.(input) ?? true) {
+            clearCache(workerState);
+        }
 
         if (!data) {
             return undefined;

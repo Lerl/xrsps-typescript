@@ -121,6 +121,7 @@ export function loadOpcodeDbOsrs(_baseDir: string): OpcodeDb {
     add(1123, "cc_setfillcolour");
     add(1126, "cc_setlinedirection");
     add(1127, "cc_setmodeltransparent");
+    add(1128, "cc_setarc");
     add(1200, "cc_setobject");
     add(1201, "cc_setnpchead");
     add(1202, "cc_setplayerhead_self");
@@ -231,6 +232,7 @@ export function loadOpcodeDbOsrs(_baseDir: string): OpcodeDb {
     add(2123, "if_setfillcolour");
     add(2126, "if_setlinedirection");
     add(2127, "if_setmodeltransparent");
+    add(2128, "if_setarc");
     add(2200, "if_setobject");
     add(2201, "if_setnpchead");
     add(2202, "if_setplayerhead_self");

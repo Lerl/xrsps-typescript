@@ -16,6 +16,8 @@ export interface RenderDataLoader<I, D> {
 
     load(state: WorkerState, input: I): Promise<RenderDataResult<D>>;
 
+    shouldClearWorkerCacheAfterLoad?(input: I): boolean;
+
     reset(): void;
 }
 

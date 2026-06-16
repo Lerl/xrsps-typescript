@@ -6262,7 +6262,10 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         mapX: number,
         mapY: number,
         level: number = 0,
-    ): Promise<{ blob: Blob; icons: MinimapIcon[] } | undefined> {
+    ): Promise<
+        | { pixels: Uint8Array; width: number; height: number; icons: MinimapIcon[] }
+        | undefined
+    > {
         if (!this.osrsClient.loadedCache) return undefined;
 
         const clampedLevel = Math.max(0, Math.min(Scene.MAX_LEVELS - 1, level | 0));
@@ -6292,12 +6295,17 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
             return undefined;
         }
 
-        const blob = mapData.minimapBlobs?.[clampedLevel];
-        if (!blob) return undefined;
-        return {
-            blob,
-            icons: mapData.worldMapIcons?.[clampedLevel] ?? [],
-        };
+        const pixelData = mapData.minimapPixels?.[clampedLevel];
+        if (pixelData?.pixels && pixelData.width > 0 && pixelData.height > 0) {
+            return {
+                pixels: pixelData.pixels,
+                width: pixelData.width | 0,
+                height: pixelData.height | 0,
+                icons: mapData.worldMapIcons?.[clampedLevel] ?? [],
+            };
+        }
+
+        return undefined;
     }
 
     isValidMapData(mapData: SdMapData): boolean {

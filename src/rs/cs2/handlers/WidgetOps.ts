@@ -2073,6 +2073,15 @@ export function registerWidgetOps(handlers: HandlerMap): void {
         if (w) w.modelTransparent = transparent;
     });
 
+    handlers.set(Opcodes.CC_SETARC, (ctx) => {
+        ctx.intStackSize -= 2;
+    });
+
+    handlers.set(Opcodes.IF_SETARC, (ctx) => {
+        getWidgetFromStack(ctx);
+        ctx.intStackSize -= 2;
+    });
+
     // === Model getters ===
     handlers.set(Opcodes.CC_GETMODELZOOM, (ctx, intOp) => {
         const w = getTargetWidget(ctx, intOp);
