@@ -210,6 +210,10 @@ export class ClickRegistry {
         return true;
     }
 
+    private isTargetHidden(target: ClickTarget): boolean {
+        return target.widgetUid !== undefined && !!this.widgetHiddenChecker?.(target.widgetUid);
+    }
+
     onPointerUp(x: number, y: number): boolean {
         // Use the stored active target (survives beginFrame clearing), fall back to pick
         let target: ClickTarget | undefined = this.activeTarget ?? undefined;
@@ -217,9 +221,11 @@ export class ClickRegistry {
         if (!target && this.activeId) {
             target = this.getTargetById(this.activeId);
         }
-        const hadActive = !!this.activeTarget;
         this.activeId = null;
         this.activeTarget = null;
+        if (target && this.isTargetHidden(target)) {
+            return false;
+        }
         if (!target) {
             target = this.pick(x, y);
         }
