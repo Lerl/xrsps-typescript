@@ -4,12 +4,14 @@ import type { TypeLoader } from "../config/TypeLoader";
 import type { DbRepository } from "../config/db/DbRepository";
 import type { EnumType } from "../config/enumtype/EnumType";
 import type { LocType } from "../config/loctype/LocType";
+import type { MapElementTypeLoader } from "../config/meltype/MapElementTypeLoader";
 import type { NpcType } from "../config/npctype/NpcType";
 import type { ObjTypeLoader } from "../config/objtype/ObjTypeLoader";
 import type { ParamTypeLoader } from "../config/paramtype/ParamTypeLoader";
 import type { StructType } from "../config/structtype/StructType";
 import type { VarManager } from "../config/vartype/VarManager";
 import type { Inventory } from "../inventory/Inventory";
+import type { WorldMapState } from "../map/WorldMapArea";
 import { Opcodes } from "./Opcodes";
 import { Script } from "./Script";
 import {
@@ -178,6 +180,7 @@ export interface Cs2Context {
     structTypeLoader?: TypeLoader<StructType>;
     npcTypeLoader?: TypeLoader<NpcType>;
     locTypeLoader?: TypeLoader<LocType>;
+    mapElementTypeLoader?: MapElementTypeLoader;
     dbRepository?: DbRepository;
     openMobileTab?: (tab: number) => void;
 
@@ -233,6 +236,8 @@ export interface Cs2Context {
 
     /** Minimap zoom value (2..8). Used by `MINIMAP_GETZOOM` (opcode 7253). */
     getMinimapZoom?: () => number;
+
+    worldMapState?: WorldMapState;
 
     // Viewport state
     viewportZoom?: number;
@@ -815,6 +820,7 @@ export class Cs2Vm {
             structTypeLoader: vm.context.structTypeLoader,
             npcTypeLoader: vm.context.npcTypeLoader,
             locTypeLoader: vm.context.locTypeLoader,
+            mapElementTypeLoader: vm.context.mapElementTypeLoader,
             dbRepository: vm.context.dbRepository,
             openMobileTab: vm.context.openMobileTab,
 
@@ -878,6 +884,7 @@ export class Cs2Vm {
 
             // Minimap zoom
             getMinimapZoom: vm.context.getMinimapZoom,
+            worldMapState: vm.context.worldMapState,
 
             // Viewport state
             get viewportZoom() {

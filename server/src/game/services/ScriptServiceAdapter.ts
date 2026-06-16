@@ -18,6 +18,14 @@ import { logger } from "../../utils/logger";
 import type { InterfaceService } from "../../widgets/InterfaceService";
 import { type WidgetAction, getDefaultInterfaces } from "../../widgets/WidgetManager";
 import {
+    MINIMAP_WIDGET_GROUP_ID,
+    VARBIT_MINIMAP_TOGGLE,
+    createOrbsBootstrapActions,
+    getMapClockValue,
+    getMinimapToggleVarbits,
+    rewriteMinimapOrbsMount,
+} from "../../widgets/minimapOrbs";
+import {
     getMainmodalUid,
     getPrayerTabUid,
     getSidemodalUid,
@@ -626,7 +634,10 @@ export function buildScriptServices(deps: ScriptServiceAdapterDeps): ScriptServi
             openRemainingTabs: (player) => {
                 const displayMode = player.displayMode ?? 1;
                 const xpDropsEnabled = player.varps.getVarbitValue(VARBIT_XPDROPS_ENABLED) === 1;
-                for (const intf of getDefaultInterfaces(displayMode)) {
+                const minimapToggleValue = player.varps.getVarbitValue(VARBIT_MINIMAP_TOGGLE);
+                const mapClock = getMapClockValue(player.varps, deps.getCurrentTick());
+                for (const mount of getDefaultInterfaces(displayMode)) {
+                    const intf = rewriteMinimapOrbsMount(mount, displayMode, minimapToggleValue);
                     if (intf.groupId === SIDE_JOURNAL_GROUP_ID) continue;
                     const hideXpCounterOnOpen = intf.groupId === 122 && !xpDropsEnabled;
                     player.widgets?.open(intf.groupId, {
@@ -634,8 +645,17 @@ export function buildScriptServices(deps: ScriptServiceAdapterDeps): ScriptServi
                         type: intf.type,
                         modal: false,
                         postScripts: intf.postScripts,
+                        varbits:
+                            mount.groupId === MINIMAP_WIDGET_GROUP_ID
+                                ? getMinimapToggleVarbits(minimapToggleValue)
+                                : intf.varbits,
                         hiddenUids: hideXpCounterOnOpen ? [intf.targetUid] : undefined,
                     });
+                    if (mount.groupId === MINIMAP_WIDGET_GROUP_ID) {
+                        for (const action of createOrbsBootstrapActions(intf.groupId, mapClock)) {
+                            deps.queueWidgetEvent(player.id, action);
+                        }
+                    }
                 }
             },
             queueClientScript: (playerId, scriptId, ...args) =>

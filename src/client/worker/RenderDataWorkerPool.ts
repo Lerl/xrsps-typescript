@@ -6,7 +6,6 @@ import { ObservablePromise } from "threads/dist/observable-promise";
 import { LoadedCache } from "../Caches";
 import { NpcGeometryData } from "../webgl/loader/NpcGeometryData";
 import type { NpcInstance } from "../webgl/npc/NpcRenderTemplate";
-import { MinimapData } from "./MinimapData";
 import { RenderDataLoader } from "./RenderDataLoader";
 import { RenderDataWorker } from "./RenderDataWorker";
 
@@ -88,21 +87,8 @@ export class RenderDataWorkerPool {
         );
     }
 
-    queueMapImage(
-        mapX: number,
-        mapY: number,
-        level: number,
-        drawMapFunctions: boolean,
-    ): QueuedTask<RenderDataWorkerThread, MinimapData | undefined> {
-        return this.pool.queue((w) => w.loadMapImage(mapX, mapY, level, drawMapFunctions));
-    }
-
     setVars(vars: Int32Array): Promise<void> {
         return this.runAll((w) => w.setVars(vars));
-    }
-
-    loadCachedMapImages(): QueuedTask<RenderDataWorkerThread, Map<number, string>> {
-        return this.pool.queue((w) => w.loadCachedMapImages());
     }
 
     exportSprites(): QueuedTask<RenderDataWorkerThread, Blob> {

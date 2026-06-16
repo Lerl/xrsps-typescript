@@ -8,12 +8,14 @@ import type { TypeLoader } from "../../config/TypeLoader";
 import type { DbRepository } from "../../config/db/DbRepository";
 import type { EnumType } from "../../config/enumtype/EnumType";
 import type { LocType } from "../../config/loctype/LocType";
+import type { MapElementTypeLoader } from "../../config/meltype/MapElementTypeLoader";
 import type { NpcType } from "../../config/npctype/NpcType";
 import type { ObjTypeLoader } from "../../config/objtype/ObjTypeLoader";
 import type { ParamTypeLoader } from "../../config/paramtype/ParamTypeLoader";
 import type { StructType } from "../../config/structtype/StructType";
 import type { VarManager } from "../../config/vartype/VarManager";
 import type { Inventory } from "../../inventory/Inventory";
+import type { WorldMapState } from "../../map/WorldMapArea";
 import type { Script } from "../Script";
 
 /** Friend entry for friend list */
@@ -209,6 +211,7 @@ export interface HandlerContext {
     structTypeLoader?: TypeLoader<StructType>;
     npcTypeLoader?: TypeLoader<NpcType>;
     locTypeLoader?: TypeLoader<LocType>;
+    mapElementTypeLoader?: MapElementTypeLoader;
     dbRepository?: DbRepository;
     openMobileTab?: (tab: number) => void;
 
@@ -268,6 +271,8 @@ export interface HandlerContext {
 
     /** Minimap zoom value (2..8). Used by `MINIMAP_GETZOOM` (opcode 7253). */
     getMinimapZoom?: () => number;
+
+    worldMapState?: WorldMapState;
 
     // Viewport state
     viewportZoom?: number;

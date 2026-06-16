@@ -230,7 +230,7 @@ function OsrsClientApp() {
                 return;
             }
 
-            await pruneCacheStorage([cacheInfo.name, "map-images"]);
+            await pruneCacheStorage([cacheInfo.name]);
 
             const manifestEntry = await getCacheManifestEntry(cacheInfo.name);
             let cacheInvalidated = false;
@@ -260,23 +260,10 @@ function OsrsClientApp() {
             }
             const rendererType = availableRenderers[0];
 
-            // Open map image cache early
-            let mapImageCache: Cache;
-            try {
-                if (hasCacheStorage()) {
-                    mapImageCache = await globalThis.caches.open(resolveCacheKey("map-images"));
-                } else {
-                    mapImageCache = { put: async () => {} } as unknown as Cache;
-                }
-            } catch {
-                mapImageCache = { put: async () => {} } as unknown as Cache;
-            }
-
             // Create OsrsClient without cache - starts in DOWNLOADING state
             const client = new OsrsClient(
                 workerPool,
                 cacheList,
-                mapImageCache,
                 rendererType,
                 // No cache yet - will be initialized after download
             );

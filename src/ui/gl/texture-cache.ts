@@ -384,6 +384,7 @@ export class TextureCache {
      * Key: url, Value: Promise that resolves when loaded
      */
     private pendingUrlLoads: Map<string, Promise<void>> = new Map();
+    private urlLoadVersions: Map<string, number> = new Map();
 
     /**
      * MINIMAP: Cache of loaded images by URL for canvas compositing.
@@ -392,7 +393,7 @@ export class TextureCache {
     private loadedImages: Map<string, HTMLImageElement> = new Map();
 
     /**
-     * MINIMAP: Load a texture from a URL (used for map image tiles).
+     * MINIMAP: Load a texture from a URL (used for generated minimap tiles).
      * Returns immediately if cached, otherwise starts async load.
      * @param url The URL to load the image from
      * @returns The cached texture if available, undefined if still loading
@@ -406,11 +407,38 @@ export class TextureCache {
         if (this.pendingUrlLoads.has(url)) return undefined;
 
         // Start async load
-        const loadPromise = this.loadTextureFromUrl(url, key);
+        const version = this.urlLoadVersions.get(url) ?? 0;
+        const loadPromise = this.loadTextureFromUrl(url, key, version);
         this.pendingUrlLoads.set(url, loadPromise);
         loadPromise.finally(() => this.pendingUrlLoads.delete(url));
 
         return undefined;
+    }
+
+    getTextureFromRgbaPixels(
+        key: string,
+        pixels: Uint8Array | Uint8ClampedArray,
+        width: number,
+        height: number,
+    ) {
+        const cached = this.glr.getTexture(key);
+        if (cached) return cached;
+        return this.glr.createTextureFromRgbaPixels(key, pixels, width, height);
+    }
+
+    getTextureByKey(key: string) {
+        return this.glr.getTexture(key);
+    }
+
+    evictTextureKey(key: string): void {
+        this.glr.deleteTexture(key);
+    }
+
+    evictUrl(url: string): void {
+        this.loadedImages.delete(url);
+        this.pendingUrlLoads.delete(url);
+        this.urlLoadVersions.set(url, (this.urlLoadVersions.get(url) ?? 0) + 1);
+        this.glr.deleteTexture(`url:${url}`);
     }
 
     /**
@@ -426,7 +454,7 @@ export class TextureCache {
     /**
      * MINIMAP: Async helper to load texture from URL.
      */
-    private async loadTextureFromUrl(url: string, key: string): Promise<void> {
+    private async loadTextureFromUrl(url: string, key: string, version: number): Promise<void> {
         try {
             const img = new Image();
             img.crossOrigin = "anonymous";
@@ -436,6 +464,10 @@ export class TextureCache {
                 img.onerror = () => reject(new Error(`Failed to load: ${url}`));
                 img.src = url;
             });
+
+            if ((this.urlLoadVersions.get(url) ?? 0) !== version) {
+                return;
+            }
 
             // Store the image for canvas compositing
             this.loadedImages.set(url, img);

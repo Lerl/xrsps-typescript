@@ -439,21 +439,21 @@ export function registerConfigOps(handlers: HandlerMap): void {
     // === Map Element Category ===
     handlers.set(Opcodes.MEC_TEXT, (ctx) => {
         const mecId = ctx.intStack[--ctx.intStackSize];
-        ctx.pushString(""); // stub
+        ctx.pushString(ctx.mapElementTypeLoader?.load(mecId)?.name ?? "");
     });
 
     handlers.set(Opcodes.MEC_TEXTSIZE, (ctx) => {
         const mecId = ctx.intStack[--ctx.intStackSize];
-        ctx.pushInt(0); // stub
+        ctx.pushInt(ctx.mapElementTypeLoader?.load(mecId)?.textSize ?? 0);
     });
 
     handlers.set(Opcodes.MEC_CATEGORY, (ctx) => {
         const mecId = ctx.intStack[--ctx.intStackSize];
-        ctx.pushInt(0); // stub
+        ctx.pushInt(ctx.mapElementTypeLoader?.load(mecId)?.category ?? -1);
     });
 
     handlers.set(Opcodes.MEC_SPRITE, (ctx) => {
         const mecId = ctx.intStack[--ctx.intStackSize];
-        ctx.pushInt(-1); // stub
+        ctx.pushInt(ctx.mapElementTypeLoader?.load(mecId)?.spriteId ?? -1);
     });
 }

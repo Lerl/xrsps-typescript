@@ -38,6 +38,7 @@ export interface PlayerViewSnapshot {
     name?: string;
     appearance?: PlayerAppearanceState;
     interactionIndex?: number;
+    interactionDirty?: boolean;
     seq?: number;
     moved: boolean;
     turned: boolean;

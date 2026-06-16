@@ -165,6 +165,7 @@ export class WidgetManager {
     // ========== PERF: Dirty Set for O(1) dirty checking ==========
     /** Set of dirty root indices - O(1) check instead of O(100) scan */
     private dirtyRoots: Set<number> = new Set();
+    private preciseDirtyWidgets: Set<WidgetNode> = new Set();
 
     // ========== PERF: Batch invalidation during script execution ==========
     /** When > 0, defer cascading invalidations until batch ends */
@@ -258,6 +259,7 @@ export class WidgetManager {
         // PERF: Reset frame-local layout validation state
         this.frameLayoutsValidated = false;
         this.dirtyLayoutWidgets.clear();
+        this.preciseDirtyWidgets.clear();
 
         // NOTE: Viewport (3D scene) is rendered separately by WebGL renderer, not by widget overlay.
         // We do NOT mark it dirty here - only actual 2D UI changes should trigger widget redraws.
@@ -312,6 +314,16 @@ export class WidgetManager {
         }
         // invalidateWidget only marks a root when the widget
         // resolves to a tracked root index. Unresolved widgets are ignored here.
+    }
+
+    invalidateWidgetRect(w: WidgetNode | null | undefined): void {
+        if (!w) return;
+        this.preciseDirtyWidgets.add(w);
+    }
+
+    getPreciseDirtyWidgets(): WidgetNode[] {
+        if (this.preciseDirtyWidgets.size === 0) return [];
+        return Array.from(this.preciseDirtyWidgets);
     }
 
     /**
@@ -405,6 +417,20 @@ export class WidgetManager {
     isRootDirty(rootIndex: number): boolean {
         if (rootIndex < 0 || rootIndex >= 100) return false;
         return this.validRootWidgets[rootIndex] === 1 || this.needsPresent[rootIndex] === 1;
+    }
+
+    consumeRootDirty(rootIndex: number): void {
+        if (rootIndex < 0 || rootIndex >= 100) return;
+        this.validRootWidgets[rootIndex] = 0;
+        this.needsPresent[rootIndex] = 0;
+        this.dirtyRoots.delete(rootIndex);
+    }
+
+    consumeAllRootDirty(): void {
+        this.validRootWidgets.fill(0);
+        this.needsPresent.fill(0);
+        this.dirtyRoots.clear();
+        this.globalDirty = false;
     }
 
     /** Debug: count how many times dirty check returns true/false */
@@ -1133,6 +1159,7 @@ export class WidgetManager {
 
         // Reset dirty tracking
         this.dirtyRoots.clear();
+        this.preciseDirtyWidgets.clear();
         this.batchDepth = 0;
         this.pendingInvalidations.clear();
         this.dirtyLayoutWidgets.clear();

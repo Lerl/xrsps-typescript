@@ -26,7 +26,6 @@ git clone https://github.com/xrsps/xrsps-typescript.git
 cd xrsps-typescript
 yarn install
 yarn server:build-collision
-yarn export-map-images
 yarn server:start        # terminal 1
 yarn start               # terminal 2
 ```

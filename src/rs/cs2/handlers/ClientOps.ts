@@ -208,16 +208,11 @@ export function registerClientOps(handlers: HandlerMap): void {
     });
 
     handlers.set(Opcodes.MOVECOORD, (ctx) => {
-        // movecoord(coord, dX, dY, dZ) - pop in reverse order
-        const dz = ctx.intStack[--ctx.intStackSize];
-        const dy = ctx.intStack[--ctx.intStackSize];
-        const dx = ctx.intStack[--ctx.intStackSize];
+        const y = ctx.intStack[--ctx.intStackSize];
+        const plane = ctx.intStack[--ctx.intStackSize];
+        const x = ctx.intStack[--ctx.intStackSize];
         const packed = ctx.intStack[--ctx.intStackSize];
-        const plane = (packed >> 28) & 0x3;
-        const x = (packed >> 14) & 0x3fff;
-        const y = packed & 0x3fff;
-        const newPacked = ((plane + dz) << 28) | ((x + dx) << 14) | (y + dy);
-        ctx.pushInt(newPacked);
+        ctx.pushInt(packed + ((plane << 28) | (x << 14) | y));
     });
 
     // === World info ===

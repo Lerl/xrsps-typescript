@@ -1,7 +1,64 @@
 import { logger } from "../../utils/logger";
 import type { MessageHandlerServices } from "../MessageHandlers";
 import { normalizeModifierFlags, resolveRunWithModifier } from "../MessageHandlers";
-import type { MessageRouter } from "../MessageRouter";
+import type { MessageContext, MessageRouter } from "../MessageRouter";
+
+function handleAdminTeleportRequest(
+    ctx: MessageContext<"teleport"> | MessageContext<"world_map_click">,
+    services: MessageHandlerServices,
+    opts: { notifyUnauthorized: boolean; logContext: string },
+): void {
+    try {
+        if (!ctx.player) return;
+        if (!ctx.player.canMove()) return;
+        if (!services.canUseAdminTeleport(ctx.player)) {
+            if (opts.notifyUnauthorized) {
+                services.queueChatMessage({
+                    messageType: "game",
+                    text: "Only admins can use world map teleports.",
+                    targetPlayerIds: [ctx.player.id],
+                });
+            }
+            return;
+        }
+
+        const { to, level } = ctx.payload;
+        if (!to || !Number.isFinite(to.x) || !Number.isFinite(to.y)) return;
+
+        const targetLevel = Math.max(
+            0,
+            Math.min(3, Number.isFinite(level) ? (level as number) | 0 : ctx.player.level),
+        );
+        services.interruptPlayerInput(ctx.player);
+        services.clearAllInteractions(ctx.ws);
+        ctx.player.resetInteractions();
+        ctx.player.clearInteraction();
+        services.clearActionsInGroup(ctx.player.id, "combat.attack");
+        services.clearActionsInGroup(ctx.player.id, "combat.autocast");
+        const result = services.requestTeleportAction(ctx.player, {
+            x: to.x | 0,
+            y: to.y | 0,
+            level: targetLevel,
+            delayTicks: 0,
+            cooldownTicks: 1,
+            requireCanTeleport: false,
+            rejectIfPending: true,
+            replacePending: false,
+        });
+        if (!result.ok) {
+            if (result.reason === "cooldown") {
+                services.queueChatMessage({
+                    messageType: "game",
+                    text: "You're already teleporting.",
+                    targetPlayerIds: [ctx.player.id],
+                });
+            }
+            return;
+        }
+    } catch (err) {
+        logger.warn(`Failed to process ${opts.logContext} request`, err);
+    }
+}
 
 export function registerMovementHandlers(
     router: MessageRouter,
@@ -46,51 +103,17 @@ export function registerMovementHandlers(
     });
 
     router.register("teleport", (ctx) => {
-        try {
-            if (!ctx.player) return;
-            if (!ctx.player.canMove()) return;
-            if (!services.canUseAdminTeleport(ctx.player)) {
-                services.queueChatMessage({
-                    messageType: "game",
-                    text: "Only admins can use world map teleports.",
-                    targetPlayerIds: [ctx.player.id],
-                });
-                return;
-            }
-            const { to, level } = ctx.payload;
-            const targetLevel = Math.max(
-                0,
-                Math.min(3, Number.isFinite(level) ? (level as number) | 0 : ctx.player.level),
-            );
-            services.interruptPlayerInput(ctx.player);
-            services.clearAllInteractions(ctx.ws);
-            ctx.player.resetInteractions();
-            ctx.player.clearInteraction();
-            services.clearActionsInGroup(ctx.player.id, "combat.attack");
-            services.clearActionsInGroup(ctx.player.id, "combat.autocast");
-            const result = services.requestTeleportAction(ctx.player, {
-                x: to.x,
-                y: to.y,
-                level: targetLevel,
-                delayTicks: 0,
-                cooldownTicks: 1,
-                requireCanTeleport: false,
-                rejectIfPending: true,
-                replacePending: false,
-            });
-            if (!result.ok) {
-                if (result.reason === "cooldown") {
-                    services.queueChatMessage({
-                        messageType: "game",
-                        text: "You're already teleporting.",
-                        targetPlayerIds: [ctx.player.id],
-                    });
-                }
-                return;
-            }
-        } catch (err) {
-            logger.warn("Failed to process teleport request", err);
-        }
+        handleAdminTeleportRequest(ctx, services, {
+            notifyUnauthorized: true,
+            logContext: "teleport",
+        });
+    });
+
+    router.register("world_map_click", (ctx) => {
+        handleAdminTeleportRequest(ctx, services, {
+            notifyUnauthorized: false,
+            logContext: "world map click",
+        });
     });
 
     router.register("face", (ctx) => {

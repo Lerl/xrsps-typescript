@@ -73,6 +73,29 @@ export class PlayerSpecialEnergyState {
         return true;
     }
 
+    takeRegenTimerSync(
+        currentTick: number,
+    ): { intervalTicks: number; startTick: number } | undefined {
+        if (this.combat.nextSpecialRegenTick <= 0) {
+            this.combat.nextSpecialRegenTick = currentTick + SPECIAL_ENERGY_REGEN_INTERVAL_TICKS;
+        }
+
+        const startTick = Math.max(
+            0,
+            this.combat.nextSpecialRegenTick - SPECIAL_ENERGY_REGEN_INTERVAL_TICKS,
+        );
+        if (
+            this.combat.lastSpecialRegenUiStartTick >= 0 &&
+            this.combat.lastSpecialRegenUiInterval === SPECIAL_ENERGY_REGEN_INTERVAL_TICKS
+        ) {
+            return undefined;
+        }
+
+        this.combat.lastSpecialRegenUiStartTick = startTick;
+        this.combat.lastSpecialRegenUiInterval = SPECIAL_ENERGY_REGEN_INTERVAL_TICKS;
+        return { intervalTicks: SPECIAL_ENERGY_REGEN_INTERVAL_TICKS, startTick };
+    }
+
     hasUpdate(): boolean {
         return this.combat.specialEnergyDirty;
     }

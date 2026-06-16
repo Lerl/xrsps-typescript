@@ -25,6 +25,14 @@ import {
     getMainmodalUid,
     getRootInterfaceId,
 } from "../widgets/WidgetManager";
+import {
+    MINIMAP_WIDGET_GROUP_ID,
+    VARBIT_MINIMAP_TOGGLE,
+    createOrbsBootstrapActions,
+    getMapClockValue,
+    getMinimapToggleVarbits,
+    rewriteMinimapOrbsMount,
+} from "../widgets/minimapOrbs";
 import { getViewportRootInitScripts } from "../widgets/viewport";
 import { ADMIN_CROWN_ICON } from "./AuthenticationService";
 import type { RoutedMessage } from "./MessageRouter";
@@ -478,7 +486,14 @@ export class LoginHandshakeService {
                         ? interfaces.filter((i: { groupId: number }) => i.groupId !== 629)
                         : interfaces;
                     const xpDropsEnabled = p.varps.getVarbitValue(VARBIT_XPDROPS_ENABLED) === 1;
-                    for (const intf of filteredInterfaces) {
+                    const minimapToggleValue = p.varps.getVarbitValue(VARBIT_MINIMAP_TOGGLE);
+                    const mapClock = getMapClockValue(p.varps, this.svc.ticker.currentTick());
+                    for (const mount of filteredInterfaces) {
+                        const intf = rewriteMinimapOrbsMount(
+                            mount,
+                            displayMode,
+                            minimapToggleValue,
+                        );
                         const questVarps: Record<number, number> = {};
                         const questVarbits: Record<number, number> = {};
                         if (intf.groupId === SIDE_JOURNAL_GROUP_ID) {
@@ -487,9 +502,14 @@ export class LoginHandshakeService {
                             Object.assign(questVarps, gamemodeSideJournalBootstrap.varps);
                             Object.assign(questVarbits, gamemodeSideJournalBootstrap.varbits);
                         }
+                        const minimapVarbits =
+                            mount.groupId === MINIMAP_WIDGET_GROUP_ID
+                                ? getMinimapToggleVarbits(minimapToggleValue)
+                                : {};
                         const mergedVarbits = {
                             ...(intf.varbits ?? {}),
                             ...questVarbits,
+                            ...minimapVarbits,
                         };
                         const mergedVarps = {
                             ...(intf.varps ?? {}),
@@ -511,6 +531,14 @@ export class LoginHandshakeService {
                                 : {}),
                         });
 
+                        if (mount.groupId === MINIMAP_WIDGET_GROUP_ID) {
+                            for (const action of createOrbsBootstrapActions(
+                                intf.groupId,
+                                mapClock,
+                            )) {
+                                this.svc.queueWidgetEvent(p.id, action);
+                            }
+                        }
                         if (intf.groupId === SIDE_JOURNAL_GROUP_ID) {
                             this.svc.gamemodeUi.applySideJournalUi(p);
                         }
@@ -781,8 +809,19 @@ export class LoginHandshakeService {
                             } else {
                                 p.account.accountStage = 2;
                                 const displayMode = p.displayMode ?? 1;
+                                const minimapToggleValue =
+                                    p.varps.getVarbitValue(VARBIT_MINIMAP_TOGGLE);
+                                const mapClock = getMapClockValue(
+                                    p.varps,
+                                    this.svc.ticker.currentTick(),
+                                );
                                 const allInterfaces = getDefaultInterfaces(displayMode);
-                                for (const intf of allInterfaces) {
+                                for (const mount of allInterfaces) {
+                                    const intf = rewriteMinimapOrbsMount(
+                                        mount,
+                                        displayMode,
+                                        minimapToggleValue,
+                                    );
                                     this.svc.queueWidgetEvent(p.id, {
                                         action: "open_sub",
                                         targetUid: intf.targetUid,
@@ -792,7 +831,21 @@ export class LoginHandshakeService {
                                         intf.postScripts.length > 0
                                             ? { postScripts: intf.postScripts }
                                             : {}),
+                                        ...(mount.groupId === MINIMAP_WIDGET_GROUP_ID
+                                            ? {
+                                                  varbits:
+                                                      getMinimapToggleVarbits(minimapToggleValue),
+                                              }
+                                            : {}),
                                     });
+                                    if (mount.groupId === MINIMAP_WIDGET_GROUP_ID) {
+                                        for (const action of createOrbsBootstrapActions(
+                                            intf.groupId,
+                                            mapClock,
+                                        )) {
+                                            this.svc.queueWidgetEvent(p.id, action);
+                                        }
+                                    }
                                 }
                             }
                             continue;

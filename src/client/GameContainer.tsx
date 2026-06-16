@@ -3,13 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { RenderStatsOverlay } from "../components/renderer/RenderStatsOverlay";
 import { OsrsLoadingBar } from "../components/rs/loading/OsrsLoadingBar";
 // Legacy CSS menu and React minimap/orbs removed in favor of widget-based rendering
-import { WorldMapModal } from "../components/rs/worldmap/WorldMapModal";
-import {
-    isServerConnected,
-    sendTeleport,
-    subscribeHandshake,
-    subscribeChatMessages,
-} from "../network/ServerConnection";
+import { subscribeHandshake, subscribeChatMessages } from "../network/ServerConnection";
 import { DownloadProgress } from "../rs/cache/CacheFiles";
 import { Canvas } from "../ui/Canvas";
 import { formatBytes } from "../util/BytesUtil";
@@ -103,16 +97,11 @@ export function GameContainer({ osrsClient }: OsrsContainerProps): JSX.Element {
 
     const [, forceStatsOverlayRefresh] = useState(0);
 
-    const [isWorldMapOpen, setWorldMapOpen] = useState<boolean>(false);
-    const [isWorldMapAdmin, setWorldMapAdmin] = useState<boolean>(osrsClient.localPlayerIsAdmin);
-
     const [fishingStatus, setFishingStatus] = useState<{ label: string; detail: string } | null>(
         null,
     );
 
     const fishingStatusTimer = useRef<number | undefined>(undefined);
-
-    const allowWorldMapTeleport = true;
 
     // Legacy CSS menu props removed
 
@@ -237,20 +226,6 @@ export function GameContainer({ osrsClient }: OsrsContainerProps): JSX.Element {
         } catch {}
     }, [renderer, osrsClient]);
 
-    const openWorldMap = useCallback(() => {
-        setWorldMapOpen(true);
-    }, []);
-
-    // Wire up world map callback to OsrsClient so widget actions can trigger it
-
-    useEffect(() => {
-        osrsClient.onOpenWorldMap = openWorldMap;
-
-        return () => {
-            osrsClient.onOpenWorldMap = undefined;
-        };
-    }, [osrsClient, openWorldMap]);
-
     useEffect(() => {
         return subscribeHandshake(({ chatIcons, isAdmin }) => {
             const nextIsAdmin =
@@ -258,107 +233,8 @@ export function GameContainer({ osrsClient }: OsrsContainerProps): JSX.Element {
                     ? isAdmin
                     : Array.isArray(chatIcons) && chatIcons.includes(1);
             osrsClient.localPlayerIsAdmin = nextIsAdmin;
-            setWorldMapAdmin(nextIsAdmin);
         });
     }, [osrsClient]);
-
-    const closeWorldMap = useCallback(() => {
-        setWorldMapOpen(false);
-
-        renderer.canvas.focus();
-    }, [renderer]);
-
-    const getLocalPlayerTile = useCallback(() => {
-        const idx = osrsClient.playerEcs.getIndexForServerId(osrsClient.controlledPlayerServerId);
-        if (idx === undefined) return undefined;
-
-        return {
-            x: (osrsClient.playerEcs.getX(idx) >> 7) | 0,
-            y: (osrsClient.playerEcs.getY(idx) >> 7) | 0,
-            level: osrsClient.playerEcs.getLevel(idx) | 0,
-        };
-    }, [osrsClient]);
-
-    const onMapClicked = useCallback(
-        (x: number, y: number) => {
-            const tx = Math.floor(x);
-
-            const ty = Math.floor(y);
-
-            console.log(
-                `[WorldMap] Clicked world coords x=${x.toFixed(2)}, y=${y.toFixed(
-                    2,
-                )} -> tile x=${tx}, y=${ty}`,
-            );
-
-            if (!allowWorldMapTeleport) {
-                console.info(
-                    "[WorldMap] Teleport disabled in this build; ignoring click and closing map.",
-                );
-
-                closeWorldMap();
-
-                return;
-            }
-
-            if (isServerConnected()) {
-                try {
-                    const playerTile = getLocalPlayerTile();
-                    const level = playerTile?.level ?? 0;
-
-                    console.log(`[WorldMap] Sending teleport to server: (${tx}, ${ty}, ${level})`);
-
-                    sendTeleport({ x: tx, y: ty }, level);
-                } catch (err) {
-                    console.error("[WorldMap] Error sending teleport to server:", err);
-                }
-            } else {
-                console.log("[WorldMap] Server not connected, skipping server teleport");
-            }
-
-            closeWorldMap();
-        },
-
-        [allowWorldMapTeleport, closeWorldMap, getLocalPlayerTile],
-    );
-
-    const onWorldMapPlaneStep = useCallback(
-        (delta: number) => {
-            if (!isWorldMapAdmin) return;
-
-            const playerTile = getLocalPlayerTile();
-            if (!playerTile) return;
-
-            const nextLevel = Math.max(0, Math.min(3, playerTile.level + (delta | 0)));
-            if (nextLevel === playerTile.level) return;
-
-            if (isServerConnected()) {
-                console.log(
-                    `[WorldMap] Sending plane teleport: (${playerTile.x}, ${playerTile.y}, ${nextLevel})`,
-                );
-                sendTeleport({ x: playerTile.x, y: playerTile.y }, nextLevel);
-            }
-        },
-        [getLocalPlayerTile, isWorldMapAdmin],
-    );
-
-    // Camera-based position (tiles). Used for world map and other UI.
-
-    const getMapPosition = useCallback(() => {
-        const x = osrsClient.camera.getPosX();
-
-        const y = osrsClient.camera.getPosZ();
-
-        return { x, y };
-    }, [osrsClient]);
-
-    const loadMapImageUrl = useCallback(
-        (mapX: number, mapY: number) => {
-            return osrsClient.getMapImageUrl(mapX, mapY, false);
-        },
-
-        [osrsClient],
-    );
 
     const updateFishingStatus = useCallback((detail?: string) => {
         if (fishingStatusTimer.current) {
@@ -516,16 +392,6 @@ export function GameContainer({ osrsClient }: OsrsContainerProps): JSX.Element {
 
                 {!hideUi && (
                     <span>
-                        <WorldMapModal
-                            isOpen={isWorldMapOpen}
-                            onRequestClose={closeWorldMap}
-                            onDoubleClick={onMapClicked}
-                            isAdmin={isWorldMapAdmin && osrsClient.localPlayerIsAdmin}
-                            onPlaneStep={onWorldMapPlaneStep}
-                            getPosition={getMapPosition}
-                            loadMapImageUrl={loadMapImageUrl}
-                        />
-
                         {/* Bottom-left performance/optimization overlay (F3 toggles) */}
 
                         {(osrsClient.hoverOverlayEnabled || isMobileMode) && (

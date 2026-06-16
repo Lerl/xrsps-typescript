@@ -40,6 +40,10 @@ export class ClickRegistry {
     private activeTarget: ClickTarget | null = null;
     // OSRS-style visibility checker: returns true if widget is hidden (should be skipped)
     private widgetHiddenChecker: ((uid: number) => boolean) | null = null;
+    private version: number = 0;
+    private targetSignatureHash: number = 0;
+    private targetSignatureCount: number = 0;
+    private targetSignatureDirty: boolean = true;
 
     /**
      * Set the widget visibility checker for OSRS-style hit testing.
@@ -50,15 +54,77 @@ export class ClickRegistry {
         this.widgetHiddenChecker = checker;
     }
 
+    private markTargetSignatureDirty(): void {
+        this.targetSignatureDirty = true;
+    }
+
+    private refreshTargetVersion(): void {
+        if (!this.targetSignatureDirty) return;
+        let hash = 2166136261 | 0;
+        let fieldCount = 0;
+        const addNumber = (value: number) => {
+            const normalized = Number.isFinite(value) ? Math.round(value * 1000) | 0 : 0;
+            hash ^= normalized;
+            hash = Math.imul(hash, 16777619);
+            fieldCount++;
+        };
+        const addString = (value: string) => {
+            for (let i = 0; i < value.length; i++) {
+                hash ^= value.charCodeAt(i);
+                hash = Math.imul(hash, 16777619);
+            }
+            hash ^= 0xff;
+            hash = Math.imul(hash, 16777619);
+            fieldCount++;
+        };
+        const orderedTargets = this.targets
+            .slice()
+            .sort(
+                (a, b) =>
+                    (this.registrationOrderById.get(a.id) ?? 0) -
+                    (this.registrationOrderById.get(b.id) ?? 0),
+            );
+        for (const target of orderedTargets) {
+            const primary = target.primaryOption;
+            addString(target.id);
+            addNumber(target.rect.x);
+            addNumber(target.rect.y);
+            addNumber(target.rect.w);
+            addNumber(target.rect.h);
+            addNumber(target.priority ?? 0);
+            addNumber(target.persist ? 1 : 0);
+            addNumber(target.widgetUid ?? -1);
+            addString(target.hoverText ?? "");
+            addString(primary?.option ?? "");
+            addString(primary?.target ?? "");
+            addNumber(target.menuOptionsCount ?? -1);
+        }
+        if (hash !== this.targetSignatureHash || fieldCount !== this.targetSignatureCount) {
+            this.targetSignatureHash = hash;
+            this.targetSignatureCount = fieldCount;
+            this.version++;
+        }
+        this.targetSignatureDirty = false;
+    }
+
     beginFrame() {
         // Preserve any persistent targets (e.g., dialog click-to-continue) while
         // clearing transient ones that get re-registered each frame.
+        const previousLength = this.targets.length;
         if (this.targets.length) {
             this.targets = this.targets.filter((t) => t.persist);
         } else {
             this.targets = [];
         }
         this.rebuildIndexes();
+        if (this.targets.length !== previousLength) {
+            for (const id of Array.from(this.registrationOrderById.keys())) {
+                if (!this.targetIndexById.has(id)) {
+                    this.registrationOrderById.delete(id);
+                }
+            }
+            this.markTargetSignatureDirty();
+        }
         // keep hover/active across frames when still valid
     }
 
@@ -74,6 +140,7 @@ export class ClickRegistry {
             this.targets.push(target);
         }
         this.registrationOrderById.set(target.id, this.nextRegistrationOrder++);
+        this.markTargetSignatureDirty();
     }
 
     unregister(id: string) {
@@ -87,6 +154,7 @@ export class ClickRegistry {
             }
             this.targets.pop();
             this.targetIndexById.delete(id);
+            this.markTargetSignatureDirty();
         }
         this.registrationOrderById.delete(id);
         if (this.hoverId === id) this.hoverId = null;
@@ -211,6 +279,15 @@ export class ClickRegistry {
 
     getDebugRects(): Rect[] {
         return this.targets.map((t) => t.rect);
+    }
+
+    getTargetCount(): number {
+        return this.targets.length;
+    }
+
+    getVersion(): number {
+        this.refreshTargetVersion();
+        return this.version;
     }
 
     /**

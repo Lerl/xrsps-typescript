@@ -269,6 +269,15 @@ export class MinimapRenderer {
         gl.bindVertexArray(null);
     }
 
+    private bindNearestTexture(tex: WebGLTexture): void {
+        const gl = this.gl;
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    }
+
     /**
      * Update projection matrix (call when screen resizes)
      */
@@ -313,7 +322,7 @@ export class MinimapRenderer {
         gl.uniform1f(this.uAlpha_mm, 1.0);
 
         gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, tex.tex);
+        this.bindNearestTexture(tex.tex);
         gl.uniform1i(this.uTexture_mm, 0);
 
         // Quad vertices: position relative to minimap center + UV
@@ -387,7 +396,7 @@ export class MinimapRenderer {
         // Draw each texture batch
         for (const [texId, dots] of byTex) {
             gl.activeTexture(gl.TEXTURE0);
-            gl.bindTexture(gl.TEXTURE_2D, texId);
+            this.bindNearestTexture(texId);
             gl.uniform1i(this.uTexture_mm, 0);
 
             // Get sprite size from first dot
@@ -453,7 +462,7 @@ export class MinimapRenderer {
         gl.uniform1f(this.uAlpha_ov, 1.0);
 
         gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, tex.tex);
+        this.bindNearestTexture(tex.tex);
         gl.uniform1i(this.uTexture_ov, 0);
 
         const x0 = screenX - w / 2;

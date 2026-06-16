@@ -250,6 +250,12 @@ export class BroadcastService {
                 args,
             )}`,
         );
+        const frame = this.svc.activeFrame;
+        if (frame && !this.svc.networkLayer.getIsBroadcastPhase()) {
+            frame.clientScripts ??= [];
+            frame.clientScripts.push({ playerId, scriptId, args });
+            return;
+        }
         this.svc.broadcastScheduler.queueClientScript(playerId, scriptId, args);
     }
 }

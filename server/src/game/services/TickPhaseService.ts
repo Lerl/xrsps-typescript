@@ -1,5 +1,6 @@
 import { WebSocket } from "ws";
 
+import { EquipmentSlot } from "../../../../src/rs/config/player/Equipment";
 import { faceAngleRs } from "../../../../src/rs/utils/rotation";
 import {
     VARBIT_IN_LMS,
@@ -8,6 +9,7 @@ import {
     VARBIT_MULTICOMBAT_AREA,
     VARBIT_PVP_SPEC_ORB,
     VARBIT_RAID_STATE,
+    VARP_SPECIAL_ENERGY,
 } from "../../../../src/shared/vars";
 import { NpcSyncSession } from "../../network/NpcSyncSession";
 import { PlayerSyncSession } from "../../network/PlayerSyncSession";
@@ -25,11 +27,26 @@ import {
     isInWilderness,
     multiCombatSystem,
 } from "../combat/MultiCombatZones";
+import { hasHitpointsCapeRegenPerk } from "../equipment";
 import { deriveInteractionIndex } from "../interactions/InteractionViewBuilder";
 import type { NpcUpdateDelta } from "../npc";
 import type { PlayerState } from "../player";
 import type { TickFrame } from "../tick/TickPhaseOrchestrator";
 import { EQUIPMENT_STATS_GROUP_ID } from "./EquipmentStatsUiService";
+import {
+    SCRIPT_WORLDMAP_TRANSMIT_DATA,
+    WORLD_MAP_GROUP_ID,
+    getWorldMapTransmitDataArgs,
+    packWorldMapPlayerCoord,
+} from "../../widgets/worldMapInterfaces";
+import {
+    SCRIPT_HEALTH_REGEN_TIMER,
+    SCRIPT_HITPOINTS_CAPE_REGEN_TIMER,
+    SCRIPT_HITPOINTS_CAPE_REGEN_TIMER_OFF,
+    SCRIPT_ORBS_REDRAW,
+    SCRIPT_SPEC_REGEN_TIMER,
+    VARP_MAP_CLOCK,
+} from "../../widgets/minimapOrbs";
 
 type StepRecord = {
     x: number;
@@ -71,7 +88,16 @@ const NPC_SIM_RADIUS_TILES = NPC_STREAM_EXIT_RADIUS_TILES + 12;
  * The TickPhaseOrchestrator drives these phases in order each tick.
  */
 export class TickPhaseService {
+    private readonly lastWorldMapCoordByPlayer = new WeakMap<PlayerState, number>();
+
     constructor(private readonly svc: ServerServices) {}
+
+    private playerHasHitpointsCapeRegen(player: PlayerState): boolean {
+        const equip =
+            this.svc.equipmentService?.ensureEquipArray(player) ?? player.appearance.equip;
+        const capeId = equip?.[EquipmentSlot.CAPE] ?? -1;
+        return hasHitpointsCapeRegenPerk(capeId);
+    }
 
     runPreMovementPhase(frame: TickFrame): void {
         const { npcManager, players, followerManager, followerCombatManager, npcSyncManager } =
@@ -305,7 +331,12 @@ export class TickPhaseService {
                 logger.warn("Failed to process player movement phase", err);
             }
 
-            const statusHits = this.svc.statusEffects.processPlayer(player, frame.tick);
+            const hasHitpointsCapeRegen = this.playerHasHitpointsCapeRegen(player);
+            const statusHits = this.svc.statusEffects.processPlayer(
+                player,
+                frame.tick,
+                hasHitpointsCapeRegen,
+            );
             if (statusHits && statusHits.length > 0) {
                 for (const event of statusHits) {
                     if (!(event.amount > 0)) continue;
@@ -318,6 +349,36 @@ export class TickPhaseService {
                         hpCurrent: event.hpCurrent,
                         hpMax: event.hpMax,
                     });
+                }
+            }
+            const regenTimer = player.skillSystem.takeHitpointRegenTimerSync(frame.tick);
+            if (regenTimer) {
+                this.svc.variableService.queueVarp(player.id, VARP_MAP_CLOCK, frame.tick);
+                this.svc.broadcastService.queueClientScript(
+                    player.id,
+                    SCRIPT_HEALTH_REGEN_TIMER,
+                    regenTimer.intervalTicks,
+                    regenTimer.startTick,
+                );
+            }
+            const capeRegenTimer = player.skillSystem.takeHitpointCapeRegenTimerSync(
+                frame.tick,
+                hasHitpointsCapeRegen,
+            );
+            if (capeRegenTimer) {
+                this.svc.variableService.queueVarp(player.id, VARP_MAP_CLOCK, frame.tick);
+                if ("clear" in capeRegenTimer) {
+                    this.svc.broadcastService.queueClientScript(
+                        player.id,
+                        SCRIPT_HITPOINTS_CAPE_REGEN_TIMER_OFF,
+                    );
+                } else {
+                    this.svc.broadcastService.queueClientScript(
+                        player.id,
+                        SCRIPT_HITPOINTS_CAPE_REGEN_TIMER,
+                        capeRegenTimer.intervalTicks,
+                        capeRegenTimer.startTick,
+                    );
                 }
             }
             const prayerTick = this.svc.prayerSystem.processPlayer(player);
@@ -363,6 +424,7 @@ export class TickPhaseService {
             if (player.energy.hasRunEnergyUpdate()) {
                 this.svc.movementService.queueRunEnergySnapshot(player);
             }
+            this.queueWorldMapTransmitData(player);
 
             const tileX = player.x / 128;
             const tileY = player.y / 128;
@@ -454,11 +516,32 @@ export class TickPhaseService {
 
             player.skillSystem.tickSkillRestoration(frame.tick);
             let specialUpdated = player.specEnergy.tick(frame.tick);
+            const specialRegenTimer = player.specEnergy.takeRegenTimerSync(frame.tick);
+            if (specialRegenTimer) {
+                this.svc.variableService.queueVarp(player.id, VARP_MAP_CLOCK, frame.tick);
+                this.svc.broadcastService.queueClientScript(
+                    player.id,
+                    SCRIPT_SPEC_REGEN_TIMER,
+                    specialRegenTimer.intervalTicks,
+                    specialRegenTimer.startTick,
+                );
+            }
             if (!specialUpdated && player.specEnergy.hasUpdate?.()) {
                 specialUpdated = true;
             }
 
             if (specialUpdated) {
+                this.svc.variableService.queueVarp(
+                    player.id,
+                    VARP_SPECIAL_ENERGY,
+                    player.specEnergy.getPercent() * 10,
+                );
+                this.svc.variableService.queueVarp(player.id, VARP_MAP_CLOCK, frame.tick);
+                this.svc.broadcastService.queueClientScript(
+                    player.id,
+                    SCRIPT_ORBS_REDRAW,
+                    frame.tick,
+                );
                 this.svc.queueCombatState(player);
             }
             const snap = player.wasTeleported() ?? false;
@@ -558,6 +641,24 @@ export class TickPhaseService {
         } catch (err) {
             logger.warn("Failed to run post-movement phase", err);
         }
+    }
+
+    private queueWorldMapTransmitData(player: PlayerState): void {
+        if (!player.widgets.isOpen(WORLD_MAP_GROUP_ID)) {
+            this.lastWorldMapCoordByPlayer.delete(player);
+            return;
+        }
+
+        const packedCoord = packWorldMapPlayerCoord(player);
+        if (this.lastWorldMapCoordByPlayer.get(player) === packedCoord) {
+            return;
+        }
+        this.lastWorldMapCoordByPlayer.set(player, packedCoord);
+        this.svc.broadcastService.queueClientScript(
+            player.id,
+            SCRIPT_WORLDMAP_TRANSMIT_DATA,
+            ...getWorldMapTransmitDataArgs(packedCoord),
+        );
     }
 
     runCombatPhase(frame: TickFrame): void {
@@ -700,12 +801,12 @@ export class TickPhaseService {
                 }
             }
             this.svc.miscBroadcaster.flushLocChanges(frame, ctx);
+            this.svc.widgetBroadcaster.flushCloseEvents(frame, ctx);
+            this.svc.varBroadcaster.flush(frame, ctx);
             this.svc.skillBroadcaster.flush(frame, ctx);
             this.svc.combatBroadcaster.flush(frame, ctx);
             this.svc.actorSyncBroadcaster.flush(frame, ctx);
             this.svc.miscBroadcaster.flushLocAnimations(frame, ctx);
-            this.svc.widgetBroadcaster.flushCloseEvents(frame, ctx);
-            this.svc.varBroadcaster.flush(frame, ctx);
             this.svc.widgetBroadcaster.flushOpenEvents(frame, ctx);
             this.svc.miscBroadcaster.flushPostWidgetEvents(frame, ctx);
             this.svc.chatBroadcaster.flush(frame, ctx);

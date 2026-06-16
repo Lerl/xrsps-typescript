@@ -51,18 +51,6 @@ yarn server:build-collision
 This takes a few minutes on first run. It reads the game cache and writes collision data to `server/cache/collision/`.
 :::
 
-### World Map Images
-
-The client renders the world map from pre-exported tile images:
-
-```bash
-yarn export-map-images
-```
-
-::: info
-This can also take a few minutes. It exports tile images to `public/map/`.
-:::
-
 ## 4. Start the Server
 
 ```bash
@@ -148,6 +136,5 @@ node -v
 | `yarn start`                  | Start the client dev server      |
 | `yarn server:start`           | Start the game server            |
 | `yarn server:build-collision` | Build collision cache (once)     |
-| `yarn export-map-images`      | Export world map images (once)   |
 | `yarn download-caches`        | Manually download the OSRS cache |
 | `yarn lint`                   | Format code with Prettier        |

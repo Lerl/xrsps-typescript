@@ -108,6 +108,10 @@ export function getVisibleWidgetSurfaceReason(w: any): string | undefined {
     if (!w) return undefined;
 
     const type = ((w?.type ?? 0) | 0) as number;
+    const contentType = ((w?.contentType ?? 0) | 0) as number;
+    if (contentType === 1400 || contentType === 1401) {
+        return `visible_widget:contentType${contentType}`;
+    }
     const isContainer = type === 0 || type === 11;
     const hasText =
         !!sanitizeText(w?.text) || !!sanitizeText(w?.text2) || !!sanitizeText(w?.dataText);

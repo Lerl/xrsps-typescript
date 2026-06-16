@@ -6,6 +6,11 @@ export function getMapSquareId(mapX: number, mapY: number): number {
     return (mapX << 8) + mapY;
 }
 
+export function getMapPlaneId(mapX: number, mapY: number, plane: number): number {
+    const level = Math.max(0, Math.min(3, plane | 0));
+    return (level << 16) + getMapSquareId(mapX, mapY);
+}
+
 export function getMapIndexFromTile(tile: number): number {
     return Math.floor(tile / Scene.MAP_SQUARE_SIZE);
 }

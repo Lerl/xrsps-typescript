@@ -33,6 +33,9 @@ const INDEX_NAMES: Record<number, string> = {
     [IndexType.DAT2.musicSamples]: "music samples",
     [IndexType.DAT2.musicPatches]: "music patches",
     [IndexType.OSRS.animKeyFrames]: "animation keyframes",
+    [IndexType.OSRS.worldMapGeography]: "world map geography",
+    [IndexType.OSRS.worldMap]: "world map",
+    [IndexType.OSRS.worldMapGround]: "world map ground",
 };
 
 /** Get display name for an index ID */
@@ -205,6 +208,9 @@ export function getRequiredIndexIds(info: CacheInfo): number[] {
     // OSRS skeletal keyframes (>=229)
     if (info.game === "oldschool" && info.revision >= 229) {
         ids.push(IndexType.OSRS.animKeyFrames);
+    }
+    if (info.game === "oldschool") {
+        ids.push(IndexType.OSRS.worldMap);
     }
     // RS newer indices for content types
     if (info.game === "runescape" && info.revision >= 488) {

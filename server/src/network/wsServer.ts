@@ -1391,10 +1391,10 @@ export class WSServer {
     }
 
     private syncPostWidgetOpenState(playerId: number, action: WidgetAction): void {
-        if ((action.groupId ?? 0) !== MUSIC_GROUP_ID) {
+        if (action.action !== "open_sub" && action.action !== "open") {
             return;
         }
-        if (action.action !== "open_sub" && action.action !== "open") {
+        if (action.groupId !== MUSIC_GROUP_ID) {
             return;
         }
         const player = this.players?.getById(playerId);

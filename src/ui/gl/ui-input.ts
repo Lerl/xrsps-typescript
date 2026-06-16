@@ -15,6 +15,15 @@ export class UIInputBridge {
     private lastClickMode2: number = ClickMode.NONE;
     private menuHandler?: (x: number, y: number) => void;
     private canvas?: HTMLCanvasElement;
+    private lastProcessedMouseX: number = Number.NaN;
+    private lastProcessedMouseY: number = Number.NaN;
+    private lastProcessedSaveClickX: number = Number.NaN;
+    private lastProcessedSaveClickY: number = Number.NaN;
+    private lastProcessedClickMode2: number = Number.NaN;
+    private lastProcessedClickMode3: number = Number.NaN;
+    private lastProcessedTargetVersion: number = -1;
+    private unchangedInputProcessedCount: number = 0;
+    private lastUnchangedInputLogMs: number = -Infinity;
     // When true, suppress the next pointer-up transition for the current click.
     // Used when a handler consumes the click on mousedown (OSRS menu parity).
     private suppressUpUntilRelease: boolean = false;
@@ -66,6 +75,37 @@ export class UIInputBridge {
      */
     processInput(input: InputManager): void {
         const { mouseX, mouseY, clickMode2, clickMode3, saveClickX, saveClickY } = input;
+        const targetVersion = this.clicks.getVersion();
+        const sameInputState =
+            mouseX === this.lastProcessedMouseX &&
+            mouseY === this.lastProcessedMouseY &&
+            saveClickX === this.lastProcessedSaveClickX &&
+            saveClickY === this.lastProcessedSaveClickY &&
+            clickMode2 === this.lastProcessedClickMode2 &&
+            clickMode3 === this.lastProcessedClickMode3;
+        if (sameInputState && targetVersion === this.lastProcessedTargetVersion) {
+            return;
+        }
+        if (sameInputState && this.lastProcessedTargetVersion >= 0) {
+            this.unchangedInputProcessedCount++;
+            const now = performance.now();
+            if (now - this.lastUnchangedInputLogMs >= 1000) {
+                console.log(
+                    `[ui-input] unchanged input processed because targets changed count=${
+                        this.unchangedInputProcessedCount
+                    } targets=${this.clicks.getTargetCount()} targetVersion=${targetVersion} prevTargetVersion=${
+                        this.lastProcessedTargetVersion
+                    } mouse=${mouseX | 0},${mouseY | 0} clickMode2=${
+                        clickMode2 | 0
+                    } clickMode3=${clickMode3 | 0}`,
+                );
+                this.unchangedInputProcessedCount = 0;
+                this.lastUnchangedInputLogMs = now;
+            }
+        } else {
+            this.unchangedInputProcessedCount = 0;
+        }
+
         const mousePos = this.transformPoint(mouseX, mouseY);
         const clickPos = this.transformPoint(saveClickX, saveClickY);
 
@@ -104,6 +144,13 @@ export class UIInputBridge {
         // Update tracking state
         this.lastClickMode3 = clickMode3;
         this.lastClickMode2 = clickMode2;
+        this.lastProcessedMouseX = mouseX;
+        this.lastProcessedMouseY = mouseY;
+        this.lastProcessedSaveClickX = saveClickX;
+        this.lastProcessedSaveClickY = saveClickY;
+        this.lastProcessedClickMode2 = clickMode2;
+        this.lastProcessedClickMode3 = clickMode3;
+        this.lastProcessedTargetVersion = targetVersion;
     }
 
     /**

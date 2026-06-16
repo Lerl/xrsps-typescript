@@ -1,6 +1,5 @@
 import { App as PicoApp, Program } from "picogl";
 
-import { profiler } from "../../client/webgl/PerformanceProfiler";
 import { CacheIndex } from "../../rs/cache/CacheIndex";
 import { CacheSystem } from "../../rs/cache/CacheSystem";
 import { BitmapFont } from "../../rs/font/BitmapFont";
@@ -58,10 +57,12 @@ export class WidgetsOverlay implements Overlay {
     private app!: PicoApp;
     private glRenderer?: GLRenderer;
     private overlayCanvas?: HTMLCanvasElement;
+    private renderCanvas?: HTMLCanvasElement;
     private overlayScaleX: number = 1;
     private overlayScaleY: number = 1;
     private widgetEntries: WidgetRenderEntry[] = [];
     private visible: Map<number, boolean> = new Map();
+    private hasPresentedFrame: boolean = false;
 
     // PERF: Cached arrays and objects to avoid per-frame allocations
     private cachedRootSources: any[] = [];
@@ -76,12 +77,6 @@ export class WidgetsOverlay implements Overlay {
 
     private lastMenuVisualSignature: string = "";
     private lastMenuVisualRect?: DirtyRect;
-
-    // PERF: Timing breakdown for profiling
-    private accumulatedRenderTime: number = 0;
-    private accumulatedUploadTime: number = 0;
-    private accumulatedFrames: number = 0;
-    private lastBreakdownLogTime: number = 0;
 
     // Public property to enable/disable the overlay
     public enabled: boolean = true;
@@ -108,12 +103,14 @@ export class WidgetsOverlay implements Overlay {
             } catch {}
         }
         this.glRenderer = undefined;
+        this.renderCanvas = undefined;
         if (this.overlayCanvas?.parentElement) {
             try {
                 this.overlayCanvas.parentElement.removeChild(this.overlayCanvas);
             } catch {}
         }
         this.overlayCanvas = undefined;
+        this.hasPresentedFrame = false;
         this.rootSetChanged = true;
         this.lastRootSignature = "";
         this.lastMenuVisualSignature = "";
@@ -147,7 +144,10 @@ export class WidgetsOverlay implements Overlay {
 
         // Initialize GL renderer for widgets
         try {
-            this.glRenderer = new GLRenderer(this.overlayCanvas);
+            this.renderCanvas = document.createElement("canvas");
+            this.renderCanvas.width = this.overlayCanvas.width;
+            this.renderCanvas.height = this.overlayCanvas.height;
+            this.glRenderer = new GLRenderer(this.renderCanvas);
             const overlaySize = this.getOverlayRenderSize();
             this.glRenderer.resize(overlaySize.width, overlaySize.height);
         } catch (e) {
@@ -168,11 +168,15 @@ export class WidgetsOverlay implements Overlay {
         const overlaySize = this.getOverlayRenderSize();
         if (
             this.overlayCanvas.width !== overlaySize.width ||
-            this.overlayCanvas.height !== overlaySize.height
+            this.overlayCanvas.height !== overlaySize.height ||
+            this.glRenderer.canvas.width !== overlaySize.width ||
+            this.glRenderer.canvas.height !== overlaySize.height
         ) {
             this.overlayCanvas.width = overlaySize.width;
             this.overlayCanvas.height = overlaySize.height;
             this.glRenderer.resize(overlaySize.width, overlaySize.height);
+            this.hasPresentedFrame = false;
+            this.rootSetChanged = true;
             console.log(`WidgetsOverlay: Resized to ${overlaySize.width}x${overlaySize.height}`);
         }
 
@@ -332,6 +336,27 @@ export class WidgetsOverlay implements Overlay {
         );
     }
 
+    private getWidgetDirtyRect(widget: any): DirtyRect | undefined {
+        const x = Number(widget?._absX);
+        const y = Number(widget?._absY);
+        const w = Number(widget?._absWidth);
+        const h = Number(widget?._absHeight);
+        if (
+            !Number.isFinite(x) ||
+            !Number.isFinite(y) ||
+            !Number.isFinite(w) ||
+            !Number.isFinite(h)
+        ) {
+            return undefined;
+        }
+        return this.clampRectToCanvas(
+            Math.floor(x) - 1,
+            Math.floor(y) - 1,
+            Math.ceil(w) + 2,
+            Math.ceil(h) + 2,
+        );
+    }
+
     private rectsIntersect(a: DirtyRect, b: DirtyRect): boolean {
         return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
     }
@@ -417,8 +442,10 @@ export class WidgetsOverlay implements Overlay {
         const targetUiScale = isTouchDevice ? Math.max(1, Math.min(dpr, 2)) : mainScaleX;
         this.overlayScaleX = Math.max(1, targetUiScale / mainScaleX);
         this.overlayScaleY = Math.max(1, targetUiScale / mainScaleY);
-        if (this.overlayCanvas) {
-            const canvasAny = this.overlayCanvas as any;
+        const canvases = [this.overlayCanvas, this.renderCanvas];
+        for (const canvas of canvases) {
+            if (!canvas) continue;
+            const canvasAny = canvas as any;
             canvasAny.__uiInputScaleX = this.overlayScaleX;
             canvasAny.__uiInputScaleY = this.overlayScaleY;
             // Propagate renderScaleX from the main canvas so choose-option and other
@@ -435,8 +462,36 @@ export class WidgetsOverlay implements Overlay {
     }
 
     private clearOverlayCanvas(): void {
-        if (!this.glRenderer) return;
-        this.glRenderer.clear(0, 0, 0, 0);
+        this.glRenderer?.clear(0, 0, 0, 0);
+        if (this.overlayCanvas) {
+            const ctx = this.overlayCanvas.getContext("2d");
+            ctx?.clearRect(0, 0, this.overlayCanvas.width, this.overlayCanvas.height);
+        }
+        this.hasPresentedFrame = false;
+    }
+
+    private presentOverlayCanvas(full: boolean, rects: DirtyRect[]): void {
+        if (!this.glRenderer || !this.overlayCanvas) return;
+        const source = this.glRenderer.canvas;
+        const ctx = this.overlayCanvas.getContext("2d");
+        if (!ctx) return;
+        this.glRenderer.gl.flush();
+        ctx.imageSmoothingEnabled = false;
+        if (full || !this.hasPresentedFrame) {
+            ctx.clearRect(0, 0, this.overlayCanvas.width, this.overlayCanvas.height);
+            ctx.drawImage(source, 0, 0);
+            this.hasPresentedFrame = true;
+            return;
+        }
+        for (const rect of rects) {
+            const x = rect.x | 0;
+            const y = rect.y | 0;
+            const w = Math.max(0, rect.w | 0);
+            const h = Math.max(0, rect.h | 0);
+            if (w <= 0 || h <= 0) continue;
+            ctx.clearRect(x, y, w, h);
+            ctx.drawImage(source, x, y, w, h, x, y, w, h);
+        }
     }
 
     private getMenuAnchorPoint(menu: any): { x: number; y: number } {
@@ -517,7 +572,10 @@ export class WidgetsOverlay implements Overlay {
         }
 
         if (this.widgetEntries.length === 0) {
-            this.clearOverlayCanvas();
+            const widgetManager = this.ctx.getWidgetManager?.();
+            if (!this.hasPresentedFrame || (widgetManager?.rootInterface ?? -1) === -1) {
+                this.clearOverlayCanvas();
+            }
             return;
         }
 
@@ -526,13 +584,16 @@ export class WidgetsOverlay implements Overlay {
             // This keeps Choose Option + shared UI callbacks/state consistent across both passes.
             const hostCanvasAny = this.app.gl.canvas as any;
             const overlayCanvasAny = this.overlayCanvas as any;
+            const renderCanvasAny = this.glRenderer.canvas as any;
             const sharedUi = (hostCanvasAny.__ui =
-                hostCanvasAny.__ui || overlayCanvasAny.__ui || {});
+                hostCanvasAny.__ui || overlayCanvasAny.__ui || renderCanvasAny.__ui || {});
             overlayCanvasAny.__ui = sharedUi;
+            renderCanvasAny.__ui = sharedUi;
 
             // Check dirty state from widget manager
             const widgetManager = this.ctx.getWidgetManager?.();
             let anyDirty = true; // Default to dirty if no manager
+            let preciseDirtyWidgets: any[] = [];
 
             if (widgetManager) {
                 // Update compass angle from camera yaw before rendering
@@ -542,6 +603,10 @@ export class WidgetsOverlay implements Overlay {
 
                 // Check if any root widget region needs redraw
                 anyDirty = widgetManager.isAnyRootDirty();
+                const getPreciseDirtyWidgets = (widgetManager as any).getPreciseDirtyWidgets;
+                if (typeof getPreciseDirtyWidgets === "function") {
+                    preciseDirtyWidgets = getPreciseDirtyWidgets.call(widgetManager);
+                }
             }
 
             // Also check if menu is open - Choose Option menu needs to render even if widgets aren't dirty
@@ -562,11 +627,12 @@ export class WidgetsOverlay implements Overlay {
             // The Choose Option menu is drawn as part of the shared widget overlay. When it is
             // open, partial dirty-rect redraws can visibly blink as hover/click state changes
             // every frame. Redraw the full overlay for the duration of the menu instead.
-            const forceFullRedraw = this.rootSetChanged || menuOpen;
-            const shouldRedraw = anyDirty || forceFullRedraw || menuVisualDirty;
+            const forceFullRedraw = !this.hasPresentedFrame || this.rootSetChanged || menuOpen;
+            const preciseDirtyCount = preciseDirtyWidgets.length | 0;
+            const shouldRedraw =
+                anyDirty || preciseDirtyCount > 0 || forceFullRedraw || menuVisualDirty;
 
-            // PERF: Track timing breakdown within WidgetsOverlay
-            let renderTime = 0;
+            const consumedRootIndices: number[] = [];
 
             if (shouldRedraw) {
                 let renderFull = forceFullRedraw || !widgetManager;
@@ -578,11 +644,18 @@ export class WidgetsOverlay implements Overlay {
                         const rootIndex =
                             typeof root?.rootIndex === "number" ? root.rootIndex | 0 : -1;
                         if (rootIndex < 0 || !widgetManager.isRootDirty(rootIndex)) continue;
+                        consumedRootIndices.push(rootIndex);
                         const rootRect = this.getRootRect(widgetManager, root);
                         if (rootRect) dirtyRects.push(rootRect);
                     }
                     if (dirtyRects.length === 0) {
                         dirtyRects = [];
+                    }
+                }
+                if (!renderFull && preciseDirtyCount > 0) {
+                    for (const widget of preciseDirtyWidgets) {
+                        const rect = this.getWidgetDirtyRect(widget);
+                        if (rect) dirtyRects.push(rect);
                     }
                 }
 
@@ -598,7 +671,16 @@ export class WidgetsOverlay implements Overlay {
                     }
                 }
 
-                const t1 = performance.now();
+                if (widgetManager) {
+                    const managerAny = widgetManager as any;
+                    if (renderFull && typeof managerAny.consumeAllRootDirty === "function") {
+                        managerAny.consumeAllRootDirty();
+                    } else if (typeof managerAny.consumeRootDirty === "function") {
+                        for (const rootIndex of consumedRootIndices) {
+                            managerAny.consumeRootDirty(rootIndex);
+                        }
+                    }
+                }
                 if (renderFull) {
                     // Full pass: reset transient input targets, rebuild root order, redraw all roots.
                     beginWidgetUiFrame(this.glRenderer);
@@ -647,33 +729,10 @@ export class WidgetsOverlay implements Overlay {
                         }
                     }
                 }
-                renderTime = performance.now() - t1;
-
-                // PERF: Log timing breakdown every second
-                this.accumulatedRenderTime += renderTime;
-                this.accumulatedFrames++;
+                this.presentOverlayCanvas(renderFull, dirtyRects);
 
                 this.lastMenuVisualSignature = menuVisualState.signature;
                 this.lastMenuVisualRect = menuVisualState.rect;
-            }
-
-            // Log breakdown every second (outside shouldRedraw so we always log)
-            const logNow = performance.now();
-            const logElapsed = logNow - this.lastBreakdownLogTime;
-            if (logElapsed > 1000) {
-                const total = this.accumulatedRenderTime + this.accumulatedUploadTime;
-                if (profiler.enabled && profiler.verbose && total > 0.1) {
-                    console.log(
-                        `[PERF] WidgetsOverlay breakdown (${
-                            this.accumulatedFrames
-                        } frames, ${total.toFixed(1)}ms): ` +
-                            `render=${this.accumulatedRenderTime.toFixed(1)}ms`,
-                    );
-                }
-                this.accumulatedRenderTime = 0;
-                this.accumulatedUploadTime = 0;
-                this.accumulatedFrames = 0;
-                this.lastBreakdownLogTime = logNow;
             }
 
             // Process input against the current click target registry.

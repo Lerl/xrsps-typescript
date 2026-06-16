@@ -216,6 +216,14 @@ export interface MovePacket {
     modifierFlags: number;
 }
 
+export interface WorldMapClickPacket {
+    type: "world_map_click";
+    packedCoord: number;
+    worldX: number;
+    worldY: number;
+    level: number;
+}
+
 export interface UnknownPacket {
     type: "unknown";
     opcode: number;
@@ -247,6 +255,7 @@ export type DecodedPacket =
     | ExamineNpcPacket
     | ExamineObjPacket
     | MovePacket
+    | WorldMapClickPacket
     | UnknownPacket;
 
 /**
@@ -894,6 +903,14 @@ export function decodePacket(opcode: number, data: Uint8Array): DecodedPacket {
             return { type: "move", worldX, worldY, locId, modifierFlags };
         }
 
+        case ClientPacketId.WORLD_MAP_CLICK: {
+            const packedCoord = buf.readIntIME() >>> 0;
+            const level = (packedCoord >>> 28) & 0x3;
+            const worldX = (packedCoord >>> 14) & 0x3fff;
+            const worldY = packedCoord & 0x3fff;
+            return { type: "world_map_click", packedCoord, worldX, worldY, level };
+        }
+
         default:
             return { type: "unknown", opcode, data };
     }
@@ -1363,6 +1380,15 @@ function convertDecodedPacketToMessage(packet: DecodedPacket): ClientToServer | 
                 payload: {
                     to: { x: packet.worldX, y: packet.worldY },
                     modifierFlags: packet.modifierFlags,
+                },
+            };
+
+        case "world_map_click":
+            return {
+                type: "world_map_click",
+                payload: {
+                    to: { x: packet.worldX, y: packet.worldY },
+                    level: packet.level,
                 },
             };
 

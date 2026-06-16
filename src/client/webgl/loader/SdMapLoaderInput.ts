@@ -71,4 +71,12 @@ export type SdMapLoaderInput = {
         x: number;
         y: number;
     };
+
+    /**
+     * World-map tile preview mode. Builds the cache scene only far enough to
+     * render minimap/world-map pixels and icons, then skips WebGL scene buffers.
+     */
+    worldMapTileOnly?: {
+        level: number;
+    };
 };

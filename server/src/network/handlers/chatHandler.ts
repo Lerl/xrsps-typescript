@@ -559,6 +559,14 @@ function createChatHandler(services: MessageHandlerServices): MessageHandler<"ch
                 } else if (cmd === "kill") {
                     logger.info(`[cmd] ::kill - Player ${sender.id} killed themselves`);
                     sender.skillSystem.setHitpointsCurrent(0);
+                } else if (cmd === "onehealth") {
+                    sender.skillSystem.setHitpointsCurrent(1);
+                    services.queueChatMessage({
+                        messageType: "game",
+                        text: "Your Hitpoints have been set to 1.",
+                        targetPlayerIds: [sender.id],
+                    });
+                    logger.info(`[cmd] ::onehealth - Player ${sender.id} set Hitpoints to 1`);
                 } else if (
                     root === SpellbookName.Standard ||
                     root === SpellbookName.Ancient ||

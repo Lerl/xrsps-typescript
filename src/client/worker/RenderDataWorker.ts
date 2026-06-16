@@ -3,7 +3,6 @@ import { TransferDescriptor } from "threads";
 import { registerSerializer } from "threads";
 import { Transfer, expose } from "threads/worker";
 
-import { resolveCacheKey } from "../../rs/cache/CacheFiles";
 import { CacheSystem } from "../../rs/cache/CacheSystem";
 import { ConfigType } from "../../rs/cache/ConfigType";
 import { IndexType } from "../../rs/cache/IndexType";
@@ -23,12 +22,10 @@ import { ObjTypeLoader } from "../../rs/config/objtype/ObjTypeLoader";
 import { PlayerModelLoader } from "../../rs/config/player/PlayerModelLoader";
 import { SeqTypeLoader } from "../../rs/config/seqtype/SeqTypeLoader";
 import { VarManager } from "../../rs/config/vartype/VarManager";
-import { getMapSquareId } from "../../rs/map/MapFileIndex";
-import { MapImageRenderer } from "../../rs/map/MapImageRenderer";
+import { MinimapImageRenderer } from "../../rs/map/MinimapImageRenderer";
 import { SeqFrameLoader } from "../../rs/model/seq/SeqFrameLoader";
 import { SkeletalSeqLoader } from "../../rs/model/skeletal/SkeletalSeqLoader";
-import { Scene } from "../../rs/scene/Scene";
-import { LocLoadType, SceneBuilder } from "../../rs/scene/SceneBuilder";
+import { SceneBuilder } from "../../rs/scene/SceneBuilder";
 import { IndexedSprite } from "../../rs/sprite/IndexedSprite";
 import { SpriteLoader } from "../../rs/sprite/SpriteLoader";
 import { TextureLoader } from "../../rs/texture/TextureLoader";
@@ -37,7 +34,6 @@ import { LoadedCache } from "../Caches";
 import { NpcGeometryData } from "../webgl/loader/NpcGeometryData";
 import { SdMapDataLoader } from "../webgl/loader/SdMapDataLoader";
 import type { NpcInstance } from "../webgl/npc/NpcRenderTemplate";
-import { MinimapData, loadMinimapBlob } from "./MinimapData";
 import { RenderDataLoader, renderDataLoaderSerializer } from "./RenderDataLoader";
 
 registerSerializer(renderDataLoaderSerializer);
@@ -71,8 +67,7 @@ export type WorkerState = {
 
     varManager: VarManager;
 
-    mapImageRenderer: MapImageRenderer;
-    mapImageCache: Cache | undefined;
+    minimapImageRenderer: MinimapImageRenderer;
 
     npcInstances: NpcInstance[];
 };
@@ -175,13 +170,7 @@ async function initWorker(cache: LoadedCache, npcInstances: NpcInstance[]): Prom
 
     // Minimize memory: avoid loading full map scene/function sprite sheets in workers.
     // Minimap terrain rendering does not require them; icons are omitted to save RAM.
-    const mapImageRenderer = new MapImageRenderer(textureLoader, locTypeLoader, [], []);
-
-    // CacheStorage in workers is not guaranteed across all browsers (e.g., iOS Safari).
-    const mapImageCache =
-        typeof caches === "undefined"
-            ? undefined
-            : await caches.open(resolveCacheKey("map-images"));
+    const minimapImageRenderer = new MinimapImageRenderer(textureLoader, locTypeLoader, [], []);
 
     return {
         cache,
@@ -208,8 +197,7 @@ async function initWorker(cache: LoadedCache, npcInstances: NpcInstance[]): Prom
 
         varManager,
 
-        mapImageRenderer,
-        mapImageCache,
+        minimapImageRenderer,
 
         npcInstances,
     };
@@ -249,7 +237,9 @@ const worker = {
 
         const { data, transferables } = await dataLoader.load(workerState, input);
 
-        clearCache(workerState);
+        if (dataLoader.shouldClearWorkerCacheAfterLoad?.(input) ?? true) {
+            clearCache(workerState);
+        }
 
         if (!data) {
             return undefined;
@@ -293,52 +283,6 @@ const worker = {
 
         return Transfer(pixels, [pixels.buffer]);
     },
-    async loadMapImage(
-        mapX: number,
-        mapY: number,
-        level: number,
-        drawMapFunctions: boolean,
-    ): Promise<MinimapData | undefined> {
-        // Safari/iOS may not support OffscreenCanvas in workers; gracefully skip minimap.
-        if (typeof OffscreenCanvas === "undefined") {
-            return undefined;
-        }
-        const workerState = await workerStatePromise;
-        if (!workerState) {
-            throw new Error("Worker not initialized");
-        }
-
-        const borderSize = 6;
-
-        const baseX = mapX * Scene.MAP_SQUARE_SIZE - borderSize;
-        const baseY = mapY * Scene.MAP_SQUARE_SIZE - borderSize;
-        const mapSize = Scene.MAP_SQUARE_SIZE + borderSize * 2;
-
-        const scene = workerState.sceneBuilder.buildScene(
-            baseX,
-            baseY,
-            mapSize,
-            mapSize,
-            false,
-            LocLoadType.NO_MODELS,
-        );
-
-        const minimapBlob = await loadMinimapBlob(
-            workerState.mapImageRenderer,
-            scene,
-            level,
-            borderSize,
-            drawMapFunctions,
-        );
-
-        return {
-            mapX,
-            mapY,
-            level,
-            cacheInfo: workerState.cache.info,
-            minimapBlob,
-        };
-    },
     async setNpcInstances(instances: NpcInstance[]): Promise<void> {
         const workerState = await workerStatePromise;
         if (!workerState) {
@@ -352,33 +296,6 @@ const worker = {
             throw new Error("Worker not initialized");
         }
         workerState.varManager.set(values);
-    },
-    async loadCachedMapImages(): Promise<Map<number, string>> {
-        // Cache Storage may be unavailable in some worker contexts (e.g., iOS Safari).
-        if (typeof caches === "undefined") {
-            return new Map();
-        }
-        const workerState = await workerStatePromise;
-        if (!workerState) {
-            throw new Error("Worker not initialized");
-        }
-        if (!workerState.mapImageCache) {
-            return new Map();
-        }
-        const keys = await workerState.mapImageCache.keys();
-        const mapImageUrls = new Map<number, string>();
-        // Limit hydration to avoid transient memory spikes on startup
-        const LIMIT = 128;
-        let count = 0;
-        for (const key of keys) {
-            if (key.headers.get("RS-Cache-Name") !== workerState.cache.info.name) {
-                continue;
-            }
-            await initCachedMapImage(workerState.mapImageCache, mapImageUrls, key);
-            count++;
-            if (count >= LIMIT) break;
-        }
-        return mapImageUrls;
     },
     async exportSpritesToZip(): Promise<Blob> {
         const workerState = await workerStatePromise;
@@ -444,35 +361,6 @@ const worker = {
         return zip.generateAsync({ type: "blob" });
     },
 };
-
-async function initCachedMapImage(
-    mapImageCache: Cache,
-    mapImageUrls: Map<number, string>,
-    key: Request,
-): Promise<void> {
-    const resp = await mapImageCache.match(key);
-    if (!resp) {
-        return;
-    }
-    const contentType = resp.headers.get("Content-Type")?.toLowerCase();
-    if (!contentType || !contentType.startsWith("image/")) {
-        try {
-            await mapImageCache.delete(key);
-        } catch {}
-        return;
-    }
-    const fileName = key.url.slice(key.url.lastIndexOf("/") + 1);
-    const split = fileName.replace(".png", "").split("_");
-    if (split.length !== 2) {
-        return;
-    }
-    const mapX = parseInt(split[0]);
-    const mapY = parseInt(split[1]);
-
-    const blob = await resp.blob();
-    const url = URL.createObjectURL(blob);
-    mapImageUrls.set(getMapSquareId(mapX, mapY), url);
-}
 
 async function offscreenCanvasToPng(canvas: OffscreenCanvas): Promise<string> {
     const blob = await canvas.convertToBlob({ type: "image/png" });

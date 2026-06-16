@@ -568,6 +568,7 @@ export type ClientToServer =
       }
     | { type: "face"; payload: { rot?: number; tile?: { x: number; y: number } } }
     | { type: "teleport"; payload: { to: { x: number; y: number }; level?: number } }
+    | { type: "world_map_click"; payload: { to: { x: number; y: number }; level: number } }
     | {
           type: "handshake";
           payload: { name?: string; appearance?: Appearance; clientType?: number };

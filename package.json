@@ -46,7 +46,6 @@
     "export-textures": "tsx scripts/cache/export-textures.ts",
     "export-height-map": "tsx scripts/cache/export-height-map.ts",
     "export-items": "tsx scripts/cache/export-items.ts osrs-232_2025-08-27",
-    "export-map-images": "tsx scripts/cache/export-map-images.ts --force",
     "server:start": "tsx scripts/ensure-cache.ts --server && tsx server/src/index.ts",
     "server:build": "tsc -p server/tsconfig.json",
     "server:build-collision": "tsx server/scripts/build-collision-cache.ts --include-models --force",

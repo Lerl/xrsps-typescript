@@ -10,7 +10,12 @@ export class PlayerStatusState {
     wasAlive: boolean = true;
     onDeath?: () => void;
     nextHitpointRegenTick: number = 0;
+    nextHitpointCapeRegenTick: number = 0;
     nextHitpointOverhealDecayTick: number = 0;
+    lastHitpointRegenUiStartTick: number = -1;
+    lastHitpointRegenUiInterval: number = -1;
+    lastHitpointCapeRegenUiStartTick: number = -1;
+    lastHitpointCapeRegenUiInterval: number = -1;
 
     poisonEffect?: PoisonEffectState;
     venomEffect?: VenomEffectState;

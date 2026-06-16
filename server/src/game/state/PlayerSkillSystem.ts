@@ -657,20 +657,103 @@ export class PlayerSkillSystem {
         }
     }
 
-    tickHitpoints(currentTick: number): StatusHitsplat[] | undefined {
+    private getCurrentHitpointRegenIntervalTicks(): number {
+        const baseRegenInterval = getHitpointRegenIntervalTicks();
+        return this.isPrayerActive("rapid_heal")
+            ? Math.max(1, Math.floor(baseRegenInterval / 2))
+            : baseRegenInterval;
+    }
+
+    private getCurrentHitpointCapeRegenIntervalTicks(): number {
+        return Math.max(1, Math.floor(getHitpointRegenIntervalTicks() / 2));
+    }
+
+    takeHitpointRegenTimerSync(
+        currentTick: number,
+    ): { intervalTicks: number; startTick: number } | undefined {
+        const intervalTicks = this.getCurrentHitpointRegenIntervalTicks();
+        if (this.status.nextHitpointRegenTick <= 0) {
+            this.status.nextHitpointRegenTick = currentTick + intervalTicks;
+        }
+
+        const startTick = Math.max(0, this.status.nextHitpointRegenTick - intervalTicks);
+        if (
+            this.status.lastHitpointRegenUiStartTick >= 0 &&
+            this.status.lastHitpointRegenUiInterval === intervalTicks
+        ) {
+            return undefined;
+        }
+
+        this.status.lastHitpointRegenUiStartTick = startTick;
+        this.status.lastHitpointRegenUiInterval = intervalTicks;
+        return { intervalTicks, startTick };
+    }
+
+    takeHitpointCapeRegenTimerSync(
+        currentTick: number,
+        active: boolean,
+    ): { intervalTicks: number; startTick: number } | { clear: true } | undefined {
+        if (!active) {
+            this.status.nextHitpointCapeRegenTick = 0;
+            if (this.status.lastHitpointCapeRegenUiInterval <= 0) {
+                return undefined;
+            }
+            this.status.lastHitpointCapeRegenUiStartTick = -1;
+            this.status.lastHitpointCapeRegenUiInterval = 0;
+            return { clear: true };
+        }
+
+        const intervalTicks = this.getCurrentHitpointCapeRegenIntervalTicks();
+        if (this.status.nextHitpointCapeRegenTick <= 0) {
+            this.status.nextHitpointCapeRegenTick = currentTick + intervalTicks;
+        }
+
+        const startTick = Math.max(0, this.status.nextHitpointCapeRegenTick - intervalTicks);
+        if (
+            this.status.lastHitpointCapeRegenUiStartTick >= 0 &&
+            this.status.lastHitpointCapeRegenUiInterval === intervalTicks
+        ) {
+            return undefined;
+        }
+
+        this.status.lastHitpointCapeRegenUiStartTick = startTick;
+        this.status.lastHitpointCapeRegenUiInterval = intervalTicks;
+        return { intervalTicks, startTick };
+    }
+
+    tickHitpoints(
+        currentTick: number,
+        hasHitpointsCapeRegen: boolean = false,
+    ): StatusHitsplat[] | undefined {
         const skill = this.getSkill(SkillId.Hitpoints);
         const baseLevel = Math.max(1, skill.baseLevel);
 
-        const baseRegenInterval = getHitpointRegenIntervalTicks();
-        const regenInterval = this.isPrayerActive("rapid_heal")
-            ? Math.max(1, Math.floor(baseRegenInterval / 2))
-            : baseRegenInterval;
+        const regenInterval = this.getCurrentHitpointRegenIntervalTicks();
         if (this.status.nextHitpointRegenTick <= 0) {
             this.status.nextHitpointRegenTick = currentTick + regenInterval;
         } else if (currentTick >= this.status.nextHitpointRegenTick) {
             this.status.nextHitpointRegenTick = currentTick + regenInterval;
             if (this.status.hitpointsCurrent < baseLevel) {
                 this.setHitpointsCurrent(this.status.hitpointsCurrent + 1);
+            }
+        } else if (this.isPrayerActive("rapid_heal")) {
+            const remaining = this.status.nextHitpointRegenTick - currentTick;
+            if (remaining > regenInterval) {
+                this.status.nextHitpointRegenTick = currentTick + regenInterval;
+            }
+        }
+
+        if (!hasHitpointsCapeRegen) {
+            this.status.nextHitpointCapeRegenTick = 0;
+        } else {
+            const capeRegenInterval = this.getCurrentHitpointCapeRegenIntervalTicks();
+            if (this.status.nextHitpointCapeRegenTick <= 0) {
+                this.status.nextHitpointCapeRegenTick = currentTick + capeRegenInterval;
+            } else if (currentTick >= this.status.nextHitpointCapeRegenTick) {
+                this.status.nextHitpointCapeRegenTick = currentTick + capeRegenInterval;
+                if (this.status.hitpointsCurrent < baseLevel) {
+                    this.setHitpointsCurrent(this.status.hitpointsCurrent + 1);
+                }
             }
         }
 

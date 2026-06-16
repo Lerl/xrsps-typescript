@@ -358,6 +358,14 @@ function invalidateWidgetRender(ctx: HandlerContext, w: WidgetNode): void {
     ctx.widgetManager.invalidateWidgetRender(w);
 }
 
+function applySetArc(ctx: HandlerContext, w: WidgetNode | null, start: number, end: number): void {
+    if (!w) return;
+    if (w.arcStart === start && w.arcEnd === end) return;
+    w.arcStart = start;
+    w.arcEnd = end;
+    invalidateWidgetRender(ctx, w);
+}
+
 /**
  * PARITY: JIT helper to ensure widget layout is valid before reading computed values.
  * Called by getters (CC_GETWIDTH, CC_GETX, etc.) before returning values.
@@ -2071,6 +2079,21 @@ export function registerWidgetOps(handlers: HandlerMap): void {
         const w = getWidgetFromStack(ctx);
         const transparent = ctx.intStack[--ctx.intStackSize] === 1;
         if (w) w.modelTransparent = transparent;
+    });
+
+    handlers.set(Opcodes.CC_SETARC, (ctx, intOp) => {
+        ctx.intStackSize -= 2;
+        const start = ctx.intStack[ctx.intStackSize];
+        const end = ctx.intStack[ctx.intStackSize + 1];
+        applySetArc(ctx, getTargetWidget(ctx, intOp), start, end);
+    });
+
+    handlers.set(Opcodes.IF_SETARC, (ctx) => {
+        const w = getWidgetFromStack(ctx);
+        ctx.intStackSize -= 2;
+        const start = ctx.intStack[ctx.intStackSize];
+        const end = ctx.intStack[ctx.intStackSize + 1];
+        applySetArc(ctx, w, start, end);
     });
 
     // === Model getters ===

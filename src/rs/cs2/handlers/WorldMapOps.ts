@@ -1,111 +1,184 @@
 /**
  * World map operations
  */
+import { packWorldMapCoord, unpackWorldMapCoord } from "../../map/WorldMapArea";
 import { Opcodes } from "../Opcodes";
 import type { HandlerMap } from "./HandlerTypes";
 
 export function registerWorldMapOps(handlers: HandlerMap): void {
+    handlers.set(Opcodes.WORLDMAP_INIT, (ctx) => {
+        const plane = ctx.getPlayerPlane?.() ?? 0;
+        const x = ctx.getPlayerLocalX?.() ?? 0;
+        const y = ctx.getPlayerLocalY?.() ?? 0;
+        ctx.worldMapState?.setCurrentMapAreaAndPosition(plane, x, y);
+    });
+
     handlers.set(Opcodes.WORLDMAP_GETMAPNAME, (ctx) => {
-        ctx.intStackSize--; // pop map id
-        ctx.pushString("World Map");
+        const mapAreaId = ctx.popInt();
+        ctx.pushString(ctx.worldMapState?.getMapArea(mapAreaId)?.externalName ?? "");
     });
 
     handlers.set(Opcodes.WORLDMAP_SETMAP, (ctx) => {
-        ctx.intStackSize--; // pop map id
+        const mapAreaId = ctx.popInt();
+        ctx.worldMapState?.setCurrentMapAreaId(mapAreaId);
     });
 
     handlers.set(Opcodes.WORLDMAP_GETZOOM, (ctx) => {
-        ctx.pushInt(100);
+        ctx.pushInt(ctx.worldMapState?.zoomPercentage ?? 100);
     });
 
     handlers.set(Opcodes.WORLDMAP_SETZOOM, (ctx) => {
-        ctx.intStackSize--; // pop zoom
+        const zoom = ctx.popInt();
+        ctx.worldMapState?.setZoomPercentage(zoom);
+        ctx.widgetManager.invalidateAll();
     });
 
     handlers.set(Opcodes.WORLDMAP_ISLOADED, (ctx) => {
-        ctx.pushInt(1);
+        ctx.pushInt(ctx.worldMapState?.isLoaded() ? 1 : 0);
     });
 
     handlers.set(Opcodes.WORLDMAP_JUMPTODISPLAYCOORD, (ctx) => {
-        ctx.intStackSize--; // pop coord
+        const coord = unpackWorldMapCoord(ctx.popInt());
+        ctx.worldMapState?.setWorldMapPositionTarget(coord.x, coord.y);
     });
 
     handlers.set(Opcodes.WORLDMAP_JUMPTODISPLAYCOORD_INSTANT, (ctx) => {
-        ctx.intStackSize--; // pop coord
+        const coord = unpackWorldMapCoord(ctx.popInt());
+        ctx.worldMapState?.setWorldMapPositionTargetInstant(coord.x, coord.y);
     });
 
     handlers.set(Opcodes.WORLDMAP_JUMPTOSOURCECOORD, (ctx) => {
-        ctx.intStackSize--; // pop coord
+        const coord = unpackWorldMapCoord(ctx.popInt());
+        ctx.worldMapState?.jumpToSourceCoord(coord.plane, coord.x, coord.y);
     });
 
     handlers.set(Opcodes.WORLDMAP_JUMPTOSOURCECOORD_INSTANT, (ctx) => {
-        ctx.intStackSize--; // pop coord
+        const coord = unpackWorldMapCoord(ctx.popInt());
+        ctx.worldMapState?.jumpToSourceCoordInstant(coord.plane, coord.x, coord.y);
     });
 
     handlers.set(Opcodes.WORLDMAP_GETDISPLAYPOSITION, (ctx) => {
-        ctx.pushInt(0);
-        ctx.pushInt(0);
+        ctx.pushInt(ctx.worldMapState?.displayX ?? -1);
+        ctx.pushInt(ctx.worldMapState?.displayY ?? -1);
     });
 
     handlers.set(Opcodes.WORLDMAP_GETCONFIGORIGIN, (ctx) => {
-        ctx.intStackSize--; // pop config id
-        ctx.pushInt(0);
+        const mapAreaId = ctx.popInt();
+        ctx.pushInt(ctx.worldMapState?.getMapArea(mapAreaId)?.getOriginPacked() ?? 0);
     });
 
     handlers.set(Opcodes.WORLDMAP_GETCONFIGSIZE, (ctx) => {
-        ctx.intStackSize--; // pop config id
-        ctx.pushInt(0);
-        ctx.pushInt(0);
+        const mapAreaId = ctx.popInt();
+        const mapArea = ctx.worldMapState?.getMapArea(mapAreaId);
+        ctx.pushInt(mapArea?.getWidthTiles() ?? 0);
+        ctx.pushInt(mapArea?.getHeightTiles() ?? 0);
     });
 
     handlers.set(Opcodes.WORLDMAP_GETCONFIGBOUNDS, (ctx) => {
-        ctx.intStackSize--; // pop config id
-        ctx.pushInt(0);
-        ctx.pushInt(0);
-        ctx.pushInt(0);
-        ctx.pushInt(0);
+        const mapAreaId = ctx.popInt();
+        const bounds = ctx.worldMapState?.getMapArea(mapAreaId)?.getBounds();
+        ctx.pushInt(bounds?.minX ?? 0);
+        ctx.pushInt(bounds?.minY ?? 0);
+        ctx.pushInt(bounds?.maxX ?? 0);
+        ctx.pushInt(bounds?.maxY ?? 0);
     });
 
     handlers.set(Opcodes.WORLDMAP_GETCONFIGZOOM, (ctx) => {
-        ctx.intStackSize--; // pop config id
-        ctx.pushInt(0);
+        const mapAreaId = ctx.popInt();
+        ctx.pushInt(ctx.worldMapState?.getMapArea(mapAreaId)?.zoom ?? -1);
+    });
+
+    handlers.set(Opcodes.WORLDMAP_GETDISPLAYCOORD_CURRENT, (ctx) => {
+        const coord = ctx.worldMapState?.getDisplayCoord();
+        ctx.pushInt(coord?.x ?? -1);
+        ctx.pushInt(coord?.y ?? -1);
     });
 
     handlers.set(Opcodes.WORLDMAP_GETCURRENTMAP, (ctx) => {
-        ctx.pushInt(0);
+        ctx.pushInt(ctx.worldMapState?.getCurrentMapAreaId() ?? -1);
     });
 
     handlers.set(Opcodes.WORLDMAP_GETDISPLAYCOORD, (ctx) => {
-        ctx.intStackSize--; // pop input
-        ctx.pushInt(0);
-        ctx.pushInt(0);
+        const packedCoord = ctx.popInt();
+        const displayPosition = ctx.worldMapState?.sourceToDisplay(packedCoord);
+        ctx.pushInt(displayPosition?.x ?? -1);
+        ctx.pushInt(displayPosition?.y ?? -1);
+    });
+
+    handlers.set(Opcodes.WORLDMAP_GETSOURCECOORD, (ctx) => {
+        const packedCoord = ctx.popInt();
+        const coord = ctx.worldMapState?.displayToSource(packedCoord);
+        ctx.pushInt(coord ? packWorldMapCoord(coord) : -1);
+    });
+
+    handlers.set(Opcodes.WORLDMAP_JUMPTOMAP, (ctx) => {
+        const fallback = unpackWorldMapCoord(ctx.popInt());
+        const mapAreaId = ctx.popInt();
+        const preferred = {
+            plane: ctx.getPlayerPlane?.() ?? 0,
+            x: ctx.getPlayerLocalX?.() ?? 0,
+            y: ctx.getPlayerLocalY?.() ?? 0,
+        };
+        ctx.worldMapState?.jumpToMapArea(mapAreaId, preferred, fallback, false);
+    });
+
+    handlers.set(Opcodes.WORLDMAP_JUMPTOMAP_INSTANT, (ctx) => {
+        const fallback = unpackWorldMapCoord(ctx.popInt());
+        const mapAreaId = ctx.popInt();
+        const preferred = {
+            plane: ctx.getPlayerPlane?.() ?? 0,
+            x: ctx.getPlayerLocalX?.() ?? 0,
+            y: ctx.getPlayerLocalY?.() ?? 0,
+        };
+        ctx.worldMapState?.jumpToMapArea(mapAreaId, preferred, fallback, true);
     });
 
     handlers.set(Opcodes.WORLDMAP_COORDINMAP, (ctx) => {
-        // worldmap_coordinmap(wma, coord) -> boolean
-        // Returns true if the coordinate is within the world map area
-        // STUB: Return true to prevent infinite loops in worldmap_findcoordinmap
-        // which iterates through Y coordinates until this returns true.
-        // A proper implementation would check if coord is within wma's bounds.
-        ctx.intStackSize -= 2; // pop coord, map
-        ctx.pushInt(1); // Return true to exit search loops early
+        const coord = ctx.popInt();
+        const mapAreaId = ctx.popInt();
+        ctx.pushInt(ctx.worldMapState?.coordInMap(mapAreaId, coord) ? 1 : 0);
     });
 
     handlers.set(Opcodes.WORLDMAP_GETSIZE, (ctx) => {
-        ctx.pushInt(0);
-        ctx.pushInt(0);
+        ctx.pushInt(ctx.worldMapState?.displayWidth ?? 0);
+        ctx.pushInt(ctx.worldMapState?.displayHeight ?? 0);
+    });
+
+    handlers.set(Opcodes.WORLDMAP_GETMAP, (ctx) => {
+        const coord = unpackWorldMapCoord(ctx.popInt());
+        const mapArea = ctx.worldMapState?.mapAreaAtCoord(coord.plane, coord.x, coord.y);
+        ctx.pushInt(mapArea?.id ?? -1);
+    });
+
+    handlers.set(Opcodes.WORLDMAP_SETMAXFLASHCOUNT, (ctx) => {
+        ctx.intStackSize--;
+    });
+
+    handlers.set(Opcodes.WORLDMAP_RESETMAXFLASHCOUNT, () => {});
+
+    handlers.set(Opcodes.WORLDMAP_SETCYCLESPERFLASH, (ctx) => {
+        ctx.intStackSize--;
+    });
+
+    handlers.set(Opcodes.WORLDMAP_RESETCYCLESPERFLASH, () => {});
+
+    handlers.set(Opcodes.WORLDMAP_GETNEARESTICON, (ctx) => {
+        const sourceCoord = ctx.popInt();
+        const elementId = ctx.popInt();
+        ctx.pushInt(ctx.worldMapState?.getNearestIconCoord(elementId, sourceCoord) ?? -1);
     });
 
     handlers.set(Opcodes.WORLDMAP_PERPETUALFLASH, (ctx) => {
-        ctx.intStackSize--; // pop enabled
+        if (ctx.worldMapState) ctx.worldMapState.perpetualFlash = ctx.popInt() === 1;
+        else ctx.intStackSize--;
     });
 
     handlers.set(Opcodes.WORLDMAP_FLASHELEMENT, (ctx) => {
-        ctx.intStackSize--; // pop element
+        ctx.intStackSize--;
     });
 
     handlers.set(Opcodes.WORLDMAP_FLASHELEMENTCATEGORY, (ctx) => {
-        ctx.intStackSize--; // pop category
+        ctx.intStackSize--;
     });
 
     handlers.set(Opcodes.WORLDMAP_STOPCURRENTFLASHES, () => {
@@ -113,43 +186,53 @@ export function registerWorldMapOps(handlers: HandlerMap): void {
     });
 
     handlers.set(Opcodes.WORLDMAP_DISABLEELEMENTS, (ctx) => {
-        ctx.intStackSize--; // pop disabled
+        if (ctx.worldMapState) ctx.worldMapState.elementsEnabled = ctx.popInt() === 1;
+        else ctx.intStackSize--;
     });
 
     handlers.set(Opcodes.WORLDMAP_DISABLEELEMENT, (ctx) => {
-        ctx.intStackSize -= 2; // pop element, disabled
+        const enabled = ctx.popInt() === 1;
+        const elementId = ctx.popInt();
+        ctx.worldMapState?.setElementEnabled(elementId, enabled);
     });
 
     handlers.set(Opcodes.WORLDMAP_DISABLEELEMENTCATEGORY, (ctx) => {
-        ctx.intStackSize -= 2; // pop category, disabled
+        const enabled = ctx.popInt() === 1;
+        const categoryId = ctx.popInt();
+        ctx.worldMapState?.setCategoryEnabled(categoryId, enabled);
     });
 
     handlers.set(Opcodes.WORLDMAP_GETDISABLEELEMENTS, (ctx) => {
-        ctx.pushInt(0);
+        ctx.pushInt(ctx.worldMapState?.elementsEnabled ? 1 : 0);
     });
 
     handlers.set(Opcodes.WORLDMAP_GETDISABLEELEMENT, (ctx) => {
-        ctx.intStackSize--; // pop element
-        ctx.pushInt(0);
+        const elementId = ctx.popInt();
+        ctx.pushInt(ctx.worldMapState?.isElementEnabled(elementId) ? 1 : 0);
     });
 
     handlers.set(Opcodes.WORLDMAP_GETDISABLEELEMENTCATEGORY, (ctx) => {
-        ctx.intStackSize--; // pop category
-        ctx.pushInt(0);
+        const categoryId = ctx.popInt();
+        ctx.pushInt(ctx.worldMapState?.isCategoryEnabled(categoryId) ? 1 : 0);
     });
 
     handlers.set(Opcodes.WORLDMAP_LISTELEMENT_START, (ctx) => {
-        ctx.intStackSize--; // pop input
-        ctx.pushInt(0);
+        const icon = ctx.worldMapState?.iconStart();
+        ctx.pushInt(icon?.element ?? -1);
+        ctx.pushInt(icon?.coord ?? -1);
     });
 
     handlers.set(Opcodes.WORLDMAP_LISTELEMENT_NEXT, (ctx) => {
-        ctx.intStackSize--; // pop input
-        ctx.pushInt(-1);
+        const icon = ctx.worldMapState?.iconNext();
+        ctx.pushInt(icon?.element ?? -1);
+        ctx.pushInt(icon?.coord ?? -1);
     });
 
     handlers.set(Opcodes.WORLDMAP_ELEMENT, (ctx) => {
         ctx.pushInt(0);
+    });
+
+    handlers.set(Opcodes.WORLDMAP_ELEMENTCOORD1, (ctx) => {
         ctx.pushInt(0);
     });
 

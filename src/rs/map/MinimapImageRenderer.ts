@@ -57,7 +57,7 @@ const tileRotation2D = [
     [3, 7, 11, 15, 2, 6, 10, 14, 1, 5, 9, 13, 0, 4, 8, 12],
 ];
 
-export class MapImageRenderer {
+export class MinimapImageRenderer {
     static tmpScreenX = new Int32Array(6);
     static tmpScreenY = new Int32Array(6);
 
@@ -308,9 +308,9 @@ export class MapImageRenderer {
         const h = py1 - py0;
 
         for (let vert = 0; vert < vertexX.length; vert++) {
-            MapImageRenderer.tmpScreenX[vert] =
+            MinimapImageRenderer.tmpScreenX[vert] =
                 px0 + (((vertexX[vert] - localX) * w) >> LOCAL_COORD_BITS);
-            MapImageRenderer.tmpScreenY[vert] =
+            MinimapImageRenderer.tmpScreenY[vert] =
                 py0 + (((LOCAL_TILE_SIZE - (vertexZ[vert] - localY)) * h) >> LOCAL_COORD_BITS);
         }
 
@@ -325,12 +325,12 @@ export class MapImageRenderer {
 
             if (colorA !== INVALID_HSL_COLOR) {
                 Rasterizer3D.rasterGouraud(
-                    MapImageRenderer.tmpScreenY[a],
-                    MapImageRenderer.tmpScreenY[b],
-                    MapImageRenderer.tmpScreenY[c],
-                    MapImageRenderer.tmpScreenX[a],
-                    MapImageRenderer.tmpScreenX[b],
-                    MapImageRenderer.tmpScreenX[c],
+                    MinimapImageRenderer.tmpScreenY[a],
+                    MinimapImageRenderer.tmpScreenY[b],
+                    MinimapImageRenderer.tmpScreenY[c],
+                    MinimapImageRenderer.tmpScreenX[a],
+                    MinimapImageRenderer.tmpScreenX[b],
+                    MinimapImageRenderer.tmpScreenX[c],
                     colorA,
                     colorB,
                     colorC,

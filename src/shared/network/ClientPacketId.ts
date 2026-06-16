@@ -59,6 +59,7 @@ export enum ClientPacketId {
 
     // Movement
     MOVE_GAMECLICK = 16, // Walk/Move (7 bytes)
+    WORLD_MAP_CLICK = 105, // World map click (4 bytes, packed coord)
 
     // Location/Object options
     OPLOC1 = 96, // Loc option 1 (7 bytes)
@@ -106,6 +107,7 @@ export const CLIENT_PACKET_LENGTHS: Record<number, number> = {
     [ClientPacketId.IF_BUTTON]: 4,
     [ClientPacketId.IF_BUTTON7]: 8,
     [ClientPacketId.MOVE_GAMECLICK]: 7,
+    [ClientPacketId.WORLD_MAP_CLICK]: 4,
     [ClientPacketId.IF_BUTTON8]: 8,
     [ClientPacketId.IF_BUTTON9]: 8,
     [ClientPacketId.OPPLAYER8]: 3,

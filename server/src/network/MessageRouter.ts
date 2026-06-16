@@ -96,6 +96,7 @@ export interface MessageRouterServices {
 const INTERFACE_CLOSING_ACTIONS = new Set([
     "walk",
     "teleport",
+    "world_map_click",
     "interact",
     "player_attack",
     "npc_attack",

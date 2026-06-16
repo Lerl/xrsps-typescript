@@ -1,8 +1,9 @@
 import type { WebSocket } from "ws";
 
-import type { SkillId } from "../../../../src/rs/skill/skills";
+import { SkillId } from "../../../../src/rs/skill/skills";
 import { encodeMessage } from "../../network/messages";
 import { logger } from "../../utils/logger";
+import { VARP_MAP_CLOCK } from "../../widgets/minimapOrbs";
 import type { ServerServices } from "../ServerServices";
 import type { ActionEffect, ActionExecutionResult } from "../actions";
 import { AttackType } from "../combat/AttackType";
@@ -22,12 +23,22 @@ export class SkillService {
     constructor(private readonly services: ServerServices) {}
 
     queueSkillSnapshot(playerId: number, update: SkillSyncUpdate): void {
+        this.queueMapClockForHitpointsSnapshot(playerId, update);
         const frame = this.services.activeFrame;
         if (frame) {
             frame.skillSnapshots.push({ playerId, update });
             return;
         }
         this.services.broadcastScheduler.queueSkillSnapshot(playerId, update);
+    }
+
+    private queueMapClockForHitpointsSnapshot(playerId: number, update: SkillSyncUpdate): void {
+        if (!update.skills.some((skill) => (skill.id | 0) === SkillId.Hitpoints)) {
+            return;
+        }
+
+        const tick = this.services.activeFrame?.tick ?? this.services.ticker.currentTick();
+        this.services.variableService.queueVarp(playerId, VARP_MAP_CLOCK, tick);
     }
 
     sendSkillsSnapshotImmediate(
@@ -37,6 +48,19 @@ export class SkillService {
     ): void {
         const sync = update ?? player.skillSystem.takeSkillSync();
         if (!sync) return;
+        if (sync.skills.some((skill) => (skill.id | 0) === SkillId.Hitpoints)) {
+            const tick = this.services.activeFrame?.tick ?? this.services.ticker.currentTick();
+            this.services.networkLayer.withDirectSendBypass("skills_snapshot_map_clock", () =>
+                this.services.networkLayer.sendWithGuard(
+                    ws,
+                    encodeMessage({
+                        type: "varp",
+                        payload: { varpId: VARP_MAP_CLOCK, value: tick },
+                    }),
+                    "skills_snapshot_map_clock",
+                ),
+            );
+        }
         const payload = {
             kind: sync.snapshot ? ("snapshot" as const) : ("delta" as const),
             skills: sync.skills,

@@ -130,6 +130,8 @@ export interface WidgetNode {
     transparency?: number; // 0-255, where 255 is fully transparent (CS2 CC_SETTRANS)
     lineWidth?: number;
     lineDirection?: boolean;
+    arcStart?: number;
+    arcEnd?: number;
     borderType?: number; // outline
 
     spriteId?: number; // primary sprite (IF3/cache sprite and what CC_SETGRAPHIC/IF_SETGRAPHIC set)

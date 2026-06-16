@@ -76,6 +76,8 @@ export class PlayerCombatState {
     // Special attack energy
     specialEnergy: number = 1000; // SPECIAL_ENERGY_MAX
     nextSpecialRegenTick: number = 0;
+    lastSpecialRegenUiStartTick: number = -1;
+    lastSpecialRegenUiInterval: number = -1;
     specialActivatedFlag: boolean = false;
     specialEnergyDirty: boolean = true;
 

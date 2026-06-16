@@ -2,6 +2,7 @@ import { CollisionData } from "../../../rs/scene/CollisionMap";
 import { DrawRange } from "../DrawRange";
 import { LocAnimatedData } from "../loc/LocAnimatedData";
 import { NpcData } from "../npc/NpcData";
+import type { MinimapPixelData } from "../../worker/MinimapData";
 
 /**
  * Minimap icon entry: position + sprite ID for dynamic rendering
@@ -9,7 +10,19 @@ import { NpcData } from "../npc/NpcData";
 export interface MinimapIcon {
     localX: number; // Local tile X within map square (0-63)
     localY: number; // Local tile Y within map square (0-63)
+    elementId: number; // Map element ID from the object map function
+    category: number; // Map element category, or -1 if unset
     spriteId: number; // Sprite ID to load (resolved from MapElementType.spriteId)
+    worldMapVisible?: boolean;
+    name?: string;
+    textColor?: number;
+    textSize?: number;
+    horizontalAlignment?: number;
+    verticalAlignment?: number;
+    sourceX?: number;
+    sourceY?: number;
+    displayX?: number;
+    displayY?: number;
 }
 
 export type SdMapData = {
@@ -34,8 +47,10 @@ export type SdMapData = {
     tileRenderFlags: Uint8Array[][];
     collisionDatas: CollisionData[];
 
-    minimapBlob: Blob;
-    minimapIcons: MinimapIcon[];
+    minimapBlobs?: Blob[];
+    minimapPixels?: MinimapPixelData[];
+    minimapIcons: MinimapIcon[][];
+    worldMapIcons: MinimapIcon[][];
 
     vertices: Uint8Array;
     indices: Int32Array;

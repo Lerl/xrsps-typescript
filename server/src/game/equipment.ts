@@ -276,6 +276,15 @@ export function getSkillcapeSeqId(capeItemId: number | undefined): number | unde
     return val !== undefined && val >= 0 ? val : undefined;
 }
 
+export function hasHitpointsCapeRegenPerk(capeItemId: number | undefined): boolean {
+    if (capeItemId === undefined) return false;
+    return (
+        capeItemId === 9768 ||
+        capeItemId === 9769 ||
+        SKILLCAPE_SEQ_BY_CAPE_ID[capeItemId] === 7121
+    );
+}
+
 export function equipItemApply(args: {
     appearance: PlayerAppearance;
     inv: InventoryEntry[];

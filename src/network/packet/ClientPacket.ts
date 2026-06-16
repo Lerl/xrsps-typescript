@@ -92,6 +92,7 @@ export const ClientPacket = {
 
     // Movement
     MOVE_GAMECLICK: ClientPacketId.MOVE_GAMECLICK,
+    WORLD_MAP_CLICK: ClientPacketId.WORLD_MAP_CLICK,
 
     // Dialog
     RESUME_PAUSEBUTTON: ClientPacketId.RESUME_PAUSEBUTTON,
