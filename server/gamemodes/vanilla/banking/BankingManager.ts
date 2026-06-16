@@ -6,9 +6,11 @@ import { EquipmentSlot } from "../../../../src/rs/config/player/Equipment";
 import { type BankEntry, type PlayerState } from "../../../src/game/player";
 import { getItemDefinition } from "../../../src/game/scripts/types";
 import { DEFAULT_BANK_CAPACITY } from "../../../src/game/state/PlayerBankSystem";
+import { computeTargetBonusPercentages } from "../equipment/targetBonuses";
 import {
     BANK_INTERFACE_ID,
     SCRIPT_BANK_INTERFACE_UNDERLAY,
+    SCRIPT_BANK_TARGET_BONUS_TOOLTIP,
     type BankOpenData,
 } from "./BankInterfaceHooks";
 import type {
@@ -48,6 +50,124 @@ export class BankingManager implements BankingProvider {
 
     private formatBankCapacityTooltip(): string {
         return "Non-members' capacity: 400<br>Become a member for 500 more.<br>A banker can sell you up to 450 more.<br>+20 for your PIN.<br>+40 as a Jagex Account.";
+    }
+
+    private formatSignedInt(value: number): string {
+        const safe = Number.isFinite(value) ? Math.trunc(value) : 0;
+        return safe >= 0 ? `+${safe}` : String(safe);
+    }
+
+    private formatSignedIntPercent(value: number): string {
+        return `${this.formatSignedInt(value)}.0%`;
+    }
+
+    private formatTargetPercent(value: number): string {
+        const safe = Number.isFinite(value) ? value : 0;
+        if (safe === 0) return "0%";
+        if (Number.isInteger(safe)) return `${safe}%`;
+        return `${safe.toFixed(1)}%`;
+    }
+
+    private formatAttackSpeedSeconds(ticks: number): string {
+        const safeTicks = Math.max(1, Number.isFinite(ticks) ? ticks : 4);
+        return `${(safeTicks * 0.6).toFixed(1)}s`;
+    }
+
+    private buildBankStatTexts(player: PlayerState): Record<number, string> {
+        const bonuses = this.services.computeEquipmentStatBonuses(player);
+        const targetSpecific = computeTargetBonusPercentages(
+            player,
+            this.services.getEquipArray(player),
+        );
+        const baseAttackSpeed = this.services.resolveBaseAttackSpeed(player);
+        const actualAttackSpeed = this.services.pickAttackSpeed(player);
+
+        return {
+            [BankMainChild.STAB_ATTACK]: `Stab: ${this.formatSignedInt(bonuses[0] ?? 0)}`,
+            [BankMainChild.SLASH_ATTACK]: `Slash: ${this.formatSignedInt(bonuses[1] ?? 0)}`,
+            [BankMainChild.CRUSH_ATTACK]: `Crush: ${this.formatSignedInt(bonuses[2] ?? 0)}`,
+            [BankMainChild.MAGIC_ATTACK]: `Magic: ${this.formatSignedInt(bonuses[3] ?? 0)}`,
+            [BankMainChild.RANGED_ATTACK]: `Range: ${this.formatSignedInt(bonuses[4] ?? 0)}`,
+            [BankMainChild.STAB_DEFENCE]: `Stab: ${this.formatSignedInt(bonuses[5] ?? 0)}`,
+            [BankMainChild.SLASH_DEFENCE]: `Slash: ${this.formatSignedInt(bonuses[6] ?? 0)}`,
+            [BankMainChild.CRUSH_DEFENCE]: `Crush: ${this.formatSignedInt(bonuses[7] ?? 0)}`,
+            [BankMainChild.MAGIC_DEFENCE]: `Magic: ${this.formatSignedInt(bonuses[8] ?? 0)}`,
+            [BankMainChild.RANGED_DEFENCE]: `Range: ${this.formatSignedInt(bonuses[9] ?? 0)}`,
+            [BankMainChild.MELEE_STRENGTH]: `Melee STR: ${this.formatSignedInt(
+                bonuses[10] ?? 0,
+            )}`,
+            [BankMainChild.RANGED_STRENGTH]: `Ranged STR: ${this.formatSignedInt(
+                bonuses[11] ?? 0,
+            )}`,
+            [BankMainChild.MAGIC_DAMAGE]: `Magic DMG: ${this.formatSignedIntPercent(
+                bonuses[12] ?? 0,
+            )}`,
+            [BankMainChild.PRAYER]: `Prayer: ${this.formatSignedInt(bonuses[13] ?? 0)}`,
+            [BankMainChild.TARGET_TYPE_MULTIPLIER]: `Undead: ${this.formatTargetPercent(
+                targetSpecific.undeadPercent,
+            )} `,
+            [BankMainChild.SLAYER_MULTIPLIER]: `Slayer: ${this.formatTargetPercent(
+                targetSpecific.slayerPercent,
+            )}`,
+            [BankMainChild.ATTACK_SPEED_BASE]: `Base: ${this.formatAttackSpeedSeconds(
+                baseAttackSpeed,
+            )}`,
+            [BankMainChild.ATTACK_SPEED_ACTUAL]: `Actual: ${this.formatAttackSpeedSeconds(
+                actualAttackSpeed,
+            )}`,
+        };
+    }
+
+    private queueBankStatTexts(player: PlayerState): void {
+        const statTexts = this.buildBankStatTexts(player);
+        for (const [childIdRaw, text] of Object.entries(statTexts)) {
+            const childId = Number(childIdRaw);
+            if (!Number.isFinite(childId)) continue;
+            this.services.queueWidgetEvent(player.id, {
+                action: "set_text",
+                uid: (BANK_INTERFACE_ID << 16) | (childId & 0xffff),
+                text,
+            });
+        }
+        this.services.queueWidgetEvent(player.id, {
+            action: "run_script",
+            scriptId: SCRIPT_BANK_TARGET_BONUS_TOOLTIP,
+            args: [
+                (BANK_INTERFACE_ID << 16) | BankMainChild.TOOLTIP,
+                (BANK_INTERFACE_ID << 16) | BankMainChild.TARGET_TYPE_MULTIPLIER,
+                "Increases your effective accuracy and damage against undead creatures. For multi-target Ranged and Magic attacks, this applies only to the primary target. It does not stack with the Slayer multiplier.",
+            ],
+        });
+    }
+
+    private refreshEquipmentBankState(
+        player: PlayerState,
+        opts: { bankChanged?: boolean; inventoryChanged?: boolean; tab?: number } = {},
+    ): void {
+        this.services.refreshAppearance(player);
+        const { categoryChanged, weaponItemChanged } = this.services.refreshCombatWeapon(player);
+        if (opts.inventoryChanged) {
+            this.services.sendInventorySnapshot(player.id);
+        }
+        if (opts.bankChanged) {
+            this.queueBankSnapshot(player);
+        }
+        this.queueBankStatTexts(player);
+        this.services.sendAppearanceUpdate(player.id);
+        if (categoryChanged || weaponItemChanged) {
+            this.services.queueCombatSnapshot(
+                player.id,
+                player.combat.weaponCategory,
+                player.combat.weaponItemId,
+                !!player.combat.autoRetaliate,
+                player.combat.styleSlot,
+                Array.from(player.prayer.activePrayers ?? []),
+                player.combat.spellId > 0 ? player.combat.spellId : undefined,
+            );
+        }
+        if (opts.bankChanged && opts.tab !== undefined && opts.tab > 0) {
+            this.sendBankTabVarbits(player);
+        }
     }
 
     private tabIndexFromDragTarget(targetChild: number, targetSlot: number): number | undefined {
@@ -133,6 +253,51 @@ export class BankingManager implements BankingProvider {
         }
 
         return sizes;
+    }
+
+    private normalizeBankTabs(player: PlayerState): boolean {
+        const sizes = this.calculateBankTabSizes(player);
+        const tabRemap = new Map<number, number>();
+        let nextTab = 1;
+        for (let tab = 1; tab <= BankLimits.MAX_TABS; tab++) {
+            if ((sizes[tab - 1] ?? 0) > 0) {
+                tabRemap.set(tab, nextTab);
+                nextTab++;
+            }
+        }
+
+        let changed = false;
+        const bank = this.getBank(player);
+        for (const entry of bank) {
+            if (!entry || entry.itemId <= 0 || entry.filler) continue;
+            const tab = Number.isFinite(entry.tab)
+                ? Math.max(0, Math.min(BankLimits.MAX_TABS, entry.tab as number))
+                : 0;
+            if (tab <= 0) {
+                if (entry.tab !== 0) {
+                    entry.tab = 0;
+                    changed = true;
+                }
+                continue;
+            }
+            const remapped = tabRemap.get(tab) ?? 0;
+            if (entry.tab !== remapped) {
+                entry.tab = remapped;
+                changed = true;
+            }
+        }
+
+        const currentTab = player.bank.getBankCurrentTab();
+        if (currentTab > 0 && currentTab <= BankLimits.MAX_TABS) {
+            const remappedCurrentTab = tabRemap.get(currentTab) ?? 0;
+            if (remappedCurrentTab !== currentTab) {
+                player.bank.setBankCurrentTab(remappedCurrentTab);
+                this.services.queueVarbit(player.id, BankVarbit.CURRENT_TAB, remappedCurrentTab);
+                changed = true;
+            }
+        }
+
+        return changed;
     }
 
     /**
@@ -261,8 +426,6 @@ export class BankingManager implements BankingProvider {
         const tabNormalized = Number.isFinite(tab) ? Math.max(0, tab as number) : undefined;
         if (tabNormalized !== undefined) {
             empty.tab = tabNormalized;
-        } else if (Number.isFinite(empty.tab)) {
-            empty.tab = Math.max(0, empty.tab as number);
         } else {
             empty.tab = 0;
         }
@@ -384,8 +547,8 @@ export class BankingManager implements BankingProvider {
         if (from === to && tab === entry.tab) return true;
         if (from === to && tab !== entry.tab) {
             entry.tab = tab ?? 0;
+            this.normalizeBankTabs(player);
             this.queueBankSnapshot(player);
-            // Tab changed - update varbits so tabs show/hide correctly
             this.sendBankTabVarbits(player);
             return true;
         }
@@ -416,9 +579,9 @@ export class BankingManager implements BankingProvider {
                 bank[from].tab = bank[from].tab ?? 0;
             }
         }
+        this.normalizeBankTabs(player);
         this.queueBankSnapshot(player);
 
-        // If tab property changed, update varbits for proper tab visibility
         if (tab !== undefined && tab !== entry.tab) {
             this.sendBankTabVarbits(player);
         }
@@ -544,6 +707,19 @@ export class BankingManager implements BankingProvider {
         }
     }
 
+    private resolvePlaceholderItemId(rawItemId: number): number {
+        const obj = this.services.getObjType(rawItemId) as
+            | { placeholderTemplate?: number; placeholder?: number }
+            | undefined;
+        if (obj && obj.placeholderTemplate === -1 && Number.isFinite(obj.placeholder)) {
+            const placeholderId = Math.trunc(obj.placeholder as number);
+            if (placeholderId >= 0) {
+                return placeholderId;
+            }
+        }
+        return rawItemId;
+    }
+
     /**
      * Build a single slot entry for the bank payload.
      * Handles placeholder and filler item ID transformations.
@@ -568,12 +744,7 @@ export class BankingManager implements BankingProvider {
         let quantity = entry.quantity;
 
         if (placeholder && rawItemId > 0) {
-            const obj = this.services.getObjType(rawItemId) as
-                | { placeholderTemplate?: number; placeholder?: number }
-                | undefined;
-            if (obj && obj.placeholderTemplate === -1 && obj.placeholder >= 0) {
-                itemId = obj.placeholder;
-            }
+            itemId = this.resolvePlaceholderItemId(rawItemId);
             quantity = 0;
         } else if (filler) {
             itemId = 20594; // BANK_FILLER
@@ -684,28 +855,70 @@ export class BankingManager implements BankingProvider {
             });
         }
         if (moved) {
-            this.services.refreshAppearance(player);
-            const { categoryChanged, weaponItemChanged } =
-                this.services.refreshCombatWeapon(player);
-            this.queueBankSnapshot(player);
-            this.services.sendAppearanceUpdate(player.id);
-            if (categoryChanged || weaponItemChanged) {
-                this.services.queueCombatSnapshot(
-                    player.id,
-                    player.combat.weaponCategory,
-                    player.combat.weaponItemId,
-                    !!player.combat.autoRetaliate,
-                    player.combat.styleSlot,
-                    Array.from(player.prayer.activePrayers ?? []),
-                    player.combat.spellId > 0 ? player.combat.spellId : undefined,
-                );
-            }
-            // Update tab varbits if a specific tab was targeted (may create new tab)
-            if (tab !== undefined && tab > 0) {
-                this.sendBankTabVarbits(player);
-            }
+            this.refreshEquipmentBankState(player, { bankChanged: true, tab });
         }
         return moved;
+    }
+
+    depositEquipmentSlot(player: PlayerState, slot: number, tab?: number): boolean {
+        if (!Number.isFinite(slot)) return false;
+        const equipSlot = Math.trunc(slot);
+        const equip = this.services.getEquipArray(player);
+        const equipQty = this.services.getEquipQtyArray(player);
+        if (equipSlot < 0 || equipSlot >= equip.length) return false;
+
+        const itemId = equip[equipSlot];
+        if (!(itemId > 0)) return false;
+
+        const qtyRaw = equipQty[equipSlot];
+        const quantity =
+            equipSlot === EquipmentSlot.AMMO
+                ? Math.max(1, qtyRaw)
+                : Math.min(1, Math.max(0, qtyRaw)) || 1;
+        if (!this.addItemToBank(player, itemId, quantity, tab)) {
+            this.services.queueChatMessage({
+                messageType: "game",
+                text: "Your bank is full.",
+                targetPlayerIds: [player.id],
+            });
+            return false;
+        }
+
+        equip[equipSlot] = -1;
+        equipQty[equipSlot] = 0;
+        this.refreshEquipmentBankState(player, { bankChanged: true, tab });
+        return true;
+    }
+
+    removeEquipmentSlot(player: PlayerState, slot: number): boolean {
+        if (!Number.isFinite(slot)) return false;
+        const equipSlot = Math.trunc(slot);
+        const equip = this.services.getEquipArray(player);
+        const equipQty = this.services.getEquipQtyArray(player);
+        if (equipSlot < 0 || equipSlot >= equip.length) return false;
+
+        const itemId = equip[equipSlot];
+        if (!(itemId > 0)) return false;
+
+        const qtyRaw = equipQty[equipSlot];
+        const quantity =
+            equipSlot === EquipmentSlot.AMMO
+                ? Math.max(1, qtyRaw)
+                : Math.min(1, Math.max(0, qtyRaw)) || 1;
+        const result = this.services.addItemToInventory(player, itemId, quantity);
+        if (result.added <= 0) {
+            this.services.queueChatMessage({
+                messageType: "game",
+                text: "You don't have enough inventory space.",
+                targetPlayerIds: [player.id],
+            });
+            return false;
+        }
+
+        equip[equipSlot] = -1;
+        equipQty[equipSlot] = 0;
+        this.refreshEquipmentBankState(player, { inventoryChanged: true });
+        return true;
     }
 
     /**
@@ -777,9 +990,6 @@ export class BankingManager implements BankingProvider {
 
         // Validate item hint matches
         if (invItemIdHint > 0 && invEntry.itemId !== invItemIdHint) {
-            this.services.logger.debug(
-                `[bank] deposit-to-slot mismatch: inv slot ${invSlot} has ${invEntry.itemId}, expected ${invItemIdHint}`,
-            );
             return;
         }
 
@@ -1006,6 +1216,7 @@ export class BankingManager implements BankingProvider {
             return { ok: false, message: "You don't have enough inventory space." };
         }
 
+        this.normalizeBankTabs(player);
         this.services.sendInventorySnapshot(player.id);
         this.queueBankSnapshot(player);
 
@@ -1086,11 +1297,6 @@ export class BankingManager implements BankingProvider {
         }
 
         if (serverSlot < 0 || !entry || entry.itemId <= 0) {
-            this.services.logger.info(
-                `[bank-tab] moveToTab unresolved player=${
-                    player.id
-                } clientSlot=${bankSlot} tab=${tabIndex} hint=${normalizedHint ?? -1}`,
-            );
             return;
         }
 
@@ -1098,10 +1304,6 @@ export class BankingManager implements BankingProvider {
         if (entry.tab === tabIndex) {
             return;
         }
-
-        this.services.logger.info(
-            `[bank-tab] Moving clientSlot=${bankSlot} (serverSlot=${serverSlot}) from tab ${entry.tab} to tab ${tabIndex}`,
-        );
 
         // moving an item onto a tab appends it to the end of that tab.
         // Because client ordering inside each tab is derived from server-array order,
@@ -1151,6 +1353,7 @@ export class BankingManager implements BankingProvider {
             entry.tab = targetTab;
         }
 
+        this.normalizeBankTabs(player);
         this.queueBankSnapshot(player);
         this.sendBankTabVarbits(player);
     }
@@ -1168,15 +1371,161 @@ export class BankingManager implements BankingProvider {
         this.moveToTab(player, bankSlot, newTabIndex, sourceItemIdHint);
     }
 
+    setCurrentTab(player: PlayerState, tabIndex: number): boolean {
+        if (!Number.isFinite(tabIndex)) return false;
+        const tab = Math.max(0, Math.min(BankLimits.MAX_TABS, Math.trunc(tabIndex)));
+        if (tab > 0 && player.bank.getBankTabSize(tab) <= 0) {
+            return false;
+        }
+        player.bank.setBankCurrentTab(tab);
+        this.services.queueVarbit(player.id, BankVarbit.CURRENT_TAB, tab);
+        return true;
+    }
+
+    setTabDisplayMode(player: PlayerState, mode: number): boolean {
+        if (!Number.isFinite(mode)) return false;
+        const normalized = Math.max(0, Math.min(3, Math.trunc(mode)));
+        player.bank.setBankTabDisplayMode(normalized);
+        this.services.queueVarbit(player.id, BankVarbit.TAB_DISPLAY, normalized);
+        return true;
+    }
+
+    private compactBankEntries(bank: BankEntry[]): void {
+        const occupied = bank.filter(
+            (entry) =>
+                !!entry &&
+                entry.itemId > 0 &&
+                (entry.quantity > 0 || entry.placeholder || entry.filler),
+        );
+        for (let i = 0; i < bank.length; i++) {
+            const entry = occupied[i];
+            bank[i] = entry
+                ? { ...entry }
+                : {
+                      itemId: -1,
+                      quantity: 0,
+                      placeholder: false,
+                      filler: false,
+                      tab: 0,
+                  };
+        }
+    }
+
+    collapseTab(player: PlayerState, tabIndex: number): boolean {
+        if (!Number.isFinite(tabIndex)) return false;
+        const tab = Math.trunc(tabIndex);
+        if (tab < 1 || tab > BankLimits.MAX_TABS) return false;
+        if (player.bank.getBankTabSize(tab) <= 0) return false;
+
+        const bank = this.getBank(player);
+        const currentTab = player.bank.getBankCurrentTab();
+        const targetTab = tab - 1;
+        for (const entry of bank) {
+            if (!entry || entry.itemId <= 0) continue;
+            const entryTab = Number.isFinite(entry.tab) ? Math.max(0, entry.tab as number) : 0;
+            if (entryTab === tab) {
+                entry.tab = targetTab;
+            } else if (entryTab > tab && entryTab <= BankLimits.MAX_TABS) {
+                entry.tab = entryTab - 1;
+            }
+        }
+        this.compactBankEntries(bank);
+        this.normalizeBankTabs(player);
+
+        if (currentTab === tab) {
+            player.bank.setBankCurrentTab(targetTab);
+            this.services.queueVarbit(player.id, BankVarbit.CURRENT_TAB, targetTab);
+        } else if (currentTab > tab && currentTab <= BankLimits.MAX_TABS) {
+            const shiftedCurrentTab = currentTab - 1;
+            player.bank.setBankCurrentTab(shiftedCurrentTab);
+            this.services.queueVarbit(player.id, BankVarbit.CURRENT_TAB, shiftedCurrentTab);
+        }
+
+        this.queueBankSnapshot(player);
+        this.sendBankTabVarbits(player);
+        return true;
+    }
+
+    releasePlaceholder(player: PlayerState, clientSlot: number, itemIdHint?: number): boolean {
+        if (!Number.isFinite(clientSlot)) return false;
+        const serverSlot = this.clientSlotToServerIndex(player, Math.trunc(clientSlot));
+        if (serverSlot < 0) return false;
+
+        const bank = this.getBank(player);
+        const entry = bank[serverSlot];
+        if (
+            !entry ||
+            entry.itemId <= 0 ||
+            !entry.placeholder ||
+            entry.quantity !== 0 ||
+            entry.filler
+        ) {
+            return false;
+        }
+
+        if (
+            itemIdHint !== undefined &&
+            Number.isFinite(itemIdHint) &&
+            itemIdHint > 0 &&
+            itemIdHint !== 0xffff
+        ) {
+            const hint = Math.trunc(itemIdHint);
+            const placeholderItemId = this.resolvePlaceholderItemId(entry.itemId);
+            if (hint !== entry.itemId && hint !== placeholderItemId) {
+                return false;
+            }
+        }
+
+        entry.itemId = -1;
+        entry.quantity = 0;
+        entry.placeholder = false;
+        entry.filler = false;
+        entry.tab = 0;
+
+        this.compactBankEntries(bank);
+        this.normalizeBankTabs(player);
+        this.queueBankSnapshot(player);
+        this.sendBankTabVarbits(player);
+        return true;
+    }
+
+    releasePlaceholders(player: PlayerState, tabIndex?: number): number {
+        const tab =
+            Number.isFinite(tabIndex) && (tabIndex as number) > 0
+                ? Math.max(1, Math.min(BankLimits.MAX_TABS, Math.trunc(tabIndex as number)))
+                : undefined;
+        let cleared = 0;
+        const bank = this.getBank(player);
+        for (const entry of bank) {
+            if (!entry || !entry.placeholder || entry.quantity !== 0) continue;
+            if (tab !== undefined && entry.tab !== tab) continue;
+            entry.itemId = -1;
+            entry.quantity = 0;
+            entry.placeholder = false;
+            entry.filler = false;
+            entry.tab = 0;
+            cleared++;
+        }
+        if (cleared > 0) {
+            this.compactBankEntries(bank);
+            this.normalizeBankTabs(player);
+            const currentTab = player.bank.getBankCurrentTab();
+            if (currentTab > 0 && player.bank.getBankTabSize(currentTab) <= 0) {
+                player.bank.setBankCurrentTab(0);
+                this.services.queueVarbit(player.id, BankVarbit.CURRENT_TAB, 0);
+            }
+            this.queueBankSnapshot(player);
+            this.sendBankTabVarbits(player);
+        }
+        return cleared;
+    }
+
     /**
      * Send bank tab size varbits to client.
      * Calculates sizes from actual bank entries rather than stored state.
      */
     sendBankTabVarbits(player: PlayerState): void {
-        // Calculate tab sizes from actual bank entries
         const tabSizes = this.calculateBankTabSizes(player);
-
-        this.services.logger.info(`[bank-tab] Sending varbits: ${JSON.stringify(tabSizes)}`);
 
         for (let i = 0; i < BankLimits.MAX_TABS; i++) {
             const varbitId = BankVarbit.TAB_1 + i;
@@ -1395,10 +1744,20 @@ export class BankingManager implements BankingProvider {
                 [BankVarp.MODAL_INDICATOR]: 1,
             };
 
+            const tabSizes = this.calculateBankTabSizes(player);
+            const savedCurrentTab = player.bank.getBankCurrentTab();
+            const currentTab =
+                savedCurrentTab >= 1 &&
+                savedCurrentTab <= BankLimits.MAX_TABS &&
+                (tabSizes[savedCurrentTab - 1] ?? 0) <= 0
+                    ? 0
+                    : savedCurrentTab;
+            player.bank.setBankCurrentTab(currentTab);
+
             // Build varbits for bank settings
             const varbits: Record<number, number> = {
-                [BankVarbit.CURRENT_TAB]: 0,
-                [BankVarbit.TAB_DISPLAY]: 0,
+                [BankVarbit.CURRENT_TAB]: currentTab,
+                [BankVarbit.TAB_DISPLAY]: player.bank.getBankTabDisplayMode(),
                 [BankVarbit.LEAVE_PLACEHOLDERS]: player.bank.getBankPlaceholderMode() ? 1 : 0,
                 [BankVarbit.WITHDRAW_NOTES]: player.bank.getBankWithdrawNotes() ? 1 : 0,
                 [BankVarbit.INSERT_MODE]: player.bank.getBankInsertMode() ? 1 : 0,
@@ -1407,11 +1766,6 @@ export class BankingManager implements BankingProvider {
                 [BankVarbit.SLOT_LOCK_IGNORE]: 1,
             };
 
-            // Calculate actual tab sizes from bank entries
-            // In OSRS, tab visibility is determined by these varbits:
-            // - tab size > 0 = tab is visible
-            // - tab size = 0 = tab is hidden (or shows "New tab" button for first empty)
-            const tabSizes = this.calculateBankTabSizes(player);
             for (let i = 0; i < BankLimits.MAX_TABS; i++) {
                 varbits[BankVarbit.TAB_1 + i] = tabSizes[i] ?? 0;
             }
@@ -1422,6 +1776,9 @@ export class BankingManager implements BankingProvider {
                 varbits,
                 capacityText: this.formatBankCapacityText(capacity),
                 capacityTooltip: this.formatBankCapacityTooltip(),
+                statTexts: this.buildBankStatTexts(player),
+                targetBonusTooltip:
+                    "Increases your effective accuracy and damage against undead creatures. For multi-target Ranged and Magic attacks, this applies only to the primary target. It does not stack with the Slayer multiplier.",
             };
 
             this.services.queueWidgetEvent(player.id, {

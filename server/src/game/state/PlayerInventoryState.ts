@@ -52,6 +52,8 @@ export class PlayerInventoryState {
     bankQuantityMode: number = 0;
     bankPlaceholderMode: boolean = false;
     bankCustomQuantity: number = 0;
+    bankCurrentTab: number = 0;
+    bankTabDisplayMode: number = 1;
     bankClientSlotMapping: number[] = [];
 
     // Shop interface

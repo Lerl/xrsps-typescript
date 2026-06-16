@@ -171,6 +171,8 @@ export interface PlayerPersistentVars {
     bankWithdrawNotes?: boolean;
     bankInsertMode?: boolean;
     bankPlaceholders?: boolean;
+    bankCurrentTab?: number;
+    bankTabDisplayMode?: number;
     inventory?: InventorySnapshotEntry[];
     equipment?: EquipmentSnapshotEntry[];
     skills?: PlayerSkillPersistentEntry[];

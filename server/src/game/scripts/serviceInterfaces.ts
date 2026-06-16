@@ -134,6 +134,8 @@ export interface BankingServices {
     openBank?: (player: PlayerState, opts?: { mode?: "bank" | "collect" }) => void;
     depositInventoryToBank?: (player: PlayerState, tab?: number) => boolean;
     depositEquipmentToBank?: (player: PlayerState, tab?: number) => boolean;
+    depositEquipmentSlotToBank?: (player: PlayerState, slot: number, tab?: number) => boolean;
+    removeEquipmentSlot?: (player: PlayerState, slot: number) => boolean;
     depositInventoryItemToBank?: (
         player: PlayerState,
         slotIndex: number,
@@ -169,6 +171,11 @@ export interface BankingServices {
     ) => void;
     queueBankSnapshot?: (player: PlayerState) => void;
     sendBankTabVarbits?: (player: PlayerState) => void;
+    setCurrentTab?: (player: PlayerState, tabIndex: number) => boolean;
+    setTabDisplayMode?: (player: PlayerState, mode: number) => boolean;
+    collapseTab?: (player: PlayerState, tabIndex: number) => boolean;
+    releasePlaceholder?: (player: PlayerState, slot: number, itemIdHint?: number) => boolean;
+    releasePlaceholders?: (player: PlayerState, tabIndex?: number) => number;
     addItemToBank?: (player: PlayerState, itemId: number, quantity: number) => boolean;
 }
 

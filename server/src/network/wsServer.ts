@@ -1237,6 +1237,7 @@ export class WSServer {
                     messagingService: this.messagingService,
                     inventoryService: this.inventoryService,
                     equipmentService: this.equipmentService,
+                    playerCombatService: this.playerCombatService,
                     appearanceService: this.appearanceService,
                     getCurrentTick: () => this.options.ticker.currentTick(),
                     getPlayerById: (id) => this.players?.getById(id),

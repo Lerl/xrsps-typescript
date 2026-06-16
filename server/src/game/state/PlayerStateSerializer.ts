@@ -43,6 +43,14 @@ export function exportPersistentVars(player: PlayerState): PlayerPersistentVars 
     snapshot.bankWithdrawNotes = player.bank.getBankWithdrawNotes();
     snapshot.bankQuantityMode = player.bank.getBankQuantityMode();
     snapshot.bankPlaceholders = player.bank.getBankPlaceholderMode();
+    const bankCurrentTab = player.bank.getBankCurrentTab();
+    if (bankCurrentTab > 0) {
+        snapshot.bankCurrentTab = bankCurrentTab;
+    }
+    const bankTabDisplayMode = player.bank.getBankTabDisplayMode();
+    if (bankTabDisplayMode !== 1) {
+        snapshot.bankTabDisplayMode = bankTabDisplayMode;
+    }
     snapshot.inventory = player.exportInventorySnapshot();
     snapshot.equipment = player.exportEquipmentSnapshot();
     snapshot.skills = player.skillSystem.exportSkillSnapshot();
@@ -154,6 +162,12 @@ export function applyPersistentVars(player: PlayerState, state?: PlayerPersisten
     }
     if (state.bankInsertMode !== undefined) {
         player.bank.setBankInsertMode(state.bankInsertMode);
+    }
+    if (state.bankCurrentTab !== undefined) {
+        player.bank.setBankCurrentTab(state.bankCurrentTab);
+    }
+    if (state.bankTabDisplayMode !== undefined) {
+        player.bank.setBankTabDisplayMode(state.bankTabDisplayMode);
     }
     if (state.inventory) {
         player.loadInventorySnapshot(state.inventory);

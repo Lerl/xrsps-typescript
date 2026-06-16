@@ -31,6 +31,9 @@ export class PlayerBankSystem {
             next[i] = {
                 itemId: entry?.itemId ?? -1,
                 quantity: entry?.quantity ?? 0,
+                placeholder: !!entry?.placeholder,
+                filler: !!entry?.filler,
+                tab: Math.max(0, entry?.tab ?? 0),
             };
         }
         this.items.bankCapacity = normalized;
@@ -180,6 +183,27 @@ export class PlayerBankSystem {
             return;
         }
         this.items.bankCustomQuantity = Math.max(0, Math.min(2147483647, amount));
+    }
+
+    getBankCurrentTab(): number {
+        const tab = this.items.bankCurrentTab;
+        return Number.isFinite(tab) ? Math.max(0, Math.min(15, Math.trunc(tab))) : 0;
+    }
+
+    setBankCurrentTab(tab: number): void {
+        if (!Number.isFinite(tab)) return;
+        const normalized = Math.max(0, Math.min(15, Math.trunc(tab)));
+        this.items.bankCurrentTab = normalized;
+    }
+
+    getBankTabDisplayMode(): number {
+        const mode = this.items.bankTabDisplayMode;
+        return Number.isFinite(mode) ? Math.max(0, Math.min(3, Math.trunc(mode))) : 1;
+    }
+
+    setBankTabDisplayMode(mode: number): void {
+        if (!Number.isFinite(mode)) return;
+        this.items.bankTabDisplayMode = Math.max(0, Math.min(3, Math.trunc(mode)));
     }
 
     getBankTabCount(): number {

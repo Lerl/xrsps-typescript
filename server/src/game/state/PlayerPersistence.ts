@@ -292,6 +292,14 @@ function mergeStates(
     if (bankQuantityMode !== undefined) {
         result.bankQuantityMode = Math.max(0, Math.min(5, bankQuantityMode));
     }
+    const bankCurrentTab = overrides?.bankCurrentTab ?? defaults?.bankCurrentTab;
+    if (bankCurrentTab !== undefined && Number.isFinite(bankCurrentTab)) {
+        result.bankCurrentTab = Math.max(0, Math.min(15, Math.trunc(bankCurrentTab)));
+    }
+    const bankTabDisplayMode = overrides?.bankTabDisplayMode ?? defaults?.bankTabDisplayMode;
+    if (bankTabDisplayMode !== undefined && Number.isFinite(bankTabDisplayMode)) {
+        result.bankTabDisplayMode = Math.max(0, Math.min(3, Math.trunc(bankTabDisplayMode)));
+    }
 
     const inventorySource =
         overrides && Object.prototype.hasOwnProperty.call(overrides, "inventory")

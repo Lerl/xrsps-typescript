@@ -12,6 +12,7 @@ import type { DataLoaderService } from "./DataLoaderService";
 import type { EquipmentService } from "./EquipmentService";
 import type { InventoryService } from "./InventoryService";
 import type { MessagingService } from "./MessagingService";
+import type { PlayerCombatService } from "./PlayerCombatService";
 import type { VariableService } from "./VariableService";
 
 export interface GamemodeServiceAdapterDeps {
@@ -20,6 +21,7 @@ export interface GamemodeServiceAdapterDeps {
     messagingService: MessagingService;
     inventoryService: InventoryService;
     equipmentService: EquipmentService;
+    playerCombatService?: PlayerCombatService;
     appearanceService: AppearanceService;
     getCurrentTick: () => number;
     getPlayerById: (id: number) => PlayerState | undefined;
@@ -64,6 +66,11 @@ export function buildGamemodeServices(deps: GamemodeServiceAdapterDeps): Gamemod
         getInventory: (player) => deps.inventoryService.getInventory(player),
         getEquipArray: (player) => deps.equipmentService.ensureEquipArray(player),
         getEquipQtyArray: (player) => deps.equipmentService.ensureEquipQtyArray(player),
+        computeEquipmentStatBonuses: (player) =>
+            deps.equipmentService.computeEquipmentStatBonuses(player),
+        resolveBaseAttackSpeed: (player) =>
+            deps.playerCombatService?.resolveBaseAttackSpeed(player) ?? 4,
+        pickAttackSpeed: (player) => deps.playerCombatService?.pickAttackSpeed(player) ?? 4,
         addItemToInventory: (player, itemId, qty) =>
             deps.inventoryService.addItemToInventory(player, itemId, qty),
         sendInventorySnapshot: (playerId) => {

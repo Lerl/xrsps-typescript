@@ -62,6 +62,9 @@ export interface GamemodeServerServices {
     getInventory(player: PlayerState): Array<{ itemId: number; quantity: number }>;
     getEquipArray(player: PlayerState): number[];
     getEquipQtyArray(player: PlayerState): number[];
+    computeEquipmentStatBonuses(player: PlayerState): number[];
+    resolveBaseAttackSpeed(player: PlayerState): number;
+    pickAttackSpeed(player: PlayerState): number;
     addItemToInventory(
         player: PlayerState,
         itemId: number,

@@ -32,6 +32,8 @@ export interface BankingProvider {
     openBank(player: PlayerState, opts?: { mode?: "bank" | "collect" }): void;
     depositInventory(player: PlayerState, tab?: number): boolean;
     depositEquipment(player: PlayerState, tab?: number): boolean;
+    depositEquipmentSlot(player: PlayerState, slot: number, tab?: number): boolean;
+    removeEquipmentSlot(player: PlayerState, slot: number): boolean;
     depositItem(
         player: PlayerState,
         slot: number,
@@ -56,6 +58,11 @@ export interface BankingProvider {
     handleIfButtonD(player: PlayerState, payload: IfButtonDPayload): void;
     queueBankSnapshot(player: PlayerState): void;
     sendBankTabVarbits(player: PlayerState): void;
+    setCurrentTab(player: PlayerState, tabIndex: number): boolean;
+    setTabDisplayMode(player: PlayerState, mode: number): boolean;
+    collapseTab(player: PlayerState, tabIndex: number): boolean;
+    releasePlaceholder(player: PlayerState, slot: number, itemIdHint?: number): boolean;
+    releasePlaceholders(player: PlayerState, tabIndex?: number): number;
     buildBankSlotMapping(player: PlayerState): number[];
 }
 

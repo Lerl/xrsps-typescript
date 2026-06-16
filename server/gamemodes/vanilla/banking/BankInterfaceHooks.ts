@@ -64,12 +64,15 @@ const BANK_POTIONSTORE_SLOT_END = 578;
 export const BANK_MODAL_INDICATOR_VARP = 548;
 export const SCRIPT_BANK_INTERFACE_UNDERLAY = 917;
 export const SCRIPT_BANK_CAPACITY_TOOLTIP = 1495;
+export const SCRIPT_BANK_TARGET_BONUS_TOOLTIP = 7065;
 
 export interface BankOpenData {
     varps: Record<number, number>;
     varbits: Record<number, number>;
     capacityText?: string;
     capacityTooltip?: string;
+    statTexts?: Record<number, string>;
+    targetBonusTooltip?: string;
 }
 
 export function registerBankInterfaceHooks(interfaceService: InterfaceService): void {
@@ -176,6 +179,24 @@ export function registerBankInterfaceHooks(interfaceService: InterfaceService): 
                 bankData.capacityTooltip,
                 (BANK_INTERFACE_ID << 16) | BankMainChild.OCCUPIED_SLOTS,
                 (BANK_INTERFACE_ID << 16) | BankMainChild.TOOLTIP,
+            ]);
+        }
+        if (bankData?.statTexts !== undefined) {
+            for (const [childIdRaw, text] of Object.entries(bankData.statTexts)) {
+                const childId = Number(childIdRaw);
+                if (!Number.isFinite(childId)) continue;
+                ctx.service.setWidgetText(
+                    player,
+                    (BANK_INTERFACE_ID << 16) | (childId & 0xffff),
+                    text,
+                );
+            }
+        }
+        if (bankData?.targetBonusTooltip !== undefined) {
+            ctx.service.runScript(player, SCRIPT_BANK_TARGET_BONUS_TOOLTIP, [
+                (BANK_INTERFACE_ID << 16) | BankMainChild.TOOLTIP,
+                (BANK_INTERFACE_ID << 16) | BankMainChild.TARGET_TYPE_MULTIPLIER,
+                bankData.targetBonusTooltip,
             ]);
         }
         ctx.service.setWidgetFlags(

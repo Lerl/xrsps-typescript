@@ -150,6 +150,9 @@ export class VanillaGamemode extends BaseGamemode {
                 openBank: (player, opts) => bm.openBank(player, opts),
                 depositInventoryToBank: (player, tab) => bm.depositInventory(player, tab),
                 depositEquipmentToBank: (player, tab) => bm.depositEquipment(player, tab),
+                depositEquipmentSlotToBank: (player, slot, tab) =>
+                    bm.depositEquipmentSlot(player, slot, tab),
+                removeEquipmentSlot: (player, slot) => bm.removeEquipmentSlot(player, slot),
                 depositInventoryItemToBank: (player, slot, quantity, opts) => {
                     const slotIndex = Math.trunc(slot);
                     const amount = Math.trunc(quantity);
@@ -175,6 +178,13 @@ export class VanillaGamemode extends BaseGamemode {
                 handleIfButtonD: (player, payload) => bm.handleIfButtonD(player, payload),
                 queueBankSnapshot: (player) => bm.queueBankSnapshot(player),
                 sendBankTabVarbits: (player) => bm.sendBankTabVarbits(player),
+                setCurrentTab: (player, tabIndex) => bm.setCurrentTab(player, tabIndex),
+                setTabDisplayMode: (player, mode) => bm.setTabDisplayMode(player, mode),
+                collapseTab: (player, tabIndex) => bm.collapseTab(player, tabIndex),
+                releasePlaceholder: (player, slot, itemIdHint) =>
+                    bm.releasePlaceholder(player, slot, itemIdHint),
+                releasePlaceholders: (player, tabIndex) =>
+                    bm.releasePlaceholders(player, tabIndex),
                 addItemToBank: (player, itemId, qty) => bm.addItemToBank(player, itemId, qty),
             };
         }

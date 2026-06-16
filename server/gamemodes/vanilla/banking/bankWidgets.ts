@@ -4,7 +4,15 @@ import {
     type ScriptServices,
     type WidgetActionEvent,
 } from "../../../src/game/scripts/types";
-import { BankMainChild, BankSideChild, BankVarbit, WidgetGroup } from "./bankConstants";
+import { EquipmentSlot } from "../../../../src/rs/config/player/Equipment";
+import {
+    BankLimits,
+    BankMainChild,
+    BankSideChild,
+    BankVarbit,
+    WidgetGroup,
+    slotToTabIndex,
+} from "./bankConstants";
 
 const BANK_GROUP_ID = WidgetGroup.BANK_MAIN;
 const BANKSIDE_GROUP_ID = WidgetGroup.BANK_SIDE;
@@ -14,9 +22,24 @@ const packWidgetId = (group: number, child: number) => ((group & 0xffff) << 16) 
 const BANK_WIDGET_ITEMS = packWidgetId(BANK_GROUP_ID, BankMainChild.ITEMS);
 const BANK_WIDGET_DEPOSIT_INV = packWidgetId(BANK_GROUP_ID, BankMainChild.DEPOSIT_INVENTORY);
 const BANK_WIDGET_DEPOSIT_WORN = packWidgetId(BANK_GROUP_ID, BankMainChild.DEPOSIT_WORN);
+const BANK_WIDGET_TABS = packWidgetId(BANK_GROUP_ID, BankMainChild.TABS);
+const BANK_WIDGET_DROPDOWN_CONTENT = packWidgetId(BANK_GROUP_ID, BankMainChild.DROPDOWN_CONTENT);
 const BANKSIDE_ITEMS = packWidgetId(BANKSIDE_GROUP_ID, BankSideChild.ITEMS);
 const BANK_FILLER_ITEM_ID = 20594;
 const BANKSIDE_DYNAMIC_CHILD_START = 0x8000;
+const BANK_WORN_SLOTS: ReadonlyArray<{ child: number; slot: EquipmentSlot }> = [
+    { child: BankMainChild.WORN_SLOT_HEAD, slot: EquipmentSlot.HEAD },
+    { child: BankMainChild.WORN_SLOT_CAPE, slot: EquipmentSlot.CAPE },
+    { child: BankMainChild.WORN_SLOT_AMULET, slot: EquipmentSlot.AMULET },
+    { child: BankMainChild.WORN_SLOT_WEAPON, slot: EquipmentSlot.WEAPON },
+    { child: BankMainChild.WORN_SLOT_BODY, slot: EquipmentSlot.BODY },
+    { child: BankMainChild.WORN_SLOT_SHIELD, slot: EquipmentSlot.SHIELD },
+    { child: BankMainChild.WORN_SLOT_LEGS, slot: EquipmentSlot.LEGS },
+    { child: BankMainChild.WORN_SLOT_GLOVES, slot: EquipmentSlot.GLOVES },
+    { child: BankMainChild.WORN_SLOT_BOOTS, slot: EquipmentSlot.BOOTS },
+    { child: BankMainChild.WORN_SLOT_RING, slot: EquipmentSlot.RING },
+    { child: BankMainChild.WORN_SLOT_AMMO, slot: EquipmentSlot.AMMO },
+];
 
 const requestedQuantityOrZero = (player: PlayerState): number => {
     const requested = Math.trunc(player.bank.getBankCustomQuantity());
@@ -112,6 +135,19 @@ const quantityForDepositOption = (
     return quantityForDefaultMode(player, total);
 };
 
+const tabIndexForWidgetSlot = (slot: number | undefined): number | undefined => {
+    if (slot === undefined || !Number.isFinite(slot)) return undefined;
+    const tab = slotToTabIndex(slot);
+    return tab >= 0 && tab <= BankLimits.MAX_TABS ? tab : undefined;
+};
+
+const tabDisplayModeForDropdownSlot = (slot: number | undefined): number | undefined => {
+    if (slot === undefined || !Number.isFinite(slot)) return undefined;
+    const raw = Math.trunc(slot);
+    const mode = raw >= 1 && raw % 2 === 1 ? Math.trunc((raw - 1) / 2) : raw;
+    return mode >= 0 && mode <= 3 ? mode : undefined;
+};
+
 const handleWithdrawOp = (event: WidgetActionEvent, opId: number): void => {
     if (event.groupId !== BANK_GROUP_ID) return;
     if (event.slot === undefined) return;
@@ -122,9 +158,6 @@ const handleWithdrawOp = (event: WidgetActionEvent, opId: number): void => {
     if (!entry || entry.itemId <= 0 || entry.quantity <= 0) return;
 
     if (event.itemId !== undefined && event.itemId > 0 && event.itemId !== entry.itemId) {
-        services.system.logger.debug?.(
-            `[script:bank-widgets] withdraw ignored (item mismatch) player=${player.id} slot=${event.slot} clientItem=${event.itemId} serverItem=${entry.itemId}`,
-        );
         return;
     }
 
@@ -136,6 +169,50 @@ const handleWithdrawOp = (event: WidgetActionEvent, opId: number): void => {
     if (!result.ok && result.message) {
         services.messaging.sendGameMessage(player, result.message);
     }
+};
+
+const handleReleasePlaceholderOp = (event: WidgetActionEvent): boolean => {
+    if (event.groupId !== BANK_GROUP_ID) return false;
+    if (event.slot === undefined) return false;
+    return !!event.services.banking?.releasePlaceholder?.(event.player, event.slot, event.itemId);
+};
+
+const handleTabOp = (event: WidgetActionEvent, opId: number): void => {
+    if (event.groupId !== BANK_GROUP_ID) return;
+    const tab = tabIndexForWidgetSlot(event.slot);
+    if (tab === undefined) return;
+
+    switch (opId) {
+        case 1:
+            event.services.banking?.setCurrentTab?.(event.player, tab);
+            return;
+        case 6:
+            if (tab > 0) {
+                event.services.banking?.collapseTab?.(event.player, tab);
+            }
+            return;
+        case 7:
+            event.services.banking?.releasePlaceholders?.(
+                event.player,
+                tab > 0 ? tab : undefined,
+            );
+            return;
+        default:
+            return;
+    }
+};
+
+const handleBankWornSlotOp = (
+    event: WidgetActionEvent,
+    slot: EquipmentSlot,
+    action: "remove" | "bank",
+): void => {
+    if (event.groupId !== BANK_GROUP_ID) return;
+    if (action === "remove") {
+        event.services.banking?.removeEquipmentSlot?.(event.player, slot);
+        return;
+    }
+    event.services.banking?.depositEquipmentSlotToBank?.(event.player, slot);
 };
 
 function registerMainBankWidgets(registry: IScriptRegistry): void {
@@ -155,14 +232,35 @@ function registerMainBankWidgets(registry: IScriptRegistry): void {
             },
         });
 
+    for (const opId of [1, 6, 7]) {
+        registry.registerWidgetAction({
+            widgetId: BANK_WIDGET_TABS,
+            opId,
+            handler: (event) => handleTabOp(event, opId),
+        });
+    }
+
+    registry.registerWidgetAction({
+        widgetId: BANK_WIDGET_DROPDOWN_CONTENT,
+        opId: 1,
+        handler: (event) => {
+            if (event.groupId !== BANK_GROUP_ID) return;
+            const mode = tabDisplayModeForDropdownSlot(event.slot);
+            if (mode === undefined) return;
+            event.services.banking?.setTabDisplayMode?.(event.player, mode);
+        },
+    });
+
+    guard("View tab", ({ event }) => handleTabOp(event, 1));
+    guard("View all items", ({ event }) => handleTabOp(event, 1));
+    guard("Collapse tab", ({ event }) => handleTabOp(event, 6));
+    guard("Remove placeholders", ({ event }) => handleTabOp(event, 7));
+
     registry.registerWidgetAction({
         widgetId: BANK_WIDGET_DEPOSIT_INV,
         handler: ({ player, services, groupId }) => {
             if (groupId !== BANK_GROUP_ID) return;
-            const moved = services.banking?.depositInventoryToBank?.(player);
-            services.system.logger.debug?.(
-                `[script:bank-widgets] deposit inventory player=${player.id} moved=${moved}`,
-            );
+            services.banking?.depositInventoryToBank?.(player);
         },
     });
 
@@ -170,37 +268,49 @@ function registerMainBankWidgets(registry: IScriptRegistry): void {
         widgetId: BANK_WIDGET_DEPOSIT_WORN,
         handler: ({ player, services, groupId }) => {
             if (groupId !== BANK_GROUP_ID) return;
-            const moved = services.banking?.depositEquipmentToBank?.(player);
-            services.system.logger.debug?.(
-                `[script:bank-widgets] deposit equipment player=${player.id} moved=${moved}`,
-            );
+            services.banking?.depositEquipmentToBank?.(player);
         },
     });
+
+    for (const { child, slot } of BANK_WORN_SLOTS) {
+        const widgetId = packWidgetId(BANK_GROUP_ID, child);
+        registry.registerWidgetAction({
+            widgetId,
+            opId: 1,
+            handler: (event) => handleBankWornSlotOp(event, slot, "remove"),
+        });
+        registry.registerWidgetAction({
+            widgetId,
+            opId: 2,
+            handler: (event) => handleBankWornSlotOp(event, slot, "bank"),
+        });
+        registry.registerWidgetAction({
+            widgetId,
+            option: "Remove",
+            handler: (event) => handleBankWornSlotOp(event, slot, "remove"),
+        });
+        registry.registerWidgetAction({
+            widgetId,
+            option: "Bank",
+            handler: (event) => handleBankWornSlotOp(event, slot, "bank"),
+        });
+    }
 
     registry.onButton(BANK_GROUP_ID, BankMainChild.SWAP_INSERT_BUTTON, ({ player, services }) => {
         const next = !player.bank.getBankInsertMode();
         player.bank.setBankInsertMode(next);
         services.variables.sendVarbit?.(player, BankVarbit.INSERT_MODE, next ? 1 : 0);
-        services.system.logger.debug?.(
-            `[script:bank-widgets] insert mode=${next} player=${player.id}`,
-        );
     });
 
     registry.onButton(BANK_GROUP_ID, BankMainChild.NOTE_BUTTON, ({ player, services }) => {
         const next = !player.bank.getBankWithdrawNotes();
         player.bank.setBankWithdrawNotes(next);
         services.variables.sendVarbit?.(player, BankVarbit.WITHDRAW_NOTES, next ? 1 : 0);
-        services.system.logger.debug?.(
-            `[script:bank-widgets] withdraw notes=${next} player=${player.id}`,
-        );
     });
 
     const setQuantityMode = (player: PlayerState, services: ScriptServices, mode: number) => {
         player.bank.setBankQuantityMode(mode);
         services.variables.sendVarbit?.(player, BankVarbit.QUANTITY_TYPE, mode);
-        services.system.logger.debug?.(
-            `[script:bank-widgets] quantity mode=${mode} player=${player.id}`,
-        );
     };
 
     registry.onButton(BANK_GROUP_ID, BankMainChild.QUANTITY_ONE_BUTTON, ({ player, services }) => {
@@ -227,41 +337,23 @@ function registerMainBankWidgets(registry: IScriptRegistry): void {
         const next = !player.bank.getBankPlaceholderMode();
         player.bank.setBankPlaceholderMode(next);
         services.variables.sendVarbit?.(player, BankVarbit.LEAVE_PLACEHOLDERS, next ? 1 : 0);
-        services.system.logger.debug?.(
-            `[script:bank-widgets] placeholders=${next} player=${player.id}`,
-        );
     });
 
     guard("Placeholders", ({ player, services }) => {
         const next = !player.bank.getBankPlaceholderMode();
         player.bank.setBankPlaceholderMode(next);
         services.variables.sendVarbit?.(player, BankVarbit.LEAVE_PLACEHOLDERS, next ? 1 : 0);
-        services.system.logger.debug?.(
-            `[script:bank-widgets] placeholders=${next} player=${player.id}`,
-        );
     });
 
     guard("Release placeholders", ({ player, services }) => {
-        const cleared = player.bank.releaseBankPlaceholders();
-        services.system.logger.debug?.(
-            `[script:bank-widgets] release placeholders player=${player.id} cleared=${cleared}`,
-        );
-        if (cleared > 0) {
-            services.banking?.queueBankSnapshot?.(player);
-            services.banking?.sendBankTabVarbits?.(player);
-        }
+        services.banking?.releasePlaceholders?.(player);
     });
 
-    guard("Search", ({ services }) => {
-        services.system.logger.debug?.("[script:bank-widgets] toggled search");
-    });
+    guard("Search", () => {});
 
-    registry.onButton(BANK_GROUP_ID, BankMainChild.SEARCH, ({ services }) => {
-        services.system.logger.debug?.("[script:bank-widgets] toggled search");
-    });
+    registry.onButton(BANK_GROUP_ID, BankMainChild.SEARCH, () => {});
 
     registry.onButton(BANK_GROUP_ID, BankMainChild.CLOSE_BUTTON, ({ player, services }) => {
-        services.system.logger.debug?.(`[script:bank-widgets] close button player=${player.id}`);
         services.dialog.closeModal(player);
     });
 
@@ -281,9 +373,6 @@ function registerMainBankWidgets(registry: IScriptRegistry): void {
         }
         if (filled > 0) {
             services.banking?.queueBankSnapshot?.(player);
-            services.system.logger.debug?.(
-                `[script:bank-widgets] fillers enabled player=${player.id} count=${filled}`,
-            );
         }
     });
 
@@ -303,9 +392,6 @@ function registerMainBankWidgets(registry: IScriptRegistry): void {
         }
         if (cleared > 0) {
             services.banking?.queueBankSnapshot?.(player);
-            services.system.logger.debug?.(
-                `[script:bank-widgets] fillers released player=${player.id} cleared=${cleared}`,
-            );
         }
     });
 
@@ -313,7 +399,10 @@ function registerMainBankWidgets(registry: IScriptRegistry): void {
         registry.registerWidgetAction({
             widgetId: BANK_WIDGET_ITEMS,
             opId,
-            handler: (event) => handleWithdrawOp(event, opId),
+            handler: (event) => {
+                if (opId === 8 && handleReleasePlaceholderOp(event)) return;
+                handleWithdrawOp(event, opId);
+            },
         });
     }
 
@@ -328,6 +417,10 @@ function registerMainBankWidgets(registry: IScriptRegistry): void {
     })) {
         guard(option, ({ event }) => handleWithdrawOp(event, opId));
     }
+
+    guard("Release", ({ event }) => {
+        handleReleasePlaceholderOp(event);
+    });
 }
 
 function registerBanksideWidgets(registry: IScriptRegistry): void {
