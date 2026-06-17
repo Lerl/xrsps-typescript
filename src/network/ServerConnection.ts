@@ -511,9 +511,11 @@ type ClientToServer =
           };
       }
     | { type: "varp_transmit"; payload: { varpId: number; value: number } }
-    | { type: "interact"; payload: { mode: "follow" | "trade"; targetId: number } }
+    | {
+          type: "interact";
+          payload: { mode: "follow" | "trade"; targetId: number; modifierFlags?: number };
+      }
     | { type: "interact_stop"; payload: {} }
-    | { type: "npc_attack"; payload: { npcId: number } }
     | {
           type: "loc_interact";
           payload: {
@@ -2841,18 +2843,42 @@ export function sendInteractStop(): void {
     send({ type: "interact_stop", payload: {} } as any);
 }
 
-export function sendNpcAttack(npcId: number): void {
+export function sendNpcOption(npcId: number, opNum: number, modifierFlags: number = 0): void {
     if (!socket || socket.readyState !== WebSocket.OPEN) return;
     if (npcId == null) return;
-    send({ type: "npc_attack", payload: { npcId: npcId | 0 } } as any);
-}
-
-export function sendNpcInteract(npcId: number, option?: string): void {
-    if (!socket || socket.readyState !== WebSocket.OPEN) return;
-    if (npcId == null) return;
-    const payload: any = { npcId: npcId | 0 };
-    if (option) payload.option = option;
-    send({ type: "npc_interact", payload } as any);
+    const { ClientPacket, createPacket, queuePacket } = require("./packet");
+    const ctrl = (modifierFlags & 1) !== 0 ? 1 : 0;
+    const op = opNum | 0;
+    const pkt =
+        op === 1
+            ? createPacket(ClientPacket.OPNPC1_ALT)
+            : op === 2
+              ? createPacket(ClientPacket.OPNPC2)
+              : op === 3
+                ? createPacket(ClientPacket.OPNPC3)
+                : op === 4
+                  ? createPacket(ClientPacket.OPNPC4)
+                  : op === 5
+                    ? createPacket(ClientPacket.OPNPC1)
+                    : undefined;
+    if (!pkt) return;
+    if (op === 1) {
+        pkt.packetBuffer.writeByte(ctrl);
+        pkt.packetBuffer.writeShortAddLE(npcId | 0);
+    } else if (op === 2) {
+        pkt.packetBuffer.writeShortAddLE(npcId | 0);
+        pkt.packetBuffer.writeByte(ctrl);
+    } else if (op === 3) {
+        pkt.packetBuffer.writeShortAdd(npcId | 0);
+        pkt.packetBuffer.writeByteNeg(ctrl);
+    } else if (op === 4) {
+        pkt.packetBuffer.writeByteNeg(ctrl);
+        pkt.packetBuffer.writeShortLE(npcId | 0);
+    } else {
+        pkt.packetBuffer.writeByteAdd(ctrl);
+        pkt.packetBuffer.writeShortLE(npcId | 0);
+    }
+    queuePacket(pkt);
 }
 
 export function sendLocInteract(

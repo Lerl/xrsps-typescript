@@ -315,22 +315,6 @@ export function decodeClientPacket(data: Uint8Array | ArrayBuffer): DecodedClien
                 },
             };
 
-        case ClientPacketId.NPC_ATTACK:
-            return {
-                type: "npc_attack",
-                payload: { npcId: reader.readShort() },
-            };
-
-        case ClientPacketId.NPC_INTERACT: {
-            const npcId = reader.readShort();
-            const option = reader.readString() || undefined;
-            const opNum = reader.readByte() || undefined;
-            return {
-                type: "npc_interact",
-                payload: { npcId, option, opNum },
-            };
-        }
-
         case ClientPacketId.LOC_INTERACT: {
             const id = reader.readShort();
             const x = reader.readShort();

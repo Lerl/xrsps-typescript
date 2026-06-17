@@ -4,63 +4,30 @@ import { normalizeModifierFlags, resolveRunWithModifier } from "../MessageHandle
 import type { MessageRouter } from "../MessageRouter";
 
 export function registerNpcHandlers(router: MessageRouter, services: MessageHandlerServices): void {
-    router.register("npc_attack", (ctx) => {
-        try {
-            const { npcId } = ctx.payload;
-            const npc = services.getNpcById(npcId);
-            if (!npc) {
-                logger.info?.(`[combat] npc ${npcId} not found for attack`);
-                return;
-            }
-            const tick = services.currentTick();
-            const attackSpeed = ctx.player ? services.pickAttackSpeed(ctx.player) : 4;
-            const res = services.startNpcAttack(ctx.ws, npc, tick, attackSpeed);
-            if (!res.ok) {
-                logger.info?.(
-                    `[combat] npc attack rejected: ${res.message || "no_path"} (npc=${npcId})`,
-                );
-                if (res.chatMessage && ctx.player) {
-                    services.queueChatMessage({
-                        messageType: "game",
-                        text: res.chatMessage,
-                        targetPlayerIds: [ctx.player.id],
-                    });
-                }
-            } else if (ctx.player) {
-                ctx.player.setInteraction("npc", npc.id);
-                services.startCombat(ctx.player, npc, tick, attackSpeed);
-            }
-        } catch (err) {
-            logger.warn("[combat] npc_attack handling failed", err);
-        }
-    });
-
     router.register("npc_interact", (ctx) => {
         try {
             // Starting an interaction should consume any stale queued walk click.
             services.clearPendingWalkCommand(ctx.ws);
-            const {
-                npcId,
-                option: rawOption,
-                opNum,
-                modifierFlags: rawModifierFlags,
-            } = ctx.payload;
+            const { npcId, opNum, modifierFlags: rawModifierFlags } = ctx.payload;
             const npc = services.getNpcById(npcId);
             const player = ctx.player;
             if (!npc) {
                 logger.info?.(`[npc] interact target ${npcId} not found`);
                 return;
             }
-            const optionFromOpNum =
+            const option =
                 opNum !== undefined && opNum > 0
                     ? services.resolveNpcOption(npc, opNum)
                     : undefined;
-            const option = rawOption && rawOption.length > 0 ? rawOption : optionFromOpNum;
+            if (!option) {
+                logger.info?.(`[npc] interact option ${opNum ?? "?"} not found for npc=${npcId}`);
+                return;
+            }
             const modifierFlags = normalizeModifierFlags(rawModifierFlags);
             const optNorm = (option ?? "").trim().toLowerCase();
             logger.info?.(
                 `[npc] recv npc_interact player=${player?.id ?? "?"} opt=${
-                    option ?? "Talk-to"
+                    option
                 } npc=${npcId} type=${npc?.typeId ?? "?"} playerPos=(${player?.tileX ?? "?"},${
                     player?.tileY ?? "?"
                 },${player?.level ?? "?"})`,

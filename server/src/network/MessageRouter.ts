@@ -99,7 +99,6 @@ const INTERFACE_CLOSING_ACTIONS = new Set([
     "world_map_click",
     "interact",
     "player_attack",
-    "npc_attack",
     "npc_interact",
     "loc_interact",
     "ground_item_action",

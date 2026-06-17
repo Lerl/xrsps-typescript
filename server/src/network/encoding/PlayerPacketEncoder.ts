@@ -1196,7 +1196,7 @@ export class PlayerPacketEncoder {
 
         const bars = Array.isArray(healthBars) ? healthBars : [];
         const hbCount = Math.min(255, bars.length);
-        this.writeByteS(writer, hbCount & 0xff);
+        writer.writeByteC(hbCount & 0xff);
         for (let i = 0; i < hbCount; i++) {
             const hb = bars[i];
             const id = this.clampUShortSmart(hb?.id ?? 0);
@@ -1206,9 +1206,9 @@ export class PlayerPacketEncoder {
             this.writeUShortSmart(writer, cycleOffset);
             if (cycleOffset !== 32767) {
                 this.writeUShortSmart(writer, this.clampUShortSmart(hb?.delayCycles ?? 0));
-                this.writeByteS(writer, (hb?.health ?? 0) & 0xff);
+                writer.writeByte((hb?.health ?? 0) & 0xff);
                 if (cycleOffset > 0) {
-                    writer.writeByteC((hb?.health2 ?? hb?.health ?? 0) & 0xff);
+                    this.writeByteA(writer, (hb?.health2 ?? hb?.health ?? 0) & 0xff);
                 }
             }
         }

@@ -246,28 +246,6 @@ export class ClientBinaryEncoder {
         return this.buffer.toPacket(ClientPacketId.PATHFIND);
     }
 
-    // ========================================
-    // COMBAT
-    // ========================================
-
-    encodeNpcAttack(npcId: number): Uint8Array {
-        this.buffer.reset();
-        this.buffer.writeShort(npcId);
-        return this.buffer.toPacket(ClientPacketId.NPC_ATTACK);
-    }
-
-    // ========================================
-    // INTERACTION
-    // ========================================
-
-    encodeNpcInteract(npcId: number, option?: string, opNum?: number): Uint8Array {
-        this.buffer.reset();
-        this.buffer.writeShort(npcId);
-        this.buffer.writeString(option ?? "");
-        this.buffer.writeByte(opNum ?? 0);
-        return this.buffer.toPacket(ClientPacketId.NPC_INTERACT);
-    }
-
     encodeLocInteract(
         id: number,
         tile: { x: number; y: number },
@@ -549,12 +527,6 @@ export function encodeClientMessage(msg: { type: string; payload: any }): Uint8A
 
         case "pathfind":
             return clientEncoder.encodePathfind(payload.id, payload.from, payload.to, payload.size);
-
-        case "npc_attack":
-            return clientEncoder.encodeNpcAttack(payload.npcId);
-
-        case "npc_interact":
-            return clientEncoder.encodeNpcInteract(payload.npcId, payload.option, payload.opNum);
 
         case "loc_interact":
             return clientEncoder.encodeLocInteract(

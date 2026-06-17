@@ -672,7 +672,7 @@ export class NpcPacketEncoder {
 
                 const bars = info.healthBars ?? [];
                 const barCount = Math.min(255, bars.length);
-                this.writeByteSub(writer, barCount & 0xff);
+                this.writeByteAdd(writer, barCount & 0xff);
                 for (let i = 0; i < barCount; i++) {
                     const hb = bars[i];
                     this.writeUShortSmart(writer, this.clampUShortSmart(hb?.id ?? 0));
@@ -684,7 +684,7 @@ export class NpcPacketEncoder {
                         this.writeUShortSmart(writer, this.clampUShortSmart(hb?.delayCycles ?? 0));
                         writer.writeByteC((hb?.health ?? 0) & 0xff);
                         if (cycleOffset > 0) {
-                            writer.writeByteC((hb?.health2 ?? hb?.health ?? 0) & 0xff);
+                            this.writeByteSub(writer, (hb?.health2 ?? hb?.health ?? 0) & 0xff);
                         }
                     }
                 }

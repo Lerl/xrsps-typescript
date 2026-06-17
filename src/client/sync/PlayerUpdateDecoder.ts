@@ -959,15 +959,15 @@ export class PlayerUpdateDecoder {
             });
         }
         const healthBars: HealthBarUpdate[] = [];
-        const healthCount = stream.readUnsignedByteS() | 0; // readUnsignedByteSub
+        const healthCount = stream.readUnsignedByteC() | 0; // readUnsignedByteNeg
         for (let i = 0; i < healthCount; i++) {
             const id = stream.readUShortSmart() | 0;
             const value = stream.readUShortSmart() | 0;
             if (value !== 32767) {
                 // OSRS: this delay is already in client cycles (Client.cycle units).
                 const delayCycles = stream.readUShortSmart() | 0;
-                const health = stream.readUnsignedByteS() | 0; // readUnsignedByteSub
-                const health2 = value > 0 ? stream.readUnsignedByteC() | 0 : health; // readUnsignedByteNeg
+                const health = stream.readUnsignedByte() | 0;
+                const health2 = value > 0 ? stream.readUnsignedByteA() | 0 : health; // readUnsignedByteAdd
                 healthBars.push({
                     id,
                     cycle: ((clientCycle | 0) + delayCycles) | 0,

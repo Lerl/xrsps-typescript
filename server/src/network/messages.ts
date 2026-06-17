@@ -584,10 +584,9 @@ export type ClientToServer =
           payload: { mode: "follow" | "trade"; targetId: number; modifierFlags?: number };
       }
     | { type: "interact_stop"; payload: {} }
-    | { type: "npc_attack"; payload: { npcId: number } }
     | {
           type: "npc_interact";
-          payload: { npcId: number; option?: string; opNum?: number; modifierFlags?: number };
+          payload: { npcId: number; opNum: number; modifierFlags?: number };
       }
     | { type: "player_attack"; payload: { playerId: number; modifierFlags?: number } }
     | {

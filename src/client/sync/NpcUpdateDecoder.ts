@@ -269,7 +269,7 @@ export class NpcUpdateDecoder {
                 }
 
                 const bars: HealthBarUpdate[] = [];
-                const barCount = stream.readUnsignedByteSub() | 0;
+                const barCount = stream.readUnsignedByteAdd() | 0;
                 for (let i = 0; i < barCount; i++) {
                     const id = stream.readUShortSmart() | 0;
                     const cycleOffset = stream.readUShortSmart() | 0;
@@ -277,7 +277,7 @@ export class NpcUpdateDecoder {
                         // OSRS: this delay is already in client cycles (Client.cycle units).
                         const delayCycles = stream.readUShortSmart() | 0;
                         const health = stream.readUnsignedByteNeg() | 0;
-                        const health2 = cycleOffset > 0 ? stream.readUnsignedByteNeg() | 0 : health;
+                        const health2 = cycleOffset > 0 ? stream.readUnsignedByteSub() | 0 : health;
                         bars.push({
                             id,
                             cycle: ((opts.clientCycle | 0) + delayCycles) | 0,

@@ -6,7 +6,6 @@
  * binary encoding.
  */
 import { ClientState, MOUSE_CROSS_YELLOW } from "../../client/ClientState";
-import { sendNpcInteract } from "../../network/ServerConnection";
 import { ClientPacket, createPacket, queuePacket } from "../../network/packet";
 import { MenuTargetType } from "../../rs/MenuEntry";
 import { MODIFIER_FLAG_CTRL, MODIFIER_FLAG_CTRL_SHIFT } from "../../shared/input/modifierFlags";
@@ -348,9 +347,6 @@ export function menuAction(
     // NPC OPCODES (9-13)
     // ========================================
 
-    // NPC options 1-5: Send via high-level sendNpcInteract with the action text
-    // instead of raw OPNPC binary packets. This ensures the server receives the
-    // option string directly and avoids relying on server-side opNum resolution.
     if (
         opcode === MenuOpcode.NpcFirstOption ||
         opcode === MenuOpcode.NpcSecondOption ||
@@ -361,7 +357,32 @@ export function menuAction(
         const npc = ClientState.npcs[identifier];
         if (npc != null) {
             setVisualFeedback();
-            sendNpcInteract(identifier, action);
+            if (opcode === MenuOpcode.NpcFirstOption) {
+                const pkt = createPacket(ClientPacket.OPNPC1_ALT);
+                pkt.packetBuffer.writeByte(ctrlHeld ? 1 : 0);
+                pkt.packetBuffer.writeShortAddLE(identifier);
+                queuePacket(pkt);
+            } else if (opcode === MenuOpcode.NpcSecondOption) {
+                const pkt = createPacket(ClientPacket.OPNPC2);
+                pkt.packetBuffer.writeShortAddLE(identifier);
+                pkt.packetBuffer.writeByte(ctrlHeld ? 1 : 0);
+                queuePacket(pkt);
+            } else if (opcode === MenuOpcode.NpcThirdOption) {
+                const pkt = createPacket(ClientPacket.OPNPC3);
+                pkt.packetBuffer.writeShortAdd(identifier);
+                pkt.packetBuffer.writeByteNeg(ctrlHeld ? 1 : 0);
+                queuePacket(pkt);
+            } else if (opcode === MenuOpcode.NpcFourthOption) {
+                const pkt = createPacket(ClientPacket.OPNPC4);
+                pkt.packetBuffer.writeByteNeg(ctrlHeld ? 1 : 0);
+                pkt.packetBuffer.writeShortLE(identifier);
+                queuePacket(pkt);
+            } else {
+                const pkt = createPacket(ClientPacket.OPNPC1);
+                pkt.packetBuffer.writeByteAdd(ctrlHeld ? 1 : 0);
+                pkt.packetBuffer.writeShortLE(identifier);
+                queuePacket(pkt);
+            }
         }
     }
 

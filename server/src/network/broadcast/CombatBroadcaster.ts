@@ -4,6 +4,8 @@ import type { TickFrame } from "../../game/tick/TickPhaseOrchestrator";
 import { encodeMessage } from "../messages";
 import type { BroadcastContext, BroadcastDomain } from "./BroadcastDomain";
 
+const TILE_SPOT_BROADCAST_RADIUS_TILES = 17;
+
 export interface CombatBroadcasterServices {
     forEachPlayer(fn: (sock: WebSocket, player: { id: number }) => void): void;
     withDirectSendBypass<T>(context: string, fn: () => T): T;
@@ -27,8 +29,8 @@ export class CombatBroadcaster implements BroadcastDomain {
 
         for (const event of frame.spotAnimations) {
             if (!(event && event.spotId >= 0)) continue;
-            // When binary player sync is enabled, player spot animations are encoded as update blocks.
-            // Keep legacy broadcast for NPCs and world tiles.
+            // Player spot animations are encoded as update blocks. NPC spot animations are encoded
+            // there too when binary NPC sync is active; tile graphics use a nearby zone broadcast.
             if (event.playerId !== undefined) continue;
             if (this.services.enableBinaryNpcSync && event.npcId !== undefined) {
                 continue;
@@ -66,9 +68,21 @@ export class CombatBroadcaster implements BroadcastDomain {
             } else {
                 continue;
             }
-            this.services.withDirectSendBypass("combat_spot", () =>
-                ctx.broadcast(encodeMessage({ type: "spot", payload }), "combat_spot"),
-            );
+            const msg = encodeMessage({ type: "spot", payload });
+            this.services.withDirectSendBypass("combat_spot", () => {
+                if (payload.tile) {
+                    ctx.broadcastToNearby(
+                        payload.tile.x,
+                        payload.tile.y,
+                        payload.tile.level ?? 0,
+                        TILE_SPOT_BROADCAST_RADIUS_TILES,
+                        msg,
+                        "combat_spot",
+                    );
+                    return;
+                }
+                ctx.broadcast(msg, "combat_spot");
+            });
         }
     }
 

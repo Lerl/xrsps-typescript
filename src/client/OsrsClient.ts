@@ -12,7 +12,7 @@ import {
     sendInventoryMove,
     sendInventoryUse,
     sendInventoryUseOn,
-    sendNpcInteract,
+    sendNpcOption,
     sendPlayerDesignConfirm,
     sendVarpTransmit,
     sendWidgetAction,
@@ -8614,9 +8614,50 @@ export class OsrsClient {
         if (opts.fromServer) return;
     }
 
+    private resolveNpcActionOpNum(
+        npcTypeId: number | undefined,
+        option: string | undefined,
+        actionIndex?: number,
+        opNum?: number,
+    ): number | undefined {
+        if (typeof opNum === "number" && Number.isFinite(opNum)) {
+            const explicitOp = opNum | 0;
+            if (explicitOp >= 1 && explicitOp <= 5) return explicitOp;
+        }
+
+        if (
+            typeof actionIndex === "number" &&
+            Number.isFinite(actionIndex)
+        ) {
+            const explicitIndex = actionIndex | 0;
+            if (explicitIndex >= 0 && explicitIndex <= 4) return explicitIndex + 1;
+        }
+
+        const normalizedOption = sanitizeText(option)?.toLowerCase();
+        if (!normalizedOption || npcTypeId === undefined || npcTypeId < 0 || !this.npcTypeLoader) {
+            return undefined;
+        }
+
+        try {
+            const base = this.npcTypeLoader.load(npcTypeId | 0);
+            const npcType = base?.transforms
+                ? base.transform(this.varManager, this.npcTypeLoader)
+                : base;
+            const actions = npcType?.actions ?? [];
+            for (let i = 0; i < 5; i++) {
+                if (sanitizeText(actions[i])?.toLowerCase() === normalizedOption) {
+                    return i + 1;
+                }
+            }
+        } catch {}
+        return undefined;
+    }
+
     attackNpc(options: {
         npcServerId?: number;
         npcTypeId?: number;
+        actionIndex?: number;
+        modifierFlags?: number;
         mapX?: number;
         mapY?: number;
         tile?: { tileX: number; tileY: number };
@@ -8626,9 +8667,15 @@ export class OsrsClient {
         try {
             // Prefer npcServerId if provided (new path), otherwise fall back to npcTypeId lookup
             let serverId: number | undefined;
+            let npcTypeId: number | undefined;
             if (typeof options.npcServerId === "number" && options.npcServerId > 0) {
                 serverId = options.npcServerId | 0;
+                const ecsId = this.npcEcs.getEcsIdForServer(serverId);
+                if (ecsId !== undefined) {
+                    npcTypeId = this.npcEcs.getNpcTypeId(ecsId) | 0;
+                }
             } else if (typeof options.npcTypeId === "number" && options.npcTypeId >= 0) {
+                npcTypeId = options.npcTypeId | 0;
                 serverId = this.findNpcServerId(options.npcTypeId | 0, {
                     mapX: options.mapX,
                     mapY: options.mapY,
@@ -8657,7 +8704,9 @@ export class OsrsClient {
                         tile: tile ? { x: tile.tileX | 0, y: tile.tileY | 0 } : undefined,
                     });
                 } catch {}
-                sendNpcInteract(serverId, "Attack");
+                const opNum = this.resolveNpcActionOpNum(npcTypeId, "Attack", options.actionIndex);
+                if (opNum === undefined) return;
+                sendNpcOption(serverId, opNum, options.modifierFlags ?? 0);
                 return;
             }
         } catch (err) {
@@ -9514,6 +9563,9 @@ export class OsrsClient {
         npcServerId?: number;
         npcTypeId?: number;
         option: string;
+        actionIndex?: number;
+        opNum?: number;
+        modifierFlags?: number;
         mapX?: number;
         mapY?: number;
         tile?: { tileX: number; tileY: number };
@@ -9550,7 +9602,14 @@ export class OsrsClient {
                         sendFaceTile({ x: tile.tileX | 0, y: tile.tileY | 0 });
                     } catch {}
                 }
-                sendNpcInteract(serverId, option);
+                const opNum = this.resolveNpcActionOpNum(
+                    npcTypeId,
+                    option,
+                    options.actionIndex,
+                    options.opNum,
+                );
+                if (opNum === undefined) return;
+                sendNpcOption(serverId, opNum, options.modifierFlags ?? 0);
                 return;
             }
         } catch (err) {

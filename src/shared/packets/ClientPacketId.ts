@@ -24,15 +24,8 @@ export const enum ClientPacketId {
     PATHFIND = 213,
 
     // ========================================
-    // COMBAT (220-229)
-    // Widget-target spell casts use OSRS low-level packets, not this protocol.
-    // ========================================
-    NPC_ATTACK = 220,
-
-    // ========================================
     // INTERACTION (230-239)
     // ========================================
-    NPC_INTERACT = 230,
     LOC_INTERACT = 231,
     GROUND_ITEM_ACTION = 232,
     INTERACT = 233,
@@ -98,9 +91,6 @@ export const CLIENT_PACKET_LENGTHS: Record<ClientPacketId, number> = {
     [ClientPacketId.TELEPORT]: 5, // x(2) + y(2) + level(1)
     [ClientPacketId.PATHFIND]: -1,
 
-    [ClientPacketId.NPC_ATTACK]: 2, // npcId(2)
-
-    [ClientPacketId.NPC_INTERACT]: -1,
     [ClientPacketId.LOC_INTERACT]: -1,
     [ClientPacketId.GROUND_ITEM_ACTION]: -1,
     [ClientPacketId.INTERACT]: -1,
