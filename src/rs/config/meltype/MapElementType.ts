@@ -12,13 +12,14 @@ export class MapElementType extends Type {
 
     textSize: number = 0;
     category: number = -1;
+    targetName?: string;
 
     worldMapVisible: boolean = true;
     minimapVisible: boolean = false;
 
     randomizePosition: boolean = true;
     horizontalAlignment: number = 0;
-    verticalAlignment: number = 1;
+    verticalAlignment: number = 0;
 
     ops: (string | undefined)[] = new Array(5);
 
@@ -92,7 +93,7 @@ export class MapElementType extends Type {
         } else if (opcode === 16) {
             const bool = false;
         } else if (opcode === 17) {
-            const opBase = buffer.readString();
+            this.targetName = buffer.readString();
         } else if (opcode === 18) {
             buffer.readBigSmart();
         } else if (opcode === 19) {
@@ -128,7 +129,7 @@ export class MapElementType extends Type {
             this.horizontalAlignment = hAlign === 0 ? 1 : hAlign === 1 ? 0 : 2;
         } else if (opcode === 30) {
             const vAlign = buffer.readUnsignedByte();
-            this.verticalAlignment = vAlign === 0 ? 2 : vAlign === 1 ? 1 : 0;
+            this.verticalAlignment = vAlign === 0 ? 2 : vAlign === 1 ? 0 : 1;
         } else if (opcode === 249) {
             this.params = Type.readParamsMap(buffer);
         } else {

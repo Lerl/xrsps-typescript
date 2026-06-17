@@ -151,16 +151,26 @@ export function registerWorldMapOps(handlers: HandlerMap): void {
     });
 
     handlers.set(Opcodes.WORLDMAP_SETMAXFLASHCOUNT, (ctx) => {
-        ctx.intStackSize--;
+        const count = ctx.popInt();
+        ctx.worldMapState?.setMaxFlashCount(count);
+        ctx.widgetManager.invalidateAll();
     });
 
-    handlers.set(Opcodes.WORLDMAP_RESETMAXFLASHCOUNT, () => {});
+    handlers.set(Opcodes.WORLDMAP_RESETMAXFLASHCOUNT, (ctx) => {
+        ctx.worldMapState?.resetMaxFlashCount();
+        ctx.widgetManager.invalidateAll();
+    });
 
     handlers.set(Opcodes.WORLDMAP_SETCYCLESPERFLASH, (ctx) => {
-        ctx.intStackSize--;
+        const cycles = ctx.popInt();
+        ctx.worldMapState?.setCyclesPerFlash(cycles);
+        ctx.widgetManager.invalidateAll();
     });
 
-    handlers.set(Opcodes.WORLDMAP_RESETCYCLESPERFLASH, () => {});
+    handlers.set(Opcodes.WORLDMAP_RESETCYCLESPERFLASH, (ctx) => {
+        ctx.worldMapState?.resetCyclesPerFlash();
+        ctx.widgetManager.invalidateAll();
+    });
 
     handlers.set(Opcodes.WORLDMAP_GETNEARESTICON, (ctx) => {
         const sourceCoord = ctx.popInt();
@@ -171,35 +181,44 @@ export function registerWorldMapOps(handlers: HandlerMap): void {
     handlers.set(Opcodes.WORLDMAP_PERPETUALFLASH, (ctx) => {
         if (ctx.worldMapState) ctx.worldMapState.perpetualFlash = ctx.popInt() === 1;
         else ctx.intStackSize--;
+        ctx.widgetManager.invalidateAll();
     });
 
     handlers.set(Opcodes.WORLDMAP_FLASHELEMENT, (ctx) => {
-        ctx.intStackSize--;
+        const elementId = ctx.popInt();
+        ctx.worldMapState?.flashElement(elementId);
+        ctx.widgetManager.invalidateAll();
     });
 
     handlers.set(Opcodes.WORLDMAP_FLASHELEMENTCATEGORY, (ctx) => {
-        ctx.intStackSize--;
+        const categoryId = ctx.popInt();
+        ctx.worldMapState?.flashCategory(categoryId);
+        ctx.widgetManager.invalidateAll();
     });
 
-    handlers.set(Opcodes.WORLDMAP_STOPCURRENTFLASHES, () => {
-        // No-op
+    handlers.set(Opcodes.WORLDMAP_STOPCURRENTFLASHES, (ctx) => {
+        ctx.worldMapState?.stopCurrentFlashes();
+        ctx.widgetManager.invalidateAll();
     });
 
     handlers.set(Opcodes.WORLDMAP_DISABLEELEMENTS, (ctx) => {
         if (ctx.worldMapState) ctx.worldMapState.elementsEnabled = ctx.popInt() === 1;
         else ctx.intStackSize--;
+        ctx.widgetManager.invalidateAll();
     });
 
     handlers.set(Opcodes.WORLDMAP_DISABLEELEMENT, (ctx) => {
         const enabled = ctx.popInt() === 1;
         const elementId = ctx.popInt();
         ctx.worldMapState?.setElementEnabled(elementId, enabled);
+        ctx.widgetManager.invalidateAll();
     });
 
     handlers.set(Opcodes.WORLDMAP_DISABLEELEMENTCATEGORY, (ctx) => {
         const enabled = ctx.popInt() === 1;
         const categoryId = ctx.popInt();
         ctx.worldMapState?.setCategoryEnabled(categoryId, enabled);
+        ctx.widgetManager.invalidateAll();
     });
 
     handlers.set(Opcodes.WORLDMAP_GETDISABLEELEMENTS, (ctx) => {
@@ -229,14 +248,14 @@ export function registerWorldMapOps(handlers: HandlerMap): void {
     });
 
     handlers.set(Opcodes.WORLDMAP_ELEMENT, (ctx) => {
-        ctx.pushInt(0);
+        ctx.pushInt(ctx.worldMapState?.currentEvent?.element ?? 0);
     });
 
     handlers.set(Opcodes.WORLDMAP_ELEMENTCOORD1, (ctx) => {
-        ctx.pushInt(0);
+        ctx.pushInt(ctx.worldMapState?.currentEvent?.coord1 ?? 0);
     });
 
     handlers.set(Opcodes.WORLDMAP_ELEMENTCOORD, (ctx) => {
-        ctx.pushInt(0);
+        ctx.pushInt(ctx.worldMapState?.currentEvent?.coord2 ?? 0);
     });
 }

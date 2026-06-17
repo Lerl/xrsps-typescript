@@ -104,6 +104,7 @@ import { SpotAnimTypeLoader } from "../rs/config/spotanimtype/SpotAnimTypeLoader
 import { VarManager } from "../rs/config/vartype/VarManager";
 import { chatHistory } from "../rs/cs2/ChatHistory";
 import { Cs2Vm, ScriptArgMagic, type ScriptEvent, createScriptEvent } from "../rs/cs2/Cs2Vm";
+import { Opcodes as Cs2Opcodes } from "../rs/cs2/Opcodes";
 import { type Script as Cs2Script, parseScriptFromBytes } from "../rs/cs2/Script";
 import { BitmapFont } from "../rs/font/BitmapFont";
 import { encodeInteractionIndex } from "../rs/interaction/InteractionIndex";
@@ -192,7 +193,7 @@ import {
     chooseDefaultMenuEntry,
     getShiftClickActionIndex,
 } from "../ui/menu/MenuEngine";
-import { MenuState } from "../ui/menu/MenuState";
+import { MenuOpcode, MenuState } from "../ui/menu/MenuState";
 import {
     getDragDepth,
     isDropTarget,
@@ -368,6 +369,8 @@ const ITEM_SPAWNER_SCROLLBAR_RESIZE_SCRIPT_ID = 72;
 const ITEM_SPAWNER_SLOT_PITCH_Y = 44;
 const ITEM_SPAWNER_SLOT_BACKGROUND_BASE_RAW_Y = 0;
 const ITEM_SPAWNER_SLOT_ICON_BASE_RAW_Y = 2;
+const WORLD_MAP_ELEMENT_TOOLTIP_SCRIPT_ID = 7325;
+const WORLD_MAP_ELEMENT_TOOLTIP_CLEAR_SCRIPT_ID = 7326;
 const ITEM_SPAWNER_SCROLLBAR_GRAPHICS = [
     "scrollbar_dragger_v2,3",
     "scrollbar_dragger_v2,0",
@@ -378,6 +381,17 @@ const ITEM_SPAWNER_SCROLLBAR_GRAPHICS = [
 ] as const;
 
 // Use shared OSRS rotation scale
+
+type WorldMapRenderedIcon = {
+    elementId: number;
+    category: number;
+    coord1: number;
+    coord2: number;
+    x0: number;
+    y0: number;
+    x1: number;
+    y1: number;
+};
 
 export class OsrsClient {
     private static readonly SCRIPT_CACHE_CAPACITY = 128;
@@ -875,6 +889,8 @@ export class OsrsClient {
     private worldMapIconCacheAreaId: number = -2;
     private worldMapImageRepaintQueued: boolean = false;
     private worldMapWidgetUid: number = -1;
+    private renderedWorldMapIcons: WorldMapRenderedIcon[] = [];
+    private hoveredWorldMapIcons: Map<string, WorldMapRenderedIcon> = new Map();
 
     cameraSpeed: number = 1;
 
@@ -1103,6 +1119,28 @@ export class OsrsClient {
             return script;
         } catch (e) {
             console.warn(`[Cs2Vm] Failed to load script ${scriptId}`, e);
+            return null;
+        }
+    }
+
+    private loadClientScriptIfExists(scriptId: number): Cs2Script | null {
+        const cached = this.cs2ScriptCache.get(scriptId);
+        if (cached) {
+            this.cs2ScriptCache.delete(scriptId);
+            this.cs2ScriptCache.set(scriptId, cached);
+            return cached;
+        }
+
+        try {
+            const scriptIdx = this.cacheSystem.getIndex(IndexType.DAT2.clientScript);
+            if (!scriptIdx.archiveExists(scriptId | 0)) return null;
+            const arch = scriptIdx.getArchive(scriptId | 0);
+            const file = arch?.getFile(0);
+            if (!file?.data) return null;
+            const script = parseScriptFromBytes(scriptId | 0, file.data);
+            this.cacheClientScript(scriptId | 0, script);
+            return script;
+        } catch {
             return null;
         }
     }
@@ -3598,6 +3636,14 @@ export class OsrsClient {
     }
 
     private setWorldMapState(state: WorldMapState): void {
+        state.setElementMetadataResolver((elementId) => {
+            try {
+                const element = this.mapElementTypeLoader?.load?.(elementId | 0);
+                return element ? { category: element.category | 0 } : undefined;
+            } catch {
+                return undefined;
+            }
+        });
         this.worldMapState = state;
         this.clearWorldMapIconCache();
         this.clearWorldMapRenderCaches();
@@ -3648,6 +3694,180 @@ export class OsrsClient {
         this.worldMapClickStartMouseX = -1;
         this.worldMapClickStartMouseY = -1;
         this.worldMapClickStartTimeMs = 0;
+    }
+
+    setRenderedWorldMapIcons(icons: WorldMapRenderedIcon[]): void {
+        this.renderedWorldMapIcons = Array.isArray(icons) ? icons : [];
+    }
+
+    private getWorldMapIconKey(icon: WorldMapRenderedIcon): string {
+        return `${icon.elementId | 0}:${icon.coord1 | 0}:${icon.coord2 | 0}`;
+    }
+
+    private getWorldMapIconsAt(screenX: number, screenY: number): WorldMapRenderedIcon[] {
+        const hits: WorldMapRenderedIcon[] = [];
+        const x = screenX | 0;
+        const y = screenY | 0;
+        for (let i = this.renderedWorldMapIcons.length - 1; i >= 0; i--) {
+            const icon = this.renderedWorldMapIcons[i];
+            if (x >= icon.x0 && x <= icon.x1 && y >= icon.y0 && y <= icon.y1) {
+                hits.push(icon);
+            }
+        }
+        return hits;
+    }
+
+    private loadWorldMapScript(
+        eventType: number,
+        elementId: number,
+        categoryId: number,
+    ): Cs2Script | null {
+        const type = eventType | 0;
+        const elementScriptId = ((elementId | 0) << 8) + type;
+        const categoryScriptId = ((-3 - (categoryId | 0)) << 8) + type;
+        const fallbackScriptId = type - 512;
+        return (
+            this.loadWorldMapEventScriptIfValid(elementScriptId) ??
+            this.loadWorldMapEventScriptIfValid(categoryScriptId) ??
+            this.loadWorldMapEventScriptIfValid(fallbackScriptId) ??
+            this.loadWorldMapDefaultHoverScript(type)
+        );
+    }
+
+    private loadWorldMapDefaultHoverScript(eventType: number): Cs2Script | null {
+        switch (eventType | 0) {
+            case 15:
+            case 17:
+                return this.loadWorldMapEventScriptIfValid(WORLD_MAP_ELEMENT_TOOLTIP_SCRIPT_ID);
+            case 16:
+                return this.loadWorldMapEventScriptIfValid(
+                    WORLD_MAP_ELEMENT_TOOLTIP_CLEAR_SCRIPT_ID,
+                );
+            default:
+                return null;
+        }
+    }
+
+    private loadWorldMapEventScriptIfValid(scriptId: number): Cs2Script | null {
+        const script = this.loadClientScriptIfExists(scriptId | 0);
+        if (!script || !this.isWorldMapEventScript(script)) return null;
+        return script;
+    }
+
+    private isWorldMapEventScript(script: Cs2Script, seen: Set<number> = new Set()): boolean {
+        const scriptId = script.id | 0;
+        if (seen.has(scriptId)) return false;
+        seen.add(scriptId);
+        if (scriptId === WORLD_MAP_ELEMENT_TOOLTIP_CLEAR_SCRIPT_ID) return true;
+        const instructions = script.instructions;
+        const intOperands = script.intOperands;
+        for (let i = 0; i < instructions.length; i++) {
+            const opcode = instructions[i] | 0;
+            if (
+                opcode === Cs2Opcodes.WORLDMAP_ELEMENT ||
+                opcode === Cs2Opcodes.WORLDMAP_ELEMENTCOORD1 ||
+                opcode === Cs2Opcodes.WORLDMAP_ELEMENTCOORD
+            ) {
+                return true;
+            }
+            if (opcode === Cs2Opcodes.INVOKE) {
+                const subScript = this.loadClientScriptIfExists(intOperands[i] | 0);
+                if (subScript && this.isWorldMapEventScript(subScript, seen)) return true;
+            }
+        }
+        return false;
+    }
+
+    private getWorldMapIconMouseArgs(screenX: number, screenY: number): number[] {
+        return [screenX | 0, screenY | 0];
+    }
+
+    private runWorldMapScriptEvent(
+        eventType: number,
+        icon: WorldMapRenderedIcon,
+        intArgs: number[] = [],
+    ): void {
+        const category = icon.category | 0;
+        const script = this.loadWorldMapScript(eventType | 0, icon.elementId | 0, category);
+        if (!script) return;
+        const previousEvent = this.worldMapState.currentEvent;
+        this.worldMapState.setCurrentEvent({
+            element: icon.elementId | 0,
+            coord1: icon.coord1 | 0,
+            coord2: icon.coord2 | 0,
+        });
+        try {
+            this.cs2Vm.run(script, intArgs.map((value) => value | 0));
+            this.widgetManager?.invalidateAll?.();
+        } finally {
+            this.worldMapState.setCurrentEvent(previousEvent);
+        }
+    }
+
+    private updateWorldMapIconHover(screenX: number, screenY: number): void {
+        const hits = this.getWorldMapIconsAt(screenX, screenY);
+        const next = new Map<string, WorldMapRenderedIcon>();
+        for (const icon of hits) {
+            const key = this.getWorldMapIconKey(icon);
+            next.set(key, icon);
+            this.runWorldMapScriptEvent(
+                this.hoveredWorldMapIcons.has(key) ? 17 : 15,
+                icon,
+                this.getWorldMapIconMouseArgs(screenX, screenY),
+            );
+        }
+        for (const [key, icon] of this.hoveredWorldMapIcons) {
+            if (!next.has(key)) {
+                this.runWorldMapScriptEvent(
+                    16,
+                    icon,
+                    this.getWorldMapIconMouseArgs(screenX, screenY),
+                );
+            }
+        }
+        this.hoveredWorldMapIcons = next;
+    }
+
+    getWorldMapMenuEntriesAt(screenX: number, screenY: number): SimpleMenuEntry[] {
+        const icons = this.getWorldMapIconsAt(screenX | 0, screenY | 0);
+        const opcodes = [
+            MenuOpcode.WorldMap1,
+            MenuOpcode.WorldMap2,
+            MenuOpcode.WorldMap3,
+            MenuOpcode.WorldMap4,
+            MenuOpcode.WorldMap5,
+        ];
+        for (const icon of icons) {
+            let element: any;
+            try {
+                element = this.mapElementTypeLoader?.load?.(icon.elementId | 0);
+            } catch {
+                element = undefined;
+            }
+            const ops = Array.isArray(element?.ops) ? element.ops : [];
+            const entries: SimpleMenuEntry[] = [];
+            for (let i = 0; i < opcodes.length; i++) {
+                const option = typeof ops[i] === "string" ? String(ops[i]).trim() : "";
+                if (!option) continue;
+                const opcode = opcodes[i] | 0;
+                entries.push({
+                    option,
+                    target: element?.targetName ?? "",
+                    opcode,
+                    targetId: icon.elementId | 0,
+                    mapX: icon.coord1 | 0,
+                    mapY: icon.coord2 | 0,
+                    onClick: () => {
+                        this.runWorldMapScriptEvent(opcode - 998, icon);
+                    },
+                });
+            }
+            if (entries.length > 0) {
+                entries.push({ option: "Cancel", opcode: MenuOpcode.Cancel });
+                return entries;
+            }
+        }
+        return [];
     }
 
     private getWorldMapWidgetPixelsPerTile(widget: any): { x: number; y: number } {
@@ -3719,7 +3939,7 @@ export class OsrsClient {
     }
 
     private sendWorldMapClick(coord: { plane: number; x: number; y: number }): void {
-        if (!this.localPlayerIsAdmin || !isServerConnected()) return;
+        if (!isServerConnected()) return;
         const pkt = createPacket(ClientPacketId.WORLD_MAP_CLICK);
         pkt.packetBuffer.writeIntIME(packWorldMapCoord(coord));
         queuePacket(pkt);
@@ -6382,6 +6602,9 @@ export class OsrsClient {
         // Avoid dispatching hover listeners multiple times when render FPS exceeds 50Hz.
         if (this._lastHoverListenerCycle !== hoverCycle) {
             this._lastHoverListenerCycle = hoverCycle;
+            try {
+                this.updateWorldMapIconHover(mx, my);
+            } catch {}
 
             // hover state is tracked per-widget.
             // Multiple widgets (parents + children) can be hovered at once and receive onMouseRepeat.
@@ -11600,6 +11823,8 @@ export class OsrsClient {
         delete host.__worldMapVisibleTileCache;
         host.__worldMapElementCache?.clear?.();
         host.__worldMapLabelMetricsCache?.clear?.();
+        this.renderedWorldMapIcons = [];
+        this.hoveredWorldMapIcons.clear();
     }
 
     private findWorldMapWidgetForRepaint(): any | undefined {
@@ -11838,13 +12063,25 @@ export class OsrsClient {
             const key = `${icon.element | 0}:${localX | 0}:${localY | 0}`;
             if (seen.has(key)) continue;
             seen.add(key);
+            let element: any;
+            try {
+                element = this.mapElementTypeLoader?.load?.(icon.element | 0);
+            } catch {
+                element = undefined;
+            }
 
             icons.push({
                 localX,
                 localY,
                 elementId: icon.element | 0,
-                category: icon.category | 0,
-                spriteId: icon.spriteId | 0,
+                category: (element?.category ?? icon.category) | 0,
+                spriteId: (element?.spriteId ?? icon.spriteId) | 0,
+                worldMapVisible: element?.worldMapVisible,
+                name: element?.name,
+                textColor: element?.textColor,
+                textSize: element?.textSize,
+                horizontalAlignment: element?.horizontalAlignment,
+                verticalAlignment: element?.verticalAlignment,
                 sourceX: coord.x | 0,
                 sourceY: coord.y | 0,
                 displayX: displayPos.x,

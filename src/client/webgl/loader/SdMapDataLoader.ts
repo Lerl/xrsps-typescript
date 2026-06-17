@@ -379,6 +379,7 @@ function transparentPng1x1(): Blob {
 function extractMinimapIcons(
     scene: Scene,
     locTypeLoader: LocTypeLoader,
+    varManager: VarManager,
     borderSize: number,
     level: number,
     mapFunctionToSprite: (mapFunctionId: number) => MapElementMetadata | undefined,
@@ -394,7 +395,8 @@ function extractMinimapIcons(
             if (tag === 0n) continue;
 
             const locId = getIdFromTag(tag);
-            const locType = locTypeLoader.load(locId);
+            const locType = resolveMapIconLocType(locId, locTypeLoader, varManager);
+            if (!locType) continue;
 
             if (locType.mapFunctionId !== -1) {
                 const element = mapFunctionToSprite(locType.mapFunctionId);
@@ -436,14 +438,26 @@ type MapElementMetadata = {
     verticalAlignment: number;
 };
 
+function resolveMapIconLocType(
+    locId: number,
+    locTypeLoader: LocTypeLoader,
+    varManager: VarManager,
+): LocType | undefined {
+    const locType = locTypeLoader.load(locId | 0);
+    if (!locType.transforms) return locType;
+    return locType.transform(varManager, locTypeLoader);
+}
+
 function createMapIcon(
     locId: number,
     localX: number,
     localY: number,
     locTypeLoader: LocTypeLoader,
+    varManager: VarManager,
     mapFunctionToElement: (mapFunctionId: number) => MapElementMetadata | undefined,
 ): MinimapIcon | undefined {
-    const locType = locTypeLoader.load(locId | 0);
+    const locType = resolveMapIconLocType(locId, locTypeLoader, varManager);
+    if (!locType) return undefined;
     if ((locType.mapFunctionId | 0) === -1) return undefined;
 
     const element = mapFunctionToElement(locType.mapFunctionId | 0);
@@ -468,6 +482,7 @@ function createMapIcon(
 function extractWorldMapIcons(
     scene: Scene,
     locTypeLoader: LocTypeLoader,
+    varManager: VarManager,
     borderSize: number,
     level: number,
     mapFunctionToElement: (mapFunctionId: number) => MapElementMetadata | undefined,
@@ -476,7 +491,14 @@ function extractWorldMapIcons(
     const seen = new Set<string>();
 
     const pushIcon = (locId: number, localX: number, localY: number) => {
-        const icon = createMapIcon(locId, localX, localY, locTypeLoader, mapFunctionToElement);
+        const icon = createMapIcon(
+            locId,
+            localX,
+            localY,
+            locTypeLoader,
+            varManager,
+            mapFunctionToElement,
+        );
         if (!icon) return false;
         const key = `${icon.elementId}:${icon.localX}:${icon.localY}`;
         if (seen.has(key)) return true;
@@ -1417,6 +1439,7 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
             worldMapIcons[level] = extractWorldMapIcons(
                 scene,
                 state.locTypeLoader,
+                state.varManager,
                 usedBorderSize,
                 level,
                 mapFunctionToSprite,
@@ -1898,6 +1921,7 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
             minimapIcons[level] = extractMinimapIcons(
                 scene,
                 state.locTypeLoader,
+                state.varManager,
                 usedBorderSize,
                 level,
                 mapFunctionToSprite,
@@ -1905,6 +1929,7 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
             worldMapIcons[level] = extractWorldMapIcons(
                 scene,
                 state.locTypeLoader,
+                state.varManager,
                 usedBorderSize,
                 level,
                 mapFunctionToSprite,

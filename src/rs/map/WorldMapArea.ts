@@ -18,6 +18,17 @@ export type WorldMapIconEntry = {
     category: number;
     spriteId: number;
     coord: number;
+    displayCoord?: number;
+};
+
+export type WorldMapElementMetadata = {
+    category?: number;
+};
+
+export type WorldMapEventState = {
+    element: number;
+    coord1: number;
+    coord2: number;
 };
 
 export function getWorldMapZoomScale(zoomPercentage: number): number {
@@ -141,6 +152,7 @@ function decodeCompositeMapIcons(data: Int8Array, includeHidden: boolean): World
                 category: -1,
                 spriteId: -1,
                 coord,
+                displayCoord: coord,
             });
         }
     }
@@ -587,13 +599,21 @@ export class WorldMapState {
     targetY = -1;
     elementsEnabled = true;
     perpetualFlash = false;
+    maxFlashCount = 3;
+    cyclesPerFlash = 50;
+    flashCount = -1;
+    flashCycle = -1;
+    currentEvent?: WorldMapEventState;
     readonly disabledElements = new Set<number>();
     readonly disabledCategories = new Set<number>();
+    readonly flashingElements = new Set<number>();
+    readonly flashingCategories = new Set<number>();
     private loaded = false;
     private displayPixelWidth = 0;
     private displayPixelHeight = 0;
     private readonly tileIcons = new Map<number, WorldMapIconEntry[]>();
     private readonly staticIconsByTile = new Map<number, WorldMapIconEntry[]>();
+    private elementMetadataResolver?: (elementId: number) => WorldMapElementMetadata | undefined;
     private iconIterator: WorldMapIconEntry[] = [];
     private iconIteratorIndex = 0;
 
@@ -780,8 +800,9 @@ export class WorldMapState {
     }
 
     cycle(): boolean {
+        const flashChanged = this.cycleFlash();
         if (this.targetX === -1 || this.targetY === -1) {
-            return false;
+            return flashChanged;
         }
         const deltaX = this.targetX - this.displayX;
         const deltaY = this.targetY - this.displayY;
@@ -799,7 +820,7 @@ export class WorldMapState {
             this.targetX = -1;
             this.targetY = -1;
         }
-        return stepX !== 0 || stepY !== 0;
+        return flashChanged || stepX !== 0 || stepY !== 0;
     }
 
     sourceToDisplay(packedCoord: number): WorldMapPosition | undefined {
@@ -865,6 +886,20 @@ export class WorldMapState {
         this.iconIteratorIndex = 0;
     }
 
+    setElementMetadataResolver(
+        resolver: ((elementId: number) => WorldMapElementMetadata | undefined) | undefined,
+    ): void {
+        this.elementMetadataResolver = resolver;
+        this.iconIterator = [];
+        this.iconIteratorIndex = 0;
+    }
+
+    resolveIconCategory(icon: Pick<WorldMapIconEntry, "element" | "category">): number {
+        const category = (icon.category ?? -1) | 0;
+        if (category >= 0) return category;
+        return (this.elementMetadataResolver?.(icon.element | 0)?.category ?? -1) | 0;
+    }
+
     getStaticIconsForTile(mapX: number, mapY: number, level: number): WorldMapIconEntry[] {
         return this.staticIconsByTile.get(WorldMapState.getTileKey(mapX, mapY, level)) ?? [];
     }
@@ -878,16 +913,30 @@ export class WorldMapState {
         return staticIcons.concat(tileIcons);
     }
 
-    getNearestIconCoord(elementId: number, sourcePackedCoord: number): number {
-        const source = unpackWorldMapCoord(sourcePackedCoord);
-        if (this.currentArea && !this.currentArea.containsCoord(source.plane, source.x, source.y)) {
+    private getIconDisplayCoord(icon: WorldMapIconEntry): number {
+        if (icon.displayCoord !== undefined) return icon.displayCoord | 0;
+        const area = this.currentArea;
+        if (!area) return icon.coord | 0;
+        const coord = unpackWorldMapCoord(icon.coord);
+        const displayPosition = area.position(coord.plane, coord.x, coord.y);
+        if (!displayPosition) return icon.coord | 0;
+        return packWorldMapCoord({
+            plane: coord.plane,
+            x: displayPosition.x,
+            y: displayPosition.y,
+        });
+    }
+
+    getNearestIconCoord(elementId: number, packedCoord: number): number {
+        const source = unpackWorldMapCoord(packedCoord);
+        if (this.currentArea && !this.currentArea.containsPosition(source.x, source.y)) {
             return -1;
         }
         let nearest: WorldMapIconEntry | undefined;
         let nearestDistance = Number.MAX_SAFE_INTEGER;
         for (const icon of this.getVisibleIcons()) {
             if ((icon.element | 0) !== (elementId | 0)) continue;
-            const coord = unpackWorldMapCoord(icon.coord);
+            const coord = unpackWorldMapCoord(this.getIconDisplayCoord(icon));
             const dx = coord.x - source.x;
             const dy = coord.y - source.y;
             const distance = dx * dx + dy * dy;
@@ -896,7 +945,7 @@ export class WorldMapState {
                 nearestDistance = distance;
             }
         }
-        return nearest?.coord ?? -1;
+        return nearest ? this.getIconDisplayCoord(nearest) : -1;
     }
 
     iconStart(): { element: number; coord: number } | undefined {
@@ -909,7 +958,7 @@ export class WorldMapState {
         while (this.iconIteratorIndex < this.iconIterator.length) {
             const icon = this.iconIterator[this.iconIteratorIndex++];
             if (this.isIconVisible(icon)) {
-                return { element: icon.element, coord: icon.coord };
+                return { element: icon.element, coord: this.getIconDisplayCoord(icon) };
             }
         }
         return undefined;
@@ -933,6 +982,62 @@ export class WorldMapState {
         return !this.disabledCategories.has(categoryId | 0);
     }
 
+    setMaxFlashCount(count: number): void {
+        if ((count | 0) >= 1) this.maxFlashCount = count | 0;
+    }
+
+    resetMaxFlashCount(): void {
+        this.maxFlashCount = 3;
+    }
+
+    setCyclesPerFlash(cycles: number): void {
+        if ((cycles | 0) >= 1) this.cyclesPerFlash = cycles | 0;
+    }
+
+    resetCyclesPerFlash(): void {
+        this.cyclesPerFlash = 50;
+    }
+
+    flashElement(elementId: number): void {
+        this.flashingElements.clear();
+        this.flashingCategories.clear();
+        this.flashingElements.add(elementId | 0);
+        this.flashCount = 0;
+        this.flashCycle = 0;
+    }
+
+    flashCategory(categoryId: number): void {
+        this.flashingElements.clear();
+        this.flashingCategories.clear();
+        this.flashingCategories.add(categoryId | 0);
+        this.flashCount = 0;
+        this.flashCycle = 0;
+    }
+
+    stopCurrentFlashes(): void {
+        this.flashingElements.clear();
+        this.flashingCategories.clear();
+        this.flashCount = -1;
+        this.flashCycle = -1;
+    }
+
+    hasActiveFlashes(): boolean {
+        return this.flashingElements.size > 0 || this.flashingCategories.size > 0;
+    }
+
+    shouldFlashIcon(icon: Pick<WorldMapIconEntry, "element" | "category">): boolean {
+        if (!this.hasActiveFlashes()) return false;
+        if (this.flashCycle < 0 || this.cyclesPerFlash <= 0) return false;
+        if (this.flashCycle % this.cyclesPerFlash >= this.cyclesPerFlash / 2) return false;
+        if (this.flashingElements.has(icon.element | 0)) return true;
+        const category = this.resolveIconCategory(icon);
+        return category >= 0 && this.flashingCategories.has(category);
+    }
+
+    setCurrentEvent(event: WorldMapEventState | undefined): void {
+        this.currentEvent = event;
+    }
+
     private getVisibleIcons(): WorldMapIconEntry[] {
         const icons: WorldMapIconEntry[] = [];
         const area = this.currentArea;
@@ -943,7 +1048,10 @@ export class WorldMapState {
                     if (!this.isIconVisible(icon)) continue;
                     if (area) {
                         const coord = unpackWorldMapCoord(icon.coord);
-                        if (!area.containsCoord(coord.plane, coord.x, coord.y)) continue;
+                        if (icon.displayCoord !== undefined) {
+                            const displayCoord = unpackWorldMapCoord(icon.displayCoord);
+                            if (!area.containsPosition(displayCoord.x, displayCoord.y)) continue;
+                        } else if (!area.containsCoord(coord.plane, coord.x, coord.y)) continue;
                     }
                     icons.push(icon);
                 }
@@ -968,12 +1076,25 @@ export class WorldMapState {
         }
     }
 
-    private isIconVisible(icon: WorldMapIconEntry): boolean {
+    isIconVisible(icon: Pick<WorldMapIconEntry, "element" | "category">): boolean {
+        const category = this.resolveIconCategory(icon);
         return (
             this.elementsEnabled &&
             this.isElementEnabled(icon.element) &&
-            (icon.category < 0 || this.isCategoryEnabled(icon.category))
+            (category < 0 || this.isCategoryEnabled(category))
         );
+    }
+
+    private cycleFlash(): boolean {
+        if (!this.hasActiveFlashes()) return false;
+        this.flashCycle = ((this.flashCycle < 0 ? 0 : this.flashCycle) + 1) | 0;
+        if (this.cyclesPerFlash > 0 && this.flashCycle % this.cyclesPerFlash === 0) {
+            this.flashCount = ((this.flashCount < 0 ? 0 : this.flashCount) + 1) | 0;
+            if (this.flashCount >= this.maxFlashCount && !this.perpetualFlash) {
+                this.stopCurrentFlashes();
+            }
+        }
+        return true;
     }
 
     private static getTileKey(mapX: number, mapY: number, level: number): number {

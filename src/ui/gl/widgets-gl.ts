@@ -4,6 +4,7 @@ import { profiler } from "../../client/webgl/PerformanceProfiler";
 import { CacheIndex } from "../../rs/cache/CacheIndex";
 import { CacheSystem } from "../../rs/cache/CacheSystem";
 import { BitmapFont } from "../../rs/font/BitmapFont";
+import { packWorldMapCoord } from "../../rs/map/WorldMapArea";
 import { FONT_VERDANA_11, FONT_VERDANA_13, FONT_VERDANA_15 } from "../fonts";
 import { menuAction } from "../menu/MenuAction";
 import { MenuOpcode, MenuState } from "../menu/MenuState";
@@ -566,11 +567,46 @@ type WorldMapLabelMetrics = {
     logicalHeight: number;
 };
 
+type WorldMapLabelDraw = {
+    text: string;
+    fontId: number;
+    font: BitmapFont | undefined;
+    metrics: WorldMapLabelMetrics;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    color: number;
+    scaleX: number;
+    scaleY: number;
+};
+
 const WORLD_MAP_LABEL_TINT: [number, number, number] = [0, 0, 0];
 const WORLD_MAP_LABEL_QUADS = {
     data: new Float32Array(16 * 512),
     quadCount: 0,
 };
+
+function getWorldMapFlashTexture(glr: GLRenderer) {
+    const key = "__worldmap_flash_marker";
+    const cached = glr.getTexture(key);
+    if (cached) return cached;
+    const canvas = document.createElement("canvas");
+    canvas.width = 30;
+    canvas.height = 30;
+    const ctx = canvas.getContext("2d") as CanvasRenderingContext2D | null;
+    if (!ctx) return undefined;
+    ctx.clearRect(0, 0, 30, 30);
+    ctx.beginPath();
+    ctx.arc(15, 15, 15, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255, 255, 0, 0.5)";
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(15, 15, 7, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255, 255, 255, 1)";
+    ctx.fill();
+    return glr.createTextureFromCanvas(key, canvas);
+}
 
 function ensureWorldMapLabelQuadCapacity(addQuads: number): void {
     const requiredQuads = WORLD_MAP_LABEL_QUADS.quadCount + addQuads;
@@ -642,47 +678,68 @@ function drawWorldMapLabelGL(
     scaleY: number,
 ): void {
     const atlas = getBitmapFontAtlas(glr, font);
-    WORLD_MAP_LABEL_QUADS.quadCount = 0;
 
     const originX = x | 0;
     const originY = y | 0;
     const ascent = (font.maxAscent || font.ascent || 0) | 0;
-    for (let lineIndex = 0; lineIndex < metrics.lines.length; lineIndex++) {
-        const line = metrics.lines[lineIndex];
-        let penX = ((metrics.logicalWidth - (metrics.lineWidths[lineIndex] ?? 0)) / 2) | 0;
-        const baselineY = ascent + lineIndex * metrics.lineHeight;
-        let previous = -1;
-        for (let i = 0; i < line.length; i++) {
-            let ch = line.charCodeAt(i) & 0xff;
-            if (ch === 160) ch = 32;
-            if (font.kerning && previous !== -1) {
-                penX += font.kerning[(previous << 8) + ch] || 0;
-            }
+    const appendLabelQuads = (offsetX: number, offsetY: number) => {
+        for (let lineIndex = 0; lineIndex < metrics.lines.length; lineIndex++) {
+            const line = metrics.lines[lineIndex];
+            let penX =
+                (((metrics.logicalWidth - (metrics.lineWidths[lineIndex] ?? 0)) / 2) |
+                    0) + offsetX;
+            const baselineY = ascent + lineIndex * metrics.lineHeight + offsetY;
+            let previous = -1;
+            for (let i = 0; i < line.length; i++) {
+                let ch = line.charCodeAt(i) & 0xff;
+                if (ch === 160) ch = 32;
+                if (font.kerning && previous !== -1) {
+                    penX += font.kerning[(previous << 8) + ch] || 0;
+                }
 
-            const glyph = atlas.glyphs[ch];
-            if (glyph?.drawable) {
-                const left = penX + glyph.lb;
-                const top = baselineY - atlas.ascent + glyph.tb;
-                appendWorldMapLabelGlyphQuad(
-                    originX,
-                    originY,
-                    scaleX,
-                    scaleY,
-                    left,
-                    top,
-                    left + glyph.w,
-                    top + glyph.h,
-                    glyph.u0,
-                    glyph.v0,
-                    glyph.u1,
-                    glyph.v1,
-                );
+                const glyph = atlas.glyphs[ch];
+                if (glyph?.drawable) {
+                    const left = penX + glyph.lb;
+                    const top = baselineY - atlas.ascent + glyph.tb;
+                    appendWorldMapLabelGlyphQuad(
+                        originX,
+                        originY,
+                        scaleX,
+                        scaleY,
+                        left,
+                        top,
+                        left + glyph.w,
+                        top + glyph.h,
+                        glyph.u0,
+                        glyph.v0,
+                        glyph.u1,
+                        glyph.v1,
+                    );
+                }
+                penX += glyph?.adv ?? font.advances[ch] ?? glyph?.w ?? 0;
+                previous = ch;
             }
-            penX += glyph?.adv ?? font.advances[ch] ?? glyph?.w ?? 0;
-            previous = ch;
         }
+    };
+
+    WORLD_MAP_LABEL_QUADS.quadCount = 0;
+    appendLabelQuads(1, 1);
+    if (WORLD_MAP_LABEL_QUADS.quadCount > 0) {
+        WORLD_MAP_LABEL_TINT[0] = 0;
+        WORLD_MAP_LABEL_TINT[1] = 0;
+        WORLD_MAP_LABEL_TINT[2] = 0;
+        glr.drawTextureQuads(
+            atlas.texture,
+            WORLD_MAP_LABEL_QUADS.data,
+            WORLD_MAP_LABEL_QUADS.quadCount,
+            1,
+            WORLD_MAP_LABEL_TINT,
+            1,
+        );
     }
 
+    WORLD_MAP_LABEL_QUADS.quadCount = 0;
+    appendLabelQuads(0, 0);
     if (WORLD_MAP_LABEL_QUADS.quadCount <= 0) return;
     WORLD_MAP_LABEL_TINT[0] = ((color >>> 16) & 0xff) / 255;
     WORLD_MAP_LABEL_TINT[1] = ((color >>> 8) & 0xff) / 255;
@@ -1330,6 +1387,59 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                 typeof osrsClientRef.widgetManager.getWidgetFlags === "function"
                     ? (w: any) => getCachedWidgetFlags(w)
                     : undefined;
+            const openWorldMapIconMenu = (entries: any[]) => {
+                const menuState = new MenuState();
+                for (const entry of entries) {
+                    const idx = menuState.add({
+                        option: entry.option,
+                        target: entry.target,
+                        opcode: entry.opcode,
+                        targetId: entry.targetId,
+                        arg1: entry.mapX,
+                        arg2: entry.mapY,
+                        handler: entry.onClick,
+                    });
+                    entry.menuStateIndex = idx;
+                }
+                ui.menu = {
+                    open: true,
+                    follow: false,
+                    x: x | 0,
+                    y: y | 0,
+                    entries,
+                    targetWidget: null,
+                    source: "worldmap",
+                    menuState,
+                } as any;
+                try {
+                    (ui as any).closeWorldMenu?.();
+                } catch {}
+            };
+            try {
+                const hover = clicks?.getHoverTarget?.();
+                const hid: string | undefined = hover?.id;
+                let worldMapSurface = !hid;
+                if (hid && hid.startsWith("widget:") && getByUid) {
+                    const uidNum = Number.parseInt(hid.slice("widget:".length), 10);
+                    if (!Number.isNaN(uidNum)) {
+                        const w = getByUid(uidNum);
+                        worldMapSurface = (((w as any)?.contentType ?? 0) | 0) === 1400;
+                    }
+                }
+                if (worldMapSurface) {
+                    const entries = osrsClientRef?.getWorldMapMenuEntriesAt?.(x | 0, y | 0) ?? [];
+                    const real = entries.some((entry: any) => {
+                        const lower = String(entry?.option ?? "")
+                            .trim()
+                            .toLowerCase();
+                        return !!lower && lower !== "cancel";
+                    });
+                    if (real) {
+                        openWorldMapIconMenu(entries);
+                        return;
+                    }
+                }
+            } catch {}
 
             // Prefer the hovered click target (registered during render) as the menu anchor.
             // This avoids mismatches when interfaces are layered / mounted (InterfaceParents) and ensures
@@ -2778,7 +2888,7 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
             // But still need to traverse children, so don't return here
         }
 
-        if (contentType === 1400) {
+	        if (contentType === 1400) {
             const osrsClient = (opts.game as any)?.osrsClient;
             const worldMapState = osrsClient?.worldMapState;
             worldMapState?.setDisplaySize?.(logicalWidth | 0, logicalHeight | 0);
@@ -2791,6 +2901,7 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                 1,
             ]);
 
+            const worldMapIconBounds: any[] = [];
             const currentArea = worldMapState?.currentArea;
             if (worldMapState?.isLoaded?.() && currentArea) {
                 const logicalPixelsPerTile = worldMapState.getZoomScale?.() ?? 4;
@@ -2911,13 +3022,14 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                 }
                 osrsClient?.retainWorldMapImageTiles?.(visibleWorldMapTiles);
 
-                for (const { mapX, mapY, distance, sourceTile } of visibleWorldMapTiles) {
-                    const source = osrsClient?.getWorldMapImageSource?.(
-                        sourceTile.mapX,
-                        sourceTile.mapY,
-                        sourceTile.level,
-                        maxVisibleTileDistance - distance,
-                    );
+	                for (const { mapX, mapY, distance, sourceTile } of visibleWorldMapTiles) {
+	                    const sourceLevel = (sourceTile.level ?? currentArea.origin.plane ?? 0) | 0;
+	                    const source = osrsClient?.getWorldMapImageSource?.(
+	                        sourceTile.mapX,
+	                        sourceTile.mapY,
+	                        sourceLevel,
+	                        maxVisibleTileDistance - distance,
+	                    );
                     if (!source) {
                         continue;
                     }
@@ -2951,12 +3063,13 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                 const mapElementCache =
                     worldMapRenderHost.__worldMapElementCache ??
                     (worldMapRenderHost.__worldMapElementCache = new Map<number, any>());
-                const labelMetricsCache =
-                    worldMapRenderHost.__worldMapLabelMetricsCache ??
-                    (worldMapRenderHost.__worldMapLabelMetricsCache = new Map<
-                        string,
-                        WorldMapLabelMetrics
-                    >());
+	                const labelMetricsCache =
+	                    worldMapRenderHost.__worldMapLabelMetricsCache ??
+	                    (worldMapRenderHost.__worldMapLabelMetricsCache = new Map<
+	                        string,
+	                        WorldMapLabelMetrics
+	                    >());
+                const worldMapLabelDraws: WorldMapLabelDraw[] = [];
                 const getMapElement = (elementId: number) => {
                     if (mapElementCache.has(elementId)) return mapElementCache.get(elementId);
                     let element;
@@ -2978,23 +3091,24 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                     if ((textSize | 0) === 1) return logicalPixelsPerTile >= 2;
                     return true;
                 };
-                const getSpriteXOffset = (textureWidth: number, horizontalAlignment: number) => {
-                    if ((horizontalAlignment | 0) === 0) return -textureWidth / 2;
-                    if ((horizontalAlignment | 0) === 1) return -textureWidth;
-                    return 0;
-                };
+	                const getSpriteXOffset = (textureWidth: number, horizontalAlignment: number) => {
+	                    if ((horizontalAlignment | 0) === 0) return -textureWidth / 2;
+	                    if ((horizontalAlignment | 0) === 1) return 0;
+	                    return -textureWidth;
+	                };
                 const getSpriteYOffset = (textureHeight: number, verticalAlignment: number) => {
                     if ((verticalAlignment | 0) === 0) return -textureHeight / 2;
                     if ((verticalAlignment | 0) === 2) return 0;
                     return -textureHeight;
                 };
 
-                for (const { sourceTile } of visibleWorldMapTiles) {
-                    const icons = osrsClient?.getWorldMapIcons?.(
-                        sourceTile.mapX,
-                        sourceTile.mapY,
-                        sourceTile.level,
-                    );
+		                for (const { sourceTile } of visibleWorldMapTiles) {
+		                    const sourceLevel = (sourceTile.level ?? currentArea.origin.plane ?? 0) | 0;
+		                    const icons = osrsClient?.getWorldMapIcons?.(
+		                        sourceTile.mapX,
+	                        sourceTile.mapY,
+	                        sourceLevel,
+	                    );
                     if (!icons || icons.length === 0) continue;
 
                     for (const icon of icons) {
@@ -3013,16 +3127,16 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                             continue;
                         }
 
-                        let displayIconX = icon.displayX;
-                        let displayIconY = icon.displayY;
-                        if (displayIconX === undefined || displayIconY === undefined) {
-                            const sourceX = icon.sourceX ?? sourceTile.mapX * 64 + (icon.localX | 0);
-                            const sourceY = icon.sourceY ?? sourceTile.mapY * 64 + (icon.localY | 0);
-                            const displayPos = currentArea.position(
-                                sourceTile.level,
-                                sourceX,
-                                sourceY,
-                            );
+	                        const sourceX = icon.sourceX ?? sourceTile.mapX * 64 + (icon.localX | 0);
+	                        const sourceY = icon.sourceY ?? sourceTile.mapY * 64 + (icon.localY | 0);
+	                        let displayIconX = icon.displayX;
+	                        let displayIconY = icon.displayY;
+	                        if (displayIconX === undefined || displayIconY === undefined) {
+		                            const displayPos = currentArea.position(
+		                                sourceLevel,
+		                                sourceX,
+	                                sourceY,
+	                            );
                             if (!displayPos) continue;
                             displayIconX = displayPos.x;
                             displayIconY = displayPos.y;
@@ -3031,32 +3145,66 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                             displayIconX + 0.5,
                             displayIconY + 0.5,
                         );
-                        const iconX = iconPos.x;
-                        const iconY = iconPos.y;
-                        const spriteId = (element?.spriteId ?? icon.spriteId ?? -1) | 0;
-                        const iconTex = spriteId >= 0 ? tc.getBySpriteId(spriteId) : null;
-                        if (iconTex) {
-                            const iconW = iconTex.w * renderScale;
-                            const iconH = iconTex.h * renderScale;
-                            glr.drawTexture(
-                                iconTex,
-                                iconX +
-                                    getSpriteXOffset(
-                                        iconW,
-                                        element?.horizontalAlignment ??
-                                            icon.horizontalAlignment ??
-                                            0,
-                                    ),
-                                iconY +
-                                    getSpriteYOffset(
-                                        iconH,
-                                        element?.verticalAlignment ??
-                                            icon.verticalAlignment ??
-                                            1,
-                                    ),
-                                iconW,
-                                iconH,
-                                1,
+	                        const iconX = iconPos.x;
+	                        const iconY = iconPos.y;
+	                        const spriteId = (element?.spriteId ?? icon.spriteId ?? -1) | 0;
+	                        const iconTex = spriteId >= 0 ? tc.getBySpriteId(spriteId) : null;
+	                        let hitX0 = iconX - 4 * renderScale;
+	                        let hitY0 = iconY - 4 * renderScale;
+	                        let hitX1 = iconX + 4 * renderScale;
+	                        let hitY1 = iconY + 4 * renderScale;
+	                        if (
+	                            worldMapState.shouldFlashIcon?.({
+	                                element: elementId,
+	                                category,
+	                            })
+	                        ) {
+	                            const flashTex = getWorldMapFlashTexture(glr);
+	                            if (flashTex) {
+	                                const flashSize = 30 * renderScale;
+	                                glr.drawTexture(
+	                                    flashTex,
+	                                    iconX - flashSize / 2,
+	                                    iconY - flashSize / 2,
+	                                    flashSize,
+	                                    flashSize,
+	                                    1,
+	                                    1,
+	                                );
+	                                hitX0 = Math.min(hitX0, iconX - flashSize / 2);
+	                                hitY0 = Math.min(hitY0, iconY - flashSize / 2);
+	                                hitX1 = Math.max(hitX1, iconX + flashSize / 2);
+	                                hitY1 = Math.max(hitY1, iconY + flashSize / 2);
+	                            }
+	                        }
+	                        if (iconTex) {
+	                            const iconW = iconTex.w * renderScale;
+	                            const iconH = iconTex.h * renderScale;
+	                            const spriteX =
+	                                iconX +
+	                                getSpriteXOffset(
+	                                    iconW,
+	                                    element?.horizontalAlignment ??
+	                                        icon.horizontalAlignment ??
+	                                        0,
+	                                );
+	                            const spriteY =
+	                                iconY +
+	                                getSpriteYOffset(
+	                                    iconH,
+	                                    element?.verticalAlignment ?? icon.verticalAlignment ?? 0,
+	                                );
+	                            hitX0 = Math.min(hitX0, spriteX);
+	                            hitY0 = Math.min(hitY0, spriteY);
+	                            hitX1 = Math.max(hitX1, spriteX + iconW);
+	                            hitY1 = Math.max(hitY1, spriteY + iconH);
+	                            glr.drawTexture(
+	                                iconTex,
+	                                spriteX,
+	                                spriteY,
+	                                iconW,
+	                                iconH,
+	                                1,
                                 1,
                             );
                         }
@@ -3100,43 +3248,199 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                                 }
                                 labelMetricsCache.set(labelMetricKey, metrics);
                             }
-                            const labelW = metrics.logicalWidth * rootScaleX;
-                            const labelH = metrics.logicalHeight * rootScaleY;
-                            const labelColor = element?.textColor ?? icon.textColor ?? 0;
-                            if (font && !/<(?!br\s*\/?\s*>)/i.test(labelText)) {
-                                drawWorldMapLabelGL(
-                                    glr,
-                                    font,
-                                    metrics,
-                                    iconX - labelW / 2,
-                                    iconY,
-                                    labelColor,
-                                    rootScaleX,
-                                    rootScaleY,
-                                );
-                            } else {
-                                drawWrappedTextGL(
-                                    labelText,
-                                    iconX - labelW / 2,
-                                    iconY,
-                                    labelW,
-                                    labelH,
-                                    fontId,
-                                    labelColor,
-                                    metrics.lineHeight,
-                                    false,
-                                    0,
+	                            const labelW = metrics.logicalWidth * rootScaleX;
+	                            const labelH = metrics.logicalHeight * rootScaleY;
+	                            const labelColor = element?.textColor ?? icon.textColor ?? 0;
+	                            hitX0 = Math.min(hitX0, iconX - labelW / 2);
+	                            hitY0 = Math.min(hitY0, iconY);
+	                            hitX1 = Math.max(hitX1, iconX + labelW / 2);
+	                            hitY1 = Math.max(hitY1, iconY + labelH);
+		                            worldMapLabelDraws.push({
+		                                text: labelText,
+		                                fontId,
+		                                font,
+		                                metrics,
+		                                x: iconX - labelW / 2,
+		                                y: iconY,
+		                                width: labelW,
+		                                height: labelH,
+		                                color: labelColor,
+		                                scaleX: rootScaleX,
+		                                scaleY: rootScaleY,
+		                            });
+	                        }
+		                        const sourceCoord = packWorldMapCoord({
+		                            plane: sourceLevel,
+		                            x: sourceX | 0,
+		                            y: sourceY | 0,
+		                        });
+		                        const displayCoord = packWorldMapCoord({
+		                            plane: sourceLevel,
+		                            x: displayIconX | 0,
+		                            y: displayIconY | 0,
+		                        });
+		                        worldMapIconBounds.push({
+			                            elementId,
+			                            category,
+			                            coord1: sourceCoord,
+			                            coord2: displayCoord,
+			                            x0: Math.floor(hitX0),
+			                            y0: Math.floor(hitY0),
+			                            x1: Math.ceil(hitX1),
+			                            y1: Math.ceil(hitY1),
+			                        });
+		                    }
+			                }
+                for (const labelDraw of worldMapLabelDraws) {
+                    if (labelDraw.font && !/<(?!br\s*\/?\s*>)/i.test(labelDraw.text)) {
+                        drawWorldMapLabelGL(
+                            glr,
+                            labelDraw.font,
+                            labelDraw.metrics,
+                            labelDraw.x,
+                            labelDraw.y,
+                            labelDraw.color,
+                            labelDraw.scaleX,
+                            labelDraw.scaleY,
+                        );
+                    } else {
+                        drawWrappedTextGL(
+                            labelDraw.text,
+                            labelDraw.x,
+                            labelDraw.y,
+                            labelDraw.width,
+                            labelDraw.height,
+                            labelDraw.fontId,
+                            labelDraw.color,
+                            labelDraw.metrics.lineHeight,
+                            true,
+                            0,
+                            1,
+                        );
+                    }
+                }
+
+			            }
+				            osrsClient?.setRenderedWorldMapIcons?.(worldMapIconBounds);
+				        }
+
+        if (contentType === 1401) {
+            const osrsClient = (opts.game as any)?.osrsClient;
+            const worldMapState = osrsClient?.worldMapState;
+            const backgroundColor = worldMapState?.currentArea?.backgroundColor ?? 0x000000;
+            glr.drawRect(x, y, width, height, [
+                ((backgroundColor >>> 16) & 0xff) / 255,
+                ((backgroundColor >>> 8) & 0xff) / 255,
+                (backgroundColor & 0xff) / 255,
+                1,
+            ]);
+
+            const currentArea = worldMapState?.currentArea;
+            if (worldMapState?.isLoaded?.() && currentArea) {
+                const minDisplayX = currentArea.regionLowX * 64;
+                const minDisplayY = currentArea.regionLowY * 64;
+                const displayWidthTiles = Math.max(1, currentArea.getWidthTiles?.() ?? 1);
+                const displayHeightTiles = Math.max(1, currentArea.getHeightTiles?.() ?? 1);
+                const scaleX = width / displayWidthTiles;
+                const scaleY = height / displayHeightTiles;
+                const projectOverview = (displayCoordX: number, displayCoordY: number) => ({
+                    x: x + (displayCoordX - minDisplayX) * scaleX,
+                    y: y + height - (displayCoordY - minDisplayY) * scaleY,
+                });
+                const mapElementCache =
+                    ((osrsClient as any).__worldMapOverviewElementCache ??=
+                        new Map<number, any>());
+                const getMapElement = (elementId: number) => {
+                    if (mapElementCache.has(elementId)) return mapElementCache.get(elementId);
+                    let element;
+                    try {
+                        element = osrsClient?.mapElementTypeLoader?.load?.(elementId | 0);
+                    } catch {
+                        element = undefined;
+                    }
+                    mapElementCache.set(elementId, element);
+                    return element;
+                };
+
+                for (let mapY = currentArea.regionLowY; mapY <= currentArea.regionHighY; mapY++) {
+                    for (let mapX = currentArea.regionLowX; mapX <= currentArea.regionHighX; mapX++) {
+                        const icons = osrsClient?.getWorldMapIcons?.(
+                            mapX | 0,
+                            mapY | 0,
+                            Math.max(0, Math.min(3, currentArea.origin.plane | 0)),
+                        );
+                        if (!icons || icons.length === 0) continue;
+                        for (const icon of icons) {
+                            const elementId = (icon.elementId ?? -1) | 0;
+                            if (elementId < 0) continue;
+                            const element = getMapElement(elementId);
+                            const category = (element?.category ?? icon.category ?? -1) | 0;
+                            if (
+                                worldMapState.elementsEnabled === false ||
+                                !worldMapState.isElementEnabled?.(elementId) ||
+                                (category >= 0 && !worldMapState.isCategoryEnabled?.(category))
+                            ) {
+                                continue;
+                            }
+                            if ((element?.worldMapVisible ?? icon.worldMapVisible ?? true) === false) {
+                                continue;
+                            }
+                            const displayIconX =
+                                icon.displayX ?? mapX * 64 + ((icon.localX ?? 0) | 0);
+                            const displayIconY =
+                                icon.displayY ?? mapY * 64 + ((icon.localY ?? 0) | 0);
+                            const pos = projectOverview(displayIconX + 0.5, displayIconY + 0.5);
+                            const spriteId = (element?.spriteId ?? icon.spriteId ?? -1) | 0;
+                            const iconTex = spriteId >= 0 ? tc.getBySpriteId(spriteId) : null;
+                            const flashIcon = {
+                                element: elementId,
+                                category,
+                            };
+                            if (worldMapState.shouldFlashIcon?.(flashIcon)) {
+                                const flashTex = getWorldMapFlashTexture(glr);
+                                if (flashTex) {
+                                    glr.drawTexture(flashTex, pos.x - 7, pos.y - 7, 14, 14, 1, 1);
+                                }
+                            }
+                            if (iconTex) {
+                                const iconW = Math.max(3, Math.min(12, iconTex.w * 0.5 * rootScaleX));
+                                const iconH = Math.max(3, Math.min(12, iconTex.h * 0.5 * rootScaleY));
+                                glr.drawTexture(
+                                    iconTex,
+                                    pos.x - iconW / 2,
+                                    pos.y - iconH / 2,
+                                    iconW,
+                                    iconH,
+                                    1,
                                     1,
                                 );
+                            } else {
+                                glr.drawRect(pos.x - 1, pos.y - 1, 3, 3, [1, 1, 0, 1]);
                             }
                         }
                     }
                 }
 
+                const viewLeft =
+                    worldMapState.displayX - (worldMapState.displayWidth | 0) / 2 - minDisplayX;
+                const viewRight =
+                    worldMapState.displayX + (worldMapState.displayWidth | 0) / 2 - minDisplayX;
+                const viewBottom =
+                    worldMapState.displayY - (worldMapState.displayHeight | 0) / 2 - minDisplayY;
+                const viewTop =
+                    worldMapState.displayY + (worldMapState.displayHeight | 0) / 2 - minDisplayY;
+                const rectX = x + viewLeft * scaleX;
+                const rectY = y + height - viewTop * scaleY;
+                const rectW = Math.max(1, (viewRight - viewLeft) * scaleX);
+                const rectH = Math.max(1, (viewTop - viewBottom) * scaleY);
+                glr.drawRect(rectX, rectY, rectW, 1, [1, 0, 0, 1]);
+                glr.drawRect(rectX, rectY + rectH - 1, rectW, 1, [1, 0, 0, 1]);
+                glr.drawRect(rectX, rectY, 1, rectH, [1, 0, 0, 1]);
+                glr.drawRect(rectX + rectW - 1, rectY, 1, rectH, [1, 0, 0, 1]);
             }
         }
 
-        // Special handling for minimap widget (contentType 1338)
+	        // Special handling for minimap widget (contentType 1338)
         // Uses localPlayer position, NOT camera
         // WebGL-based rendering for better mobile performance
         if (contentType === 1338) {
