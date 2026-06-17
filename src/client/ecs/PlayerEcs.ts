@@ -178,7 +178,7 @@ export class PlayerEcs {
     private srvSnapTicks!: Uint8Array; // ticks left to smooth the snap residual
 
     // Buffered interpolation queue (per-player ring buffer)
-    static readonly MAX_INTERP_QUEUE = 8;
+    static readonly MAX_INTERP_QUEUE = 32;
     private srvQueueX!: Int32Array;
     private srvQueueY!: Int32Array;
     private srvQueueFactor!: Float32Array;
@@ -1657,6 +1657,46 @@ export class PlayerEcs {
         this.srvQueueTail[i] = 0;
     }
 
+    trimQueuedStepsAfter(i: number, x: number, y: number): boolean {
+        if (!this.serverInterpEnabled) return true;
+        if (!this.srvQueueLen || i < 0 || i >= this.capacity) return false;
+
+        const targetX = x | 0;
+        const targetY = y | 0;
+        const t = (this.srvT?.[i] as number) ?? 1.0;
+
+        if (t < 1.0) {
+            const nextX = this.srvNextX?.[i] | 0;
+            const nextY = this.srvNextY?.[i] | 0;
+            if (nextX === targetX && nextY === targetY) {
+                this.clearQueuedSteps(i);
+                return true;
+            }
+        } else if ((this.x[i] | 0) === targetX && (this.y[i] | 0) === targetY) {
+            this.clearQueuedSteps(i);
+            return true;
+        }
+
+        const cap = PlayerEcs.MAX_INTERP_QUEUE;
+        const off = i * cap;
+        const head = this.srvQueueHead[i] | 0;
+        const len = this.srvQueueLen[i] | 0;
+        for (let n = 0; n < len; n++) {
+            const slot = (head + n) % cap;
+            if (
+                (this.srvQueueX[off + slot] | 0) === targetX &&
+                (this.srvQueueY[off + slot] | 0) === targetY
+            ) {
+                const keep = n + 1;
+                this.srvQueueLen[i] = keep & 0xff;
+                this.srvQueueTail[i] = ((head + keep) % cap) & 0xff;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /**
      * Check whether the active interpolation segment's target tile matches
      * a given subtile coordinate.  Used to decide between smooth append
@@ -1673,16 +1713,20 @@ export class PlayerEcs {
         return Math.abs(nx - (subX | 0)) < 64 && Math.abs(ny - (subY | 0)) < 64;
     }
 
-    private _queuePush(i: number, x: number, y: number, factor: number, rotation?: number): void {
+    private _queuePush(
+        i: number,
+        x: number,
+        y: number,
+        factor: number,
+        rotation?: number,
+    ): boolean {
         const cap = PlayerEcs.MAX_INTERP_QUEUE;
         const off = i * cap;
         let head = this.srvQueueHead[i] | 0;
         let tail = this.srvQueueTail[i] | 0;
         let len = this.srvQueueLen[i] | 0;
-        // If full, drop the oldest (advance head)
         if (len >= cap) {
-            head = (head + 1) % cap;
-            len = cap - 1;
+            return false;
         }
         this.srvQueueX[off + tail] = x | 0;
         this.srvQueueY[off + tail] = y | 0;
@@ -1693,6 +1737,7 @@ export class PlayerEcs {
         this.srvQueueHead[i] = head & 0xff;
         this.srvQueueTail[i] = tail & 0xff;
         this.srvQueueLen[i] = len & 0xff;
+        return true;
     }
     private _queueLen(i: number): number {
         return this.srvQueueLen[i] | 0;
@@ -2370,10 +2415,10 @@ export class PlayerEcs {
     }
 
     // Called when a server position arrives: enqueue it for interpolation
-    setServerPos(i: number, x: number, y: number, factor: number = 1, rotation?: number): void {
-        this._queuePush(i, x | 0, y | 0, factor, rotation);
+    setServerPos(i: number, x: number, y: number, factor: number = 1, rotation?: number): boolean {
         // Segment promotion is handled in `updateClient` so movement blocking can suppress
         // target-rotation updates exactly like the OSRS movement update early returns.
+        return this._queuePush(i, x | 0, y | 0, factor, rotation);
     }
 
     // Toggle movement debug telemetry. When enabled, a JSON row is emitted per entity per client tick.

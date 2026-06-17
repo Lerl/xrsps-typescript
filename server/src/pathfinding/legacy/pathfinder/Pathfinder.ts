@@ -4,7 +4,7 @@ import { CollisionStrategy } from "./CollisionStrategy";
 import { RouteStrategy } from "./RouteStrategy";
 import { CollisionFlag } from "./flag/CollisionFlag";
 
-const DEFAULT_GRAPH_SIZE = 128;
+const DEFAULT_GRAPH_SIZE = 32;
 const DEFAULT_DISTANCE = 99999999;
 
 const ALTERNATIVE_ROUTE_MAX_DISTANCE = 100;

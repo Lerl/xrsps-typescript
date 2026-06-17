@@ -8,7 +8,6 @@
  */
 import {
     MovementDirection,
-    deltaToDirection,
     deltaToRunDirection,
     directionToDelta,
 } from "../../../../src/shared/Direction";
@@ -591,6 +590,34 @@ export class PlayerPacketEncoder {
             }
 
             const movement = movementById.get(id);
+            const writeTeleportUpdate = (): void => {
+                const toTileX = view.x >> 7;
+                const toTileY = view.y >> 7;
+                const toPlane = view.level & 0x3;
+                let from = session.lastKnownTiles.get(id);
+                if (!from && id === localIndex) {
+                    from = { x: 0, y: 0, level: 0 };
+                }
+                if (!from) from = { x: toTileX, y: toTileY, level: toPlane };
+                const planeDelta = (toPlane - from.level) & 0x3;
+                const dx = toTileX - from.x;
+                const dy = toTileY - from.y;
+
+                writer.writeBits(2, 3);
+                if (dx >= -16 && dx <= 15 && dy >= -16 && dy <= 15) {
+                    const packed12 =
+                        ((planeDelta & 0x3) << 10) | ((dx & 0x1f) << 5) | (dy & 0x1f);
+                    writer.writeBits(1, 0);
+                    writer.writeBits(12, packed12 & 0xfff);
+                } else {
+                    const packed30 =
+                        ((planeDelta & 0x3) << 28) |
+                        (((dx & 0x3fff) >>> 0) << 14) |
+                        ((dy & 0x3fff) >>> 0);
+                    writer.writeBits(1, 1);
+                    writer.writeBits(30, packed30 >>> 0);
+                }
+            };
             if (!movement || movement.mode === "idle") {
                 writer.writeBits(2, 0);
                 return;
@@ -616,43 +643,11 @@ export class PlayerPacketEncoder {
                     writer.writeBits(4, code & 0xf);
                     return;
                 }
-                const walkDir = deltaToDirection(dx, dy);
-                if (walkDir !== undefined) {
-                    writer.writeBits(2, 1);
-                    writer.writeBits(3, walkDir & 7);
-                    return;
-                }
-                // Steps cancelled out (0,0) — encode as idle.
-                writer.writeBits(2, 0);
+                writeTeleportUpdate();
                 return;
             }
 
-            // Teleport
-            const toTileX = view.x >> 7;
-            const toTileY = view.y >> 7;
-            const toPlane = view.level & 0x3;
-            let from = session.lastKnownTiles.get(id);
-            if (!from && id === localIndex) {
-                from = { x: 0, y: 0, level: 0 };
-            }
-            if (!from) from = { x: toTileX, y: toTileY, level: toPlane };
-            const planeDelta = (toPlane - from.level) & 0x3;
-            const dx = toTileX - from.x;
-            const dy = toTileY - from.y;
-
-            writer.writeBits(2, 3);
-            if (dx >= -16 && dx <= 15 && dy >= -16 && dy <= 15) {
-                const packed12 = ((planeDelta & 0x3) << 10) | ((dx & 0x1f) << 5) | (dy & 0x1f);
-                writer.writeBits(1, 0);
-                writer.writeBits(12, packed12 & 0xfff);
-            } else {
-                const packed30 =
-                    ((planeDelta & 0x3) << 28) |
-                    (((dx & 0x3fff) >>> 0) << 14) |
-                    ((dy & 0x3fff) >>> 0);
-                writer.writeBits(1, 1);
-                writer.writeBits(30, packed30 >>> 0);
-            }
+            writeTeleportUpdate();
         };
 
         const shouldUpdateExternal = (id: number): boolean => {

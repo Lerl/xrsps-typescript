@@ -3,12 +3,14 @@ import type { SailingWorldView } from "../game/sailing/SailingWorldView";
 import { CollisionOverlayStore } from "../world/CollisionOverlayStore";
 import { MapCollisionService } from "../world/MapCollisionService";
 import { resolveCollisionPlaneAt } from "../world/PlaneResolver";
-import { BLOCKED_STATEGY, NORMAL_STRATEGY } from "./legacy/pathfinder/CollisionStrategy";
+import { NORMAL_STRATEGY } from "./legacy/pathfinder/CollisionStrategy";
 import { Pathfinder } from "./legacy/pathfinder/Pathfinder";
 import {
     ApproximateRouteStrategy,
+    CardinalAdjacentRouteStrategy,
     ExactRouteStrategy,
     RectAdjacentRouteStrategy,
+    RectWithinRangeLineOfSightRouteStrategy,
     RouteStrategy,
 } from "./legacy/pathfinder/RouteStrategy";
 import { CollisionFlag } from "./legacy/pathfinder/flag/CollisionFlag";
@@ -30,7 +32,7 @@ export class PathService {
     private collisionOverlays?: CollisionOverlayStore;
     private worldViewCollision: Map<number, SailingWorldView> = new Map();
 
-    constructor(map: MapCollisionService, graphSize = 128) {
+    constructor(map: MapCollisionService, graphSize = 32) {
         this.map = map;
         this.pf = new Pathfinder(graphSize);
     }
@@ -58,6 +60,14 @@ export class PathService {
         this.worldViewCollision.delete(worldViewId);
     }
 
+    /** Return the registered WorldView containing a tile, if any. */
+    private worldViewIdForTile(x: number, y: number): number | undefined {
+        for (const [id, wv] of this.worldViewCollision) {
+            if (wv.containsWorldTile(x, y)) return id;
+        }
+        return undefined;
+    }
+
     /**
      * Resolve the effective worldViewId for a pathfinding request.
      *
@@ -69,10 +79,7 @@ export class PathService {
      */
     private resolveWorldViewId(req: PathRequest): number | undefined {
         if (req.worldViewId !== undefined && req.worldViewId >= 0) return req.worldViewId;
-        for (const [id, wv] of this.worldViewCollision) {
-            if (wv.containsWorldTile(req.from.x, req.from.y)) return id;
-        }
-        return undefined;
+        return this.worldViewIdForTile(req.from.x, req.from.y);
     }
 
     /** Clamp a destination tile to the bounds of a WorldView (no-op when not in one). */
@@ -133,25 +140,25 @@ export class PathService {
 
         if (dx !== 0 && dy !== 0) {
             // Try diagonal first
-            if (this.canNpcMove(fx, fy, dx, dy, plane, size)) {
+            if (this.canActorMove(fx, fy, dx, dy, plane, size)) {
                 return { x: fx + dx, y: fy + dy };
             }
             // Try horizontal
-            if (this.canNpcMove(fx, fy, dx, 0, plane, size)) {
+            if (this.canActorMove(fx, fy, dx, 0, plane, size)) {
                 return { x: fx + dx, y: fy };
             }
             // Try vertical
-            if (this.canNpcMove(fx, fy, 0, dy, plane, size)) {
+            if (this.canActorMove(fx, fy, 0, dy, plane, size)) {
                 return { x: fx, y: fy + dy };
             }
         } else if (dx !== 0) {
             // Only horizontal needed
-            if (this.canNpcMove(fx, fy, dx, 0, plane, size)) {
+            if (this.canActorMove(fx, fy, dx, 0, plane, size)) {
                 return { x: fx + dx, y: fy };
             }
         } else if (dy !== 0) {
             // Only vertical needed
-            if (this.canNpcMove(fx, fy, 0, dy, plane, size)) {
+            if (this.canActorMove(fx, fy, 0, dy, plane, size)) {
                 return { x: fx, y: fy + dy };
             }
         }
@@ -161,10 +168,10 @@ export class PathService {
     }
 
     /**
-     * Check if an NPC can move from (x, y) by (dx, dy).
+     * Check if an actor can move from (x, y) by (dx, dy).
      * Handles collision flags and corner-cutting validation for diagonal moves.
      */
-    private canNpcMove(
+    private canActorMove(
         x: number,
         y: number,
         dx: number,
@@ -174,7 +181,7 @@ export class PathService {
     ): boolean {
         const destX = x + dx;
         const destY = y + dy;
-        // For multi-tile NPCs, check all tiles along the leading edge
+        // For multi-tile actors, check all tiles along the leading edge
         for (let i = 0; i < size; i++) {
             for (let j = 0; j < size; j++) {
                 const checkX = x + i;
@@ -210,7 +217,7 @@ export class PathService {
                     return false;
                 }
                 // Also check for solid objects
-                if ((flag & CollisionFlag.OBJECT) !== 0) {
+                if ((flag & (CollisionFlag.OBJECT | CollisionFlag.OBJECT_ROUTE_BLOCKER)) !== 0) {
                     return false;
                 }
             }
@@ -219,20 +226,42 @@ export class PathService {
         return true;
     }
 
-    canNpcStep(
+    canActorStep(
         from: { x: number; y: number; plane: number },
         to: { x: number; y: number },
         size: number = 1,
     ): boolean {
-        const dx = (to.x | 0) - (from.x | 0);
-        const dy = (to.y | 0) - (from.y | 0);
+        const fromX = from.x | 0;
+        const fromY = from.y | 0;
+        const toX = to.x | 0;
+        const toY = to.y | 0;
+        const dx = toX - fromX;
+        const dy = toY - fromY;
         if (dx === 0 && dy === 0) {
             return true;
         }
         if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
             return false;
         }
-        return this.canNpcMove(from.x | 0, from.y | 0, dx, dy, clampPlane(from.plane), size);
+        if (this.worldViewIdForTile(fromX, fromY) !== this.worldViewIdForTile(toX, toY)) {
+            return false;
+        }
+        return this.canActorMove(
+            fromX,
+            fromY,
+            dx,
+            dy,
+            clampPlane(from.plane),
+            normalizePathSize(size),
+        );
+    }
+
+    canNpcStep(
+        from: { x: number; y: number; plane: number },
+        to: { x: number; y: number },
+        size: number = 1,
+    ): boolean {
+        return this.canActorStep(from, to, size);
     }
 
     /**
@@ -280,6 +309,37 @@ export class PathService {
         return this.pf.graphSize;
     }
 
+    private prepareRouteStrategy(routeStrategy: RouteStrategy | undefined, plane: number): void {
+        if (routeStrategy instanceof RectAdjacentRouteStrategy) {
+            if (!routeStrategy.hasCollisionGetter()) {
+                routeStrategy.setCollisionGetter(
+                    (x, y, p) => this.getCollisionFlagAt(x, y, p),
+                    plane,
+                );
+            }
+            return;
+        }
+
+        if (
+            routeStrategy instanceof CardinalAdjacentRouteStrategy &&
+            routeStrategy.allowsAutoCollisionGetter() &&
+            !routeStrategy.hasCollisionGetter()
+        ) {
+            routeStrategy.setCollisionGetter(
+                (x, y, p) => this.getCollisionFlagAt(x, y, p),
+                plane,
+            );
+            return;
+        }
+
+        if (
+            routeStrategy instanceof RectWithinRangeLineOfSightRouteStrategy &&
+            !routeStrategy.hasProjectileRaycast()
+        ) {
+            routeStrategy.setProjectileRaycast((from, to) => this.projectileRaycast(from, to));
+        }
+    }
+
     /**
      * Return a step-by-step path (tile list) from `from` towards `to`.
      *
@@ -311,6 +371,7 @@ export class PathService {
             const plane = clampPlane(from.plane);
             const maxSteps = normalizeMaxSteps(opts?.maxSteps);
             const routeStrategy = opts?.routeStrategy;
+            this.prepareRouteStrategy(routeStrategy, plane);
 
             if (!routeStrategy && fromX === toX && fromY === toY) {
                 return { ok: true, steps: [] };
@@ -413,6 +474,16 @@ export class PathService {
                 out[rev] = { x: ringX[idx], y: ringY[idx] };
             }
 
+            let validateX = srcX;
+            let validateY = srcY;
+            for (const step of out) {
+                if (!this.canActorStep({ x: validateX, y: validateY, plane }, step, size)) {
+                    return { ok: false, message: "path trace blocked" };
+                }
+                validateX = step.x;
+                validateY = step.y;
+            }
+
             return { ok: true, steps: out, end: selectedEnd };
         } catch (e: unknown) {
             return { ok: false, message: e instanceof Error ? e.message : String(e) };
@@ -489,14 +560,7 @@ export class PathService {
             const size = normalizePathSize(req.size);
             const plane = clampPlane(from.plane);
 
-            // For RectAdjacentRouteStrategy, set the collision getter
-            // so hasArrived() can check for walls blocking the interaction edge.
-            if (routeStrategy instanceof RectAdjacentRouteStrategy) {
-                routeStrategy.setCollisionGetter(
-                    (x, y, p) => this.getCollisionFlagAt(x, y, p),
-                    plane,
-                );
-            }
+            this.prepareRouteStrategy(routeStrategy, plane);
 
             // If a route strategy is provided and we're already at the destination, bail early.
             if (routeStrategy && routeStrategy.hasArrived(fromX, fromY, plane, size)) {
@@ -512,7 +576,7 @@ export class PathService {
             this.fillFlagsAcrossMaps(fromX, fromY, plane, effectiveWvId);
 
             // Choose collision strategy.
-            // NOTE: Do not auto-switch to BLOCKED_STATEGY based on FLOOR bits.
+            // NOTE: Do not auto-switch collision modes based on FLOOR bits.
             // OSRS player routing uses the normal movement masks; switching here
             // can over-constrain paths on otherwise valid tiles.
             const collisionStrategy = NORMAL_STRATEGY;

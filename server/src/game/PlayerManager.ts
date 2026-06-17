@@ -165,6 +165,16 @@ export class PlayerManager implements PlayerRepository {
         return this.usedIds.has(id);
     }
 
+    private attachPathStepValidator(player: PlayerState): void {
+        player.setPathStepValidator((from, to) =>
+            this.pathService.canActorStep(
+                { x: from.x, y: from.y, plane: from.level },
+                to,
+                from.size,
+            ),
+        );
+    }
+
     add(ws: WebSocket, spawnX: number, spawnY: number, level: number = 0): PlayerState | undefined {
         const id = this.allocatePlayerId();
         if (id === undefined) {
@@ -174,6 +184,7 @@ export class PlayerManager implements PlayerRepository {
             return undefined;
         }
         const p = new PlayerState(id, spawnX, spawnY, level, this.gamemode);
+        this.attachPathStepValidator(p);
         this.players.set(ws, p);
         this.usedIds.add(id);
 
@@ -194,6 +205,7 @@ export class PlayerManager implements PlayerRepository {
             return undefined;
         }
         const p = new PlayerState(id, spawnX, spawnY, level, this.gamemode);
+        this.attachPathStepValidator(p);
         // Assign a default Rune equipment appearance for bots so clients can
         // render a distinct look without guessing.
         // OSRS classic item ids used here; clients can ignore unknown slots.
@@ -616,6 +628,7 @@ export class PlayerManager implements PlayerRepository {
                 from: { x: player.tileX, y: player.tileY, plane: player.level },
                 to: segmentTo,
                 size: 1,
+                worldViewId: player.worldViewId,
             },
             { maxSteps: 128 },
         );
@@ -642,7 +655,12 @@ export class PlayerManager implements PlayerRepository {
 
     routeBot(p: PlayerState, to: Tile, run: boolean = false): { ok: boolean; message?: string } {
         const res = this.pathService.findPathSteps(
-            { from: { x: p.tileX, y: p.tileY, plane: p.level }, to, size: 1 },
+            {
+                from: { x: p.tileX, y: p.tileY, plane: p.level },
+                to,
+                size: 1,
+                worldViewId: p.worldViewId,
+            },
             { maxSteps: 128 },
         );
         if (!res.ok || !res.steps || res.steps.length === 0)

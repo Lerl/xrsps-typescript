@@ -1,3 +1,5 @@
+import { CollisionFlag } from "../../shared/CollisionFlag";
+
 export type CollisionFlagAtFn = (plane: number, tileX: number, tileY: number) => number;
 
 /**
@@ -12,15 +14,14 @@ export class OsrsRouteFinder32 {
     // routePathX = new int[50]). The server engine caps at 25 — see Pathfinder.ts.
     static readonly MAX_ROUTE_POINTS = 50;
 
-    // Reference masks used by class232 for size=1 routing.
-    private static readonly BLOCK_WEST = 19136776;
-    private static readonly BLOCK_EAST = 19136896;
-    private static readonly BLOCK_SOUTH = 19136770;
-    private static readonly BLOCK_NORTH = 19136800;
-    private static readonly BLOCK_SOUTH_WEST = 19136782;
-    private static readonly BLOCK_SOUTH_EAST = 19136899;
-    private static readonly BLOCK_NORTH_WEST = 19136824;
-    private static readonly BLOCK_NORTH_EAST = 19136992;
+    private static readonly BLOCK_WEST = CollisionFlag.BLOCK_WEST;
+    private static readonly BLOCK_EAST = CollisionFlag.BLOCK_EAST;
+    private static readonly BLOCK_SOUTH = CollisionFlag.BLOCK_SOUTH;
+    private static readonly BLOCK_NORTH = CollisionFlag.BLOCK_NORTH;
+    private static readonly BLOCK_SOUTH_WEST = CollisionFlag.BLOCK_SOUTH_WEST;
+    private static readonly BLOCK_SOUTH_EAST = CollisionFlag.BLOCK_SOUTH_EAST;
+    private static readonly BLOCK_NORTH_WEST = CollisionFlag.BLOCK_NORTH_WEST;
+    private static readonly BLOCK_NORTH_EAST = CollisionFlag.BLOCK_NORTH_EAST;
     // Additional masks used by class232 for multi-tile (size>=2) routing.
     private static readonly BLOCK_WEST_EXTRA = 19136830;
     private static readonly BLOCK_SOUTH_EXTRA = 19136911;

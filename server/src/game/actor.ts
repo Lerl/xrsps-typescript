@@ -16,6 +16,13 @@ import {
 } from "./interactionIndex";
 
 export type Tile = { x: number; y: number };
+export type PathStepValidationContext = {
+    x: number;
+    y: number;
+    level: number;
+    size: number;
+};
+export type PathStepValidator = (from: PathStepValidationContext, to: Tile) => boolean;
 
 // Debug logging: Player IDs are automatically added/removed on connect/disconnect
 // This enables path logging for all connected human players (not bots)
@@ -136,6 +143,8 @@ export abstract class Actor {
     private stepPositions: StepPosition[] = [];
 
     private teleportedFlag: boolean = false;
+    private positionCorrectionFlag: boolean = false;
+    private pathStepValidator?: PathStepValidator;
 
     /**
      * Deferred movement flag.
@@ -520,6 +529,7 @@ export abstract class Actor {
         this.pathLength = 0;
         this.pathX[0] = this.tileX;
         this.pathY[0] = this.tileY;
+        this.singleStepRoutePending = 0;
     }
 
     hasPath(): boolean {
@@ -560,6 +570,25 @@ export abstract class Actor {
         return this.runEnergy > 0;
     }
 
+    setPathStepValidator(validator: PathStepValidator | undefined): void {
+        this.pathStepValidator = validator;
+    }
+
+    private canConsumePathStep(nextX: number, nextY: number): boolean {
+        const dx = nextX - this.tileX;
+        const dy = nextY - this.tileY;
+        if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+            return false;
+        }
+        if (!this.pathStepValidator) {
+            return true;
+        }
+        return this.pathStepValidator(
+            { x: this.tileX, y: this.tileY, level: this.level, size: this.size },
+            { x: nextX, y: nextY },
+        );
+    }
+
     tickStep(): boolean {
         this.stepPositions.length = 0;
         this.turnedLastTick = false;
@@ -587,7 +616,10 @@ export abstract class Actor {
         // Movement lock
         const currentTick = this.movementTickContext;
         if (currentTick > 0 && this.movementLockUntilTick > currentTick) {
-            if (this.pathLength > 0) this.clearPath();
+            if (this.pathLength > 0) {
+                this.clearPath();
+                this.markPositionCorrection();
+            }
             this.movedLastTick = false;
             this.turnedLastTick = false;
             return false;
@@ -618,6 +650,12 @@ export abstract class Actor {
             if (resv !== undefined) {
                 if (resv === null) return false;
                 if (nextX !== resv.x || nextY !== resv.y) return false;
+            }
+
+            if (!this.canConsumePathStep(nextX, nextY)) {
+                this.clearPath();
+                this.markPositionCorrection();
+                return false;
             }
 
             this.pathLength--;
@@ -828,6 +866,7 @@ export abstract class Actor {
         this.clearForcedOrientation();
         this.idleTurnTicks = 0;
         this.teleportedFlag = true;
+        this.positionCorrectionFlag = false;
         this.resetPathInternal(this.tileX, this.tileY);
         logger.info(`[Actor] Teleported to tile (${tileX}, ${tileY}, ${this.level})`);
     }
@@ -838,6 +877,16 @@ export abstract class Actor {
 
     clearTeleportFlag(): void {
         this.teleportedFlag = false;
+    }
+
+    protected markPositionCorrection(): void {
+        this.positionCorrectionFlag = true;
+    }
+
+    consumePositionCorrection(): boolean {
+        const correction = this.positionCorrectionFlag;
+        this.positionCorrectionFlag = false;
+        return correction;
     }
 
     /**

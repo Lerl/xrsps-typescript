@@ -3,7 +3,6 @@ import {
     MovementDirection,
     directionToDelta,
     runDirectionToDelta,
-    runDirectionToWalkDirections,
 } from "../../shared/Direction";
 import { BitStream } from "./BitStream";
 import { getPlayerSyncHuffman } from "./HuffmanProvider";
@@ -317,18 +316,12 @@ export class PlayerUpdateDecoder {
             if (!delta) return;
             const targetX = (state.tileX + (delta.dx | 0)) | 0;
             const targetY = (state.tileY + (delta.dy | 0)) | 0;
-            // Decode the combined run code into 2 walk directions so the
-            // movement sync receives explicit per-step data.  This avoids
-            // client-side route reconstruction which fails inside WorldViews
-            // (client collision doesn't have WorldView blocking).
-            const walkDirs = runDirectionToWalkDirections(code);
-            const dirs: number[] = walkDirs ? [walkDirs[0] & 7, walkDirs[1] & 7] : [];
             const traversal = resolveTraversalDefault(state);
             if (needsUpdate && !localOutOfBounds) {
                 state.pendingMove = {
                     tileX: targetX,
                     tileY: targetY,
-                    directions: dirs,
+                    directions: [],
                     movedTwoTiles: true,
                 };
             } else {
@@ -337,7 +330,7 @@ export class PlayerUpdateDecoder {
                     state,
                     targetX,
                     targetY,
-                    dirs,
+                    [],
                     traversal,
                     index,
                     movements,

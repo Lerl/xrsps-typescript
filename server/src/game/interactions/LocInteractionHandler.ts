@@ -428,6 +428,7 @@ export class LocInteractionHandler {
                 sizeY,
                 allowDoorOverlap,
                 doorBlockedSides,
+                !isDoorInteraction,
             );
             // Door interactions must be possible from either side of the closed wall edge.
             // Keep wall-edge blocking checks for non-door wall interactions.

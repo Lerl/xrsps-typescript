@@ -19,7 +19,7 @@ import type {
     MovementUpdate,
     RegisterMovementEntity,
 } from "./MovementSyncTypes";
-import { CollisionFlagAtFn, OsrsRouteFinder32 } from "./OsrsRouteFinder32";
+import { type CollisionFlagAtFn, OsrsRouteFinder32 } from "./OsrsRouteFinder32";
 
 function toTileCoord(subCoord: number): number {
     return (subCoord | 0) >> 7;
@@ -153,13 +153,22 @@ export class PlayerMovementSync {
             state.setEcsIndex(update.ecsIndex);
         }
 
-        // Movement deltas are relative to the newest queued tile (Actor.pathX[0]).
-        const fromTile = { x: state.tileX, y: state.tileY };
-
         const running = !!update.running;
         const serverSubX = typeof subX === "number" ? (subX as number) | 0 : undefined;
         const serverSubY = typeof subY === "number" ? (subY as number) | 0 : undefined;
         const forcedTeleport = isFirstAppearance || !!update.snap;
+        let fromTile = { x: state.tileX, y: state.tileY };
+
+        if (!forcedTeleport && directions.length > 0) {
+            let startX = initialTile.x | 0;
+            let startY = initialTile.y | 0;
+            for (const direction of directions) {
+                const delta = directionToDelta((direction & 7) as MovementDirection);
+                startX -= delta.dx;
+                startY -= delta.dy;
+            }
+            fromTile = { x: startX | 0, y: startY | 0 };
+        }
 
         let tile = initialTile;
         let finalSubX = typeof serverSubX === "number" ? serverSubX : (tile.x << 7) + 64;
@@ -171,26 +180,11 @@ export class PlayerMovementSync {
         const dxToDest = (destTile.x - fromTile.x) | 0;
         const dyToDest = (destTile.y - fromTile.y) | 0;
         const chebyshevDist = Math.max(Math.abs(dxToDest), Math.abs(dyToDest)) | 0;
-        const isRunStep = running || traversals.some((t) => (t | 0) === 2);
-
-        // Run reconstruction: when the server sends a 2-tile displacement without
-        // explicit directions, reconstruct the intermediate step using client-side
-        // collision.
-        const wantsRunReconstruct =
-            !forcedTeleport &&
-            isRunStep &&
-            chebyshevDist === 2 &&
-            directions.length === 0 &&
-            typeof this.getCollisionFlagAt === "function";
+        const isRunDisplacement = running || traversals.some((t) => (t | 0) === 2);
 
         let path: MovementPath;
 
-        if (wantsRunReconstruct) {
-            path = this.buildRunReconstructPath(fromTile, destTile, update.level | 0);
-            tile = destTile;
-            finalSubX = (destTile.x << 7) + 64;
-            finalSubY = (destTile.y << 7) + 64;
-        } else if (directions.length > 0 && !forcedTeleport) {
+        if (directions.length > 0 && !forcedTeleport) {
             // Standard step-by-step movement from server directions.
             const steps: MovementStep[] = [];
             let currX = fromTile.x;
@@ -212,19 +206,23 @@ export class PlayerMovementSync {
             finalSubX = (currX << 7) + 64;
             finalSubY = (currY << 7) + 64;
             path = new MovementPath(fromTile, tile, steps, false);
-        } else if (!forcedTeleport && chebyshevDist > 0) {
-            // Direction-less displacement (correction or single/double step).
-            path = this.buildDisplacementPath(
-                fromTile,
-                destTile,
-                chebyshevDist,
-                isRunStep,
-                running,
-                traversals,
-            );
+        } else if (
+            !forcedTeleport &&
+            directions.length === 0 &&
+            isRunDisplacement &&
+            chebyshevDist > 0 &&
+            chebyshevDist <= 2 &&
+            typeof this.getCollisionFlagAt === "function"
+        ) {
+            path = this.buildRunTargetPath(fromTile, destTile, update.level | 0);
             tile = destTile;
             finalSubX = typeof serverSubX === "number" ? serverSubX : (destTile.x << 7) + 64;
             finalSubY = typeof serverSubY === "number" ? serverSubY : (destTile.y << 7) + 64;
+        } else if (!forcedTeleport && chebyshevDist > 0) {
+            tile = destTile;
+            finalSubX = typeof serverSubX === "number" ? serverSubX : (destTile.x << 7) + 64;
+            finalSubY = typeof serverSubY === "number" ? serverSubY : (destTile.y << 7) + 64;
+            path = new MovementPath(fromTile, tile, [], true);
         } else {
             // No movement or teleport.
             if (serverSubX === undefined || serverSubY === undefined) {
@@ -313,14 +311,22 @@ export class PlayerMovementSync {
         }
 
         // ── Movement steps ──────────────────────────────────────────────
-        // appendPathStep is purely additive — the client never
-        // clears the path queue on normal movement.  interpolateActor
-        // finishes the current tile, then moves to the next.  The ECS ring
-        // buffer (cap 8) drops oldest on overflow, bounding any backlog.
+        // New server steps extend from the last authoritative tile. Keep any
+        // queued visual steps needed to reach that tile, then drop stale future
+        // steps before appending the updated path.
+        const fromSubX = (path.from.x << 7) + 64;
+        const fromSubY = (path.from.y << 7) + 64;
+        const aligned = this.playerEcs.trimQueuedStepsAfter(ecsIndex, fromSubX, fromSubY);
+        if (!aligned) {
+            try {
+                this.playerEcs.teleport(ecsIndex, path.from.x, path.from.y, resolvedLevel);
+            } catch {}
+        }
 
         const anyRun = path.steps.some((s) => !!s.run);
         let lastOrientation = state.lastOrientation;
 
+        let queueOverflowed = false;
         for (const step of path.steps) {
             const stepSubX = (step.tile.x << 7) + 64;
             const stepSubY = (step.tile.y << 7) + 64;
@@ -328,12 +334,36 @@ export class PlayerMovementSync {
                 typeof step.traversal === "number" ? step.traversal | 0 : step.run ? 2 : 1;
             const factor = traversal === 0 ? 0.5 : traversal === 2 ? 2 : 1;
             const dirOrientation = directionToOrientation(step.direction) & 2047;
-            this.playerEcs.setServerPos(ecsIndex, stepSubX, stepSubY, factor, dirOrientation);
             lastOrientation = dirOrientation;
+            const queued = this.playerEcs.setServerPos(
+                ecsIndex,
+                stepSubX,
+                stepSubY,
+                factor,
+                dirOrientation,
+            );
+            if (!queued) {
+                queueOverflowed = true;
+                break;
+            }
+        }
+
+        const finalStep = path.steps[path.steps.length - 1];
+        if (queueOverflowed) {
+            lastOrientation = directionToOrientation(finalStep.direction) & 2047;
+            try {
+                this.playerEcs.clearServerQueue(ecsIndex);
+                this.playerEcs.teleport(
+                    ecsIndex,
+                    finalStep.tile.x,
+                    finalStep.tile.y,
+                    resolvedLevel,
+                );
+                this.playerEcs.setTargetRot(ecsIndex, lastOrientation);
+            } catch {}
         }
 
         // Update state to the final tile from this tick's steps.
-        const finalStep = path.steps[path.steps.length - 1];
         const finalSubX = (finalStep.tile.x << 7) + 64;
         const finalSubY = (finalStep.tile.y << 7) + 64;
         state.setTile(finalStep.tile, finalSubX, finalSubY, resolvedLevel);
@@ -463,107 +493,58 @@ export class PlayerMovementSync {
         return { x: sampleX | 0, y: sampleY | 0 };
     }
 
-    // ── Path building helpers ───────────────────────────────────────────
-
-    /**
-     * Reconstruct the intermediate tile for a 2-tile run displacement using
-     * client-side collision.
-     */
-    private buildRunReconstructPath(
+    private buildRunTargetPath(
         from: { x: number; y: number },
         dest: { x: number; y: number },
         plane: number,
     ): MovementPath {
         const steps: MovementStep[] = [];
+        let currX = from.x | 0;
+        let currY = from.y | 0;
+
         const count = this.routeFinder.findRouteSize1(
-            from.x,
-            from.y,
-            dest.x,
-            dest.y,
-            plane,
+            currX,
+            currY,
+            dest.x | 0,
+            dest.y | 0,
+            plane | 0,
             this.getCollisionFlagAt as CollisionFlagAtFn,
             true,
         );
 
-        let currX = from.x | 0;
-        let currY = from.y | 0;
         const intermediateCount = count > 0 ? Math.max(0, (count - 1) | 0) : 0;
         for (let i = 0; i < intermediateCount; i++) {
             const nextX = this.routeFinder.outX[i] | 0;
             const nextY = this.routeFinder.outY[i] | 0;
-            const dir = deltaToDirection(Math.sign(nextX - currX), Math.sign(nextY - currY));
-            if (dir === undefined) continue;
+            const direction = deltaToDirection(
+                Math.sign(nextX - currX),
+                Math.sign(nextY - currY),
+            );
+            if (direction === undefined) continue;
             currX = nextX;
             currY = nextY;
-            steps.push({ tile: { x: currX, y: currY }, direction: dir, run: true, traversal: 2 });
+            steps.push({
+                tile: { x: currX, y: currY },
+                direction,
+                run: true,
+                traversal: 2,
+            });
         }
 
-        const finalDir = deltaToDirection(Math.sign(dest.x - currX), Math.sign(dest.y - currY));
-        if (finalDir !== undefined) {
+        const finalDirection = deltaToDirection(
+            Math.sign((dest.x | 0) - currX),
+            Math.sign((dest.y | 0) - currY),
+        );
+        if (finalDirection !== undefined) {
             steps.push({
                 tile: { x: dest.x | 0, y: dest.y | 0 },
-                direction: finalDir,
+                direction: finalDirection,
                 run: true,
                 traversal: 2,
             });
         }
 
         return new MovementPath(from, dest, steps, false);
-    }
-
-    /**
-     * Build a path from a direction-less displacement (server sent subX/subY
-     * but no explicit direction codes).
-     */
-    private buildDisplacementPath(
-        from: { x: number; y: number },
-        dest: { x: number; y: number },
-        chebyshevDist: number,
-        isRunStep: boolean,
-        running: boolean,
-        traversals: number[],
-    ): MovementPath {
-        const dx = dest.x - from.x;
-        const dy = dest.y - from.y;
-        const traversalHintRaw =
-            typeof traversals[0] === "number" ? (traversals[0] as number) | 0 : undefined;
-        const traversalHint =
-            traversalHintRaw === 0 || traversalHintRaw === 1 || traversalHintRaw === 2
-                ? traversalHintRaw
-                : running
-                  ? 2
-                  : 1;
-
-        const direction = deltaToDirection(Math.sign(dx), Math.sign(dy));
-        if (direction === undefined) {
-            return new MovementPath(from, dest, [], true);
-        }
-
-        if (chebyshevDist === 1) {
-            const step: MovementStep = {
-                tile: dest,
-                direction,
-                run: traversalHint === 2,
-                traversal: traversalHint,
-            };
-            return new MovementPath(from, dest, [step], false);
-        }
-
-        if (chebyshevDist === 2) {
-            if (isRunStep && typeof this.getCollisionFlagAt === "function") {
-                return this.buildRunReconstructPath(from, dest, 0);
-            }
-            const step: MovementStep = {
-                tile: dest,
-                direction,
-                run: isRunStep || traversalHint === 2,
-                traversal: isRunStep ? 2 : traversalHint,
-            };
-            return new MovementPath(from, dest, [step], false);
-        }
-
-        // Large displacement without teleport flag — treat as snap.
-        return new MovementPath(from, dest, [], true);
     }
 
     // ── Public accessors ────────────────────────────────────────────────

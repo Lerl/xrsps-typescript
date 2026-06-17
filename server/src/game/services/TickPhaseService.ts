@@ -544,7 +544,7 @@ export class TickPhaseService {
                 );
                 this.svc.queueCombatState(player);
             }
-            const snap = player.wasTeleported() ?? false;
+            const snap = (player.wasTeleported() ?? false) || player.consumePositionCorrection();
             const turned = player.didTurn() ?? false;
             const shouldSendMovement =
                 summary.directions.length > 0 || snap || turned || player.shouldSendPos();

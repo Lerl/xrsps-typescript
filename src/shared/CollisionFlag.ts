@@ -57,7 +57,6 @@ export const CollisionFlagBits = {
     FLOOR: 0x200000,
 
     // Route blocker flags (pathfinder-specific, 550+ clients)
-    // Used to allow routing through bankers, etc.
     WALL_NORTH_WEST_ROUTE_BLOCKER: 0x400000,
     WALL_NORTH_ROUTE_BLOCKER: 0x800000,
     WALL_NORTH_EAST_ROUTE_BLOCKER: 0x1000000,
@@ -109,10 +108,26 @@ export const CollisionFlag = {
     OCCUPIED_ENTITY,
 
     // Cardinal direction blocking (checks opposite wall + object + floor)
-    BLOCK_WEST: CollisionFlagBits.WALL_EAST | CollisionFlagBits.OBJECT | FLOOR_BLOCKED,
-    BLOCK_EAST: CollisionFlagBits.WALL_WEST | CollisionFlagBits.OBJECT | FLOOR_BLOCKED,
-    BLOCK_SOUTH: CollisionFlagBits.WALL_NORTH | CollisionFlagBits.OBJECT | FLOOR_BLOCKED,
-    BLOCK_NORTH: CollisionFlagBits.WALL_SOUTH | CollisionFlagBits.OBJECT | FLOOR_BLOCKED,
+    BLOCK_WEST:
+        CollisionFlagBits.WALL_EAST |
+        CollisionFlagBits.OBJECT |
+        CollisionFlagBits.OBJECT_ROUTE_BLOCKER |
+        FLOOR_BLOCKED,
+    BLOCK_EAST:
+        CollisionFlagBits.WALL_WEST |
+        CollisionFlagBits.OBJECT |
+        CollisionFlagBits.OBJECT_ROUTE_BLOCKER |
+        FLOOR_BLOCKED,
+    BLOCK_SOUTH:
+        CollisionFlagBits.WALL_NORTH |
+        CollisionFlagBits.OBJECT |
+        CollisionFlagBits.OBJECT_ROUTE_BLOCKER |
+        FLOOR_BLOCKED,
+    BLOCK_NORTH:
+        CollisionFlagBits.WALL_SOUTH |
+        CollisionFlagBits.OBJECT |
+        CollisionFlagBits.OBJECT_ROUTE_BLOCKER |
+        FLOOR_BLOCKED,
 
     // Diagonal direction blocking
     BLOCK_SOUTH_WEST:
@@ -120,24 +135,28 @@ export const CollisionFlag = {
         CollisionFlagBits.WALL_NORTH_EAST |
         CollisionFlagBits.WALL_EAST |
         CollisionFlagBits.OBJECT |
+        CollisionFlagBits.OBJECT_ROUTE_BLOCKER |
         FLOOR_BLOCKED,
     BLOCK_SOUTH_EAST:
         CollisionFlagBits.WALL_NORTH_WEST |
         CollisionFlagBits.WALL_NORTH |
         CollisionFlagBits.WALL_WEST |
         CollisionFlagBits.OBJECT |
+        CollisionFlagBits.OBJECT_ROUTE_BLOCKER |
         FLOOR_BLOCKED,
     BLOCK_NORTH_WEST:
         CollisionFlagBits.WALL_EAST |
         CollisionFlagBits.WALL_SOUTH_EAST |
         CollisionFlagBits.WALL_SOUTH |
         CollisionFlagBits.OBJECT |
+        CollisionFlagBits.OBJECT_ROUTE_BLOCKER |
         FLOOR_BLOCKED,
     BLOCK_NORTH_EAST:
         CollisionFlagBits.WALL_SOUTH |
         CollisionFlagBits.WALL_SOUTH_WEST |
         CollisionFlagBits.WALL_WEST |
         CollisionFlagBits.OBJECT |
+        CollisionFlagBits.OBJECT_ROUTE_BLOCKER |
         FLOOR_BLOCKED,
 
     // Multi-direction blocking (for large entities)
@@ -148,6 +167,7 @@ export const CollisionFlag = {
         CollisionFlagBits.WALL_SOUTH_EAST |
         CollisionFlagBits.WALL_SOUTH |
         CollisionFlagBits.OBJECT |
+        CollisionFlagBits.OBJECT_ROUTE_BLOCKER |
         FLOOR_BLOCKED,
     BLOCK_NORTH_AND_SOUTH_WEST:
         CollisionFlagBits.WALL_NORTH_WEST |
@@ -156,6 +176,7 @@ export const CollisionFlag = {
         CollisionFlagBits.WALL_SOUTH_WEST |
         CollisionFlagBits.WALL_WEST |
         CollisionFlagBits.OBJECT |
+        CollisionFlagBits.OBJECT_ROUTE_BLOCKER |
         FLOOR_BLOCKED,
     BLOCK_NORTH_EAST_AND_WEST:
         CollisionFlagBits.WALL_NORTH_WEST |
@@ -164,6 +185,7 @@ export const CollisionFlag = {
         CollisionFlagBits.WALL_EAST |
         CollisionFlagBits.WALL_WEST |
         CollisionFlagBits.OBJECT |
+        CollisionFlagBits.OBJECT_ROUTE_BLOCKER |
         FLOOR_BLOCKED,
     BLOCK_SOUTH_EAST_AND_WEST:
         CollisionFlagBits.WALL_EAST |
@@ -172,6 +194,7 @@ export const CollisionFlag = {
         CollisionFlagBits.WALL_SOUTH_WEST |
         CollisionFlagBits.WALL_WEST |
         CollisionFlagBits.OBJECT |
+        CollisionFlagBits.OBJECT_ROUTE_BLOCKER |
         FLOOR_BLOCKED,
 
     // Route blocker masks (pathfinder-specific)

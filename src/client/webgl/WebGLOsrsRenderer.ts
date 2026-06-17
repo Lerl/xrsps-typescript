@@ -30,6 +30,7 @@ import { sendLogin } from "../../network/ServerConnection";
 import { flushPackets } from "../../network/packet";
 import { createTextureArray } from "../../picogl/PicoTexture";
 import { RS_TO_RADIANS } from "../../rs/MathConstants";
+import { CollisionFlag } from "../../shared/CollisionFlag";
 import { OsrsMenuEntry } from "../../rs/MenuEntry";
 import { MenuTargetType } from "../../rs/MenuEntry";
 import type { OverlayFloorType } from "../../rs/config/floortype/OverlayFloorType";
@@ -10443,11 +10444,11 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
 
     override getCollisionFlagAt(level: number, tileX: number, tileY: number): number {
         const map = this.getPreferredMapForWorldTile(tileX, tileY) as any;
-        // missing/unloaded tiles are treated as blocked via the 0x1000000 sentinel bit
-        // (missing/unloaded tiles use the 0x1000000 sentinel bit in collision flags).
-        if (!map || typeof (map as any).getCollisionFlag !== "function") return 0x1000000;
+        if (!map || typeof (map as any).getCollisionFlag !== "function") {
+            return CollisionFlag.OBJECT_ROUTE_BLOCKER;
+        }
         const local = this.getMapLocalTile(map, tileX, tileY);
-        if (!local) return 0x1000000;
+        if (!local) return CollisionFlag.OBJECT_ROUTE_BLOCKER;
         return (map as any).getCollisionFlag(level | 0, local.x, local.y) | 0;
     }
 

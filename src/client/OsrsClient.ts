@@ -2100,7 +2100,8 @@ export class OsrsClient {
             this.resolvePlayerPlane,
             this.npcEcs,
             this.seqTypeLoader,
-            (plane: number, x: number, y: number) => this.renderer.getCollisionFlagAt(plane, x, y),
+            (plane: number, x: number, y: number) =>
+                this.renderer.getCollisionFlagAt(plane, x, y),
         );
         this.playerSyncManager = new PlayerSyncManager({
             ecs: this.playerEcs,

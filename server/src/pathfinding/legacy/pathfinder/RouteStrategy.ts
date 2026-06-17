@@ -134,6 +134,10 @@ export class RectAdjacentRouteStrategy extends RouteStrategy {
         this.plane = plane;
     }
 
+    hasCollisionGetter(): boolean {
+        return this.collisionGetter !== undefined;
+    }
+
     hasArrived(tileX: number, tileY: number, _level: number, size: number = 1): boolean {
         const s = Math.max(1, size | 0);
         const minX = this.rectX;
@@ -237,6 +241,7 @@ export class CardinalAdjacentRouteStrategy extends RouteStrategy {
     private readonly blockEast: boolean;
     private readonly blockSouth: boolean;
     private readonly blockWest: boolean;
+    private readonly autoCollisionGetter: boolean;
     private collisionGetter?: CollisionFlagGetter;
     private plane: number = 0;
 
@@ -247,6 +252,7 @@ export class CardinalAdjacentRouteStrategy extends RouteStrategy {
         sizeY: number,
         allowOverlap: boolean = false,
         blockedSides?: CardinalBlockedSides,
+        autoCollisionGetter: boolean = true,
     ) {
         super();
         this.rectX = rectX;
@@ -258,6 +264,7 @@ export class CardinalAdjacentRouteStrategy extends RouteStrategy {
         this.blockEast = !!blockedSides?.east;
         this.blockSouth = !!blockedSides?.south;
         this.blockWest = !!blockedSides?.west;
+        this.autoCollisionGetter = autoCollisionGetter;
 
         // Client parity: SOUTH-WEST corner for alternative route search.
         this.approxDestX = this.rectX;
@@ -272,6 +279,14 @@ export class CardinalAdjacentRouteStrategy extends RouteStrategy {
     setCollisionGetter(getter: CollisionFlagGetter, plane: number): void {
         this.collisionGetter = getter;
         this.plane = plane;
+    }
+
+    allowsAutoCollisionGetter(): boolean {
+        return this.autoCollisionGetter;
+    }
+
+    hasCollisionGetter(): boolean {
+        return this.collisionGetter !== undefined;
     }
 
     hasArrived(tileX: number, tileY: number, _level: number, size: number = 1): boolean {
@@ -405,6 +420,10 @@ export class RectWithinRangeLineOfSightRouteStrategy extends RouteStrategy {
 
     setProjectileRaycast(getter: ProjectileRaycastGetter): void {
         this.projectileRaycast = getter;
+    }
+
+    hasProjectileRaycast(): boolean {
+        return this.projectileRaycast !== undefined;
     }
 
     hasArrived(tileX: number, tileY: number, level: number, size: number = 1): boolean {
