@@ -3479,6 +3479,89 @@ export class OsrsClient {
         return null;
     }
 
+    private isWidgetInteractionStale(widget: any): boolean {
+        const uid = typeof widget?.uid === "number" ? widget.uid | 0 : 0;
+        if (uid === 0 || !this.widgetManager) return true;
+        return (
+            this.widgetManager.getWidgetByUid(uid) !== widget ||
+            this.widgetManager.isEffectivelyHidden(uid)
+        );
+    }
+
+    private clearDragWidgetVisualState(widget: any): void {
+        if (!widget) return;
+        delete (widget as any)._dragPickupOffsetX;
+        delete (widget as any)._dragPickupOffsetY;
+        delete (widget as any)._dragVisualX;
+        delete (widget as any)._dragVisualY;
+        delete (widget as any)._dragAbsX;
+        delete (widget as any)._dragAbsY;
+        delete (widget as any)._isDragActive;
+        try {
+            this.widgetManager?.invalidateWidgetRender?.(widget);
+        } catch {}
+    }
+
+    private cancelActiveUiClickIfHeld(): void {
+        const isHeld =
+            this.inputManager?.clickMode2 === ClickMode.LEFT ||
+            this.inputManager?.isDragging?.() === true;
+        if (!isHeld) return;
+        (this.renderer?.canvas as any)?.__inputBridge?.consumeClick?.();
+    }
+
+    private clearWidgetInteractionState(): void {
+        const clicked = this.clickedWidget;
+        const dragSource = this.dragSourceWidget;
+
+        this.clearDragWidgetVisualState(clicked);
+        if (dragSource && dragSource !== clicked) {
+            this.clearDragWidgetVisualState(dragSource);
+        }
+
+        this.clickedWidget = null;
+        this.clickedWidgetParent = null;
+        this.clickedWidgetX = 0;
+        this.clickedWidgetY = 0;
+        this.clickedWidgetHandled = false;
+        this.widgetDragDuration = 0;
+        this.isDraggingWidget = false;
+        this.dragClickX = 0;
+        this.dragClickY = 0;
+        this.dragSourceWidget = null;
+        this.draggedOnWidget = null;
+        this.deferredWidgetAction = null;
+        this._lastDragHitX = -1;
+        this._lastDragHitY = -1;
+        delete (this as any)._dragRenderAreaAbsX;
+        delete (this as any)._dragRenderAreaAbsY;
+        this.cancelActiveUiClickIfHeld();
+    }
+
+    private clearStaleWidgetInteractionState(): void {
+        if (this.clickedWidget && this.isWidgetInteractionStale(this.clickedWidget)) {
+            this.clearWidgetInteractionState();
+            return;
+        }
+
+        if (this.dragSourceWidget && this.isWidgetInteractionStale(this.dragSourceWidget)) {
+            this.clearWidgetInteractionState();
+            return;
+        }
+
+        if (
+            this.deferredWidgetAction?.widget &&
+            this.isWidgetInteractionStale(this.deferredWidgetAction.widget)
+        ) {
+            this.deferredWidgetAction = null;
+            this.cancelActiveUiClickIfHeld();
+        }
+
+        if (this.draggedOnWidget && this.isWidgetInteractionStale(this.draggedOnWidget)) {
+            this.draggedOnWidget = null;
+        }
+    }
+
     /**
      * Get the UI render scale that maps logical widget coordinates to canvas pixel coordinates.
      * Returns [scaleX, scaleY]. At scale 1 (no UI scaling), both are 1.
