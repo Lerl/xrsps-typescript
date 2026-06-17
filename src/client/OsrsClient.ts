@@ -116,6 +116,7 @@ import {
     getMapPlaneId,
     getMapSquareId,
 } from "../rs/map/MapFileIndex";
+import { WorldMapArchiveRenderer } from "../rs/map/WorldMapArchiveRenderer";
 import { WorldMapState, packWorldMapCoord, unpackWorldMapCoord } from "../rs/map/WorldMapArea";
 import { SeqFrameLoader } from "../rs/model/seq/SeqFrameLoader";
 import type { SkeletalSeqLoader } from "../rs/model/skeletal/SkeletalSeqLoader";
@@ -870,17 +871,19 @@ export class OsrsClient {
     static readonly MAX_PENDING_WORLDMAP_TILE_LOADS_MOBILE = 48;
     static readonly MAX_FAILED_WORLDMAP_IDS = 256;
     static readonly MAX_FAILED_WORLDMAP_IDS_MOBILE = 64;
+    static readonly WORLDMAP_TILE_RETRY_MS = 2500;
 
     minimapImageUrls: Map<number, string> = new Map();
     private minimapImageAccess: Map<number, number> = new Map();
     worldMapState: WorldMapState = WorldMapState.empty();
+    private worldMapArchiveRenderer?: WorldMapArchiveRenderer;
     private worldMapImageTiles: Map<
         number,
         { key: string; pixels?: Uint8Array; width: number; height: number }
     > = new Map();
     private worldMapImageAccess: Map<number, number> = new Map();
     private pendingWorldMapImageIds: Set<number> = new Set();
-    private failedWorldMapImageIds: Set<number> = new Set();
+    private failedWorldMapImageIds: Map<number, number> = new Map();
     private retainedWorldMapImageIds: Set<number> = new Set();
     private worldMapImageRequestViewportKey: string = "";
     private worldMapImageRequestEpoch: number = 0;
@@ -3653,6 +3656,29 @@ export class OsrsClient {
         this.pendingWorldMapDragDisplayY = undefined;
         if (this.cs2Vm?.context) {
             this.cs2Vm.context.worldMapState = state;
+        }
+    }
+
+    private initWorldMapArchiveRenderer(): void {
+        try {
+            let mapScenes: ReturnType<CacheLoaderFactory["getMapScenes"]> = [];
+            try {
+                mapScenes = this.loaderFactory.getMapScenes();
+            } catch (error) {
+                console.log("[OsrsClient] Failed to load world map scene sprites", { error });
+            }
+            this.worldMapArchiveRenderer = new WorldMapArchiveRenderer({
+                cacheSystem: this.cacheSystem,
+                locTypeLoader: this.locTypeLoader,
+                mapElementTypeLoader: this.mapElementTypeLoader,
+                overlayTypeLoader: this.loaderFactory.getOverlayTypeLoader(),
+                textureLoader: this.textureLoader,
+                mapScenes,
+                varManager: this.varManager,
+            });
+        } catch (error) {
+            this.worldMapArchiveRenderer = undefined;
+            console.log("[OsrsClient] Failed to initialise world map archive renderer", { error });
         }
     }
 
@@ -10557,6 +10583,7 @@ export class OsrsClient {
             this.mapFileIndex = mapFileLoader.mapFileIndex;
             this.isNewTextureAnim = cache.info.game === "runescape" && cache.info.revision >= 681;
             this.setWorldMapState(WorldMapState.load(this.cacheSystem));
+            this.initWorldMapArchiveRenderer();
 
             // Phase 9: Preparing interface
             await showPhase(90, "Preparing interface...");
@@ -11803,6 +11830,16 @@ export class OsrsClient {
         return Array.from(this.worldMapImageTiles.keys());
     }
 
+    private getWorldMapImageKey(mapX: number, mapY: number, level: number = 0): number {
+        const baseKey = this.getMinimapImageKey(mapX, mapY, level);
+        const pixelsPerTile = Math.max(
+            1,
+            Math.min(8, Math.ceil(this.worldMapState.getZoomScale?.() ?? 1)),
+        );
+        const areaId = Math.max(0, this.worldMapState.getCurrentMapAreaId() | 0) & 0x1ff;
+        return baseKey | ((pixelsPerTile & 0xf) << 18) | (areaId << 22);
+    }
+
     private getFailedWorldMapIdLimit(): number {
         return isTouchDevice
             ? OsrsClient.MAX_FAILED_WORLDMAP_IDS_MOBILE
@@ -11907,11 +11944,19 @@ export class OsrsClient {
         if (this.failedWorldMapImageIds.has(mapId)) return;
         const limit = this.getFailedWorldMapIdLimit();
         while (this.failedWorldMapImageIds.size >= limit) {
-            const first = this.failedWorldMapImageIds.values().next().value;
+            const first = this.failedWorldMapImageIds.keys().next().value;
             if (first === undefined) break;
             this.failedWorldMapImageIds.delete(first);
         }
-        this.failedWorldMapImageIds.add(mapId);
+        this.failedWorldMapImageIds.set(mapId, performance.now());
+    }
+
+    private hasRecentlyFailedWorldMapImage(mapId: number): boolean {
+        const failedAt = this.failedWorldMapImageIds.get(mapId);
+        if (failedAt === undefined) return false;
+        if (performance.now() - failedAt < OsrsClient.WORLDMAP_TILE_RETRY_MS) return true;
+        this.failedWorldMapImageIds.delete(mapId);
+        return false;
     }
 
     getMinimapImageUrl(mapX: number, mapY: number, level: number = 0): string | undefined {
@@ -11988,7 +12033,7 @@ export class OsrsClient {
             return undefined;
         }
         this.updateWorldMapImageRequestEpoch();
-        const mapId = this.getMinimapImageKey(mapX, mapY, level);
+        const mapId = this.getWorldMapImageKey(mapX, mapY, level);
         const tile = this.worldMapImageTiles.get(mapId);
         if (tile) {
             this.worldMapImageAccess.set(mapId, performance.now() + Math.max(0, accessPriority));
@@ -12010,7 +12055,7 @@ export class OsrsClient {
             return undefined;
         }
         this.updateWorldMapImageRequestEpoch();
-        const mapId = this.getMinimapImageKey(mapX, mapY, level);
+        const mapId = this.getWorldMapImageKey(mapX, mapY, level);
         const accessTime = performance.now() + Math.max(0, accessPriority);
         const tile = this.worldMapImageTiles.get(mapId);
         if (tile) {
@@ -12036,7 +12081,7 @@ export class OsrsClient {
             this.worldMapIconCache.clear();
             this.worldMapIconCacheAreaId = areaId;
         }
-        const mapId = this.getMinimapImageKey(mapX, mapY, level);
+        const mapId = this.getWorldMapImageKey(mapX, mapY, level);
         if (this.worldMapIconCache.has(mapId)) {
             return this.worldMapIconCache.get(mapId);
         }
@@ -12050,14 +12095,15 @@ export class OsrsClient {
         const seen = new Set<string>();
         for (const icon of sourceIcons) {
             const coord = unpackWorldMapCoord(icon.coord);
-            const localX = coord.x - ((mapX | 0) << 6);
-            const localY = coord.y - ((mapY | 0) << 6);
+            const displayCoord =
+                icon.displayCoord !== undefined ? unpackWorldMapCoord(icon.displayCoord) : coord;
+            const localX = displayCoord.x - ((mapX | 0) << 6);
+            const localY = displayCoord.y - ((mapY | 0) << 6);
             if (localX < 0 || localX >= 64 || localY < 0 || localY >= 64) continue;
-            const displayPos = this.worldMapState.currentArea?.position(
-                coord.plane,
-                coord.x,
-                coord.y,
-            );
+            const displayPos =
+                icon.displayCoord !== undefined
+                    ? { x: displayCoord.x, y: displayCoord.y }
+                    : this.worldMapState.currentArea?.position(coord.plane, coord.x, coord.y);
             if (!displayPos) continue;
 
             const key = `${icon.element | 0}:${localX | 0}:${localY | 0}`;
@@ -12082,8 +12128,10 @@ export class OsrsClient {
                 textSize: element?.textSize,
                 horizontalAlignment: element?.horizontalAlignment,
                 verticalAlignment: element?.verticalAlignment,
+                sourcePlane: coord.plane,
                 sourceX: coord.x | 0,
                 sourceY: coord.y | 0,
+                displayPlane: displayCoord.plane,
                 displayX: displayPos.x,
                 displayY: displayPos.y,
             });
@@ -12100,11 +12148,11 @@ export class OsrsClient {
         level: number,
         cacheEpoch: number,
     ): void {
-        const mapId = this.getMinimapImageKey(mapX, mapY, level);
+        const mapId = this.getWorldMapImageKey(mapX, mapY, level);
         if (this.pendingWorldMapImageIds.has(mapId)) {
             return;
         }
-        if (this.failedWorldMapImageIds.has(mapId)) {
+        if (this.hasRecentlyFailedWorldMapImage(mapId)) {
             return;
         }
         if (this.hasWorldMapImage(mapId)) {
@@ -12114,26 +12162,29 @@ export class OsrsClient {
             return;
         }
 
-        const renderer = this.renderer as unknown as {
-            loadWorldMapTile?: (
-                mapX: number,
-                mapY: number,
-                level: number,
-            ) => Promise<
-                | { pixels: Uint8Array; width: number; height: number; icons: MinimapIcon[] }
-                | undefined
-            >;
-        };
-        if (typeof renderer.loadWorldMapTile !== "function") {
+        const archiveRenderer = this.worldMapArchiveRenderer;
+        const area = this.worldMapState.currentArea;
+        const pixelsPerTile = Math.ceil(this.worldMapState.getZoomScale?.() ?? 1);
+        if (!archiveRenderer) {
             this.rememberFailedWorldMapImage(mapId);
             return;
         }
 
         this.pendingWorldMapImageIds.add(mapId);
-        void renderer
-            .loadWorldMapTile(mapX | 0, mapY | 0, level | 0)
+        void Promise.resolve()
+            .then(() =>
+                archiveRenderer.loadTile(
+                    area,
+                    mapX | 0,
+                    mapY | 0,
+                    pixelsPerTile,
+                ),
+            )
             .then((tile) => {
                 if (cacheEpoch !== this.worldMapImageCacheEpoch) {
+                    return;
+                }
+                if (mapId !== this.getWorldMapImageKey(mapX, mapY, level)) {
                     return;
                 }
                 const tileWidth = tile?.width;
@@ -12152,7 +12203,7 @@ export class OsrsClient {
                         tileWidth | 0,
                         tileHeight | 0,
                         level | 0,
-                        tile.icons ?? [],
+                        (tile.icons ?? []) as MinimapIcon[],
                     );
                     return;
                 }
@@ -12166,7 +12217,12 @@ export class OsrsClient {
                 if (cacheEpoch !== this.worldMapImageCacheEpoch) {
                     return;
                 }
-                void err;
+                console.log("[OsrsClient] Failed to load world map image tile", {
+                    mapX,
+                    mapY,
+                    level,
+                    err,
+                });
                 this.rememberFailedWorldMapImage(mapId);
             })
             .finally(() => {
@@ -12183,7 +12239,7 @@ export class OsrsClient {
         level: number,
         icons: MinimapIcon[],
     ): void {
-        const mapId = this.getMinimapImageKey(mapX, mapY, level);
+        const mapId = this.getWorldMapImageKey(mapX, mapY, level);
         const oldTile = this.worldMapImageTiles.get(mapId);
         if (oldTile) {
             this.releaseWorldMapImageTile(oldTile);
@@ -12224,7 +12280,7 @@ export class OsrsClient {
             ) {
                 continue;
             }
-            retained.add(this.getMinimapImageKey(mapX, mapY, retainedTile.level ?? 0));
+            retained.add(this.getWorldMapImageKey(mapX, mapY, retainedTile.level ?? 0));
         }
         this.retainedWorldMapImageIds = retained;
         this.pruneWorldMapImages();
@@ -12249,9 +12305,17 @@ export class OsrsClient {
     }
 
     private clearWorldMapIconsForImageKey(mapId: number): void {
+        const tileKey = mapId & ~0x3c0000;
+        for (const id of this.worldMapImageTiles.keys()) {
+            if (id !== mapId && (id & ~0x3c0000) === tileKey) {
+                this.invalidateWorldMapIconCacheForId(mapId);
+                return;
+            }
+        }
         const level = (mapId >>> 16) & 0x3;
         const mapSquare = mapId & 0xffff;
-        this.worldMapState.removeTileIcons((mapSquare >>> 8) & 0xff, mapSquare & 0xff, level);
+        const areaId = (mapId >>> 22) & 0x1ff;
+        this.worldMapState.removeTileIcons((mapSquare >>> 8) & 0xff, mapSquare & 0xff, level, areaId);
         this.invalidateWorldMapIconCacheForId(mapId);
     }
 

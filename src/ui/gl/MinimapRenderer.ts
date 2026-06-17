@@ -156,6 +156,7 @@ interface DotInstance {
     x: number; // Position relative to player (in pixels, pre-rotation)
     y: number;
     tex: MinimapTexture;
+    scale: number;
 }
 
 export class MinimapRenderer {
@@ -359,8 +360,8 @@ export class MinimapRenderer {
     /**
      * Queue a dot sprite for batched drawing
      */
-    queueDot(tex: MinimapTexture, relX: number, relY: number) {
-        this.dotInstances.push({ x: relX, y: relY, tex });
+    queueDot(tex: MinimapTexture, relX: number, relY: number, scale: number = 1) {
+        this.dotInstances.push({ x: relX, y: relY, tex, scale });
     }
 
     /**
@@ -371,14 +372,11 @@ export class MinimapRenderer {
 
         const gl = this.gl;
 
-        gl.useProgram(this.progMinimap);
-        gl.uniformMatrix4fv(this.uProj_mm, false, this.proj);
-        gl.uniform2f(this.uCenter_mm, this.centerX, this.centerY);
-        gl.uniform1f(this.uSin_mm, this.sin);
-        gl.uniform1f(this.uCos_mm, this.cos);
-        gl.uniform1f(this.uZoom_mm, this.zoom);
-        gl.uniform1f(this.uRadius_mm, this.radius);
-        gl.uniform1f(this.uAlpha_mm, 1.0);
+        gl.useProgram(this.progOverlay);
+        gl.uniformMatrix4fv(this.uProj_ov, false, this.proj);
+        gl.uniform2f(this.uCenter_ov, this.centerX, this.centerY);
+        gl.uniform1f(this.uRadius_ov, this.radius);
+        gl.uniform1f(this.uAlpha_ov, 1.0);
 
         gl.bindVertexArray(this.vao);
 
@@ -397,20 +395,18 @@ export class MinimapRenderer {
         for (const [texId, dots] of byTex) {
             gl.activeTexture(gl.TEXTURE0);
             this.bindNearestTexture(texId);
-            gl.uniform1i(this.uTexture_mm, 0);
+            gl.uniform1i(this.uTexture_ov, 0);
 
-            // Get sprite size from first dot
-            const spriteW = dots[0].tex.w;
-            const spriteH = dots[0].tex.h;
-            const halfW = spriteW / 2;
-            const halfH = spriteH / 2;
-
-            // Draw each dot individually (could batch further with instancing)
             for (const dot of dots) {
-                const x0 = dot.x - halfW;
-                const y0 = dot.y - halfH;
-                const x1 = dot.x + halfW;
-                const y1 = dot.y + halfH;
+                const screen = this.relativeToScreen(dot.x, dot.y);
+                const spriteW = dot.tex.w * dot.scale;
+                const spriteH = dot.tex.h * dot.scale;
+                const halfW = spriteW / 2;
+                const halfH = spriteH / 2;
+                const x0 = screen.x - halfW;
+                const y0 = screen.y - halfH;
+                const x1 = screen.x + halfW;
+                const y1 = screen.y + halfH;
 
                 const verts = new Float32Array([
                     x0,

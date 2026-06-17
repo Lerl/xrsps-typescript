@@ -611,8 +611,8 @@ export class WorldMapState {
     private loaded = false;
     private displayPixelWidth = 0;
     private displayPixelHeight = 0;
-    private readonly tileIcons = new Map<number, WorldMapIconEntry[]>();
-    private readonly staticIconsByTile = new Map<number, WorldMapIconEntry[]>();
+    private readonly tileIconsByAreaTile = new Map<number, Map<number, WorldMapIconEntry[]>>();
+    private readonly staticIconsByAreaTile = new Map<number, Map<number, WorldMapIconEntry[]>>();
     private elementMetadataResolver?: (elementId: number) => WorldMapElementMetadata | undefined;
     private iconIterator: WorldMapIconEntry[] = [];
     private iconIteratorIndex = 0;
@@ -651,7 +651,7 @@ export class WorldMapState {
                 }
                 const compositeMapFile = compositeMapArchive?.getFileNamed(area.internalName);
                 if (compositeMapFile) {
-                    state.addStaticIcons(decodeCompositeMapIcons(compositeMapFile.data, true));
+                    state.addStaticIcons(area.id, decodeCompositeMapIcons(compositeMapFile.data, true));
                 }
             } catch (error) {
                 console.log("[WorldMapState] Failed to decode world map area", {
@@ -855,33 +855,58 @@ export class WorldMapState {
             elementId: number;
             category: number;
             spriteId: number;
+            sourcePlane?: number;
+            sourceX?: number;
+            sourceY?: number;
+            displayPlane?: number;
+            displayX?: number;
+            displayY?: number;
         }>,
     ): void {
+        const areaId = this.currentArea?.id;
+        if (areaId === undefined) return;
         const key = WorldMapState.getTileKey(mapX, mapY, level);
         const entries: WorldMapIconEntry[] = [];
         for (const icon of icons) {
             if ((icon.elementId | 0) < 0) continue;
+            const sourcePlane = (icon.sourcePlane ?? level) | 0;
+            const sourceX = (icon.sourceX ?? ((mapX << 6) + (icon.localX | 0))) | 0;
+            const sourceY = (icon.sourceY ?? ((mapY << 6) + (icon.localY | 0))) | 0;
+            const hasDisplayCoord = icon.displayX !== undefined && icon.displayY !== undefined;
             entries.push({
                 element: icon.elementId | 0,
                 category: icon.category | 0,
                 spriteId: icon.spriteId | 0,
                 coord: packWorldMapCoord({
-                    plane: level | 0,
-                    x: (mapX << 6) + (icon.localX | 0),
-                    y: (mapY << 6) + (icon.localY | 0),
+                    plane: sourcePlane,
+                    x: sourceX,
+                    y: sourceY,
                 }),
+                displayCoord: hasDisplayCoord
+                    ? packWorldMapCoord({
+                          plane: (icon.displayPlane ?? sourcePlane) | 0,
+                          x: icon.displayX! | 0,
+                          y: icon.displayY! | 0,
+                      })
+                    : undefined,
             });
         }
-        if (entries.length > 0) this.tileIcons.set(key, entries);
-        else this.tileIcons.delete(key);
+        let areaIcons = this.tileIconsByAreaTile.get(areaId);
+        if (!areaIcons) {
+            areaIcons = new Map();
+            this.tileIconsByAreaTile.set(areaId, areaIcons);
+        }
+        if (entries.length > 0) areaIcons.set(key, entries);
+        else areaIcons.delete(key);
     }
 
-    removeTileIcons(mapX: number, mapY: number, level: number): void {
-        this.tileIcons.delete(WorldMapState.getTileKey(mapX, mapY, level));
+    removeTileIcons(mapX: number, mapY: number, level: number, areaId = this.currentArea?.id): void {
+        if (areaId === undefined) return;
+        this.tileIconsByAreaTile.get(areaId)?.delete(WorldMapState.getTileKey(mapX, mapY, level));
     }
 
     clearTileIcons(): void {
-        this.tileIcons.clear();
+        this.tileIconsByAreaTile.clear();
         this.iconIterator = [];
         this.iconIteratorIndex = 0;
     }
@@ -901,13 +926,23 @@ export class WorldMapState {
     }
 
     getStaticIconsForTile(mapX: number, mapY: number, level: number): WorldMapIconEntry[] {
-        return this.staticIconsByTile.get(WorldMapState.getTileKey(mapX, mapY, level)) ?? [];
+        const areaId = this.currentArea?.id;
+        if (areaId === undefined) return [];
+        return this.staticIconsByAreaTile
+            .get(areaId)
+            ?.get(WorldMapState.getTileKey(mapX, mapY, level)) ?? [];
     }
 
     getIconsForTile(mapX: number, mapY: number, level: number): WorldMapIconEntry[] {
         const key = WorldMapState.getTileKey(mapX, mapY, level);
-        const staticIcons = this.staticIconsByTile.get(key);
-        const tileIcons = this.tileIcons.get(key);
+        const staticIcons =
+            this.currentArea?.id !== undefined
+                ? this.staticIconsByAreaTile.get(this.currentArea.id)?.get(key)
+                : undefined;
+        const tileIcons =
+            this.currentArea?.id !== undefined
+                ? this.tileIconsByAreaTile.get(this.currentArea.id)?.get(key)
+                : undefined;
         if (!staticIcons || staticIcons.length === 0) return tileIcons ?? [];
         if (!tileIcons || tileIcons.length === 0) return staticIcons;
         return staticIcons.concat(tileIcons);
@@ -1041,8 +1076,12 @@ export class WorldMapState {
     private getVisibleIcons(): WorldMapIconEntry[] {
         const icons: WorldMapIconEntry[] = [];
         const area = this.currentArea;
-        const iconGroups = [this.staticIconsByTile, this.tileIcons];
+        const iconGroups = [
+            area ? this.staticIconsByAreaTile.get(area.id) : undefined,
+            area ? this.tileIconsByAreaTile.get(area.id) : undefined,
+        ];
         for (const iconGroup of iconGroups) {
+            if (!iconGroup) continue;
             for (const tileIcons of iconGroup.values()) {
                 for (const icon of tileIcons) {
                     if (!this.isIconVisible(icon)) continue;
@@ -1060,17 +1099,22 @@ export class WorldMapState {
         return icons;
     }
 
-    private addStaticIcons(icons: WorldMapIconEntry[]): void {
+    private addStaticIcons(areaId: number, icons: WorldMapIconEntry[]): void {
+        let areaIcons = this.staticIconsByAreaTile.get(areaId | 0);
+        if (!areaIcons) {
+            areaIcons = new Map();
+            this.staticIconsByAreaTile.set(areaId | 0, areaIcons);
+        }
         for (const icon of icons) {
             if ((icon.element | 0) < 0) continue;
             const coord = unpackWorldMapCoord(icon.coord);
             const mapX = coord.x >> 6;
             const mapY = coord.y >> 6;
             const key = WorldMapState.getTileKey(mapX, mapY, coord.plane);
-            let tileIcons = this.staticIconsByTile.get(key);
+            let tileIcons = areaIcons.get(key);
             if (!tileIcons) {
                 tileIcons = [];
-                this.staticIconsByTile.set(key, tileIcons);
+                areaIcons.set(key, tileIcons);
             }
             tileIcons.push(icon);
         }

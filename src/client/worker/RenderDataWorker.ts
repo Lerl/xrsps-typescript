@@ -168,9 +168,10 @@ async function initWorker(cache: LoadedCache, npcInstances: NpcInstance[]): Prom
         cache.xteas,
     );
 
-    // Minimize memory: avoid loading full map scene/function sprite sheets in workers.
-    // Minimap terrain rendering does not require them; icons are omitted to save RAM.
-    const minimapImageRenderer = new MinimapImageRenderer(textureLoader, locTypeLoader, [], []);
+    const minimapImageRenderer = new MinimapImageRenderer(
+        locTypeLoader,
+        loaderFactory.getMapScenes(),
+    );
 
     return {
         cache,

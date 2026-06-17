@@ -6258,56 +6258,6 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         this.pendingLocUpdates.delete(mapId);
     }
 
-    async loadWorldMapTile(
-        mapX: number,
-        mapY: number,
-        level: number = 0,
-    ): Promise<
-        | { pixels: Uint8Array; width: number; height: number; icons: MinimapIcon[] }
-        | undefined
-    > {
-        if (!this.osrsClient.loadedCache) return undefined;
-
-        const clampedLevel = Math.max(0, Math.min(Scene.MAX_LEVELS - 1, level | 0));
-        const input: SdMapLoaderInput = {
-            mapX: mapX | 0,
-            mapY: mapY | 0,
-            maxLevel: Scene.MAX_LEVELS - 1,
-            loadNpcs: false,
-            smoothTerrain: this.smoothTerrain,
-            minimizeDrawCalls: true,
-            loadedTextureIds: new Set<number>(),
-            worldMapTileOnly: {
-                level: clampedLevel,
-            },
-        };
-
-        const mapData = await this.osrsClient.workerPool.queueLoad<
-            SdMapLoaderInput,
-            SdMapData | undefined,
-            SdMapDataLoader
-        >(this.dataLoader, input);
-        if (
-            !mapData ||
-            mapData.cacheName !== this.osrsClient.loadedCache.info.name ||
-            mapData.smoothTerrain !== this.smoothTerrain
-        ) {
-            return undefined;
-        }
-
-        const pixelData = mapData.minimapPixels?.[clampedLevel];
-        if (pixelData?.pixels && pixelData.width > 0 && pixelData.height > 0) {
-            return {
-                pixels: pixelData.pixels,
-                width: pixelData.width | 0,
-                height: pixelData.height | 0,
-                icons: mapData.worldMapIcons?.[clampedLevel] ?? [],
-            };
-        }
-
-        return undefined;
-    }
-
     isValidMapData(mapData: SdMapData): boolean {
         return (
             mapData.cacheName === this.osrsClient.loadedCache?.info?.name &&

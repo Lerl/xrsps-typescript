@@ -210,7 +210,11 @@ export function getRequiredIndexIds(info: CacheInfo): number[] {
         ids.push(IndexType.OSRS.animKeyFrames);
     }
     if (info.game === "oldschool") {
-        ids.push(IndexType.OSRS.worldMap);
+        ids.push(
+            IndexType.OSRS.worldMapGeography,
+            IndexType.OSRS.worldMap,
+            IndexType.OSRS.worldMapGround,
+        );
     }
     // RS newer indices for content types
     if (info.game === "runescape" && info.revision >= 488) {

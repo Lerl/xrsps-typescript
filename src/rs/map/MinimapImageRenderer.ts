@@ -26,13 +26,10 @@
  */
 import { LocModelType } from "../config/loctype/LocModelType";
 import { LocTypeLoader } from "../config/loctype/LocTypeLoader";
-import { Rasterizer3D } from "../graphics/Rasterizer3D";
 import { Scene } from "../scene/Scene";
 import { getIdFromTag, isEntityInteractive } from "../scene/entity/EntityTag";
 import { IndexedSprite } from "../sprite/IndexedSprite";
 import { SpritePixels } from "../sprite/SpritePixels";
-import { TextureLoader } from "../texture/TextureLoader";
-import { INVALID_HSL_COLOR } from "../util/ColorUtil";
 
 const tileShape2D = [
     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -58,14 +55,9 @@ const tileRotation2D = [
 ];
 
 export class MinimapImageRenderer {
-    static tmpScreenX = new Int32Array(6);
-    static tmpScreenY = new Int32Array(6);
-
     constructor(
-        readonly textureLoader: TextureLoader,
         readonly locTypeLoader: LocTypeLoader,
         readonly mapScenes: IndexedSprite[],
-        readonly mapFunctions: IndexedSprite[],
     ) {}
 
     renderMinimap(scene: Scene, level: number): Int32Array {
@@ -73,25 +65,21 @@ export class MinimapImageRenderer {
         const height = scene.sizeY * 4;
         const spritePixels = SpritePixels.fromDimensions(width, height);
         const pixels = spritePixels.pixels;
+        pixels.fill(1);
 
         for (let tileY = 0; tileY < scene.sizeY; tileY++) {
             let offset = (scene.sizeY - 1 - tileY) * width * 4;
 
             for (let tileX = 0; tileX < scene.sizeX; tileX++) {
-                let realLevel = level;
-                if ((scene.tileRenderFlags[1][tileX][tileY] & 0x2) === 2) {
-                    realLevel++;
-                }
                 if ((scene.tileRenderFlags[level][tileX][tileY] & 0x18) === 0) {
-                    this.drawTile(scene, pixels, offset, width, realLevel, tileX, tileY);
+                    this.drawTile(scene, pixels, offset, width, level, tileX, tileY);
                 }
 
                 if (
                     level < 3 &&
-                    realLevel < 3 &&
                     (scene.tileRenderFlags[level + 1][tileX][tileY] & 0x8) !== 0
                 ) {
-                    this.drawTile(scene, pixels, offset, width, realLevel + 1, tileX, tileY);
+                    this.drawTile(scene, pixels, offset, width, level + 1, tileX, tileY);
                 }
 
                 offset += 4;
@@ -105,73 +93,7 @@ export class MinimapImageRenderer {
 
         for (let tileX = 0; tileX < scene.sizeX; tileX++) {
             for (let tileY = 0; tileY < scene.sizeY; tileY++) {
-                let realLevel = level;
-                if ((scene.tileRenderFlags[1][tileX][tileY] & 0x2) === 2) {
-                    realLevel++;
-                }
                 if ((scene.tileRenderFlags[level][tileX][tileY] & 0x18) === 0) {
-                    this.drawLoc(
-                        scene,
-                        pixels,
-                        width,
-                        realLevel,
-                        tileX,
-                        tileY,
-                        wallRgb,
-                        wallInteractiveRgb,
-                    );
-                }
-
-                if (
-                    level < 3 &&
-                    realLevel < 3 &&
-                    (scene.tileRenderFlags[level + 1][tileX][tileY] & 0x8) !== 0
-                ) {
-                    this.drawLoc(
-                        scene,
-                        pixels,
-                        width,
-                        realLevel + 1,
-                        tileX,
-                        tileY,
-                        wallRgb,
-                        wallInteractiveRgb,
-                    );
-                }
-            }
-        }
-
-        return spritePixels.pixels;
-    }
-
-    renderMinimapHd(scene: Scene, playerLevel: number, drawMapFunctions: boolean): Int32Array {
-        const width = scene.sizeX * 4;
-        const height = scene.sizeY * 4;
-        const spritePixels = SpritePixels.fromDimensions(width, height);
-        const pixels = spritePixels.pixels;
-
-        spritePixels.setRaster();
-
-        Rasterizer3D.setClip();
-        Rasterizer3D.rasterGouraudLowRes = false;
-
-        const wallRgb = 0xeeeeee;
-        const wallInteractiveRgb = 0xee0000;
-
-        for (let level = playerLevel; level <= 3; level++) {
-            for (let tileY = 0; tileY < scene.sizeY; tileY++) {
-                for (let tileX = 0; tileX < scene.sizeX; tileX++) {
-                    if (!scene.isPlayerLevel(level, tileX, tileY, playerLevel)) {
-                        continue;
-                    }
-                    this.drawTileHd(scene, level, tileX, tileY);
-                }
-            }
-            for (let tileY = 0; tileY < scene.sizeY; tileY++) {
-                for (let tileX = 0; tileX < scene.sizeX; tileX++) {
-                    if (!scene.isPlayerLevel(level, tileX, tileY, playerLevel)) {
-                        continue;
-                    }
                     this.drawLoc(
                         scene,
                         pixels,
@@ -183,33 +105,21 @@ export class MinimapImageRenderer {
                         wallInteractiveRgb,
                     );
                 }
-            }
-        }
 
-        if (drawMapFunctions) {
-            for (let tileY = 0; tileY < scene.sizeY; tileY++) {
-                for (let tileX = 0; tileX < scene.sizeX; tileX++) {
-                    const floorDecorationTag = scene.getFloorDecorationTag(
-                        playerLevel,
+                if (
+                    level < 3 &&
+                    (scene.tileRenderFlags[level + 1][tileX][tileY] & 0x8) !== 0
+                ) {
+                    this.drawLoc(
+                        scene,
+                        pixels,
+                        width,
+                        level + 1,
                         tileX,
                         tileY,
+                        wallRgb,
+                        wallInteractiveRgb,
                     );
-                    if (floorDecorationTag !== 0n) {
-                        const locId = getIdFromTag(floorDecorationTag);
-                        const locType = this.locTypeLoader.load(locId);
-
-                        if (locType.mapFunctionId !== -1) {
-                            const mapFunction = this.mapFunctions[locType.mapFunctionId];
-                            if (mapFunction) {
-                                const x = ((locType.sizeX * 4 - mapFunction.subWidth) / 2) | 0;
-                                const y = ((locType.sizeY * 4 - mapFunction.subHeight) / 2) | 0;
-                                mapFunction.drawAt(
-                                    tileX * 4 + x,
-                                    y + (scene.sizeY - tileY - locType.sizeY) * 4,
-                                );
-                            }
-                        }
-                    }
                 }
             }
         }
@@ -270,71 +180,6 @@ export class MinimapImageRenderer {
                 }
 
                 offset += width;
-            }
-        }
-    }
-
-    drawTileHd(scene: Scene, level: number, tileX: number, tileY: number): void {
-        const tile = scene.tiles[level][tileX][tileY];
-        if (!tile || !tile.tileModel) {
-            return;
-        }
-
-        const model = tile.tileModel;
-
-        const vertexX = model.vertexX;
-        const vertexZ = model.vertexZ;
-
-        const facesA = model.facesA;
-        const facesB = model.facesB;
-        const facesC = model.facesC;
-
-        const colorsA = model.minimapFaceColorsA;
-        const colorsB = model.minimapFaceColorsB;
-        const colorsC = model.minimapFaceColorsC;
-
-        const LOCAL_COORD_BITS = 7;
-        const LOCAL_TILE_SIZE = 1 << LOCAL_COORD_BITS;
-
-        const localX = tileX << LOCAL_COORD_BITS;
-        const localY = tileY << LOCAL_COORD_BITS;
-
-        const px0 = tileX * 4;
-        const py0 = (scene.sizeY - tileY - 1) * 4;
-        const px1 = px0 + 4;
-        const py1 = py0 + 4;
-
-        const w = px1 - px0;
-        const h = py1 - py0;
-
-        for (let vert = 0; vert < vertexX.length; vert++) {
-            MinimapImageRenderer.tmpScreenX[vert] =
-                px0 + (((vertexX[vert] - localX) * w) >> LOCAL_COORD_BITS);
-            MinimapImageRenderer.tmpScreenY[vert] =
-                py0 + (((LOCAL_TILE_SIZE - (vertexZ[vert] - localY)) * h) >> LOCAL_COORD_BITS);
-        }
-
-        for (let f = 0; f < facesA.length; f++) {
-            const a = facesA[f];
-            const b = facesB[f];
-            const c = facesC[f];
-
-            const colorA = colorsA[f];
-            const colorB = colorsB[f];
-            const colorC = colorsC[f];
-
-            if (colorA !== INVALID_HSL_COLOR) {
-                Rasterizer3D.rasterGouraud(
-                    MinimapImageRenderer.tmpScreenY[a],
-                    MinimapImageRenderer.tmpScreenY[b],
-                    MinimapImageRenderer.tmpScreenY[c],
-                    MinimapImageRenderer.tmpScreenX[a],
-                    MinimapImageRenderer.tmpScreenX[b],
-                    MinimapImageRenderer.tmpScreenX[c],
-                    colorA,
-                    colorB,
-                    colorC,
-                );
             }
         }
     }

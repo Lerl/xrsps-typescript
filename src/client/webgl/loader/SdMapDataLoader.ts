@@ -20,7 +20,7 @@ import { LocEntity } from "../../../rs/scene/entity/LocEntity";
 import { TextureLoader } from "../../../rs/texture/TextureLoader";
 import { INVALID_HSL_COLOR, hslToRgb } from "../../../rs/util/ColorUtil";
 import { getBridgeLinkedBelow, isBridgeSurfaceTile } from "../../scene/BridgeTiles";
-import { loadMinimapBlob, loadMinimapPixels } from "../../worker/MinimapData";
+import { loadMinimapBlob } from "../../worker/MinimapData";
 import { RenderDataLoader, RenderDataResult } from "../../worker/RenderDataLoader";
 import { WorkerState } from "../../worker/RenderDataWorker";
 import { AnimationFrames } from "../AnimationFrames";
@@ -1181,10 +1181,6 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
         }
     }
 
-    shouldClearWorkerCacheAfterLoad(input: SdMapLoaderInput): boolean {
-        return !input.worldMapTileOnly;
-    }
-
     async load(
         state: WorkerState,
         {
@@ -1201,13 +1197,10 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
             extraLocs: extraLocsInput,
             extraNpcs: extraNpcsInput,
             overrideRenderPos,
-            worldMapTileOnly,
         }: SdMapLoaderInput,
     ): Promise<RenderDataResult<SdMapData | undefined>> {
         console.time(`load map ${mapX},${mapY}`);
-        if (!worldMapTileOnly) {
-            this.init();
-        }
+        this.init();
 
         const locTypeLoader = state.locTypeLoader;
         const npcTypeLoader = state.npcTypeLoader;
@@ -1221,12 +1214,10 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
 
         let textureIds: number[] = [];
         const textureIdIndexMap = new Map<number, number>();
-        if (!worldMapTileOnly) {
-            textureIds = textureLoader.getTextureIds().filter((id) => textureLoader.isSd(id));
-            textureIds = textureIds.slice(0, 2047);
-            for (let i = 0; i < textureIds.length; i++) {
-                textureIdIndexMap.set(textureIds[i], i);
-            }
+        textureIds = textureLoader.getTextureIds().filter((id) => textureLoader.isSd(id));
+        textureIds = textureIds.slice(0, 2047);
+        for (let i = 0; i < textureIds.length; i++) {
+            textureIdIndexMap.set(textureIds[i], i);
         }
 
         const borderSize = 6;
@@ -1373,7 +1364,7 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
 
         console.time(`build scene ${mapX},${mapY}`);
         let scene: Scene;
-        const locLoadType = worldMapTileOnly ? LocLoadType.NO_MODELS : LocLoadType.MODELS;
+        const locLoadType = LocLoadType.MODELS;
         if (instanceInput) {
             scene = state.sceneBuilder.buildInstanceScene(
                 instanceInput.templateChunks,
@@ -1420,51 +1411,6 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
             }
         }
         console.timeEnd(`build scene ${mapX},${mapY}`);
-
-        if (worldMapTileOnly) {
-            const level = Math.max(0, Math.min(Scene.MAX_LEVELS - 1, worldMapTileOnly.level | 0));
-            const minimapPixels = new Array(Scene.MAX_LEVELS);
-            minimapPixels[level] = loadMinimapPixels(
-                state.minimapImageRenderer,
-                scene,
-                level,
-                usedBorderSize,
-                false,
-            );
-
-            const mapFunctionToSprite = createMapFunctionResolver(state);
-            const minimapIcons: MinimapIcon[][] = new Array(Scene.MAX_LEVELS);
-            const worldMapIcons: MinimapIcon[][] = new Array(Scene.MAX_LEVELS);
-            minimapIcons[level] = [];
-            worldMapIcons[level] = extractWorldMapIcons(
-                scene,
-                state.locTypeLoader,
-                state.varManager,
-                usedBorderSize,
-                level,
-                mapFunctionToSprite,
-            );
-
-            console.timeEnd(`load map ${mapX},${mapY}`);
-            return {
-                data: {
-                    mapX,
-                    mapY,
-                    cacheName: state.cache.info.name,
-                    maxLevel,
-                    loadNpcs,
-                    smoothTerrain,
-                    borderSize: usedBorderSize,
-                    heightMapSize: mapSize,
-                    renderPosX,
-                    renderPosY,
-                    minimapPixels,
-                    minimapIcons,
-                    worldMapIcons,
-                } as SdMapData,
-                transferables: [minimapPixels[level].pixels.buffer],
-            };
-        }
 
         const sceneBuf = new SceneBuffer(textureLoader, textureIdIndexMap, 100000);
         const doorSceneBuf = new SceneBuffer(textureLoader, textureIdIndexMap, 20000);
@@ -1903,7 +1849,6 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
                     scene,
                     level,
                     usedBorderSize,
-                    false,
                 );
             }
         } else {
