@@ -493,6 +493,9 @@ export class OsrsClient {
         leftClickOpensMenu: false,
         tapToDrop: false,
     };
+    minimenuBlockModes: number[] = [];
+    minimenuOrderEdit: boolean = false;
+    minimenuScrollEnabled: boolean = false;
 
     basTypeLoader!: BasTypeLoader;
     idkTypeLoader!: IdkTypeLoader;
@@ -576,9 +579,11 @@ export class OsrsClient {
     tooltips: boolean = !isTouchDevice;
     /**
      * Minimap zoom value (CS2 `minimap_getzoom` / `minimap_setzoom`).
-     * OSRS uses an integer range of 2..8 (default 4).
+     * OSRS stores the value in the 2..8 range and wheel input moves it by 0.25.
      */
     minimapZoom: number = 4;
+    minimapZoomEnabled: boolean = false;
+    minimapIconZoomLimit: number = 2;
     /**
      * Runtime flag controlled by CS2 (SETSHOWMOUSEOVERTEXT) to toggle mouseover text display.
      * Default true.
@@ -1357,6 +1362,17 @@ export class OsrsClient {
             },
             getMinimapZoom: () => {
                 return self.minimapZoom;
+            },
+            setMinimapZoom: (zoom: number) => {
+                if (!self.minimapZoomEnabled) return;
+                self.minimapZoom = Math.max(2, Math.min(8, zoom));
+            },
+            setMinimapZoomable: (enabled: boolean) => {
+                self.minimapZoomEnabled = enabled;
+                self.minimapZoom = 4;
+            },
+            setMinimapIconZoomLimit: (limit: number) => {
+                self.minimapIconZoomLimit = limit | 0;
             },
             worldMapState: this.worldMapState,
             getRunEnergy: () => {
@@ -3823,7 +3839,10 @@ export class OsrsClient {
             coord2: icon.coord2 | 0,
         });
         try {
-            this.cs2Vm.run(script, intArgs.map((value) => value | 0));
+            this.cs2Vm.run(
+                script,
+                intArgs.map((value) => value | 0),
+            );
             this.widgetManager?.invalidateAll?.();
         } finally {
             this.worldMapState.setCurrentEvent(previousEvent);
@@ -3943,12 +3962,7 @@ export class OsrsClient {
                 : (widget?.height ?? this.worldMapState.getDisplayPixelHeight() ?? 1),
         );
 
-        if (
-            mouseX < absX ||
-            mouseY < absY ||
-            mouseX >= absX + width ||
-            mouseY >= absY + height
-        ) {
+        if (mouseX < absX || mouseY < absY || mouseX >= absX + width || mouseY >= absY + height) {
             return undefined;
         }
 
@@ -4002,11 +4016,7 @@ export class OsrsClient {
                     deltaY >= -25 &&
                     deltaY <= 25
                 ) {
-                    const coord = this.resolveWorldMapClickCoord(
-                        clickHit,
-                        mouseX | 0,
-                        mouseY | 0,
-                    );
+                    const coord = this.resolveWorldMapClickCoord(clickHit, mouseX | 0, mouseY | 0);
                     if (coord) this.sendWorldMapClick(coord);
                 }
                 this.resetWorldMapClick();
@@ -6389,6 +6399,28 @@ export class OsrsClient {
         return this.getWorldClickBlockingWidgetAtPoint(px, py) !== null;
     }
 
+    private getUiClickRegistry(): ClickRegistry | null {
+        const clicks = (this.renderer?.canvas as any)?.__clicks;
+        return clicks && typeof clicks.pick === "function" ? (clicks as ClickRegistry) : null;
+    }
+
+    private isPointerOverMinimapClickTarget(screenX: number, screenY: number): boolean {
+        const clicks = this.getUiClickRegistry();
+        if (!clicks) return false;
+        const canvasAny: any = this.renderer?.canvas;
+        const scaleXRaw = Number(canvasAny?.__uiInputScaleX ?? 1);
+        const scaleYRaw = Number(canvasAny?.__uiInputScaleY ?? 1);
+        const scaleX = Number.isFinite(scaleXRaw) && scaleXRaw > 0 ? scaleXRaw : 1;
+        const scaleY = Number.isFinite(scaleYRaw) && scaleYRaw > 0 ? scaleYRaw : 1;
+        const hit = clicks.pick(Math.round(screenX * scaleX), Math.round(screenY * scaleY));
+        return hit?.id === "minimap:click-to-walk";
+    }
+
+    private applyMinimapWheelZoom(deltaY: number): void {
+        const wheelStep = deltaY > 0 ? 1 : -1;
+        this.minimapZoom = Math.max(2, Math.min(8, this.minimapZoom + -wheelStep * 0.25));
+    }
+
     handleUiInput() {
         const input = this.inputManager;
         const mx = input.mouseX;
@@ -6754,6 +6786,28 @@ export class OsrsClient {
                         menuRt.menuScrollMax,
                     );
                     input.wheelDeltaY = 0;
+                }
+            }
+        }
+
+        if (
+            input.wheelDeltaY !== 0 &&
+            this.minimapZoomEnabled &&
+            !this.menuOpen &&
+            !(this.renderer?.canvas as any)?.__ui?.menu?.open
+        ) {
+            if (this.isPointerOverMinimapClickTarget(mx, my)) {
+                this.applyMinimapWheelZoom(input.wheelDeltaY);
+                input.wheelDeltaY = 0;
+            } else {
+                for (let i = hits.length - 1; i >= 0; i--) {
+                    const w = hits[i];
+                    if (((w?.contentType ?? 0) | 0) !== 1338) continue;
+                    const uid = (w?.uid ?? 0) | 0;
+                    if (uid !== 0 && this.widgetManager.isEffectivelyHidden(uid)) continue;
+                    this.applyMinimapWheelZoom(input.wheelDeltaY);
+                    input.wheelDeltaY = 0;
+                    break;
                 }
             }
         }
@@ -7726,9 +7780,7 @@ export class OsrsClient {
                     // send the PARENT container's UID, not the child's own UID.
                     // The childIndex is the slot within the container.
                     const resolvedSourceParent =
-                        (w as any).fileId === -1
-                            ? this.resolveDynamicWidgetParentId(w)
-                            : undefined;
+                        (w as any).fileId === -1 ? this.resolveDynamicWidgetParentId(w) : undefined;
                     const resolvedTargetParent =
                         (dragTarget as any).fileId === -1
                             ? this.resolveDynamicWidgetParentId(dragTarget)
@@ -12048,9 +12100,7 @@ export class OsrsClient {
         mapY: number,
         level: number = 0,
         accessPriority: number = 0,
-    ):
-        | { key: string; pixels?: Uint8Array; width: number; height: number }
-        | undefined {
+    ): { key: string; pixels?: Uint8Array; width: number; height: number } | undefined {
         if (mapX < 0 || mapY < 0 || mapX >= MapManager.MAX_MAP_X || mapY >= MapManager.MAX_MAP_Y) {
             return undefined;
         }
@@ -12172,14 +12222,7 @@ export class OsrsClient {
 
         this.pendingWorldMapImageIds.add(mapId);
         void Promise.resolve()
-            .then(() =>
-                archiveRenderer.loadTile(
-                    area,
-                    mapX | 0,
-                    mapY | 0,
-                    pixelsPerTile,
-                ),
-            )
+            .then(() => archiveRenderer.loadTile(area, mapX | 0, mapY | 0, pixelsPerTile))
             .then((tile) => {
                 if (cacheEpoch !== this.worldMapImageCacheEpoch) {
                     return;
@@ -12315,7 +12358,12 @@ export class OsrsClient {
         const level = (mapId >>> 16) & 0x3;
         const mapSquare = mapId & 0xffff;
         const areaId = (mapId >>> 22) & 0x1ff;
-        this.worldMapState.removeTileIcons((mapSquare >>> 8) & 0xff, mapSquare & 0xff, level, areaId);
+        this.worldMapState.removeTileIcons(
+            (mapSquare >>> 8) & 0xff,
+            mapSquare & 0xff,
+            level,
+            areaId,
+        );
         this.invalidateWorldMapIconCacheForId(mapId);
     }
 

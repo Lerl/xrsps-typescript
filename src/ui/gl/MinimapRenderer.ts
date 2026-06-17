@@ -3,7 +3,7 @@
  *
  * Renders the minimap entirely on the GPU with:
  * - Rotation transform in vertex shader
- * - Circular clipping in fragment shader
+ * - Sprite-mask clipping in fragment shader
  * - Batched sprite rendering for dots
  */
 import { createProgram } from "./gl-utils";
@@ -39,7 +39,7 @@ void main() {
     gl_Position = uProj * vec4(screenPos, 0.0, 1.0);
 }`;
 
-// Fragment shader with circular clipping
+// Fragment shader with widget SpriteMask clipping
 const FS_MINIMAP = `#version 300 es
 precision highp float;
 
@@ -47,21 +47,33 @@ in vec2 vUV;
 in vec2 vScreenPos;
 
 uniform sampler2D uTexture;
+uniform sampler2D uMaskTexture;
 uniform vec2 uCenter;                 // Minimap center on screen
 uniform float uRadius;                // Circular clip radius
 uniform float uAlpha;                 // Overall alpha
+uniform vec4 uMaskBounds;             // x, y, width, height
+uniform int uUseMask;
 
 out vec4 fragColor;
 
 void main() {
-    // Circular clipping
-    float dist = length(vScreenPos - uCenter);
-    if (dist > uRadius) {
-        discard;
+    float edge = 1.0;
+    if (uUseMask != 0) {
+        vec2 maskUV = (vScreenPos - uMaskBounds.xy) / uMaskBounds.zw;
+        if (maskUV.x < 0.0 || maskUV.x > 1.0 || maskUV.y < 0.0 || maskUV.y > 1.0) {
+            discard;
+        }
+        vec4 mask = texture(uMaskTexture, maskUV);
+        if (mask.a > 0.5) {
+            discard;
+        }
+    } else {
+        float dist = length(vScreenPos - uCenter);
+        if (dist > uRadius) {
+            discard;
+        }
+        edge = smoothstep(uRadius, uRadius - 1.5, dist);
     }
-
-    // Soft edge (anti-aliasing)
-    float edge = smoothstep(uRadius, uRadius - 1.5, dist);
 
     vec4 color = texture(uTexture, vUV);
     color.a *= uAlpha * edge;
@@ -95,16 +107,30 @@ in vec2 vUV;
 in vec2 vScreenPos;
 
 uniform sampler2D uTexture;
+uniform sampler2D uMaskTexture;
 uniform vec2 uCenter;
 uniform float uRadius;
 uniform float uAlpha;
+uniform vec4 uMaskBounds;
+uniform int uUseMask;
 
 out vec4 fragColor;
 
 void main() {
-    float dist = length(vScreenPos - uCenter);
-    if (dist > uRadius) {
-        discard;
+    if (uUseMask != 0) {
+        vec2 maskUV = (vScreenPos - uMaskBounds.xy) / uMaskBounds.zw;
+        if (maskUV.x < 0.0 || maskUV.x > 1.0 || maskUV.y < 0.0 || maskUV.y > 1.0) {
+            discard;
+        }
+        vec4 mask = texture(uMaskTexture, maskUV);
+        if (mask.a > 0.5) {
+            discard;
+        }
+    } else {
+        float dist = length(vScreenPos - uCenter);
+        if (dist > uRadius) {
+            discard;
+        }
     }
 
     vec4 color = texture(uTexture, vUV);
@@ -135,13 +161,27 @@ in vec2 vScreenPos;
 uniform vec4 uColor;
 uniform vec2 uCenter;
 uniform float uRadius;
+uniform sampler2D uMaskTexture;
+uniform vec4 uMaskBounds;
+uniform int uUseMask;
 
 out vec4 fragColor;
 
 void main() {
-    float dist = length(vScreenPos - uCenter);
-    if (dist > uRadius) {
-        discard;
+    if (uUseMask != 0) {
+        vec2 maskUV = (vScreenPos - uMaskBounds.xy) / uMaskBounds.zw;
+        if (maskUV.x < 0.0 || maskUV.x > 1.0 || maskUV.y < 0.0 || maskUV.y > 1.0) {
+            discard;
+        }
+        vec4 mask = texture(uMaskTexture, maskUV);
+        if (mask.a > 0.5) {
+            discard;
+        }
+    } else {
+        float dist = length(vScreenPos - uCenter);
+        if (dist > uRadius) {
+            discard;
+        }
     }
     fragColor = uColor;
 }`;
@@ -150,6 +190,14 @@ export interface MinimapTexture {
     tex: WebGLTexture;
     w: number;
     h: number;
+}
+
+export interface MinimapRenderMask {
+    tex: WebGLTexture;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
 }
 
 interface DotInstance {
@@ -177,6 +225,9 @@ export class MinimapRenderer {
     private uTexture_mm!: WebGLUniformLocation;
     private uRadius_mm!: WebGLUniformLocation;
     private uAlpha_mm!: WebGLUniformLocation;
+    private uMaskTexture_mm!: WebGLUniformLocation;
+    private uMaskBounds_mm!: WebGLUniformLocation;
+    private uUseMask_mm!: WebGLUniformLocation;
 
     // Uniform locations - Overlay
     private uProj_ov!: WebGLUniformLocation;
@@ -184,12 +235,18 @@ export class MinimapRenderer {
     private uRadius_ov!: WebGLUniformLocation;
     private uTexture_ov!: WebGLUniformLocation;
     private uAlpha_ov!: WebGLUniformLocation;
+    private uMaskTexture_ov!: WebGLUniformLocation;
+    private uMaskBounds_ov!: WebGLUniformLocation;
+    private uUseMask_ov!: WebGLUniformLocation;
 
     // Uniform locations - Solid
     private uProj_solid!: WebGLUniformLocation;
     private uCenter_solid!: WebGLUniformLocation;
     private uRadius_solid!: WebGLUniformLocation;
     private uColor_solid!: WebGLUniformLocation;
+    private uMaskTexture_solid!: WebGLUniformLocation;
+    private uMaskBounds_solid!: WebGLUniformLocation;
+    private uUseMask_solid!: WebGLUniformLocation;
 
     // Buffers
     private vbo!: WebGLBuffer;
@@ -208,6 +265,7 @@ export class MinimapRenderer {
     private sin = 0;
     private cos = 1;
     private zoom = 1;
+    private mask: MinimapRenderMask | null = null;
 
     constructor(gl: WebGL2RenderingContext, proj: Float32Array) {
         this.gl = gl;
@@ -233,6 +291,9 @@ export class MinimapRenderer {
         this.uTexture_mm = gl.getUniformLocation(this.progMinimap, "uTexture")!;
         this.uRadius_mm = gl.getUniformLocation(this.progMinimap, "uRadius")!;
         this.uAlpha_mm = gl.getUniformLocation(this.progMinimap, "uAlpha")!;
+        this.uMaskTexture_mm = gl.getUniformLocation(this.progMinimap, "uMaskTexture")!;
+        this.uMaskBounds_mm = gl.getUniformLocation(this.progMinimap, "uMaskBounds")!;
+        this.uUseMask_mm = gl.getUniformLocation(this.progMinimap, "uUseMask")!;
 
         // Get uniform locations - Overlay
         this.uProj_ov = gl.getUniformLocation(this.progOverlay, "uProj")!;
@@ -240,12 +301,18 @@ export class MinimapRenderer {
         this.uRadius_ov = gl.getUniformLocation(this.progOverlay, "uRadius")!;
         this.uTexture_ov = gl.getUniformLocation(this.progOverlay, "uTexture")!;
         this.uAlpha_ov = gl.getUniformLocation(this.progOverlay, "uAlpha")!;
+        this.uMaskTexture_ov = gl.getUniformLocation(this.progOverlay, "uMaskTexture")!;
+        this.uMaskBounds_ov = gl.getUniformLocation(this.progOverlay, "uMaskBounds")!;
+        this.uUseMask_ov = gl.getUniformLocation(this.progOverlay, "uUseMask")!;
 
         // Get uniform locations - Solid
         this.uProj_solid = gl.getUniformLocation(this.progSolid, "uProj")!;
         this.uCenter_solid = gl.getUniformLocation(this.progSolid, "uCenter")!;
         this.uRadius_solid = gl.getUniformLocation(this.progSolid, "uRadius")!;
         this.uColor_solid = gl.getUniformLocation(this.progSolid, "uColor")!;
+        this.uMaskTexture_solid = gl.getUniformLocation(this.progSolid, "uMaskTexture")!;
+        this.uMaskBounds_solid = gl.getUniformLocation(this.progSolid, "uMaskBounds")!;
+        this.uUseMask_solid = gl.getUniformLocation(this.progSolid, "uUseMask")!;
 
         // Create buffers
         this.vbo = gl.createBuffer()!;
@@ -279,6 +346,21 @@ export class MinimapRenderer {
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     }
 
+    private bindMask(
+        uUseMask: WebGLUniformLocation,
+        uMaskTexture: WebGLUniformLocation,
+        uMaskBounds: WebGLUniformLocation,
+    ): void {
+        const gl = this.gl;
+        const mask = this.mask;
+        gl.uniform1i(uUseMask, mask ? 1 : 0);
+        if (!mask) return;
+        gl.activeTexture(gl.TEXTURE1);
+        this.bindNearestTexture(mask.tex);
+        gl.uniform1i(uMaskTexture, 1);
+        gl.uniform4f(uMaskBounds, mask.x, mask.y, mask.width, mask.height);
+    }
+
     /**
      * Update projection matrix (call when screen resizes)
      */
@@ -289,11 +371,19 @@ export class MinimapRenderer {
     /**
      * Begin rendering a frame - set up minimap parameters
      */
-    begin(centerX: number, centerY: number, radius: number, cameraYaw: number, zoom: number) {
+    begin(
+        centerX: number,
+        centerY: number,
+        radius: number,
+        cameraYaw: number,
+        zoom: number,
+        mask: MinimapRenderMask | null = null,
+    ) {
         this.centerX = centerX;
         this.centerY = centerY;
         this.radius = radius;
         this.zoom = zoom;
+        this.mask = mask;
 
         // OSRS: angle / 326.11 = radians, negative for minimap rotation
         const radians = -cameraYaw / 326.11;
@@ -321,6 +411,7 @@ export class MinimapRenderer {
         gl.uniform1f(this.uZoom_mm, this.zoom);
         gl.uniform1f(this.uRadius_mm, this.radius);
         gl.uniform1f(this.uAlpha_mm, 1.0);
+        this.bindMask(this.uUseMask_mm, this.uMaskTexture_mm, this.uMaskBounds_mm);
 
         gl.activeTexture(gl.TEXTURE0);
         this.bindNearestTexture(tex.tex);
@@ -377,6 +468,7 @@ export class MinimapRenderer {
         gl.uniform2f(this.uCenter_ov, this.centerX, this.centerY);
         gl.uniform1f(this.uRadius_ov, this.radius);
         gl.uniform1f(this.uAlpha_ov, 1.0);
+        this.bindMask(this.uUseMask_ov, this.uMaskTexture_ov, this.uMaskBounds_ov);
 
         gl.bindVertexArray(this.vao);
 
@@ -456,6 +548,7 @@ export class MinimapRenderer {
         gl.uniform2f(this.uCenter_ov, this.centerX, this.centerY);
         gl.uniform1f(this.uRadius_ov, this.radius);
         gl.uniform1f(this.uAlpha_ov, 1.0);
+        this.bindMask(this.uUseMask_ov, this.uMaskTexture_ov, this.uMaskBounds_ov);
 
         gl.activeTexture(gl.TEXTURE0);
         this.bindNearestTexture(tex.tex);
@@ -491,6 +584,7 @@ export class MinimapRenderer {
         gl.uniform2f(this.uCenter_solid, this.centerX, this.centerY);
         gl.uniform1f(this.uRadius_solid, this.radius);
         gl.uniform4fv(this.uColor_solid, color);
+        this.bindMask(this.uUseMask_solid, this.uMaskTexture_solid, this.uMaskBounds_solid);
 
         const x0 = screenX - width / 2;
         const y0 = screenY - height / 2;

@@ -22,6 +22,8 @@ export type ClickTarget = {
     // Optional click handler. Receives the pointer position in canvas pixels
     // (same coordinate space as the GL renderer canvas), and optionally the target id.
     onClick?: (x?: number, y?: number, targetId?: string) => void;
+    onMiddleClick?: (x?: number, y?: number, targetId?: string) => void;
+    contains?: (x: number, y: number) => boolean;
     onHoverChange?: (hover: boolean) => void;
 };
 
@@ -235,7 +237,7 @@ export class ClickRegistry {
         try {
             target.onUp?.(x, y, target.id);
         } catch {}
-        if (inRect({ x, y }, target.rect)) {
+        if (this.targetContains(target, x, y)) {
             try {
                 // Pass pointer position and target id to onClick so consumers can synthesize
                 // precise mouse events or use the coordinates directly.
@@ -245,6 +247,17 @@ export class ClickRegistry {
             return true;
         }
         return false;
+    }
+
+    onMiddleClick(x: number, y: number): boolean {
+        const target = this.pick(x, y, (t) => typeof t.onMiddleClick === "function");
+        if (!target) {
+            return false;
+        }
+        try {
+            target.onMiddleClick?.(x, y, target.id);
+        } catch {}
+        return true;
     }
 
     isPressed(id: string): boolean {
@@ -311,7 +324,7 @@ export class ClickRegistry {
         let bestP = -Infinity;
         for (let i = 0; i < this.targets.length; i++) {
             const t = this.targets[i];
-            if (!inRect({ x, y }, t.rect)) continue;
+            if (!this.targetContains(t, x, y)) continue;
             // OSRS-style: Check widget visibility at query time, not cached.
             // Skip hidden widgets even if their click target is registered.
             if (t.widgetUid !== undefined && this.widgetHiddenChecker?.(t.widgetUid)) {
@@ -326,6 +339,11 @@ export class ClickRegistry {
             }
         }
         return best;
+    }
+
+    private targetContains(target: ClickTarget, x: number, y: number): boolean {
+        if (!inRect({ x, y }, target.rect)) return false;
+        return target.contains ? target.contains(x, y) : true;
     }
 
     private getTargetById(id: string): ClickTarget | undefined {

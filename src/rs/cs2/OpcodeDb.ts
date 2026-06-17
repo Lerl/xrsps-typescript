@@ -560,6 +560,8 @@ export function loadOpcodeDbOsrs(_baseDir: string): OpcodeDb {
     add(5021, "chat_setmessagefilter");
     add(5022, "chat_getmessagefilter");
     add(5023, "writeconsole");
+    add(5024, "chat_settimestamps");
+    add(5025, "chat_gettimestamps");
     add(5030, "chat_gethistoryex_bytypeandline");
     add(5031, "chat_gethistoryex_byuid");
     add(5306, "getwindowmode");
@@ -592,8 +594,10 @@ export function loadOpcodeDbOsrs(_baseDir: string): OpcodeDb {
     add(6514, "lc_param");
     add(6515, "oc_param");
     add(6516, "struct_param");
-    add(7252, "struct_param_long");
+    add(7250, "minimap_setzoomable");
+    add(7252, "minimap_setzoom");
     add(7253, "minimap_getzoom");
+    add(7254, "minimap_seticonzoomlimit");
     add(6518, "on_mobile");
     add(6519, "clienttype");
     add(6520, "login_logout_notify");
@@ -728,6 +732,12 @@ export function loadOpcodeDbOsrs(_baseDir: string): OpcodeDb {
     add(7108, "minimenu_isopen");
     add(7109, "minimenu_findcomponent");
     add(7110, "minimenu_numops");
+    add(7401, "stringvector_addunique");
+    add(7404, "stringvector_remove");
+    add(7406, "stringvector_get");
+    add(7407, "stringvector_size");
+    add(7408, "stringvector_contains");
+    add(7409, "stringvector_clear");
     add(7451, "minimenu_typeat");
     add(7453, "minimenu_findnpcat");
     add(7454, "minimenu_findlocat");
@@ -735,6 +745,7 @@ export function loadOpcodeDbOsrs(_baseDir: string): OpcodeDb {
     add(7456, "minimenu_findplayerat");
     add(7460, "minimenu_hovered_index");
     add(7462, "minimenu_setblockmode");
+    add(7463, "minimenu_setleftclickopens");
     add(7465, "minimenu_resetorder");
     add(7466, "minimenu_setorderedit");
     add(7470, "minimenu_togglescroll");
@@ -777,7 +788,32 @@ export function loadOpcodeDbOsrs(_baseDir: string): OpcodeDb {
     add(6800, "notifications_sendlocal");
 
     // Loot tracker (enhanced client)
+    add(7600, "loottracker_sourceadd");
+    add(7601, "loottracker_sourcenamecount");
+    add(7602, "loottracker_sourcename");
+    add(7603, "loottracker_sourceid");
+    add(7604, "loottracker_sourcecount");
+    add(7605, "loottracker_sourcequery_new");
+    add(7606, "loottracker_sourcequery_get");
+    add(7608, "loottracker_getdroplimit");
+    add(7609, "loottracker_lootcount_byname");
+    add(7610, "loottracker_lootcount_byid");
+    add(7611, "loottracker_lootget_byname");
+    add(7612, "loottracker_lootget_byid");
+    add(7614, "loottracker_lootdel_byname");
+    add(7615, "loottracker_lootdel_byid");
+    add(7616, "loottracker_ignorelootadd");
+    add(7617, "loottracker_ignorelootdel");
+    add(7619, "loottracker_ignorelootcount");
+    add(7620, "loottracker_ignorelootget");
+    add(7621, "loottracker_ignorelootclear");
+    add(7622, "loottracker_ignoresourceadd");
+    add(7623, "loottracker_ignoresourcedel");
+    add(7625, "loottracker_ignoresourcecount");
+    add(7626, "loottracker_ignoresourceget");
+    add(7627, "loottracker_ignoresourceclear");
     add(7628, "loottracker_lootadd");
+    add(7630, "loottracker_sourcedropname");
 
     return db;
 }

@@ -26,6 +26,7 @@ import {
     rewriteMinimapOrbsMount,
 } from "../../widgets/minimapOrbs";
 import {
+    getEnhancedClientLoginScripts,
     getMainmodalUid,
     getPrayerTabUid,
     getSidemodalUid,
@@ -656,6 +657,13 @@ export function buildScriptServices(deps: ScriptServiceAdapterDeps): ScriptServi
                             deps.queueWidgetEvent(player.id, action);
                         }
                     }
+                }
+                for (const script of getEnhancedClientLoginScripts(player.name)) {
+                    deps.queueWidgetEvent(player.id, {
+                        action: "run_script",
+                        scriptId: script.scriptId,
+                        args: script.args,
+                    });
                 }
             },
             queueClientScript: (playerId, scriptId, ...args) =>

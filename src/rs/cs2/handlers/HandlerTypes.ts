@@ -269,8 +269,11 @@ export interface HandlerContext {
     // Player appearance
     getPlayerGender?: () => number;
 
-    /** Minimap zoom value (2..8). Used by `MINIMAP_GETZOOM` (opcode 7253). */
+    /** Minimap zoom and icon display state used by minimap CS2 opcodes. */
     getMinimapZoom?: () => number;
+    setMinimapZoom?: (zoom: number) => void;
+    setMinimapZoomable?: (enabled: boolean) => void;
+    setMinimapIconZoomLimit?: (limit: number) => void;
 
     worldMapState?: WorldMapState;
 
@@ -361,6 +364,7 @@ export interface HandlerContext {
     privateChatMode: number;
     tradeChatMode: number;
     messageFilter: string;
+    chatTimestampMode: number;
     setChatFilter?: (publicMode: number, privateMode: number, tradeMode: number) => void;
 
     // Console output (for WRITECONSOLE opcode)

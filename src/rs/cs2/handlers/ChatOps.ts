@@ -20,6 +20,7 @@
  * 5021 CHAT_SETMESSAGEFILTER: pop 1 string, push 0
  * 5022 CHAT_GETMESSAGEFILTER: pop 0, push 1 string
  * 5023 WRITECONSOLE: pop 1 string, push 0
+ * 5024 CHAT_SETTIMESTAMPS: pop 1 int, push 0
  * 5025 CHAT_GETTIMESTAMPS: pop 0, push 1 int
  * 5030 CHAT_GETHISTORYEX_BYTYPEANDLINE: pop 2 ints, push 4 ints + 4 strings
  * 5031 CHAT_GETHISTORYEX_BYUID: pop 1 int, push 4 ints + 4 strings
@@ -240,9 +241,14 @@ export function registerChatOps(handlers: HandlerMap): void {
         }
     });
 
-    // CHAT_GETTIMESTAMPS (5025): Returns 1 if timestamps enabled, 0 otherwise
+    // CHAT_SETTIMESTAMPS (5024): Sets chat timestamp mode
+    handlers.set(Opcodes.CHAT_SETTIMESTAMPS, (ctx) => {
+        ctx.chatTimestampMode = ctx.intStack[--ctx.intStackSize] | 0;
+    });
+
+    // CHAT_GETTIMESTAMPS (5025): Returns chat timestamp mode
     handlers.set(Opcodes.CHAT_GETTIMESTAMPS, (ctx) => {
-        ctx.pushInt(0); // timestamps disabled by default
+        ctx.pushInt(ctx.chatTimestampMode | 0);
     });
 
     // CHAT_GETHISTORYEX_BYTYPEANDLINE (5030): Extended message info by type/line

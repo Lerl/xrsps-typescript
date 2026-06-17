@@ -156,6 +156,12 @@ export class InputManager {
     saveClickX: number = -1;
     /** Frame-synchronized click Y position */
     saveClickY: number = -1;
+    /** Middle mouse click X position for the current frame */
+    middleClickX: number = -1;
+    /** Middle mouse click Y position for the current frame */
+    middleClickY: number = -1;
+    /** Monotonic middle-click pulse sequence */
+    middleClickSequence: number = 0;
 
     /** Middle mouse button held */
     mouseWheelDown: boolean = false;
@@ -484,6 +490,12 @@ export class InputManager {
             this.mouseWheelDown = true;
             this.mouseWheelX = x;
             this.mouseWheelY = y;
+            this.middleClickX = x;
+            this.middleClickY = y;
+            this.middleClickSequence++;
+            this.mouseX = x;
+            this.mouseY = y;
+            this.isTouch = false;
             event.preventDefault();
             this.installDocumentGrab();
             return;
@@ -951,6 +963,8 @@ export class InputManager {
         this.wheelCamDeltaY = 0;
         this._cameraDragDeltaX = 0;
         this._cameraDragDeltaY = 0;
+        this.middleClickX = -1;
+        this.middleClickY = -1;
         this.pinchZoomDelta = 0;
         this.lastMouseX = this.mouseX;
         this.lastMouseY = this.mouseY;

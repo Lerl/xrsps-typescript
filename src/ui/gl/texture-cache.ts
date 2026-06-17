@@ -4,6 +4,17 @@ import { SpriteLoader } from "../../rs/sprite/SpriteLoader";
 import { SpritePixels } from "../../rs/sprite/SpritePixels";
 import type { GLRenderer } from "./renderer";
 
+type Texture = { tex: WebGLTexture; w: number; h: number };
+
+export interface SpriteMaskData {
+    texture: Texture;
+    width: number;
+    height: number;
+    xStarts: Int32Array;
+    xWidths: Int32Array;
+    contains(x: number, y: number): boolean;
+}
+
 function resolveSpriteAlpha(sprite: IndexedSprite): Uint8Array | undefined {
     let alpha = sprite.alpha;
     if (alpha) {
@@ -137,6 +148,52 @@ function widgetSpriteToCanvas(
     return createCanvasFromPixels(data, width, height);
 }
 
+function buildSpriteMask(texture: Texture, canvas: HTMLCanvasElement): SpriteMaskData {
+    const width = Math.max(1, canvas.width | 0);
+    const height = Math.max(1, canvas.height | 0);
+    const ctx = canvas.getContext("2d", {
+        willReadFrequently: true as any,
+    }) as CanvasRenderingContext2D | null;
+    const data = ctx?.getImageData(0, 0, width, height).data;
+    const xStarts = new Int32Array(height);
+    const xWidths = new Int32Array(height);
+
+    for (let y = 0; y < height; y++) {
+        let start = 0;
+        let end = width;
+        if (data) {
+            for (let x = 0; x < width; x++) {
+                if (data[(x + y * width) * 4 + 3] === 0) {
+                    start = x;
+                    break;
+                }
+            }
+            for (let x = width - 1; x >= start; x--) {
+                if (data[(x + y * width) * 4 + 3] === 0) {
+                    end = x + 1;
+                    break;
+                }
+            }
+        }
+        xStarts[y] = start;
+        xWidths[y] = end - start;
+    }
+
+    return {
+        texture,
+        width,
+        height,
+        xStarts,
+        xWidths,
+        contains(x: number, y: number): boolean {
+            const yy = y | 0;
+            if (yy < 0 || yy >= xStarts.length) return false;
+            const start = xStarts[yy] | 0;
+            return (x | 0) >= start && (x | 0) <= start + (xWidths[yy] | 0);
+        },
+    };
+}
+
 export class TextureCache {
     private glr: GLRenderer;
     private spriteIndex: CacheIndex;
@@ -228,6 +285,52 @@ export class TextureCache {
                 shadowColor | 0,
             );
             return this.glr.createTextureFromCanvas(key, canvas);
+        } catch {
+            return undefined;
+        }
+    }
+
+    getWidgetSpriteMaskById(
+        id: number,
+        options?: {
+            borderType?: number;
+            shadowColor?: number;
+            flipH?: boolean;
+            flipV?: boolean;
+        },
+    ): SpriteMaskData | undefined {
+        const borderType = options?.borderType ?? 0;
+        const shadowColor = options?.shadowColor ?? 0;
+        const flipH = options?.flipH === true;
+        const flipV = options?.flipV === true;
+        const key = `wmask:${id}:${borderType | 0}:${shadowColor | 0}:${flipH ? 1 : 0}:${
+            flipV ? 1 : 0
+        }`;
+        let maskCache = (this as any).__spriteMaskCache as Map<string, SpriteMaskData> | undefined;
+        const cached = maskCache?.get(key);
+        if (cached) return cached;
+
+        try {
+            const sprite = SpriteLoader.loadIntoIndexedSprite(this.spriteIndex, id);
+            if (!sprite) return undefined;
+            const canvas =
+                borderType === 0 && shadowColor === 0 && !flipH && !flipV
+                    ? spriteToCanvas(sprite)
+                    : widgetSpriteToCanvas(sprite, flipH, flipV, borderType | 0, shadowColor | 0);
+            const textureKey =
+                borderType === 0 && shadowColor === 0 && !flipH && !flipV
+                    ? `spr:${id}`
+                    : `wspr:${id}:${borderType | 0}:${shadowColor | 0}:${
+                          flipH ? 1 : 0
+                      }:${flipV ? 1 : 0}`;
+            const texture = this.glr.createTextureFromCanvas(textureKey, canvas);
+            const mask = buildSpriteMask(texture, canvas);
+            if (!maskCache) {
+                maskCache = new Map<string, SpriteMaskData>();
+                (this as any).__spriteMaskCache = maskCache;
+            }
+            maskCache.set(key, mask);
+            return mask;
         } catch {
             return undefined;
         }

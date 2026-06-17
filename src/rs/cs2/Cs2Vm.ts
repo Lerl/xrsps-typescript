@@ -234,8 +234,11 @@ export interface Cs2Context {
     // Player appearance
     getPlayerGender?: () => number;
 
-    /** Minimap zoom value (2..8). Used by `MINIMAP_GETZOOM` (opcode 7253). */
+    /** Minimap zoom and icon display state used by minimap CS2 opcodes. */
     getMinimapZoom?: () => number;
+    setMinimapZoom?: (zoom: number) => void;
+    setMinimapZoomable?: (enabled: boolean) => void;
+    setMinimapIconZoomLimit?: (limit: number) => void;
 
     worldMapState?: WorldMapState;
 
@@ -474,6 +477,7 @@ export class Cs2Vm {
     privateChatMode: number = 0;
     tradeChatMode: number = 0;
     messageFilter: string = "";
+    chatTimestampMode: number = 0;
 
     // Input dialog state
     // Type 0 = no dialog active (all widgets can receive input)
@@ -884,6 +888,9 @@ export class Cs2Vm {
 
             // Minimap zoom
             getMinimapZoom: vm.context.getMinimapZoom,
+            setMinimapZoom: vm.context.setMinimapZoom,
+            setMinimapZoomable: vm.context.setMinimapZoomable,
+            setMinimapIconZoomLimit: vm.context.setMinimapIconZoomLimit,
             worldMapState: vm.context.worldMapState,
 
             // Viewport state
@@ -1037,6 +1044,12 @@ export class Cs2Vm {
             },
             set messageFilter(v: string) {
                 vm.messageFilter = v;
+            },
+            get chatTimestampMode() {
+                return vm.chatTimestampMode;
+            },
+            set chatTimestampMode(v: number) {
+                vm.chatTimestampMode = v | 0;
             },
 
             // Console output

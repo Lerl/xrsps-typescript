@@ -8,6 +8,7 @@ import { packWorldMapCoord } from "../../rs/map/WorldMapArea";
 import { FONT_VERDANA_11, FONT_VERDANA_13, FONT_VERDANA_15 } from "../fonts";
 import { menuAction } from "../menu/MenuAction";
 import { MenuOpcode, MenuState } from "../menu/MenuState";
+import { getBitmapFontAtlas } from "../text/BitmapFontAtlas";
 import type { WidgetManager } from "../widgets/WidgetManager";
 import type { WidgetNode } from "../widgets/WidgetNode";
 import {
@@ -15,7 +16,6 @@ import {
     drawTextGL as UI_drawTextGL,
     drawWrappedTextGL as UI_drawWrappedTextGL,
 } from "../widgets/components/TextRenderer";
-import { getBitmapFontAtlas } from "../text/BitmapFontAtlas";
 import { runCs1 } from "../widgets/cs1/runCs1";
 import {
     collectWidgetsAtPointAcrossRoots as UI_collectWidgetsAtPointAcrossRoots,
@@ -32,7 +32,7 @@ import {
     calculateType9Clip,
     isClipValid,
 } from "./scissor";
-import { TextureCache } from "./texture-cache";
+import { type SpriteMaskData, TextureCache } from "./texture-cache";
 import { ensureInput } from "./ui-input";
 
 // Debug flag: draw purple outlines around clickable areas
@@ -686,8 +686,7 @@ function drawWorldMapLabelGL(
         for (let lineIndex = 0; lineIndex < metrics.lines.length; lineIndex++) {
             const line = metrics.lines[lineIndex];
             let penX =
-                (((metrics.logicalWidth - (metrics.lineWidths[lineIndex] ?? 0)) / 2) |
-                    0) + offsetX;
+                (((metrics.logicalWidth - (metrics.lineWidths[lineIndex] ?? 0)) / 2) | 0) + offsetX;
             const baselineY = ascent + lineIndex * metrics.lineHeight + offsetY;
             let previous = -1;
             for (let i = 0; i < line.length; i++) {
@@ -2888,7 +2887,7 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
             // But still need to traverse children, so don't return here
         }
 
-	        if (contentType === 1400) {
+        if (contentType === 1400) {
             const osrsClient = (opts.game as any)?.osrsClient;
             const worldMapState = osrsClient?.worldMapState;
             worldMapState?.setDisplaySize?.(logicalWidth | 0, logicalHeight | 0);
@@ -3103,11 +3102,7 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                         let displayIconX = icon.displayX;
                         let displayIconY = icon.displayY;
                         if (displayIconX === undefined || displayIconY === undefined) {
-                            const displayPos = currentArea.position(
-                                sourcePlane,
-                                sourceX,
-                                sourceY,
-                            );
+                            const displayPos = currentArea.position(sourcePlane, sourceX, sourceY);
                             if (!displayPos) continue;
                             displayIconX = displayPos.x;
                             displayIconY = displayPos.y;
@@ -3155,9 +3150,7 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                                 iconX +
                                 getSpriteXOffset(
                                     iconW,
-                                    element?.horizontalAlignment ??
-                                        icon.horizontalAlignment ??
-                                        0,
+                                    element?.horizontalAlignment ?? icon.horizontalAlignment ?? 0,
                                 );
                             const spriteY =
                                 iconY +
@@ -3169,15 +3162,7 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                             hitY0 = Math.min(hitY0, spriteY);
                             hitX1 = Math.max(hitX1, spriteX + iconW);
                             hitY1 = Math.max(hitY1, spriteY + iconH);
-                            glr.drawTexture(
-                                iconTex,
-                                spriteX,
-                                spriteY,
-                                iconW,
-                                iconH,
-                                1,
-                                1,
-                            );
+                            glr.drawTexture(iconTex, spriteX, spriteY, iconW, iconH, 1, 1);
                         }
 
                         const label = element?.name ?? icon.name;
@@ -3198,10 +3183,7 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                                 const lineWidths = labelLines.map(
                                     (line) => (font?.measure?.(line) ?? line.length * 6) | 0,
                                 );
-                                const logicalWidth = Math.max(
-                                    1,
-                                    ...lineWidths,
-                                );
+                                const logicalWidth = Math.max(1, ...lineWidths);
                                 const lineHeight = Math.max(1, (fontBaseline / 2) | 0);
                                 const logicalHeight = Math.max(
                                     1,
@@ -3290,7 +3272,6 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                         );
                     }
                 }
-
             }
             osrsClient?.setRenderedWorldMapIcons?.(worldMapIconBounds);
         }
@@ -3318,9 +3299,8 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                     x: x + (displayCoordX - minDisplayX) * scaleX,
                     y: y + height - (displayCoordY - minDisplayY) * scaleY,
                 });
-                const mapElementCache =
-                    ((osrsClient as any).__worldMapOverviewElementCache ??=
-                        new Map<number, any>());
+                const mapElementCache = ((osrsClient as any).__worldMapOverviewElementCache ??=
+                    new Map<number, any>());
                 const getMapElement = (elementId: number) => {
                     if (mapElementCache.has(elementId)) return mapElementCache.get(elementId);
                     let element;
@@ -3334,7 +3314,11 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                 };
 
                 for (let mapY = currentArea.regionLowY; mapY <= currentArea.regionHighY; mapY++) {
-                    for (let mapX = currentArea.regionLowX; mapX <= currentArea.regionHighX; mapX++) {
+                    for (
+                        let mapX = currentArea.regionLowX;
+                        mapX <= currentArea.regionHighX;
+                        mapX++
+                    ) {
                         const icons = osrsClient?.getWorldMapIcons?.(
                             mapX | 0,
                             mapY | 0,
@@ -3353,7 +3337,9 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                             ) {
                                 continue;
                             }
-                            if ((element?.worldMapVisible ?? icon.worldMapVisible ?? true) === false) {
+                            if (
+                                (element?.worldMapVisible ?? icon.worldMapVisible ?? true) === false
+                            ) {
                                 continue;
                             }
                             const displayIconX =
@@ -3374,8 +3360,14 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                                 }
                             }
                             if (iconTex) {
-                                const iconW = Math.max(3, Math.min(12, iconTex.w * 0.5 * rootScaleX));
-                                const iconH = Math.max(3, Math.min(12, iconTex.h * 0.5 * rootScaleY));
+                                const iconW = Math.max(
+                                    3,
+                                    Math.min(12, iconTex.w * 0.5 * rootScaleX),
+                                );
+                                const iconH = Math.max(
+                                    3,
+                                    Math.min(12, iconTex.h * 0.5 * rootScaleY),
+                                );
                                 glr.drawTexture(
                                     iconTex,
                                     pos.x - iconW / 2,
@@ -3411,7 +3403,7 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
             }
         }
 
-	        // Special handling for minimap widget (contentType 1338)
+        // Special handling for minimap widget (contentType 1338)
         // Uses localPlayer position, NOT camera
         // WebGL-based rendering for better mobile performance
         if (contentType === 1338) {
@@ -3435,7 +3427,36 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                 }
                 minimapRenderer.updateProj(glr.proj);
 
-                if (playerState) {
+                const renderMaskSpriteId =
+                    typeof w.spriteId === "number" && (w.spriteId | 0) >= 0 ? w.spriteId | 0 : -1;
+                const clickMaskSpriteId =
+                    typeof w.spriteId2 === "number" && (w.spriteId2 | 0) >= 0
+                        ? w.spriteId2 | 0
+                        : renderMaskSpriteId;
+                const minimapMask: SpriteMaskData | undefined =
+                    renderMaskSpriteId >= 0
+                        ? tc.getWidgetSpriteMaskById(renderMaskSpriteId, {
+                              borderType: ((w as any).borderType ?? 0) | 0,
+                              shadowColor:
+                                  ((w as any).graphicShadow ?? (w as any).shadowColor ?? 0) | 0,
+                              flipH: !!(w.horizontalFlip || (w as any).flippedH),
+                              flipV: !!(w.verticalFlip || (w as any).flippedV),
+                          })
+                        : undefined;
+                const clickMask: SpriteMaskData | undefined =
+                    clickMaskSpriteId === renderMaskSpriteId
+                        ? minimapMask
+                        : clickMaskSpriteId >= 0
+                          ? tc.getWidgetSpriteMaskById(clickMaskSpriteId, {
+                                borderType: ((w as any).borderType ?? 0) | 0,
+                                shadowColor:
+                                    ((w as any).graphicShadow ?? (w as any).shadowColor ?? 0) | 0,
+                                flipH: !!(w.horizontalFlip || (w as any).flippedH),
+                                flipV: !!(w.verticalFlip || (w as any).flippedV),
+                            })
+                          : undefined;
+
+                if (playerState && minimapMask && clickMask) {
                     // Get interpolated player position from ECS
                     const playerEcs = osrsClient.playerEcs;
                     const playerIdx = playerEcs?.getIndexForServerId?.(localPlayerId);
@@ -3474,10 +3495,17 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                     const subTileX = worldX - playerTileX;
                     const subTileY = worldY - playerTileY;
 
-                    // Minimap center and radius in buffer-pixel space
-                    const centerX = x + width / 2;
-                    const centerY = y + height / 2;
-                    const radius = Math.min(width, height) / 2;
+                    const maskW = Math.max(1, Math.round(minimapMask.width * rootScaleX));
+                    const maskH = Math.max(1, Math.round(minimapMask.height * rootScaleY));
+                    const maskX = x + Math.round((width - maskW) / 2);
+                    const maskY = y + Math.round((height - maskH) / 2);
+                    const centerX = maskX + maskW / 2;
+                    const centerY = maskY + maskH / 2;
+                    const radius = Math.max(maskW, maskH) / 2;
+                    const clickMaskW = Math.max(1, Math.round(clickMask.width * rootScaleX));
+                    const clickMaskH = Math.max(1, Math.round(clickMask.height * rootScaleY));
+                    const clickMaskX = x + Math.round((width - clickMaskW) / 2);
+                    const clickMaskY = y + Math.round((height - clickMaskH) / 2);
 
                     // In OSRS the widget pixel size equals the screen pixel size, so
                     // 1 minimap pixel = 1 screen pixel at zoom 1.0.  Our renderer may
@@ -3491,7 +3519,13 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                     const adjustedZoom = zoomScale * minimapRenderScale;
 
                     // Begin WebGL minimap rendering
-                    minimapRenderer.begin(centerX, centerY, radius, cameraYaw, adjustedZoom);
+                    minimapRenderer.begin(centerX, centerY, radius, cameraYaw, adjustedZoom, {
+                        tex: minimapMask.texture.tex,
+                        x: maskX,
+                        y: maskY,
+                        width: maskW,
+                        height: maskH,
+                    });
 
                     // Draw 3x3 grid of map tiles
                     // Each tile is 64 tiles = 256 minimap pixels at 4px/tile
@@ -3565,13 +3599,66 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                     const itemDotTex = tc.getByNameToken("mapdots,0");
                     const npcDotTex = tc.getByNameToken("mapdots,1");
                     const playerDotTex = tc.getByNameToken("mapdots,2");
+                    const friendDotTex = tc.getByNameToken("mapdots,3");
+                    const teamDotTex = tc.getByNameToken("mapdots,4");
+                    const friendsChatDotTex = tc.getByNameToken("mapdots,5");
+                    const clanDotTex = tc.getByNameToken("mapdots,6");
                     const itemDot = itemDotTex;
                     const npcDot = npcDotTex;
                     const playerDot = playerDotTex;
-
-                    // Draw other players as white dots
                     const otherPlayerEcs = osrsClient.playerEcs;
-                    if (otherPlayerEcs?.getAllServerIds && playerDot) {
+
+                    const normalizePlayerName = (name: unknown): string => {
+                        return String(name ?? "")
+                            .replace(/<[^>]*>/g, "")
+                            .trim()
+                            .toLowerCase();
+                    };
+                    const friendNames = new Set<string>();
+                    const friendsChatNames = new Set<string>();
+                    const clanMemberNames = new Set<string>();
+                    const addName = (set: Set<string>, raw: unknown): void => {
+                        if (typeof raw !== "string") return;
+                        const normalized = normalizePlayerName(raw);
+                        if (normalized.length > 0) set.add(normalized);
+                    };
+                    const addListByField = (
+                        set: Set<string>,
+                        list: unknown,
+                        fieldName: string,
+                    ): void => {
+                        if (!Array.isArray(list)) return;
+                        for (const entry of list) addName(set, (entry as any)?.[fieldName]);
+                    };
+                    const addNameList = (set: Set<string>, list: unknown): void => {
+                        if (!Array.isArray(list)) return;
+                        for (const entry of list) addName(set, entry);
+                    };
+                    const cs2Ctx: any = osrsClient.cs2Vm?.context;
+                    addListByField(friendNames, cs2Ctx?.friendList, "name");
+                    addListByField(friendsChatNames, cs2Ctx?.clanMembers, "name");
+                    addNameList(clanMemberNames, cs2Ctx?.clanSettings?.memberNames);
+                    addNameList(clanMemberNames, cs2Ctx?.clanChannel?.userNames);
+
+                    const localEcsIdx = osrsClient.playerEcs?.getIndexForServerId?.(localPlayerId);
+                    const localTeam =
+                        typeof localEcsIdx === "number"
+                            ? (osrsClient.playerEcs?.getTeam?.(localEcsIdx | 0) ?? 0) | 0
+                            : 0;
+                    const getPlayerDot = (ecsIdx: number) => {
+                        const name = normalizePlayerName(otherPlayerEcs?.getName?.(ecsIdx));
+                        if (name.length > 0 && friendNames.has(name)) return friendDotTex;
+                        const otherTeam = (otherPlayerEcs?.getTeam?.(ecsIdx) ?? 0) | 0;
+                        if (localTeam !== 0 && otherTeam !== 0 && localTeam === otherTeam) {
+                            return teamDotTex;
+                        }
+                        if (name.length > 0 && friendsChatNames.has(name)) return friendsChatDotTex;
+                        if (name.length > 0 && clanMemberNames.has(name)) return clanDotTex;
+                        return playerDot;
+                    };
+
+                    // Draw other players
+                    if (otherPlayerEcs?.getAllServerIds) {
                         for (const otherId of otherPlayerEcs.getAllServerIds()) {
                             if (otherId === localPlayerId) continue;
 
@@ -3593,7 +3680,10 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                             const relX = (otherWorldX - worldX) * 4;
                             const relY = (worldY - otherWorldY) * 4;
 
-                            minimapRenderer.queueDot(playerDot, relX, relY, minimapRenderScale);
+                            const dotTex = getPlayerDot(ecsIdx);
+                            if (dotTex) {
+                                minimapRenderer.queueDot(dotTex, relX, relY, minimapRenderScale);
+                            }
                         }
                     }
 
@@ -3657,7 +3747,6 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                     minimapRenderer.flushDots();
 
                     // Draw player marker at center (white square, scaled for render resolution)
-                    const localEcsIdx = osrsClient.playerEcs?.getIndexForServerId?.(localPlayerId);
                     if (
                         localEcsIdx === undefined ||
                         !osrsClient.playerEcs.getIsHidden(localEcsIdx)
@@ -3712,25 +3801,44 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                         }
                     }
 
-                    // Register click handler for minimap click-to-walk
-                    // Reference: Clicking on minimap sends MOVE_GAMECLICK to walk to that tile
                     // Capture values needed for click handler closure (use worldX/Y for sub-tile precision)
                     const capturedWorldX = worldX;
                     const capturedWorldY = worldY;
                     const capturedCameraYaw = cameraYaw;
                     const capturedAdjustedZoom = adjustedZoom;
-                    const capturedMinimapCenterX = centerX;
-                    const capturedMinimapCenterY = centerY;
+                    const capturedMinimapCenterX = clickMaskX + clickMaskW / 2;
+                    const capturedMinimapCenterY = clickMaskY + clickMaskH / 2;
+                    const capturedMask = clickMask;
+                    const capturedMaskX = clickMaskX;
+                    const capturedMaskY = clickMaskY;
+                    const capturedMaskW = clickMaskW;
+                    const capturedMaskH = clickMaskH;
+                    const containsMinimapPoint = (pointX: number, pointY: number): boolean => {
+                        const localX = Math.floor(
+                            ((pointX - capturedMaskX) * capturedMask.width) / capturedMaskW,
+                        );
+                        const localY = Math.floor(
+                            ((pointY - capturedMaskY) * capturedMask.height) / capturedMaskH,
+                        );
+                        return capturedMask.contains(localX, localY);
+                    };
 
                     clicks.register({
                         id: `minimap:click-to-walk`,
-                        rect: { x, y, w: width, h: height },
+                        rect: { x: clickMaskX, y: clickMaskY, w: clickMaskW, h: clickMaskH },
                         // minimap click-to-walk should not steal clicks from widgets
                         // rendered on top of the minimap (orbs, buttons). Keep below widget targets.
                         priority: 90,
                         persist: false,
+                        contains: containsMinimapPoint,
+                        onMiddleClick: () => {
+                            const uiMenu = (glr.canvas as any)?.__ui?.menu;
+                            if (osrsClient.menuOpen || uiMenu?.open) return;
+                            osrsClient.minimapZoom = 4;
+                        },
                         onClick: (clickX?: number, clickY?: number) => {
                             if (clickX === undefined || clickY === undefined) return;
+                            if (!containsMinimapPoint(clickX, clickY)) return;
 
                             // Calculate click offset from minimap center (in screen pixels)
                             const offsetX = clickX - capturedMinimapCenterX;

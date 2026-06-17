@@ -258,12 +258,39 @@ export function registerClientOps(handlers: HandlerMap): void {
     });
 
     // === Minimap ===
+    handlers.set(Opcodes.MINIMAP_SETZOOMABLE, (ctx) => {
+        const enabled = ctx.intStack[--ctx.intStackSize] !== 0;
+        const setZoomable = ctx.setMinimapZoomable;
+        if (!setZoomable) {
+            throw new Error("MINIMAP_SETZOOMABLE requires ctx.setMinimapZoomable");
+        }
+        setZoomable(enabled);
+    });
+
+    handlers.set(Opcodes.MINIMAP_SETZOOM, (ctx) => {
+        const zoom = ctx.intStack[--ctx.intStackSize];
+        const setZoom = ctx.setMinimapZoom;
+        if (!setZoom) {
+            throw new Error("MINIMAP_SETZOOM requires ctx.setMinimapZoom");
+        }
+        setZoom(zoom);
+    });
+
     handlers.set(Opcodes.MINIMAP_GETZOOM, (ctx) => {
         const getZoom = ctx.getMinimapZoom;
         if (!getZoom) {
             throw new Error("MINIMAP_GETZOOM requires ctx.getMinimapZoom");
         }
         ctx.pushInt(getZoom() | 0);
+    });
+
+    handlers.set(Opcodes.MINIMAP_SETICONZOOMLIMIT, (ctx) => {
+        const limit = ctx.intStack[--ctx.intStackSize];
+        const setLimit = ctx.setMinimapIconZoomLimit;
+        if (!setLimit) {
+            throw new Error("MINIMAP_SETICONZOOMLIMIT requires ctx.setMinimapIconZoomLimit");
+        }
+        setLimit(limit);
     });
 
     // === Viewport ===
@@ -765,25 +792,80 @@ export function registerClientOps(handlers: HandlerMap): void {
         ctx.pushInt(scale > 1 ? Math.round(mouseY / scale) : mouseY | 0);
     });
 
-    // === Database operations (enhanced client - stubs for tooltip system) ===
-    handlers.set(Opcodes.DB_GETFIELD_LONG, (ctx) => {
-        // pop 2 ints (row, column), push 2 ints (long value as low/high)
+    const consumeHighlightSetup = (ctx: any) => {
+        ctx.intStackSize -= 5;
+    };
+    const consumeHighlightInt1 = (ctx: any) => {
+        ctx.intStackSize--;
+    };
+    const consumeHighlightInt2 = (ctx: any) => {
         ctx.intStackSize -= 2;
-        ctx.pushInt(0); // low 32 bits
-        ctx.pushInt(0); // high 32 bits
-    });
-
-    handlers.set(Opcodes.DB_GETROW_EX, (ctx) => {
-        // pop 2 ints (tableId, rowId), push 1 int (row handle)
-        ctx.intStackSize -= 2;
-        ctx.pushInt(-1); // no row found
-    });
-
-    handlers.set(Opcodes.DB_GETFIELD_TYPED, (ctx) => {
-        // pop 3 ints (row, column, type), push 1 int
+    };
+    const consumeHighlightInt3 = (ctx: any) => {
         ctx.intStackSize -= 3;
-        ctx.pushInt(-1); // no value
+    };
+    const consumeHighlightInt4 = (ctx: any) => {
+        ctx.intStackSize -= 4;
+    };
+    const consumeHighlightStringInt = (ctx: any) => {
+        ctx.intStackSize--;
+        ctx.stringStackSize--;
+    };
+    const consumeHighlightStringIntGet = (ctx: any) => {
+        consumeHighlightStringInt(ctx);
+        ctx.pushInt(0);
+    };
+
+    handlers.set(Opcodes.HIGHLIGHT_NPC_SETUP, consumeHighlightSetup);
+    handlers.set(Opcodes.HIGHLIGHT_NPC_ON, consumeHighlightInt3);
+    handlers.set(Opcodes.HIGHLIGHT_NPC_OFF, consumeHighlightInt3);
+    handlers.set(Opcodes.HIGHLIGHT_NPC_GET, (ctx) => {
+        consumeHighlightInt3(ctx);
+        ctx.pushInt(0);
     });
+    handlers.set(Opcodes.HIGHLIGHT_NPC_CLEAR, consumeHighlightInt1);
+    handlers.set(Opcodes.HIGHLIGHT_NPCTYPE_SETUP, consumeHighlightSetup);
+    handlers.set(Opcodes.HIGHLIGHT_NPCTYPE_ON, consumeHighlightInt2);
+    handlers.set(Opcodes.HIGHLIGHT_NPCTYPE_OFF, consumeHighlightInt2);
+    handlers.set(Opcodes.HIGHLIGHT_NPCTYPE_GET, (ctx) => {
+        consumeHighlightInt2(ctx);
+        ctx.pushInt(0);
+    });
+    handlers.set(Opcodes.HIGHLIGHT_NPCTYPE_CLEAR, consumeHighlightInt1);
+    handlers.set(Opcodes.HIGHLIGHT_LOC_SETUP, consumeHighlightSetup);
+    handlers.set(Opcodes.HIGHLIGHT_LOC_ON, consumeHighlightInt4);
+    handlers.set(Opcodes.HIGHLIGHT_LOC_OFF, consumeHighlightInt4);
+    handlers.set(Opcodes.HIGHLIGHT_LOC_GET, (ctx) => {
+        consumeHighlightInt4(ctx);
+        ctx.pushInt(0);
+    });
+    handlers.set(Opcodes.HIGHLIGHT_LOC_CLEAR, consumeHighlightInt1);
+    handlers.set(Opcodes.HIGHLIGHT_LOCTYPE_SETUP, consumeHighlightSetup);
+    handlers.set(Opcodes.HIGHLIGHT_LOCTYPE_ON, consumeHighlightInt2);
+    handlers.set(Opcodes.HIGHLIGHT_LOCTYPE_OFF, consumeHighlightInt2);
+    handlers.set(Opcodes.HIGHLIGHT_LOCTYPE_GET, (ctx) => {
+        consumeHighlightInt2(ctx);
+        ctx.pushInt(0);
+    });
+    handlers.set(Opcodes.HIGHLIGHT_LOCTYPE_CLEAR, consumeHighlightInt1);
+    handlers.set(Opcodes.HIGHLIGHT_OBJ_SETUP, consumeHighlightSetup);
+    handlers.set(Opcodes.HIGHLIGHT_OBJ_ON, consumeHighlightInt4);
+    handlers.set(Opcodes.HIGHLIGHT_OBJ_OFF, consumeHighlightInt4);
+    handlers.set(Opcodes.HIGHLIGHT_OBJ_GET, (ctx) => {
+        consumeHighlightInt4(ctx);
+        ctx.pushInt(0);
+    });
+    handlers.set(Opcodes.HIGHLIGHT_OBJTYPE_SETUP, consumeHighlightSetup);
+    handlers.set(Opcodes.HIGHLIGHT_OBJTYPE_ON, consumeHighlightInt2);
+    handlers.set(Opcodes.HIGHLIGHT_OBJTYPE_OFF, consumeHighlightInt2);
+    handlers.set(Opcodes.HIGHLIGHT_OBJTYPE_GET, (ctx) => {
+        consumeHighlightInt2(ctx);
+        ctx.pushInt(0);
+    });
+    handlers.set(Opcodes.HIGHLIGHT_PLAYER_SETUP, consumeHighlightSetup);
+    handlers.set(Opcodes.HIGHLIGHT_PLAYER_ON, consumeHighlightStringInt);
+    handlers.set(Opcodes.HIGHLIGHT_PLAYER_OFF, consumeHighlightStringInt);
+    handlers.set(Opcodes.HIGHLIGHT_PLAYER_GET, consumeHighlightStringIntGet);
 
     handlers.set(Opcodes.HIGHLIGHT_TILE_SETUP, (ctx) => {
         const flags = ctx.popInt();
@@ -826,46 +908,11 @@ export function registerClientOps(handlers: HandlerMap): void {
         ctx.clearTileHighlights(slot);
     });
 
-    // Entity Highlight/Tagging System - see Opcodes.ts for full documentation
-    // TODO: Implement with highlightedNpcTypes/highlightedLocTypes Sets
-
-    // HIGHLIGHT_NPCTYPE_GET (7008): Check if NPC type is tagged
-    // Stack: pop (npcUid, colorSlot), push boolean
-    handlers.set(Opcodes.HIGHLIGHT_NPCTYPE_GET, (ctx) => {
-        const colorSlot = ctx.intStack[--ctx.intStackSize];
-        const npcUid = ctx.intStack[--ctx.intStackSize];
-        // TODO: Look up npc type from uid, check if in highlightedNpcTypes set
-        void colorSlot;
-        void npcUid;
-        ctx.pushInt(0); // false - not tagged (stub)
-    });
-
-    // HIGHLIGHT_NPCTYPE_CLEAR (7009): Remove tag from NPC type
-    // Stack: pop (typeId)
-    handlers.set(Opcodes.HIGHLIGHT_NPCTYPE_CLEAR, (ctx) => {
-        const typeId = ctx.intStack[--ctx.intStackSize];
-        // TODO: Remove typeId from highlightedNpcTypes set
-        void typeId;
-    });
-
-    // HIGHLIGHT_LOCTYPE_GET (7018): Check if loc/object type is tagged
-    // Stack: pop (locUid, colorSlot), push boolean
-    handlers.set(Opcodes.HIGHLIGHT_LOCTYPE_GET, (ctx) => {
-        const colorSlot = ctx.intStack[--ctx.intStackSize];
-        const locUid = ctx.intStack[--ctx.intStackSize];
-        // TODO: Look up loc type from uid, check if in highlightedLocTypes set
-        void colorSlot;
-        void locUid;
-        ctx.pushInt(0); // false - not tagged (stub)
-    });
-
-    // HIGHLIGHT_LOCTYPE_CLEAR (7019): Remove tag from loc/object type
-    // Stack: pop (typeId)
-    handlers.set(Opcodes.HIGHLIGHT_LOCTYPE_CLEAR, (ctx) => {
-        const typeId = ctx.intStack[--ctx.intStackSize];
-        // TODO: Remove typeId from highlightedLocTypes set
-        void typeId;
-    });
+    handlers.set(Opcodes.HIGHLIGHT_GROUP_SETUP, consumeHighlightSetup);
+    handlers.set(Opcodes.HIGHLIGHT_GROUP_ON, consumeHighlightStringInt);
+    handlers.set(Opcodes.HIGHLIGHT_GROUP_OFF, consumeHighlightStringInt);
+    handlers.set(Opcodes.HIGHLIGHT_GROUP_GET, consumeHighlightStringIntGet);
+    handlers.set(Opcodes.HIGHLIGHT_GROUP_CLEAR, consumeHighlightInt1);
 
     type MinMenuSnapshot = {
         option: string;
@@ -876,6 +923,25 @@ export function registerClientOps(handlers: HandlerMap): void {
     };
 
     const getOsrsClient = (ctx: any): any => (ctx?.widgetManager as any)?.osrsClient;
+
+    const getMinMenuEntryType = (entry: any): number => {
+        const targetType =
+            typeof entry?.targetType === "number" ? entry.targetType | 0 : MenuTargetType.NONE;
+        switch (targetType) {
+            case MenuTargetType.NPC:
+                return 2;
+            case MenuTargetType.LOC:
+                return 3;
+            case MenuTargetType.OBJ:
+                return 4;
+            case MenuTargetType.PLAYER:
+                return 6;
+            default: {
+                const option = typeof entry?.option === "string" ? entry.option.toLowerCase() : "";
+                return option === "walk here" ? 1 : 0;
+            }
+        }
+    };
 
     const getInteractionCanvases = (osrsClient: any): any[] => {
         const renderer = osrsClient?.renderer as any;
@@ -1046,6 +1112,43 @@ export function registerClientOps(handlers: HandlerMap): void {
         };
     };
 
+    const getMinMenuEntries = (ctx: any): any[] => {
+        const osrsClient = getOsrsClient(ctx);
+        const ui = getUi(osrsClient);
+        const uiEntries =
+            ui?.menu?.open === true && Array.isArray(ui?.menu?.entries)
+                ? ui.menu.entries
+                : undefined;
+        if (uiEntries && uiEntries.length > 0) return uiEntries;
+        if (
+            osrsClient?.menuOpen === true &&
+            Array.isArray(osrsClient?.menuPinnedEntries) &&
+            osrsClient.menuPinnedEntries.length > 0
+        ) {
+            return osrsClient.menuPinnedEntries;
+        }
+        return Array.isArray(osrsClient?.menuActiveSimpleEntries)
+            ? osrsClient.menuActiveSimpleEntries
+            : [];
+    };
+
+    const getMinMenuEntryAt = (ctx: any, index: number): any => {
+        const entries = getMinMenuEntries(ctx);
+        if (entries.length === 0) return undefined;
+        const safeIndex = Math.max(0, Math.min(entries.length - 1, index | 0));
+        return entries[safeIndex];
+    };
+
+    const getMinMenuHoveredIndex = (ctx: any): number => {
+        const osrsClient = getOsrsClient(ctx);
+        const hoverTarget = getHoverTarget(osrsClient);
+        const id = typeof hoverTarget?.id === "string" ? hoverTarget.id : "";
+        const match = /^__menu_(?:opt|sub)_(\d+)$/.exec(id);
+        if (!match) return -1;
+        const index = Number(match[1]);
+        return Number.isFinite(index) ? index | 0 : -1;
+    };
+
     handlers.set(Opcodes.MINIMENU_ISOPEN, (ctx) => {
         const osrsClient = getOsrsClient(ctx);
         const ui = getUi(osrsClient);
@@ -1100,6 +1203,77 @@ export function registerClientOps(handlers: HandlerMap): void {
         ctx.pushInt(!snap.hasComponentHover && (snap.type | 0) === 6 ? 1 : 0);
     });
 
+    handlers.set(Opcodes.MINIMENU_TYPEAT, (ctx) => {
+        const index = ctx.intStack[--ctx.intStackSize];
+        ctx.pushInt(getMinMenuEntryType(getMinMenuEntryAt(ctx, index)));
+    });
+
+    handlers.set(Opcodes.MINIMENU_FINDNPCAT, (ctx) => {
+        const index = ctx.intStack[--ctx.intStackSize];
+        ctx.pushInt(getMinMenuEntryType(getMinMenuEntryAt(ctx, index)) === 2 ? 1 : 0);
+    });
+
+    handlers.set(Opcodes.MINIMENU_FINDLOCAT, (ctx) => {
+        const index = ctx.intStack[--ctx.intStackSize];
+        ctx.pushInt(getMinMenuEntryType(getMinMenuEntryAt(ctx, index)) === 3 ? 1 : 0);
+    });
+
+    handlers.set(Opcodes.MINIMENU_FINDOBJAT, (ctx) => {
+        const index = ctx.intStack[--ctx.intStackSize];
+        ctx.pushInt(getMinMenuEntryType(getMinMenuEntryAt(ctx, index)) === 4 ? 1 : 0);
+    });
+
+    handlers.set(Opcodes.MINIMENU_FINDPLAYERAT, (ctx) => {
+        const index = ctx.intStack[--ctx.intStackSize];
+        ctx.pushInt(getMinMenuEntryType(getMinMenuEntryAt(ctx, index)) === 6 ? 1 : 0);
+    });
+
+    handlers.set(Opcodes.MINIMENU_HOVERED_INDEX, (ctx) => {
+        ctx.pushInt(getMinMenuHoveredIndex(ctx));
+    });
+
+    handlers.set(Opcodes.MINIMENU_SETBLOCKMODE, (ctx) => {
+        const mode = ctx.intStack[--ctx.intStackSize] | 0;
+        const block = ctx.intStack[--ctx.intStackSize] | 0;
+        const osrsClient = getOsrsClient(ctx);
+        if (osrsClient && block >= 0) {
+            if (!Array.isArray(osrsClient.minimenuBlockModes)) osrsClient.minimenuBlockModes = [];
+            osrsClient.minimenuBlockModes[block] = mode;
+        }
+    });
+
+    handlers.set(Opcodes.MINIMENU_SETLEFTCLICKOPENS, (ctx) => {
+        const enabled = ctx.intStack[--ctx.intStackSize] === 1;
+        const osrsClient = getOsrsClient(ctx);
+        if (osrsClient?.settings) {
+            osrsClient.settings.leftClickOpensMenu = enabled;
+        }
+    });
+
+    handlers.set(Opcodes.MINIMENU_RESETORDER, () => {
+        // Menu order editing is tracked client-side when supported by the renderer.
+    });
+
+    handlers.set(Opcodes.MINIMENU_SETORDEREDIT, (ctx) => {
+        const enabled = ctx.intStack[--ctx.intStackSize] === 1;
+        const osrsClient = getOsrsClient(ctx);
+        if (osrsClient) {
+            osrsClient.minimenuOrderEdit = enabled;
+        }
+    });
+
+    handlers.set(Opcodes.MINIMENU_TOGGLESCROLL, (ctx) => {
+        const osrsClient = getOsrsClient(ctx);
+        if (osrsClient) {
+            osrsClient.minimenuScrollEnabled = !osrsClient.minimenuScrollEnabled;
+        }
+    });
+
+    handlers.set(Opcodes.MINIMENU_GETSCROLL, (ctx) => {
+        const osrsClient = getOsrsClient(ctx);
+        ctx.pushInt(osrsClient?.minimenuScrollEnabled ? 1 : 0);
+    });
+
     // === Safe Area (Mobile) ===
     // Returns safe-area BOUNDS (absolute coordinates in canvas space), matching OSRS semantics.
     // On cutout/notched devices this excludes unsafe areas; on normal displays this is full canvas.
@@ -1131,13 +1305,6 @@ export function registerClientOps(handlers: HandlerMap): void {
     // Used in some mobile scripts (e.g., script 5355)
     handlers.set(Opcodes.SAFEAREA_GETMAXY_ALT, (ctx) => {
         ctx.pushInt(getSafeBounds(ctx).maxY | 0);
-    });
-
-    // Struct param long (returns 64-bit value as two 32-bit ints)
-    handlers.set(Opcodes.STRUCT_PARAM_LONG, (ctx) => {
-        ctx.intStackSize -= 2; // pop structId, paramId
-        ctx.pushInt(0); // low 32 bits
-        ctx.pushInt(0); // high 32 bits
     });
 
     // Enhanced client-side context menu hooks.
@@ -1277,6 +1444,74 @@ export function registerClientOps(handlers: HandlerMap): void {
         // Switch to HD mode - stub
     });
 
+    // === String Vectors ===
+    const stringVectors = new Map<number, string[]>();
+    const getStringVector = (id: number): string[] => {
+        let values = stringVectors.get(id);
+        if (!values) {
+            values = [];
+            stringVectors.set(id, values);
+        }
+        return values;
+    };
+    const normalizeVectorValue = (value: string, ignoreCase: boolean): string =>
+        ignoreCase ? value.toLowerCase() : value;
+    const vectorContains = (values: string[], value: string, ignoreCase: boolean): boolean => {
+        const needle = normalizeVectorValue(value, ignoreCase);
+        return values.some((candidate) => normalizeVectorValue(candidate, ignoreCase) === needle);
+    };
+
+    handlers.set(Opcodes.STRINGVECTOR_ADDUNIQUE, (ctx) => {
+        const ignoreCase = ctx.popInt() !== 0;
+        const vectorId = ctx.popInt() | 0;
+        const value = String(ctx.popString() ?? "");
+        const values = getStringVector(vectorId);
+        if (!vectorContains(values, value, ignoreCase)) {
+            values.push(value);
+        }
+    });
+
+    handlers.set(Opcodes.STRINGVECTOR_REMOVE, (ctx) => {
+        const ignoreCase = ctx.popInt() !== 0;
+        const vectorId = ctx.popInt() | 0;
+        const value = String(ctx.popString() ?? "");
+        const values = getStringVector(vectorId);
+        for (let i = values.length - 1; i >= 0; i--) {
+            if (
+                normalizeVectorValue(values[i], ignoreCase) ===
+                normalizeVectorValue(value, ignoreCase)
+            ) {
+                values.splice(i, 1);
+            }
+        }
+    });
+
+    handlers.set(Opcodes.STRINGVECTOR_GET, (ctx) => {
+        const index = ctx.popInt() | 0;
+        const vectorId = ctx.popInt() | 0;
+        ctx.pushString(getStringVector(vectorId)[index] ?? "");
+    });
+
+    handlers.set(Opcodes.STRINGVECTOR_SIZE, (ctx) => {
+        const vectorId = ctx.popInt() | 0;
+        ctx.pushInt(getStringVector(vectorId).length | 0);
+    });
+
+    handlers.set(Opcodes.STRINGVECTOR_CONTAINS, (ctx) => {
+        const alternateMatch = ctx.popInt() !== 0;
+        const ignoreCase = ctx.popInt() !== 0;
+        const vectorId = ctx.popInt() | 0;
+        const value = String(ctx.popString() ?? "");
+        ctx.pushInt(
+            vectorContains(getStringVector(vectorId), value, ignoreCase || alternateMatch) ? 1 : 0,
+        );
+    });
+
+    handlers.set(Opcodes.STRINGVECTOR_CLEAR, (ctx) => {
+        const vectorId = ctx.popInt() | 0;
+        getStringVector(vectorId).length = 0;
+    });
+
     // === Notification System ===
     // NOTIFICATIONS_SENDLOCAL (6800): Display a notification using the authentic OSRS CS2 system
     // Stack: pops 2 ints (unused args), 2 strings (body, title) in reverse order
@@ -1299,10 +1534,91 @@ export function registerClientOps(handlers: HandlerMap): void {
     });
 
     // === Loot Tracker ===
-    // loottracker_lootadd(string, obj, int, int) - stub, loot tracker not implemented
+    const consumeLootTrackerString = (ctx: any) => {
+        ctx.stringStackSize--;
+    };
+    const consumeLootTrackerInt = (ctx: any) => {
+        ctx.intStackSize--;
+    };
+
+    handlers.set(Opcodes.LOOTTRACKER_SOURCEADD, (ctx) => {
+        ctx.intStackSize -= 3;
+        ctx.stringStackSize--;
+    });
+    handlers.set(Opcodes.LOOTTRACKER_SOURCENAMECOUNT, (ctx) => {
+        ctx.pushInt(0);
+    });
+    handlers.set(Opcodes.LOOTTRACKER_SOURCENAME, (ctx) => {
+        consumeLootTrackerInt(ctx);
+        ctx.pushString("");
+    });
+    handlers.set(Opcodes.LOOTTRACKER_SOURCEID, (ctx) => {
+        consumeLootTrackerString(ctx);
+        ctx.pushInt(0);
+    });
+    handlers.set(Opcodes.LOOTTRACKER_SOURCECOUNT, (ctx) => {
+        consumeLootTrackerString(ctx);
+        ctx.pushInt(0);
+    });
+    handlers.set(Opcodes.LOOTTRACKER_SOURCEQUERY_NEW, (ctx) => {
+        ctx.intStackSize -= 3;
+        ctx.pushInt(0);
+    });
+    handlers.set(Opcodes.LOOTTRACKER_SOURCEQUERY_GET, (ctx) => {
+        consumeLootTrackerInt(ctx);
+        ctx.pushInt(-1);
+    });
+    handlers.set(Opcodes.LOOTTRACKER_GETDROPLIMIT, (ctx) => {
+        ctx.pushInt(0);
+    });
+    handlers.set(Opcodes.LOOTTRACKER_LOOTCOUNT_BYNAME, (ctx) => {
+        consumeLootTrackerString(ctx);
+        ctx.pushInt(0);
+    });
+    handlers.set(Opcodes.LOOTTRACKER_LOOTCOUNT_BYID, (ctx) => {
+        consumeLootTrackerInt(ctx);
+        ctx.pushInt(0);
+    });
+    handlers.set(Opcodes.LOOTTRACKER_LOOTGET_BYNAME, (ctx) => {
+        consumeLootTrackerInt(ctx);
+        consumeLootTrackerString(ctx);
+        ctx.pushInt(0);
+        ctx.pushInt(0);
+    });
+    handlers.set(Opcodes.LOOTTRACKER_LOOTGET_BYID, (ctx) => {
+        ctx.intStackSize -= 2;
+        ctx.pushInt(0);
+        ctx.pushInt(0);
+    });
+    handlers.set(Opcodes.LOOTTRACKER_LOOTDEL_BYNAME, consumeLootTrackerString);
+    handlers.set(Opcodes.LOOTTRACKER_LOOTDEL_BYID, consumeLootTrackerInt);
+    handlers.set(Opcodes.LOOTTRACKER_IGNORELOOTADD, consumeLootTrackerString);
+    handlers.set(Opcodes.LOOTTRACKER_IGNORELOOTDEL, consumeLootTrackerString);
+    handlers.set(Opcodes.LOOTTRACKER_IGNORELOOTCOUNT, (ctx) => {
+        ctx.pushInt(0);
+    });
+    handlers.set(Opcodes.LOOTTRACKER_IGNORELOOTGET, (ctx) => {
+        consumeLootTrackerInt(ctx);
+        ctx.pushString("");
+    });
+    handlers.set(Opcodes.LOOTTRACKER_IGNORELOOTCLEAR, () => {});
+    handlers.set(Opcodes.LOOTTRACKER_IGNORESOURCEADD, consumeLootTrackerString);
+    handlers.set(Opcodes.LOOTTRACKER_IGNORESOURCEDEL, consumeLootTrackerString);
+    handlers.set(Opcodes.LOOTTRACKER_IGNORESOURCECOUNT, (ctx) => {
+        ctx.pushInt(0);
+    });
+    handlers.set(Opcodes.LOOTTRACKER_IGNORESOURCEGET, (ctx) => {
+        consumeLootTrackerInt(ctx);
+        ctx.pushString("");
+    });
+    handlers.set(Opcodes.LOOTTRACKER_IGNORESOURCECLEAR, () => {});
     handlers.set(Opcodes.LOOTTRACKER_LOOTADD, (ctx) => {
         ctx.intStackSize -= 3;
-        ctx.stringStackSize -= 1;
+        ctx.stringStackSize--;
+    });
+    handlers.set(Opcodes.LOOTTRACKER_SOURCEDROPNAME, (ctx) => {
+        consumeLootTrackerInt(ctx);
+        ctx.pushString("");
     });
 
     // === Sound ===

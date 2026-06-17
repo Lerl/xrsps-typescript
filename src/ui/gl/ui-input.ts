@@ -21,6 +21,7 @@ export class UIInputBridge {
     private lastProcessedSaveClickY: number = Number.NaN;
     private lastProcessedClickMode2: number = Number.NaN;
     private lastProcessedClickMode3: number = Number.NaN;
+    private lastProcessedMiddleClickSequence: number = -1;
     private lastProcessedTargetVersion: number = -1;
     private unchangedInputProcessedCount: number = 0;
     private lastUnchangedInputLogMs: number = -Infinity;
@@ -74,7 +75,17 @@ export class UIInputBridge {
      * Call this once per frame after beginFrame().
      */
     processInput(input: InputManager): void {
-        const { mouseX, mouseY, clickMode2, clickMode3, saveClickX, saveClickY } = input;
+        const {
+            mouseX,
+            mouseY,
+            clickMode2,
+            clickMode3,
+            saveClickX,
+            saveClickY,
+            middleClickX,
+            middleClickY,
+            middleClickSequence,
+        } = input;
         const targetVersion = this.clicks.getVersion();
         const sameInputState =
             mouseX === this.lastProcessedMouseX &&
@@ -82,7 +93,8 @@ export class UIInputBridge {
             saveClickX === this.lastProcessedSaveClickX &&
             saveClickY === this.lastProcessedSaveClickY &&
             clickMode2 === this.lastProcessedClickMode2 &&
-            clickMode3 === this.lastProcessedClickMode3;
+            clickMode3 === this.lastProcessedClickMode3 &&
+            middleClickSequence === this.lastProcessedMiddleClickSequence;
         if (sameInputState && targetVersion === this.lastProcessedTargetVersion) {
             return;
         }
@@ -108,6 +120,7 @@ export class UIInputBridge {
 
         const mousePos = this.transformPoint(mouseX, mouseY);
         const clickPos = this.transformPoint(saveClickX, saveClickY);
+        const middleClickPos = this.transformPoint(middleClickX, middleClickY);
 
         // Update hover state
         if (mouseX >= 0 && mouseY >= 0) {
@@ -123,6 +136,14 @@ export class UIInputBridge {
                 // Right click opens menu
                 this.menuHandler?.(clickPos.x, clickPos.y);
             }
+        }
+
+        if (
+            middleClickSequence !== this.lastProcessedMiddleClickSequence &&
+            middleClickX >= 0 &&
+            middleClickY >= 0
+        ) {
+            this.clicks.onMiddleClick(middleClickPos.x, middleClickPos.y);
         }
 
         // release is tracked by clickMode2 (held state), not clickMode3 (pulse).
@@ -150,6 +171,7 @@ export class UIInputBridge {
         this.lastProcessedSaveClickY = saveClickY;
         this.lastProcessedClickMode2 = clickMode2;
         this.lastProcessedClickMode3 = clickMode3;
+        this.lastProcessedMiddleClickSequence = middleClickSequence;
         this.lastProcessedTargetVersion = targetVersion;
     }
 

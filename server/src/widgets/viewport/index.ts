@@ -44,6 +44,8 @@ export enum DisplayMode {
 export const SCRIPT_BUFF_BAR_INIT = 5929;
 /** [clientscript,script626] seeds the transient camera zoom clamp varcs before toplevel resize. */
 export const SCRIPT_CAMERA_ZOOM_BOUNDS_INIT = 626;
+/** [clientscript,script876] initializes enhanced-client state after gameframe login. */
+export const SCRIPT_ENHANCED_CLIENT_LOGIN = 876;
 
 export function getBuffBarInitPostScripts(): Array<{
     scriptId: number;
@@ -57,6 +59,13 @@ export function getViewportRootInitScripts(): Array<{
     args: (number | string)[];
 }> {
     return [{ scriptId: SCRIPT_CAMERA_ZOOM_BOUNDS_INIT, args: [] }];
+}
+
+export function getEnhancedClientLoginScripts(playerName: string = ""): Array<{
+    scriptId: number;
+    args: (number | string)[];
+}> {
+    return [{ scriptId: SCRIPT_ENHANCED_CLIENT_LOGIN, args: [0, 0, playerName, playerName] }];
 }
 
 /**

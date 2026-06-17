@@ -33,7 +33,7 @@ import {
     getMinimapToggleVarbits,
     rewriteMinimapOrbsMount,
 } from "../widgets/minimapOrbs";
-import { getViewportRootInitScripts } from "../widgets/viewport";
+import { getEnhancedClientLoginScripts, getViewportRootInitScripts } from "../widgets/viewport";
 import { ADMIN_CROWN_ICON } from "./AuthenticationService";
 import type { RoutedMessage } from "./MessageRouter";
 import { PlayerSyncSession } from "./PlayerSyncSession";
@@ -553,6 +553,15 @@ export class LoginHandshakeService {
                     if (p.account.accountStage >= 1 && this.svc.gamemode.isTutorialActive(p)) {
                         this.svc.gamemodeUi.queueTutorialOverlay(p);
                     }
+                    if (!preStartMode) {
+                        for (const script of getEnhancedClientLoginScripts(p.name)) {
+                            this.svc.queueWidgetEvent(p.id, {
+                                action: "run_script",
+                                scriptId: script.scriptId,
+                                args: script.args,
+                            });
+                        }
+                    }
 
                     // IF_SETEVENTS for inventory widget slots
                     const INVENTORY_GROUP_ID = 149;
@@ -846,6 +855,13 @@ export class LoginHandshakeService {
                                             this.svc.queueWidgetEvent(p.id, action);
                                         }
                                     }
+                                }
+                                for (const script of getEnhancedClientLoginScripts(p.name)) {
+                                    this.svc.queueWidgetEvent(p.id, {
+                                        action: "run_script",
+                                        scriptId: script.scriptId,
+                                        args: script.args,
+                                    });
                                 }
                             }
                             continue;
