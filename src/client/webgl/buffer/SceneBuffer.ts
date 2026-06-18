@@ -612,6 +612,11 @@ export function isModelFaceTransparent(textureLoader: TextureLoader, face: Model
     );
 }
 
+function faceTransparencyToAlpha(transparency: number): number {
+    const value = transparency === -1 ? 253 : transparency & 0xff;
+    return clamp(256 - value, 0, 0xff);
+}
+
 export function getModelFaces(model: Model): ModelFace[] {
     const faces: ModelFace[] = [];
 
@@ -632,12 +637,9 @@ export function getModelFaces(model: Model): ModelFace[] {
         }
 
         let alpha = 0xff;
-        if (faceTransparencies && textureId === -1) {
-            alpha = 0xff - (faceTransparencies[index] & 0xff);
+        if (faceTransparencies) {
+            alpha = faceTransparencyToAlpha(faceTransparencies[index]);
         }
-        // if (faceTransparencies) {
-        //     alpha = 0xff - (faceTransparencies[index] & 0xff);
-        // }
 
         // Skip fully transparent faces
         if (alpha === 0) {
@@ -687,8 +689,8 @@ export function getModelFacesFiltered(
         }
 
         let alpha = 0xff;
-        if (faceTransparencies && textureId === -1) {
-            alpha = 0xff - (faceTransparencies[index] & 0xff);
+        if (faceTransparencies) {
+            alpha = faceTransparencyToAlpha(faceTransparencies[index]);
         }
 
         // Skip fully transparent faces

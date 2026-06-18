@@ -19,6 +19,8 @@ type SpotAnimGpuEntry = {
     drawCalls: Map<string, DrawCall>;
 };
 
+const SPOT_ANIM_GPU_CACHE_VERSION = 2;
+
 export class SpotAnimGpuCache {
     private entries: Map<string, SpotAnimGpuEntry> = new Map();
 
@@ -37,7 +39,7 @@ export class SpotAnimGpuCache {
     ): SpotAnimGpuRecord | undefined {
         if (!program) return undefined;
 
-        const key = `${spotId | 0}|${frameIdx | 0}|${transparent ? 1 : 0}`;
+        const key = `${spotId | 0}|${frameIdx | 0}|${transparent ? 1 : 0}|${SPOT_ANIM_GPU_CACHE_VERSION}`;
         let entry = this.entries.get(key);
         if (entry) {
             this.entries.delete(key);

@@ -2,6 +2,7 @@ import type { WebSocket } from "ws";
 
 import { SkillId } from "../../../../src/rs/skill/skills";
 import { resolveSelectedSpellPayload } from "../../../../src/shared/spells/selectedSpellPayload";
+import { SPELL_BUTTON_PARAM_ID } from "../../data/spellWidgetLoader";
 import { getItemDefinition } from "../../data/items";
 import { logger } from "../../utils/logger";
 import type { ServerServices } from "../ServerServices";
@@ -15,6 +16,21 @@ import {
 
 export class SpellCastingService {
     constructor(private readonly svc: ServerServices) {}
+
+    private resolveSpellWidgetFromObject(
+        itemId: number | undefined,
+    ): { groupId: number; childId: number } | undefined {
+        if (typeof itemId !== "number" || (itemId | 0) <= 0) return undefined;
+        const objType = this.svc.dataLoaderService.getObjType(itemId | 0) as any;
+        const componentHash = objType?.params?.get?.(SPELL_BUTTON_PARAM_ID);
+        if (typeof componentHash !== "number" || (componentHash | 0) <= 0) {
+            return undefined;
+        }
+        return {
+            groupId: (componentHash >>> 16) & 0xffff,
+            childId: componentHash & 0xffff,
+        };
+    }
 
     handleSpellCastOnItem(
         ws: WebSocket,
@@ -39,8 +55,14 @@ export class SpellCastingService {
         let spellData: SpellDataEntry | undefined;
         let spellId: number;
         const resolvedSelection = resolveSelectedSpellPayload(payload);
+        const objectSpellWidget = this.resolveSpellWidgetFromObject(
+            resolvedSelection.selectedSpellItemId,
+        );
 
-        if (
+        if (objectSpellWidget) {
+            spellData = getSpellDataByWidget(objectSpellWidget.groupId, objectSpellWidget.childId);
+            spellId = spellData?.id ?? -1;
+        } else if (
             resolvedSelection.spellbookGroupId !== undefined &&
             resolvedSelection.widgetChildId !== undefined
         ) {

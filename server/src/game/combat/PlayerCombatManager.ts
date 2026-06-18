@@ -18,7 +18,11 @@ import type { CombatAttackActionData } from "../actions/actionPayloads";
 import type { ActionEffect } from "../actions/types";
 import { NpcState } from "../npc";
 import { type PlayerManager, PlayerState } from "../player";
-import { getPoweredStaffSpellData, getSpellData } from "../spells/SpellDataProvider";
+import {
+    getPoweredStaffSpellData,
+    getSpellData,
+    resolveMagicCastSpotAnimHeight,
+} from "../spells/SpellDataProvider";
 import { CombatEngine, type PlayerAttackPlan } from "../systems/combat/CombatEngine";
 import { AttackType, normalizeAttackType } from "./AttackType";
 import {
@@ -1295,7 +1299,7 @@ export class PlayerCombatManager {
                     playerId: player.id,
                     spotId: castSpot,
                     delay: 0,
-                    height: 100,
+                    height: resolveMagicCastSpotAnimHeight(undefined, poweredStaffData),
                 });
             }
         }
@@ -1329,6 +1333,7 @@ export class PlayerCombatManager {
                 attackStyleMode: plan.attackStyle.mode,
                 spellId,
                 spellBaseXpAtCast,
+                magicImpactEffectsScheduled: magicAutocastHandled,
                 ammoEffect: plan.ammoEffect,
             };
         });
@@ -1353,6 +1358,7 @@ export class PlayerCombatManager {
                     attackStyleMode: basePlan.attackStyle.mode,
                     spellId,
                     spellBaseXpAtCast,
+                    magicImpactEffectsScheduled: magicAutocastHandled,
                     ammoEffect: undefined, // Ammo effects only for first hit
                 });
             }

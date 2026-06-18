@@ -382,12 +382,13 @@ export class CombatEffectService {
     broadcastNpcSequence(
         npc: NpcState,
         seqId: number | undefined,
-        opts?: { yieldToExisting?: boolean },
+        opts?: { yieldToExisting?: boolean; delayCycles?: number },
     ): void {
         if (seqId === undefined || seqId < 0) return;
         const frame = this.svc.activeFrame;
         if (!frame) return;
         const id = npc.id;
+        const seqDelay = Math.max(0, Math.min(255, Math.round(opts?.delayCycles ?? 0)));
         const existing = frame.npcUpdates.find((d: { id?: number; seq?: number }) => d?.id === id);
         if (existing?.seq !== undefined && existing.seq >= 0) {
             // Interruptible sequences (e.g. blocks) never replace a sequence
@@ -397,11 +398,13 @@ export class CombatEffectService {
             const newPriority = this.getSeqForcedPriority(seqId);
             if (newPriority >= existingPriority) {
                 existing.seq = seqId;
+                existing.seqDelay = seqDelay;
             }
         } else if (existing) {
             existing.seq = seqId;
+            existing.seqDelay = seqDelay;
         } else {
-            frame.npcUpdates.push({ id, seq: seqId });
+            frame.npcUpdates.push({ id, seq: seqId, seqDelay });
         }
     }
 

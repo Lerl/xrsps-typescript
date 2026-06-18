@@ -32,17 +32,18 @@ import { getSpecialAttack } from "../../combat/SpecialAttackProvider";
 import { pickSpecialAttackVisualOverride } from "../../combat/SpecialAttackVisualProvider";
 import { getSpellBaseXp } from "../../combat/SpellXpProvider";
 import { getRangedImpactSound } from "../../combat/WeaponDataProvider";
-import { getProjectileParams } from "../../data/ProjectileParamsProvider";
+import { getProjectileParams, type ProjectileLifeModel } from "../../data/ProjectileParamsProvider";
 import { consumeEquippedAmmoApply, ensureEquipQtyArrayOn } from "../../equipment";
 import type { NpcState } from "../../npc";
 import type { PendingNpcDrop } from "../../npcManager";
 import type { PlayerAppearance, PlayerState, SkillSyncUpdate } from "../../player";
 import type { SpellCastContext, SpellCastOutcome } from "../../spells/SpellCaster";
 import { SpellCaster } from "../../spells/SpellCaster";
-import type { SpellDataEntry } from "../../spells/SpellDataProvider";
+import type { PoweredStaffSpellData, SpellDataEntry } from "../../spells/SpellDataProvider";
 import {
     canWeaponAutocastSpell,
     getAutocastCompatibilityMessage,
+    getPoweredStaffSpellData,
     getSpellData,
 } from "../../spells/SpellDataProvider";
 import type {
@@ -73,6 +74,8 @@ export interface ProjectileParams {
     slope?: number;
     steepness?: number;
     startDelay?: number;
+    lifeModel?: ProjectileLifeModel;
+    sourceHeightOffset?: number;
 }
 
 /** Projectile timing estimation result. */
@@ -266,7 +269,7 @@ export interface CombatActionServices {
     broadcastNpcSequence(
         npc: NpcState,
         seqId: number,
-        opts?: { yieldToExisting?: boolean },
+        opts?: { yieldToExisting?: boolean; delayCycles?: number },
     ): void;
     /** Estimate NPC despawn delay from death sequence. */
     estimateNpcDespawnDelayTicksFromSeq(seqId: number | undefined): number;
@@ -418,6 +421,17 @@ export interface CombatActionServices {
     ): void;
     /** Resolve active skill XP multiplier for the player (e.g. gamemode modifiers). */
     getSkillXpMultiplier?: (player: PlayerState) => number;
+    /** Resolve final XP award through gamemode-specific hooks. */
+    getSkillXpAward?: (
+        player: PlayerState,
+        skillId: number,
+        baseXp: number,
+        context?: {
+            source: "skill" | "combat" | "quest" | "other";
+            actionId?: string;
+            spellId?: number;
+        },
+    ) => number | undefined;
 
     // --- Special Attacks ---
     /** Get special attack definition. */
@@ -473,6 +487,8 @@ export interface CombatActionServices {
     // --- Spell Data ---
     /** Get spell data by ID. */
     getSpellData(spellId: number): SpellDataEntry | undefined;
+    /** Get powered staff built-in spell data by weapon ID. */
+    getPoweredStaffSpellData(weaponId: number): PoweredStaffSpellData | undefined;
     /** Get spell base XP. */
     getSpellBaseXp(spellId: number): number;
     /** Get projectile params by ID. */
@@ -771,6 +787,8 @@ export class CombatActionHandler {
                     effects,
                 ),
             getSkillXpMultiplier: (player) => svc.gamemode.getSkillXpMultiplier(player),
+            getSkillXpAward: (player, skillId, baseXp, context) =>
+                svc.gamemode.getSkillXpAward?.(player, skillId, baseXp, context),
 
             getSpecialAttack: (weaponId) => getSpecialAttack(weaponId),
             pickSpecialAttackVisualOverride: (weaponId) =>
@@ -807,6 +825,7 @@ export class CombatActionHandler {
             executeSpellCast: (context, validation) => SpellCaster.execute(context, validation),
 
             getSpellData: (spellId) => getSpellData(spellId),
+            getPoweredStaffSpellData: (weaponId) => getPoweredStaffSpellData(weaponId),
             getSpellBaseXp: (spellId) => getSpellBaseXp(spellId),
             getProjectileParams: (projectileId) =>
                 projectileId !== undefined ? getProjectileParams(projectileId) : undefined,
@@ -1138,7 +1157,7 @@ export class CombatActionHandler {
         // Award magic base XP on cast
         // Skip if onMagicAttack already awarded base XP at schedule time (prevents double XP)
         if (!data.magicAutocastHandled) {
-            this.awardMagicBaseXpOnCast(player, plannedAttackType, hitPayload, effects);
+            this.awardMagicBaseXpOnCast(player, plannedAttackType, hitPayloads, effects);
         }
 
         // Schedule hits for each hit payload
@@ -1156,6 +1175,8 @@ export class CombatActionHandler {
                 attackType: entryAttackType,
                 attackStyleMode,
                 spellId,
+                spellBaseXpAtCast,
+                magicImpactEffectsScheduled,
                 ammoEffect,
             } = entryData;
             const hitDelay = Math.max(0, Math.ceil(rawHitDelay));
@@ -1189,6 +1210,8 @@ export class CombatActionHandler {
                 attackType: entryAttackType,
                 attackStyleMode,
                 spellId,
+                spellBaseXpAtCast: spellBaseXpAtCast === true,
+                magicImpactEffectsScheduled: magicImpactEffectsScheduled === true,
                 special: data.special,
                 ammoEffect,
                 hitIndex: hitIndex++,
@@ -1408,22 +1431,36 @@ export class CombatActionHandler {
     private awardMagicBaseXpOnCast(
         player: PlayerState,
         attackType: AttackType | undefined,
-        hitPayload: HitPayload | undefined,
+        hitPayloads: HitPayload[] | undefined,
         effects: ActionEffect[],
     ): void {
         if (attackType !== AttackType.Magic) return;
 
         const spellId = player.combat.spellId ?? -1;
         const spellData = spellId > 0 ? getSpellData(spellId) : undefined;
-        if (!spellData || spellData.category !== "combat") return;
-
-        const baseXp = getSpellBaseXp(spellId);
+        let baseXp =
+            spellData && spellData.category === "combat" && spellId > 0
+                ? getSpellBaseXp(spellId)
+                : 0;
+        if (baseXp <= 0) {
+            const weaponId = player.combat.weaponItemId ?? -1;
+            const poweredStaffData =
+                weaponId > 0 ? getPoweredStaffSpellData(weaponId) : undefined;
+            baseXp = poweredStaffData?.baseXp ?? 0;
+        }
         if (baseXp <= 0) return;
         const multiplierRaw = this.svc.gamemode.getSkillXpMultiplier(player) ?? 1;
         const xpMultiplier =
             Number.isFinite(multiplierRaw) && multiplierRaw > 0 ? multiplierRaw : 1;
-        const awardedXp = baseXp * xpMultiplier;
+        const awardedXp =
+            this.svc.gamemode.getSkillXpAward?.(player, 6, baseXp, {
+                source: "combat",
+                spellId: spellId > 0 ? spellId : undefined,
+            }) ?? baseXp * xpMultiplier;
         if (awardedXp <= 0) return;
+        for (const payload of hitPayloads ?? []) {
+            payload.spellBaseXpAtCast = true;
+        }
 
         const skill = player.skillSystem.getSkill(6); // SkillId.Magic
         const currentXp = skill.xp;

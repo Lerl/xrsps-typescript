@@ -1087,6 +1087,7 @@ export interface NpcUpdateDelta {
     /** Traversal types per direction (0=SLOW,1=WALK,2=RUN). */
     traversals?: number[];
     seq?: number;
+    seqDelay?: number;
     snap?: boolean;
     typeId?: number;
     size?: number;

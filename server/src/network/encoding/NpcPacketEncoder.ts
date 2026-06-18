@@ -198,7 +198,10 @@ export class NpcPacketEncoder {
             const upd = updatesById.get(id);
             if (upd?.seq !== undefined) {
                 info.mask |= NPC_MASKS.SEQUENCE;
-                info.seq = { id: upd.seq, delay: 0 };
+                info.seq = {
+                    id: upd.seq,
+                    delay: Math.max(0, Math.min(255, Math.round(upd.seqDelay ?? 0))),
+                };
             }
 
             // SPOT_ANIM (0x20000)

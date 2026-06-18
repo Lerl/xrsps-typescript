@@ -92,6 +92,7 @@ export interface NpcUpdatePayload {
     moved?: boolean;
     turned?: boolean;
     seq?: number;
+    seqDelay?: number;
     snap?: boolean;
     typeId?: number;
     size?: number;

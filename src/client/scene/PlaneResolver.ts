@@ -5,6 +5,7 @@ import { clampPlane } from "../utils/PlaneUtil";
 import {
     TILE_FLAG_BRIDGE,
     TileFlagMapSquare,
+    getTileRenderFlagLocal,
     getTileRenderFlagAt,
     hasBridgeColumnLocal,
     isBridgeSurfaceLocal,
@@ -28,11 +29,12 @@ export function resolveHeightSamplePlaneForLocal(
     localTileX: number,
     localTileY: number,
 ): number {
-    let plane = clampPlane(basePlane);
-    const isSurface = isBridgeSurfaceLocal(map, plane, localTileX, localTileY);
-    const hasBridgeColumn = hasBridgeColumnLocal(map, localTileX, localTileY);
-    if (isSurface || hasBridgeColumn) {
-        plane = clampPlane(plane + 1);
+    const plane = clampPlane(basePlane);
+    if (
+        plane < 3 &&
+        (getTileRenderFlagLocal(map, 1, localTileX, localTileY) & TILE_FLAG_BRIDGE) !== 0
+    ) {
+        return plane + 1;
     }
     return plane;
 }

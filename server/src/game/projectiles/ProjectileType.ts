@@ -73,7 +73,7 @@ export const PROJECTILE_ARCHETYPES: Record<ProjectileArchetypeName, ProjectileAr
         lifeModel: "linear5",
     }),
     MAGIC: base("MAGIC", {
-        startHeight: 86, // Doubled from 43 (86 * 4 = 344 game units, staff tip height)
+        startHeight: 43,
         endHeight: 31,
         delayFrames: 51, // ~1.7 ticks = 1020ms windup before projectile spawns
         angle: 16,
@@ -101,6 +101,6 @@ export function calculateProjectileLifeFrames(
             return dist * 3 + 2;
         case "magic":
         default:
-            return 5 + dist * 10;
+            return Math.max(1, dist * 10 - 5);
     }
 }

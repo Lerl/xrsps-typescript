@@ -248,21 +248,36 @@ export function awardMagicBaseXpOnCast(
     services: CombatActionServices,
     player: PlayerState,
     attackType: AttackType | undefined,
-    hitPayload: HitPayload | undefined,
+    hitPayload: HitPayload | HitPayload[] | undefined,
     effects: ActionEffect[],
 ): void {
     if (attackType !== AttackType.Magic) return;
 
     const spellId = player.combat.spellId ?? -1;
     const spellData = spellId > 0 ? services.getSpellData(spellId) : undefined;
-    if (!spellData || spellData.category !== "combat") return;
-
-    const baseXp = services.getSpellBaseXp(spellId);
+    let baseXp =
+        spellData && spellData.category === "combat" && spellId > 0
+            ? services.getSpellBaseXp(spellId)
+            : 0;
+    if (baseXp <= 0) {
+        const weaponId = player.combat.weaponItemId ?? -1;
+        const poweredStaffData =
+            weaponId > 0 ? services.getPoweredStaffSpellData(weaponId) : undefined;
+        baseXp = poweredStaffData?.baseXp ?? 0;
+    }
     if (baseXp <= 0) return;
     const multiplierRaw = services.getSkillXpMultiplier?.(player) ?? 1;
     const xpMultiplier = Number.isFinite(multiplierRaw) && multiplierRaw > 0 ? multiplierRaw : 1;
-    const awardedXp = baseXp * xpMultiplier;
+    const awardedXp =
+        services.getSkillXpAward?.(player, 6, baseXp, {
+            source: "combat",
+            spellId: spellId > 0 ? spellId : undefined,
+        }) ?? baseXp * xpMultiplier;
     if (awardedXp <= 0) return;
+    const hitPayloads = Array.isArray(hitPayload) ? hitPayload : hitPayload ? [hitPayload] : [];
+    for (const payload of hitPayloads) {
+        payload.spellBaseXpAtCast = true;
+    }
 
     const skill = player.skillSystem.getSkill(6); // SkillId.Magic
     const currentXp = skill.xp;

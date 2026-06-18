@@ -14,7 +14,10 @@ import { AttackType } from "../../combat/AttackType";
 import { HITMARK_DAMAGE } from "../../combat/HitEffects";
 import type { NpcState } from "../../npc";
 import type { PlayerState } from "../../player";
-import { getPoweredStaffSpellData } from "../../spells/SpellDataProvider";
+import {
+    getPoweredStaffSpellData,
+    resolveMagicImpactSpotAnimHeight,
+} from "../../spells/SpellDataProvider";
 import type { PoweredStaffSpellData } from "../../spells/SpellDataProvider";
 import type {
     CombatAttackActionData,
@@ -133,6 +136,9 @@ export class NpcHitHandler {
         // The landed flag should be set by CombatEngine based on accuracy, not damage.
         // Accept truthy values (not just strict boolean) to handle serialization edge cases.
         const hitLanded = this.resolveHitLanded(landed, style, damage);
+        const magicImpactEffectsScheduled =
+            data.magicImpactEffectsScheduled === true ||
+            data.hit?.magicImpactEffectsScheduled === true;
 
         // Apply hitsplat to NPC
         const npcHitsplat = this.services.applyNpcHitsplat(
@@ -142,7 +148,7 @@ export class NpcHitHandler {
             hitsplatTick,
             maxHit,
         );
-        if (npcHitsplat.hpCurrent > 0) {
+        if (npcHitsplat.hpCurrent > 0 && !(isMagicAttack && magicImpactEffectsScheduled)) {
             const npcCombatSeq = this.services.getNpcCombatSequences(npc.typeId);
             if (npcCombatSeq?.block !== undefined) {
                 // Blocks never replace a sequence already broadcast this tick
@@ -222,6 +228,7 @@ export class NpcHitHandler {
                 tick,
                 effects,
                 resolvedSpellId,
+                magicImpactEffectsScheduled,
             );
         }
 
@@ -463,6 +470,7 @@ export class NpcHitHandler {
         tick: number,
         effects: ActionEffect[],
         spellIdOverride?: number,
+        magicImpactEffectsScheduled: boolean = false,
     ): void {
         const spellId =
             (Number.isFinite(spellIdOverride) ? spellIdOverride : undefined) ??
@@ -487,32 +495,33 @@ export class NpcHitHandler {
             splashSpotAnim = poweredStaffData.splashSpotAnim;
         }
 
-        // Spot animation
-        const spotId = landed ? impactSpotAnim : (splashSpotAnim ?? impactSpotAnim);
-        if (spotId !== undefined && spotId >= 0) {
-            this.services.enqueueSpotAnimation({
-                tick: hitsplatTick,
-                npcId: npc.id,
-                spotId: spotId,
-                delay: 0,
-                height: landed ? (spell?.impactSpotAnimHeight ?? 100) : 100,
-            });
-        }
+        if (!magicImpactEffectsScheduled) {
+            const spotId = landed ? impactSpotAnim : (splashSpotAnim ?? impactSpotAnim);
+            if (spotId !== undefined && spotId >= 0) {
+                this.services.enqueueSpotAnimation({
+                    tick: hitsplatTick,
+                    npcId: npc.id,
+                    spotId: spotId,
+                    delay: 0,
+                    height: resolveMagicImpactSpotAnimHeight(landed, spell, poweredStaffData),
+                });
+            }
 
-        const spellSoundId = this.pickResolvedMagicSound(spellId, landed, poweredStaffData);
-        if (spellSoundId !== undefined) {
-            this.services.withDirectSendBypass("combat_spell_impact_sound", () =>
-                this.services.broadcastSound(
-                    {
-                        soundId: spellSoundId,
-                        x: npc.tileX,
-                        y: npc.tileY,
-                        level: npc.level,
-                        delay: COMBAT_SOUND_DELAY_CYCLES,
-                    },
-                    "combat_spell_impact_sound",
-                ),
-            );
+            const spellSoundId = this.pickResolvedMagicSound(spellId, landed, poweredStaffData);
+            if (spellSoundId !== undefined) {
+                this.services.withDirectSendBypass("combat_spell_impact_sound", () =>
+                    this.services.broadcastSound(
+                        {
+                            soundId: spellSoundId,
+                            x: npc.tileX,
+                            y: npc.tileY,
+                            level: npc.level,
+                            delay: COMBAT_SOUND_DELAY_CYCLES,
+                        },
+                        "combat_spell_impact_sound",
+                    ),
+                );
+            }
         }
 
         // Freeze and multi-target

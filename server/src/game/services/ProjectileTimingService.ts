@@ -69,7 +69,10 @@ export class ProjectileTimingService {
         let lineOfSight: boolean | undefined;
         if (opts.spellData?.projectileTravelTime !== undefined) {
             travelTime = Math.max(1, opts.spellData.projectileTravelTime);
-        } else if (opts.projectileDefaults?.travelTime !== undefined) {
+        } else if (
+            opts.projectileDefaults?.travelTime !== undefined &&
+            opts.projectileDefaults.lifeModel !== "magic"
+        ) {
             travelTime = Math.max(1, opts.projectileDefaults.travelTime);
         } else if (opts.targetX !== undefined && opts.targetY !== undefined) {
             const px = opts.player.tileX;
@@ -119,6 +122,12 @@ export class ProjectileTimingService {
         framesPerTick: number,
     ): number | undefined {
         const tiles = Math.max(1, Math.round(distanceTiles));
+        if (defaults?.lifeModel === "magic") {
+            const byModel = this.estimateFramesFromLifeModel(defaults.lifeModel, tiles, rayTiles);
+            if (byModel !== undefined) {
+                return byModel;
+            }
+        }
         const travelFramesExplicit = defaults?.travelFrames;
         if (
             Number.isFinite(travelFramesExplicit as number) &&
@@ -152,9 +161,9 @@ export class ProjectileTimingService {
             case "javelin":
                 return tiles * 3 + 2;
             case "magic": {
-                // Magic lifespan = 5 + (raycast path tiles * 10) client cycles.
+                // Magic lifespan = (raycast path tiles * 10) - 5 client cycles.
                 const pathTiles = Math.max(1, Math.round(rayTiles ?? distanceTiles));
-                return 5 + pathTiles * 10;
+                return Math.max(1, pathTiles * 10 - 5);
             }
             default:
                 return undefined;
@@ -225,6 +234,7 @@ export class ProjectileTimingService {
             slope?: number;
             steepness?: number;
             startDelay?: number;
+            lifeModel?: ProjectileParams["lifeModel"];
             sourceHeightOffset?: number;
         };
         timing?: { startDelay: number; travelTime: number };

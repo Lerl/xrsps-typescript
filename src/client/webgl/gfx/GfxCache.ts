@@ -2,12 +2,29 @@ import { Model } from "../../../rs/model/Model";
 import { ModelData } from "../../../rs/model/ModelData";
 import type { WebGLOsrsRenderer } from "../WebGLOsrsRenderer";
 
-type FrameKey = string; // `${spotId}|${frameIdx}|${pass}` where pass is 0=opaque,1=alpha
+type FrameKey = string; // `${spotId}|${frameIdx}|${pass}|${version}` where pass is 0=opaque,1=alpha
+const FRAME_GEOMETRY_VERSION = 2;
 
 export class GfxCache {
     private baseBySpot = new Map<number, Model>();
     private frameGeom = new Map<FrameKey, { vertices: Uint8Array; indices: Int32Array }>();
     constructor(private renderer: WebGLOsrsRenderer) {}
+
+    private hasFaceTransparency(model: Model): boolean {
+        const alphas = (model as any).faceAlphas;
+        if (!alphas) return false;
+        for (let i = 0; i < ((model as any).faceCount | 0); i++) {
+            if ((alphas[i] & 0xff) !== 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private isAlphaBlendedSpot(spotId: number): boolean {
+        const base = this.ensureBase(spotId | 0);
+        return !!base && this.hasFaceTransparency(base);
+    }
 
     private getSpotType(spotId: number): any | undefined {
         try {
@@ -119,9 +136,17 @@ export class GfxCache {
         transparent: boolean,
     ): { vertices: Uint8Array; indices: Int32Array } | undefined {
         const pass = transparent ? 1 : 0;
-        const key = `${spotId | 0}|${frameIdx | 0}|${pass}` as FrameKey;
+        const key = `${spotId | 0}|${frameIdx | 0}|${pass}|${FRAME_GEOMETRY_VERSION}` as FrameKey;
         const existing = this.frameGeom.get(key);
-        if (existing) return existing;
+        if (existing) {
+            const alphaBlendedSpot = this.isAlphaBlendedSpot(spotId | 0);
+            const staleAlphaBlendedPass =
+                alphaBlendedSpot &&
+                ((transparent && (existing.indices.length | 0) > 0) ||
+                    (!transparent && (existing.indices.length | 0) === 0));
+            if (!staleAlphaBlendedPass) return existing;
+            this.frameGeom.delete(key);
+        }
 
         const base = this.ensureBase(spotId);
         if (!base) return undefined;
@@ -170,11 +195,16 @@ export class GfxCache {
             ((model as any).verticesCount | 0) + 16,
         );
         const facesAll = getFaces(model);
-        const faces = facesAll.filter((f: any) =>
-            transparent
-                ? isTrans((this.renderer.osrsClient as any).textureLoader, f)
-                : !isTrans((this.renderer.osrsClient as any).textureLoader, f),
-        );
+        const singleBlendedPass = this.hasFaceTransparency(model);
+        const faces = singleBlendedPass
+            ? transparent
+                ? []
+                : facesAll
+            : facesAll.filter((f: any) =>
+                  transparent
+                      ? isTrans((this.renderer.osrsClient as any).textureLoader, f)
+                      : !isTrans((this.renderer.osrsClient as any).textureLoader, f),
+              );
         if (faces.length > 0) sceneBuf.addModel(model, faces);
         const out = {
             vertices: sceneBuf.vertexBuf.byteArray(),

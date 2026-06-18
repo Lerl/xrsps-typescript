@@ -87,9 +87,12 @@ const PROJECTILE_PARAMS: Record<number, ProjectileParams> = {
     369: buildProjectileParamsFromArchetype("MAGIC", { slope: 32 }),
 
     // Powered staff projectiles
-    1252: buildProjectileParamsFromArchetype("MAGIC", { startHeight: 36, endHeight: 31, slope: 0 }),
-    1539: buildProjectileParamsFromArchetype("MAGIC", { startHeight: 36, endHeight: 31, slope: 0 }),
+    1040: buildProjectileParamsFromArchetype("MAGIC", { startHeight: 0, endHeight: 0, slope: 0 }),
+    1252: buildProjectileParamsFromArchetype("MAGIC", { startHeight: 0, endHeight: 0, slope: 0 }),
+    1278: buildProjectileParamsFromArchetype("MAGIC", { startHeight: 36, endHeight: 31, slope: 0 }),
+    1539: buildProjectileParamsFromArchetype("MAGIC", { startHeight: 0, endHeight: 0, slope: 0 }),
     2126: buildProjectileParamsFromArchetype("MAGIC", { startHeight: 36, endHeight: 31, slope: 0 }),
+    2339: buildProjectileParamsFromArchetype("MAGIC", { startHeight: 36, endHeight: 31, slope: 0 }),
 
     // Ranged weapon specials / unique projectiles
     1099: buildProjectileParamsFromArchetype("ARROW", { startHeight: 60, slope: 35 }),

@@ -47,11 +47,21 @@ export enum MenuAction {
 
 type SpellSelectionClearHandler = (() => void) | null;
 let clearSpellSelectionHandler: SpellSelectionClearHandler = null;
+type SpellSelectionResolver = ((selection: {
+    widgetId: number;
+    childIndex: number;
+    itemId: number;
+}) => { widgetId: number; childIndex: number; itemId: number } | undefined) | null;
+let spellSelectionResolver: SpellSelectionResolver = null;
 type NpcExamineIdResolver = ((serverId: number) => number | undefined) | null;
 let npcExamineIdResolver: NpcExamineIdResolver = null;
 
 export function setSpellSelectionClearHandler(handler: (() => void) | null): void {
     clearSpellSelectionHandler = handler;
+}
+
+export function setSpellSelectionResolver(handler: SpellSelectionResolver): void {
+    spellSelectionResolver = handler;
 }
 
 export function setNpcExamineIdResolver(
@@ -68,6 +78,36 @@ function clearSpellSelectionWithHandler(): void {
         } catch {}
     }
     ClientState.clearSpellSelection();
+}
+
+function resolveSpellSelection(
+    widgetId: number,
+    childIndex: number,
+    itemId: number,
+): { widgetId: number; childIndex: number; itemId: number } {
+    const fallback = {
+        widgetId: widgetId | 0,
+        childIndex: childIndex | 0,
+        itemId: itemId | 0,
+    };
+    if (!spellSelectionResolver) return fallback;
+    try {
+        return spellSelectionResolver(fallback) ?? fallback;
+    } catch {
+        return fallback;
+    }
+}
+
+function normalizeSelectedSpellState(): void {
+    if (!ClientState.isSpellSelected || ClientState.selectedSpellWidget <= 0) return;
+    const resolved = resolveSpellSelection(
+        ClientState.selectedSpellWidget,
+        ClientState.selectedSpellChildIndex,
+        ClientState.selectedSpellItemId,
+    );
+    ClientState.selectedSpellWidget = resolved.widgetId;
+    ClientState.selectedSpellChildIndex = resolved.childIndex;
+    ClientState.selectedSpellItemId = resolved.itemId;
 }
 
 /**
@@ -207,10 +247,11 @@ export function menuAction(
         // identifier = opIndex (which action triggered this)
 
         // Set up spell/item selection for targeting
+        const resolved = resolveSpellSelection(arg1, arg0, itemId >= 0 ? itemId : -1);
         ClientState.isSpellSelected = true;
-        ClientState.selectedSpellWidget = arg1;
-        ClientState.selectedSpellChildIndex = arg0;
-        ClientState.selectedSpellItemId = itemId >= 0 ? itemId : -1;
+        ClientState.selectedSpellWidget = resolved.widgetId;
+        ClientState.selectedSpellChildIndex = resolved.childIndex;
+        ClientState.selectedSpellItemId = resolved.itemId;
         ClientState.selectedSpellActionName = action || "Use";
         ClientState.selectedSpellName = target || "";
 
@@ -546,6 +587,7 @@ export function menuAction(
 
     // OPLOCT (2) - Widget target on object
     if (opcode === MenuOpcode.WidgetTargetOnGameObject) {
+        normalizeSelectedSpellState();
         setVisualFeedback();
         const worldY = (ClientState.baseY | 0) + (arg1 | 0);
         const worldX = (ClientState.baseX | 0) + (arg0 | 0);
@@ -579,6 +621,7 @@ export function menuAction(
     if (opcode === MenuOpcode.WidgetTargetOnNpc) {
         const npc = ClientState.npcs[identifier];
         if (npc != null) {
+            normalizeSelectedSpellState();
             setVisualFeedback();
             const pkt = createPacket(ClientPacket.OPNPCT);
             pkt.packetBuffer.writeShort(identifier);
@@ -609,6 +652,7 @@ export function menuAction(
     if (opcode === MenuOpcode.WidgetTargetOnPlayer) {
         const player = ClientState.players[identifier];
         if (player != null) {
+            normalizeSelectedSpellState();
             setVisualFeedback();
             const pkt = createPacket(ClientPacket.OPPLAYERT);
             pkt.packetBuffer.writeByteNeg(ctrlHeld ? 1 : 0);
@@ -638,6 +682,7 @@ export function menuAction(
 
     // OPOBJT (17) - Widget target on ground item
     if (opcode === MenuOpcode.WidgetTargetOnGroundItem) {
+        normalizeSelectedSpellState();
         setVisualFeedback();
         const worldY = (ClientState.baseY | 0) + (arg1 | 0);
         const worldX = (ClientState.baseX | 0) + (arg0 | 0);
@@ -809,6 +854,7 @@ export function menuAction(
     // WIDGET_TARGET_ON_WIDGET (58) - Spell/item use on widget
     // Used when casting a spell on an interface item or using item on interface
     if (opcode === MenuOpcode.WidgetTargetOnWidget) {
+        normalizeSelectedSpellState();
         // arg1 = target widget ID
         // arg0 = target slot/child index
         // itemId = target item ID

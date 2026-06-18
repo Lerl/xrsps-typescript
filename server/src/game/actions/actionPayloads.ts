@@ -1,4 +1,5 @@
 import type { AttackType } from "../combat/AttackType";
+import type { ProjectileParams } from "../data/ProjectileParamsProvider";
 import type { LockState } from "../model/LockState";
 
 export interface ActionTile {
@@ -64,6 +65,8 @@ export interface CombatProjectileParamsData {
     slope?: number;
     steepness?: number;
     startDelay?: number;
+    lifeModel?: ProjectileParams["lifeModel"];
+    sourceHeightOffset?: number;
 }
 
 export interface CombatAmmoEffectData {
@@ -114,6 +117,7 @@ export interface CombatHitPayloadData {
     attackStyleMode?: unknown;
     spellId?: unknown;
     spellBaseXpAtCast?: unknown;
+    magicImpactEffectsScheduled?: unknown;
     ammoEffect?: CombatAmmoEffectData;
     hitIndex?: number;
     /** Combat XP was already granted when the attack was committed, not on impact. */
@@ -155,6 +159,7 @@ type CombatPlayerHitBase = {
     attackStyleMode?: unknown;
     spellId?: unknown;
     spellBaseXpAtCast?: unknown;
+    magicImpactEffectsScheduled?: unknown;
     special?: CombatSpecialPayloadData;
     ammoEffect?: CombatAmmoEffectData;
     hitIndex?: number;

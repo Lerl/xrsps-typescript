@@ -187,7 +187,11 @@ import {
 import { getOsrsInterfaceScalingPercent, setOsrsInterfaceScalingPercent } from "../ui/UiScale";
 import { ClickRegistry } from "../ui/gl/click-registry";
 import { cleanupInterfaceClickTargets } from "../ui/gl/widgets-gl";
-import { setNpcExamineIdResolver, setSpellSelectionClearHandler } from "../ui/menu/MenuAction";
+import {
+    setNpcExamineIdResolver,
+    setSpellSelectionClearHandler,
+    setSpellSelectionResolver,
+} from "../ui/menu/MenuAction";
 import {
     type DefaultChoiceState,
     type SimpleMenuEntry,
@@ -326,6 +330,14 @@ interface SelectedSpellInfo {
     sourceWidget?: any;
 }
 
+type SpellSelectionState = {
+    widgetId: number;
+    childIndex: number;
+    itemId: number;
+};
+
+const SPELL_BUTTON_PARAM_ID = 596;
+const SPELLBOOK_GROUP_IDS = new Set([218, 219, 388, 389]);
 const DEVICE_OPTION_INTERFACE_SCALING = 27;
 
 // OSRS draw distance is constrained in Scene.setDrawDistanceRaw(25..90).
@@ -1160,6 +1172,14 @@ export class OsrsClient {
         cache?: LoadedCache,
     ) {
         setSpellSelectionClearHandler(() => this.clearSelectedSpell());
+        setSpellSelectionResolver((selection) =>
+            this.resolveSpellSelectionFromWidget(
+                undefined,
+                selection.widgetId,
+                selection.childIndex,
+                selection.itemId,
+            ),
+        );
         setNpcExamineIdResolver((serverId) => this.resolveNpcExamineTypeId(serverId));
         const globalState = globalThis as typeof globalThis & {
             DEBUG_PROJECTILES?: boolean;
@@ -4662,6 +4682,7 @@ export class OsrsClient {
                         return;
                     } else {
                         // This is spell-on-item (e.g., High Alchemy on item)
+                        this.normalizeSelectedSpellState();
                         const selection = buildSelectedSpellPayload(
                             ClientState.selectedSpellWidget,
                             ClientState.selectedSpellChildIndex,
@@ -4809,14 +4830,20 @@ export class OsrsClient {
             ) {
                 // Get the import for ClientState
                 const { ClientState } = require("./ClientState");
+                const spellSelection = this.resolveSpellSelectionFromWidget(
+                    event.widget,
+                    event.widget.uid,
+                    childId,
+                    event.itemId ?? -1,
+                );
 
                 // Clicking the currently selected spell deselects it.
                 if (
                     ClientState.isSpellSelected &&
-                    ClientState.selectedSpellWidget === event.widget.uid
+                    ClientState.selectedSpellWidget === spellSelection.widgetId
                 ) {
                     console.log(
-                        `[OsrsClient] Spell widget re-clicked while active, clearing selection: widget=${event.widget.uid}`,
+                        `[OsrsClient] Spell widget re-clicked while active, clearing selection: widget=${spellSelection.widgetId}`,
                     );
                     this.clearSelectedSpell();
                     return;
@@ -4828,9 +4855,9 @@ export class OsrsClient {
                     this.inventory?.setSelectedSlot?.(null);
                 } catch {}
                 ClientState.isSpellSelected = true;
-                ClientState.selectedSpellWidget = event.widget.uid;
-                ClientState.selectedSpellChildIndex = childId;
-                ClientState.selectedSpellItemId = event.itemId ?? -1;
+                ClientState.selectedSpellWidget = spellSelection.widgetId;
+                ClientState.selectedSpellChildIndex = spellSelection.childIndex;
+                ClientState.selectedSpellItemId = spellSelection.itemId;
                 ClientState.selectedSpellActionName = targetVerb;
                 // OSRS uses widget.dataText for spell name display (e.g., "Wind Strike")
                 // Also check opBase which CS2 sets for spells (contains colored spell name)
@@ -4848,10 +4875,12 @@ export class OsrsClient {
 
                 console.log(
                     `[OsrsClient] Entered spell targeting mode: widget=${
-                        event.widget.uid
+                        spellSelection.widgetId
                     }, verb="${targetVerb}", name="${
                         ClientState.selectedSpellName
-                    }", group=${groupId}, child=${childId}, targetMask=0x${ClientState.selectedSpellTargetMask.toString(
+                    }", group=${(spellSelection.widgetId >>> 16) & 0xffff}, child=${
+                        spellSelection.childIndex
+                    }, targetMask=0x${ClientState.selectedSpellTargetMask.toString(
                         16,
                     )}`,
                 );
@@ -4859,7 +4888,7 @@ export class OsrsClient {
                 // Fire onTargetEnter on the source widget ( - use widget child ID, not hardcoded spell ID)
                 this.setSelectedSpell(
                     {
-                        spellId: childId, // Widget child ID is the spell identifier
+                        spellId: spellSelection.childIndex,
                         spellName: ClientState.selectedSpellName,
                         spellLevel: 1,
                     },
@@ -7145,13 +7174,19 @@ export class OsrsClient {
                             }
 
                             if (targetVerb && needsTarget) {
+                                const spellSelection = this.resolveSpellSelectionFromWidget(
+                                    w,
+                                    w.uid,
+                                    clickChildId,
+                                    -1,
+                                );
                                 // Clicking the currently selected spell deselects it.
                                 if (
                                     ClientState.isSpellSelected &&
-                                    ClientState.selectedSpellWidget === w.uid
+                                    ClientState.selectedSpellWidget === spellSelection.widgetId
                                 ) {
                                     console.log(
-                                        `[OsrsClient] Spell widget re-clicked while active, clearing selection: widget=${w.uid}`,
+                                        `[OsrsClient] Spell widget re-clicked while active, clearing selection: widget=${spellSelection.widgetId}`,
                                     );
                                     this.clearSelectedSpell();
                                     break;
@@ -7163,9 +7198,9 @@ export class OsrsClient {
                                     this.inventory?.setSelectedSlot?.(null);
                                 } catch {}
                                 ClientState.isSpellSelected = true;
-                                ClientState.selectedSpellWidget = w.uid;
-                                ClientState.selectedSpellChildIndex = clickChildId;
-                                ClientState.selectedSpellItemId = -1;
+                                ClientState.selectedSpellWidget = spellSelection.widgetId;
+                                ClientState.selectedSpellChildIndex = spellSelection.childIndex;
+                                ClientState.selectedSpellItemId = spellSelection.itemId;
                                 ClientState.selectedSpellActionName = targetVerb;
                                 ClientState.selectedSpellName =
                                     w.opBase || w.dataText || w.name || "";
@@ -7174,13 +7209,15 @@ export class OsrsClient {
                                 // Store the spell's target mask
                                 ClientState.selectedSpellTargetMask = targetMask;
 
-                                const clickGroupId = (w.uid >> 16) & 0xffff;
+                                const clickGroupId = (spellSelection.widgetId >> 16) & 0xffff;
                                 console.log(
                                     `[OsrsClient] Spell targeting mode entered: widget=${
-                                        w.uid
+                                        spellSelection.widgetId
                                     }, verb="${targetVerb}", name="${
                                         ClientState.selectedSpellName
-                                    }", group=${clickGroupId}, child=${clickChildId}, targetMask=0x${ClientState.selectedSpellTargetMask.toString(
+                                    }", group=${clickGroupId}, child=${
+                                        spellSelection.childIndex
+                                    }, targetMask=0x${ClientState.selectedSpellTargetMask.toString(
                                         16,
                                     )}`,
                                 );
@@ -7188,7 +7225,7 @@ export class OsrsClient {
                                 // Fire onTargetEnter on the source widget ( - use widget child ID, not hardcoded spell ID)
                                 this.setSelectedSpell(
                                     {
-                                        spellId: clickChildId, // Widget child ID is the spell identifier
+                                        spellId: spellSelection.childIndex,
                                         spellName: ClientState.selectedSpellName,
                                         spellLevel: 1,
                                     },
@@ -8124,6 +8161,89 @@ export class OsrsClient {
         return !widget.hidden;
     }
 
+    private resolveSpellButtonComponentFromObject(itemId: number | undefined): number | undefined {
+        if (typeof itemId !== "number" || (itemId | 0) <= 0) return undefined;
+        try {
+            const obj = this.objTypeLoader?.load?.(itemId | 0) as any;
+            const componentHash = obj?.params?.get?.(SPELL_BUTTON_PARAM_ID);
+            return typeof componentHash === "number" && (componentHash | 0) > 0
+                ? componentHash | 0
+                : undefined;
+        } catch {
+            return undefined;
+        }
+    }
+
+    private resolveWidgetItemId(widgetId: number, childIndex: number): number | undefined {
+        const direct = this.widgetManager?.getWidgetByUid?.(widgetId | 0) as any;
+        if (typeof direct?.itemId === "number" && (direct.itemId | 0) > 0) {
+            return direct.itemId | 0;
+        }
+
+        if (direct && Array.isArray(direct.children) && childIndex >= 0) {
+            const child = direct.children[childIndex | 0];
+            if (typeof child?.itemId === "number" && (child.itemId | 0) > 0) {
+                return child.itemId | 0;
+            }
+        }
+
+        const groupId = (widgetId >>> 16) & 0xffff;
+        if (!SPELLBOOK_GROUP_IDS.has(groupId)) {
+            return undefined;
+        }
+        const groupWidgets = this.widgetManager?.getWidgetsForGroup?.(groupId) ?? [];
+        for (const parent of groupWidgets as any[]) {
+            if (!Array.isArray(parent?.children) || childIndex < 0) continue;
+            const child = parent.children[childIndex | 0];
+            if (typeof child?.itemId === "number" && (child.itemId | 0) > 0) {
+                return child.itemId | 0;
+            }
+        }
+
+        return undefined;
+    }
+
+    private resolveSpellSelectionFromWidget(
+        widget: any | undefined,
+        fallbackWidgetId: number,
+        fallbackChildIndex: number,
+        fallbackItemId: number,
+    ): SpellSelectionState {
+        const itemId =
+            typeof widget?.itemId === "number" && (widget.itemId | 0) > 0
+                ? widget.itemId | 0
+                : (fallbackItemId | 0) > 0
+                  ? fallbackItemId | 0
+                  : (this.resolveWidgetItemId(fallbackWidgetId | 0, fallbackChildIndex | 0) ??
+                    (fallbackItemId | 0));
+        const componentHash = this.resolveSpellButtonComponentFromObject(itemId);
+        if (componentHash !== undefined) {
+            return {
+                widgetId: componentHash,
+                childIndex: componentHash & 0xffff,
+                itemId,
+            };
+        }
+        return {
+            widgetId: fallbackWidgetId | 0,
+            childIndex: fallbackChildIndex | 0,
+            itemId: fallbackItemId | 0,
+        };
+    }
+
+    private normalizeSelectedSpellState(): void {
+        if (!ClientState.isSpellSelected || ClientState.selectedSpellWidget <= 0) return;
+        const selection = this.resolveSpellSelectionFromWidget(
+            undefined,
+            ClientState.selectedSpellWidget,
+            ClientState.selectedSpellChildIndex,
+            ClientState.selectedSpellItemId,
+        );
+        ClientState.selectedSpellWidget = selection.widgetId;
+        ClientState.selectedSpellChildIndex = selection.childIndex;
+        ClientState.selectedSpellItemId = selection.itemId;
+    }
+
     /**
      * target mask comes from bits 11-16 of current widget flags
      * (cache flags overridden by IF_SETEVENTS when present).
@@ -9042,6 +9162,7 @@ export class OsrsClient {
             console.log("[castSpellFromMenu] Early return - spell not selected");
             return;
         }
+        this.normalizeSelectedSpellState();
         const selection = buildSelectedSpellPayload(
             ClientState.selectedSpellWidget,
             ClientState.selectedSpellChildIndex,

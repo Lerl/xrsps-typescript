@@ -54,6 +54,7 @@ import { registerDoorHandlers } from "./scripts/content/doors";
 import { registerPohPoolHandlers } from "./scripts/content/pohPools";
 import { registerRomeoHandlers } from "./scripts/content/romeo";
 import { registerWildernessAccessHandlers } from "./scripts/content/wildernessAccess";
+import { registerVanillaCommandHandlers } from "./scripts/commands";
 import { registerFollowerItemHandlers } from "./scripts/items/followers";
 import { registerPacksHandlers } from "./scripts/items/packs";
 import { handleDismiss, handleResumePauseButton, registerLevelUpHandlers } from "./scripts/levelup";
@@ -218,6 +219,7 @@ export class VanillaGamemode extends BaseGamemode {
         registerShopInteractionHandlers(registry, services);
         registerShopWidgetHandlers(registry, services);
         registerZaffHandlers(registry, services);
+        registerVanillaCommandHandlers(registry, services);
 
         // Content
         registerClimbingHandlers(registry, services);

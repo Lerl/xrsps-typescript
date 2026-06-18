@@ -23,11 +23,13 @@ type EntityType = ProjectileActorRef["kind"];
 
 interface DynamicSourceMeta {
     actor: ProjectileActorRef;
+    plane: number;
     sourceHeight: number;
 }
 
 interface DynamicTargetMeta {
     actor: ProjectileActorRef;
+    plane: number;
 }
 
 // --- Sub-System: Entity & Target Resolution ---
@@ -42,7 +44,7 @@ class ProjectileTargetSystem {
     public getEntityPosition(
         type: EntityType,
         serverId: number,
-        plane: number = 0,
+        plane?: number,
     ): { x: number; y: number; plane: number } | null {
         const osrs = this.renderer.osrsClient;
         if (!osrs) return null;
@@ -53,7 +55,9 @@ class ProjectileTargetSystem {
             return {
                 x: osrs.playerEcs.getX(idx),
                 y: osrs.playerEcs.getY(idx),
-                plane: osrs.playerEcs.getLevel(idx),
+                plane: Number.isFinite(plane)
+                    ? (plane as number) | 0
+                    : osrs.playerEcs.getLevel(idx),
             };
         } else if (type === "npc") {
             const npcEcs = osrs.npcEcs;
@@ -68,7 +72,11 @@ class ProjectileTargetSystem {
             const worldX = ((mapId >> 8) << 13) + npcX;
             const worldY = ((mapId & 0xff) << 13) + npcY;
             const worldPlane = npcEcs.getLevel(ecsId);
-            return { x: worldX, y: worldY, plane: worldPlane };
+            return {
+                x: worldX,
+                y: worldY,
+                plane: Number.isFinite(plane) ? (plane as number) | 0 : worldPlane,
+            };
         }
         return null;
     }
@@ -267,6 +275,7 @@ export class ProjectileManager implements IProjectileManager {
         if (sourceActor) {
             this.dynamicSources.set(id, {
                 actor: sourceActor,
+                plane: launch.source.plane | 0,
                 sourceHeight: launch.sourceHeight,
             });
         }
@@ -275,6 +284,7 @@ export class ProjectileManager implements IProjectileManager {
         if (targetActor) {
             this.dynamicTargets.set(id, {
                 actor: targetActor,
+                plane: launch.target.plane | 0,
             });
         }
     }
@@ -402,7 +412,11 @@ export class ProjectileManager implements IProjectileManager {
     }
 
     private applySourceActorToProjectile(projectile: Projectile, meta: DynamicSourceMeta): void {
-        const pos = this.targetSystem.getEntityPosition(meta.actor.kind, meta.actor.serverId);
+        const pos = this.targetSystem.getEntityPosition(
+            meta.actor.kind,
+            meta.actor.serverId,
+            meta.plane,
+        );
         if (!pos) return;
 
         const ground = this.getGroundHeight(pos.x, pos.y, pos.plane);
@@ -410,7 +424,11 @@ export class ProjectileManager implements IProjectileManager {
     }
 
     private applyTargetActorToProjectile(projectile: Projectile, meta: DynamicTargetMeta): void {
-        const pos = this.targetSystem.getEntityPosition(meta.actor.kind, meta.actor.serverId);
+        const pos = this.targetSystem.getEntityPosition(
+            meta.actor.kind,
+            meta.actor.serverId,
+            meta.plane,
+        );
         if (!pos) return;
 
         const ground = this.getGroundHeight(pos.x, pos.y, pos.plane);

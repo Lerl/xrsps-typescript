@@ -174,7 +174,6 @@ export class GfxRenderer {
                     prog,
                 );
                 if (!vaoRec) continue;
-
                 const dc: DrawCall = this.renderer
                     .configureDrawCall(vaoRec.drawCall)
                     .uniformBlock("SceneUniforms", (this.renderer as any).sceneUniformBuffer)

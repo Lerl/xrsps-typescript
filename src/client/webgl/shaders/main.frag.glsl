@@ -272,8 +272,10 @@ vec3 shadeWater(vec2 worldUv, vec2 vanillaUv, vec3 worldPos, Material mat, Water
 }
 
 void main() {
-    // Sample base texture first for early alpha discard
-    vec4 textureColor = texture(u_textures, vec3(v_texCoord, v_texId), -2.0).bgra;
+    // Palette-only faces do not use the texture array.
+    vec4 textureColor = v_texId == 0u
+        ? vec4(1.0)
+        : texture(u_textures, vec3(v_texCoord, v_texId), -2.0).bgra;
     float alpha = textureColor.a * v_color.a;
 
 #ifdef DISCARD_ALPHA

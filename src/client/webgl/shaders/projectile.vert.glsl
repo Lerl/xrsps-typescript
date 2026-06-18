@@ -164,6 +164,21 @@ void main() {
         (1.0 - isLoading) * v_fogAmount;
 
     vec4 viewPos = u_viewMatrix * localPos;
+
+    const float PRIORITY_LAYER_EPSILON   = 0.015;
+    const float TOP_PRIORITY_EXTRA_BIAS  = 0.01;
+
+    uint pr = vertex.priority & 0x7u;
+    if (pr > 0u) {
+        float layer = float(pr);
+
+        if (pr == 7u) {
+            layer += TOP_PRIORITY_EXTRA_BIAS / PRIORITY_LAYER_EPSILON;
+        }
+
+        viewPos.z += layer * PRIORITY_LAYER_EPSILON;
+    }
+
     gl_Position = u_projectionMatrix * viewPos;
     v_plane = float(projInfo.plane);
 }

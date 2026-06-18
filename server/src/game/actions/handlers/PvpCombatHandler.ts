@@ -11,7 +11,10 @@ import { logger } from "../../../utils/logger";
 import { AttackType } from "../../combat/AttackType";
 import { HITMARK_DAMAGE } from "../../combat/HitEffects";
 import type { PlayerState } from "../../player";
-import { getPoweredStaffSpellData } from "../../spells/SpellDataProvider";
+import {
+    getPoweredStaffSpellData,
+    resolveMagicImpactSpotAnimHeight,
+} from "../../spells/SpellDataProvider";
 import type { PoweredStaffSpellData } from "../../spells/SpellDataProvider";
 import type { CombatAutocastActionData, CombatPlayerHitActionData } from "../actionPayloads";
 import type { ActionEffect, ActionExecutionResult } from "../types";
@@ -236,6 +239,8 @@ export class PvpCombatHandler {
                 effects,
                 resolvedSpellId,
                 targetHitsplat.amount,
+                data.magicImpactEffectsScheduled === true ||
+                    data.hit?.magicImpactEffectsScheduled === true,
             );
         }
 
@@ -286,6 +291,7 @@ export class PvpCombatHandler {
         effects: ActionEffect[],
         spellIdOverride?: number,
         damageDealt?: number,
+        magicImpactEffectsScheduled: boolean = false,
     ): void {
         const spellId =
             (Number.isFinite(spellIdOverride) ? spellIdOverride : undefined) ??
@@ -295,20 +301,22 @@ export class PvpCombatHandler {
         const weaponId = player.combat.weaponItemId ?? -1;
         const poweredStaffData = weaponId > 0 ? getPoweredStaffSpellData(weaponId) : undefined;
 
-        const sfx = this.pickResolvedMagicSound(spellId, landed, poweredStaffData);
-        if (sfx !== undefined) {
-            this.services.withDirectSendBypass("combat_player_hit_sound", () =>
-                this.services.broadcastSound(
-                    {
-                        soundId: sfx,
-                        x: target.tileX,
-                        y: target.tileY,
-                        level: target.level,
-                        delay: COMBAT_SOUND_DELAY_CYCLES,
-                    },
-                    "combat_player_hit_sound",
-                ),
-            );
+        if (!magicImpactEffectsScheduled) {
+            const sfx = this.pickResolvedMagicSound(spellId, landed, poweredStaffData);
+            if (sfx !== undefined) {
+                this.services.withDirectSendBypass("combat_player_hit_sound", () =>
+                    this.services.broadcastSound(
+                        {
+                            soundId: sfx,
+                            x: target.tileX,
+                            y: target.tileY,
+                            level: target.level,
+                            delay: COMBAT_SOUND_DELAY_CYCLES,
+                        },
+                        "combat_player_hit_sound",
+                    ),
+                );
+            }
         }
 
         // Stat debuffs
@@ -335,13 +343,13 @@ export class PvpCombatHandler {
         const impactSpotAnim = spell?.impactSpotAnim ?? poweredStaffData?.impactSpotAnim;
         const splashSpotAnim = spell?.splashSpotAnim ?? poweredStaffData?.splashSpotAnim;
         const spotId = landed ? impactSpotAnim : (splashSpotAnim ?? impactSpotAnim);
-        if (spotId !== undefined && spotId >= 0) {
+        if (!magicImpactEffectsScheduled && spotId !== undefined && spotId >= 0) {
             this.services.enqueueSpotAnimation({
                 tick: hitsplatTick,
                 playerId: targetId,
                 spotId: spotId,
                 delay: 0,
-                height: landed ? (spell?.impactSpotAnimHeight ?? 100) : 100,
+                height: resolveMagicImpactSpotAnimHeight(landed, spell, poweredStaffData),
             });
         }
 

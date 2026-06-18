@@ -21,6 +21,7 @@ export interface RangedProjectileParams {
         slope?: number;
         steepness?: number;
         startDelay?: number;
+        lifeModel?: ProjectileParams["lifeModel"];
         sourceHeightOffset?: number;
     };
     timing?: { startDelay: number; travelTime: number };
@@ -35,7 +36,6 @@ export interface SpellProjectileParams {
     projectileDefaults?: ProjectileParams;
     endHeight?: number;
     timing?: { startDelay: number; travelTime: number };
-    impactDelayTicks?: number;
 }
 
 /**
@@ -108,6 +108,7 @@ export class ProjectileSystem {
             slope: opts.projectile.slope ?? 0,
             steepness: opts.projectile.steepness ?? 0,
             startDelay: opts.projectile.startDelay ?? 0,
+            lifeModel: opts.projectile.lifeModel,
             sourceHeightOffset: opts.projectile.sourceHeightOffset,
         };
 
@@ -173,12 +174,7 @@ export class ProjectileSystem {
         const startPos = spellData.projectileSteepness ?? projectileDefaults?.steepness ?? 64;
         const startDelay = opts.timing?.startDelay ?? 0;
         const travelTime = opts.timing?.travelTime ?? defaultTravelTime;
-        const cycleOffsets = this.buildCycleOffsets(
-            startDelay,
-            travelTime,
-            framesPerTick,
-            opts.impactDelayTicks,
-        );
+        const cycleOffsets = this.buildCycleOffsets(startDelay, travelTime, framesPerTick);
 
         return {
             projectileId,
@@ -255,19 +251,12 @@ export class ProjectileSystem {
         startDelay: number,
         travelTime: number,
         framesPerTick: number,
-        impactDelayTicks?: number,
     ): { startCycleOffset: number; endCycleOffset: number } {
         const startCycleOffset = Math.max(0, Math.round(startDelay * framesPerTick));
-        let totalCycleOffset = Math.max(
+        const totalCycleOffset = Math.max(
             startCycleOffset + 1,
             Math.ceil((startDelay + travelTime) * framesPerTick),
         );
-        if (Number.isFinite(impactDelayTicks) && (impactDelayTicks as number) > 0) {
-            totalCycleOffset = Math.max(
-                startCycleOffset + 1,
-                Math.round((impactDelayTicks as number) * framesPerTick),
-            );
-        }
         return {
             startCycleOffset,
             endCycleOffset: totalCycleOffset,

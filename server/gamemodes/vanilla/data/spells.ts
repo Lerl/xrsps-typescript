@@ -975,6 +975,10 @@ const AUTOCAST_INDEX_TO_SPELL_ID: Record<number, number> = {
     58: 21832, // Undead Grasp
 };
 
+const SPELL_WIDGET_ALIASES: Array<{ spellId: number; groupId: number; childId: number }> = [
+    { spellId: 3273, groupId: 218, childId: 11 },
+];
+
 const ANCIENT_AUTOCAST_WEAPONS = new Set<number>([
     4675, 4710, 6914, 8841, 11791, 12904, 21006, 22296, 24422, 24423, 24424, 24425,
 ]);
@@ -1010,7 +1014,9 @@ const POWERED_STAFF_SPELL_DATA: PoweredStaffSpellData[] = [
         name: "Trident of the seas",
         projectileId: 1252,
         castSpotAnim: 1251,
+        castSpotAnimHeight: 0,
         impactSpotAnim: 1253,
+        impactSpotAnimHeight: 0,
         splashSpotAnim: 85,
         castSoundId: 2540,
         impactSoundId: 1460,
@@ -1021,8 +1027,10 @@ const POWERED_STAFF_SPELL_DATA: PoweredStaffSpellData[] = [
         weaponIds: [12899, 12900, 22292, 21276],
         name: "Trident of the swamp",
         projectileId: 1040,
-        castSpotAnim: 1042,
-        impactSpotAnim: 1041,
+        castSpotAnim: 665,
+        castSpotAnimHeight: 0,
+        impactSpotAnim: 1042,
+        impactSpotAnimHeight: 0,
         splashSpotAnim: 85,
         castSoundId: 2540,
         impactSoundId: 1460,
@@ -1034,7 +1042,9 @@ const POWERED_STAFF_SPELL_DATA: PoweredStaffSpellData[] = [
         name: "Sanguinesti staff",
         projectileId: 1539,
         castSpotAnim: 1540,
+        castSpotAnimHeight: 0,
         impactSpotAnim: 1541,
+        impactSpotAnimHeight: 0,
         splashSpotAnim: 85,
         castSoundId: 2540,
         impactSoundId: 1460,
@@ -1268,6 +1278,16 @@ export function createSpellDataProvider(): SpellDataProvider {
             console.log(
                 `[Spells] Spell-widget mapping complete: ${matched} matched, ${unmatched} unmatched`,
             );
+
+            for (const alias of SPELL_WIDGET_ALIASES) {
+                const entry = SPELL_DATA_MAP.get(alias.spellId);
+                if (!entry) continue;
+                const key = `${alias.groupId}:${alias.childId}`;
+                if (!SPELL_BY_WIDGET_MAP.has(key)) {
+                    SPELL_BY_WIDGET_MAP.set(key, entry);
+                }
+            }
+
             spellWidgetMappingInitialized = true;
         },
 

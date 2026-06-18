@@ -5,6 +5,8 @@ import type { WebGLMapSquare } from "../WebGLMapSquare";
 import type { WebGLOsrsRenderer } from "../WebGLOsrsRenderer";
 import type { GfxCache } from "../gfx/GfxCache";
 import type { SpotAnimGpuCache } from "../gfx/SpotAnimGpuCache";
+import { sampleBridgeHeightForWorldTile } from "../../scene/BridgeHeightSampler";
+import { BridgePlaneStrategy } from "../../scene/PlaneResolver";
 import type { Projectile } from "./Projectile";
 import type { ProjectileManager } from "./ProjectileManager";
 
@@ -15,7 +17,7 @@ type Pass = "opaque" | "alpha";
  * Uses the actor data texture system (like NPCs) for positioning.
  */
 export class ProjectileRenderer {
-    private gfxCache: GfxCache;
+    private gfxCache?: GfxCache;
     private gpuCache?: SpotAnimGpuCache;
     // Tracks last frame per projectile for sound dispatch throttle
     private lastSoundFrame: WeakMap<Projectile, number> = new WeakMap();
@@ -24,13 +26,14 @@ export class ProjectileRenderer {
         private renderer: WebGLOsrsRenderer,
         private projectileManager: ProjectileManager,
     ) {
-        // Get GfxCache from the existing GfxRenderer
+        this.refreshSpotAnimCaches();
+    }
+
+    private refreshSpotAnimCaches(): boolean {
         const gfxRenderer = (this.renderer as any).gfxRenderer;
         this.gfxCache = gfxRenderer?.getCache();
         this.gpuCache = gfxRenderer?.getGpuCache?.();
-        if (!this.gfxCache) {
-            return;
-        }
+        return !!this.gfxCache && !!this.gpuCache;
     }
 
     private resolveFrameIndex(spotId: number, projectile: Projectile): number {
@@ -61,7 +64,7 @@ export class ProjectileRenderer {
         actorDataTexture: Texture | undefined,
         pass: Pass,
     ): void {
-        if (!this.gfxCache || !actorDataTexture) return;
+        if (!this.refreshSpotAnimCaches() || !this.gfxCache || !actorDataTexture) return;
         if (!map.projectileDataTextureOffsets || baseOffset === -1) return;
 
         const transparent = pass === "alpha";
@@ -69,8 +72,6 @@ export class ProjectileRenderer {
         // Get projectiles in this map region
         const projectiles = this.projectileManager.getProjectilesForMap(map.mapX, map.mapY);
         if (projectiles.length === 0) return;
-
-        const sampleHeight = (this.renderer as any)?.getApproxTileHeight?.bind?.(this.renderer);
 
         // Group projectiles by (spotId, frameIdx) to reuse geometry
         const groups = new Map<string, { slots: number[]; indices: number[] }>();
@@ -140,7 +141,9 @@ export class ProjectileRenderer {
             }
 
             const vaoRec = this.getOrCreateSpotAnimGpu(spotId, frameIdx, transparent, prog);
-            if (!vaoRec) continue;
+            if (!vaoRec) {
+                continue;
+            }
 
             const subOffset = vec2.create();
 
@@ -176,29 +179,19 @@ export class ProjectileRenderer {
                 let groundUnitsUsed: number | undefined = undefined;
                 let heightOffset = pos.z;
                 try {
-                    const localTileX = Math.max(0, Math.min(63, ((relativeXf >> 7) | 0) as number));
-                    const localTileY = Math.max(0, Math.min(63, ((relativeYf >> 7) | 0) as number));
-                    // getApproxTileHeight() is already bridge-aware (it applies BridgePlaneStrategy.RENDER),
-                    // so do not pre-resolve a promoted plane here or we'd double-apply bridge promotion.
-                    const gt = sampleHeight?.(pos.x / 128, pos.y / 128, proj.plane | 0) as number;
-                    if (Number.isFinite(gt)) {
-                        groundUnitsUsed = (gt as number) * 128;
+                    const sample = sampleBridgeHeightForWorldTile(
+                        (this.renderer as any).mapManager,
+                        pos.x / 128,
+                        pos.y / 128,
+                        proj.plane | 0,
+                        BridgePlaneStrategy.RENDER,
+                    );
+                    if (sample.valid && Number.isFinite(sample.height)) {
+                        groundUnitsUsed = sample.height * 128;
                         // Flip sign so above-ground yields positive offset.
                         heightOffset = groundUnitsUsed - pos.z;
                     }
                 } catch {}
-
-                /*if ((globalThis as any).DEBUG_PROJECTILES_TRAJ) {
-                    console.log(
-                        `[ProjectileRenderer] draw pid=${(proj as any).debugId ?? -1} spotId=${spotId} frame=${frameIdx} map=(${map.mapX},${map.mapY}) rel=(${relativeXf.toFixed(
-                            1,
-                        )},${relativeYf.toFixed(1)}) posZ=${pos.z.toFixed(
-                            1,
-                        )} ground=${(groundUnitsUsed ?? NaN).toFixed(1)} yOff=${heightOffset.toFixed(
-                            1,
-                        )}`,
-                    );
-                }*/
 
                 dc.uniform("u_drawIdOverride", relativeSlot);
                 dc.uniform("u_modelYOffset", heightOffset);

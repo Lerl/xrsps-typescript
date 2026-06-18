@@ -159,6 +159,8 @@ export interface RangedProjectilePlan {
     slope: number;
     steepness: number;
     startDelay: number;
+    lifeModel?: ProjectileParams["lifeModel"];
+    sourceHeightOffset?: number;
 }
 
 export interface AmmoEffectPlan {
@@ -554,6 +556,8 @@ export class CombatEngine {
                     slope: projectileDefaults.slope ?? 0,
                     steepness: projectileDefaults.steepness ?? 0,
                     startDelay: projectileDefaults.startDelay ?? 0,
+                    lifeModel: projectileDefaults.lifeModel,
+                    sourceHeightOffset: projectileDefaults.sourceHeightOffset,
                 };
             }
         } else if (attackStyle.kind === AttackType.Magic) {
@@ -770,7 +774,7 @@ export class CombatEngine {
                     case "javelin":
                         return Math.max(1, Math.round((tiles * 3 + 2) / framesPerTick));
                     case "magic":
-                        return Math.max(1, Math.round((5 + 10 * tiles) / framesPerTick));
+                        return Math.max(1, Math.round((tiles * 10 - 5) / framesPerTick));
                 }
             }
         }
@@ -825,18 +829,22 @@ export class CombatEngine {
 
         // Use MAGIC archetype defaults
         const magicArchetype = PROJECTILE_ARCHETYPES.MAGIC;
+        const projectileDefaults = getProjectileParams(poweredStaffData.projectileId);
         // delayFrames is in client frames (20ms each). At 600ms/tick, there are 30 frames per tick.
         // OSRS magic projectiles spawn quickly after the cast animation starts (~1-2 ticks).
         const framesPerTick = 30;
-        const delayTicks = Math.round(magicArchetype.delayFrames / framesPerTick);
+        const delayFrames = projectileDefaults?.delayFrames ?? magicArchetype.delayFrames;
+        const delayTicks = projectileDefaults?.startDelay ?? delayFrames / framesPerTick;
 
         return {
             projectileId: poweredStaffData.projectileId,
-            startHeight: magicArchetype.startHeight,
-            endHeight: magicArchetype.endHeight,
-            slope: magicArchetype.angle,
-            steepness: magicArchetype.steepness,
+            startHeight: projectileDefaults?.startHeight ?? magicArchetype.startHeight,
+            endHeight: projectileDefaults?.endHeight ?? magicArchetype.endHeight,
+            slope: projectileDefaults?.slope ?? magicArchetype.angle,
+            steepness: projectileDefaults?.steepness ?? magicArchetype.steepness,
             startDelay: Math.max(0, delayTicks),
+            lifeModel: projectileDefaults?.lifeModel ?? magicArchetype.lifeModel,
+            sourceHeightOffset: projectileDefaults?.sourceHeightOffset,
         };
     }
 

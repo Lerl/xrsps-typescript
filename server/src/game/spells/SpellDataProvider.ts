@@ -31,11 +31,15 @@ export type SpellDataEntry = {
     levelRequired?: number;
     baseMaxHit: number;
     castSpotAnim?: number;
+    /** Height offset for cast GFX on the caster. Standard combat spells use 92. */
+    castSpotAnimHeight?: number;
     projectileId?: number;
     impactSpotAnim?: number;
-    /** Height offset for impact GFX on target (default 100). Ground-origin effects use 0. */
+    /** Height offset for impact GFX on target. Ground-origin effects use 0. */
     impactSpotAnimHeight?: number;
     splashSpotAnim?: number;
+    /** Height offset for splash GFX on target (default 100). */
+    splashSpotAnimHeight?: number;
     castAnimId?: number;
     runeCosts?: RuneCost[];
     unlockRequirements?: SpellUnlockRequirement[];
@@ -88,10 +92,16 @@ export type PoweredStaffSpellData = {
     projectileId: number;
     /** Cast spot animation (plays on caster) */
     castSpotAnim: number;
+    /** Height offset for cast GFX on caster */
+    castSpotAnimHeight?: number;
     /** Impact spot animation (plays on target when hit lands) */
     impactSpotAnim: number;
+    /** Height offset for impact GFX on target */
+    impactSpotAnimHeight?: number;
     /** Splash spot animation (plays on target when spell splashes/misses) */
     splashSpotAnim?: number;
+    /** Height offset for splash GFX on target */
+    splashSpotAnimHeight?: number;
     /** Sound ID played when casting */
     castSoundId: number;
     /** Sound ID played when projectile is in flight (optional) */
@@ -123,6 +133,46 @@ export type PoweredStaffSpellData = {
         healPercent?: number;
     };
 };
+
+export const DEFAULT_MAGIC_CAST_SPOT_ANIM_HEIGHT = 92;
+export const DEFAULT_MAGIC_IMPACT_SPOT_ANIM_HEIGHT = 124;
+export const DEFAULT_MAGIC_SPLASH_SPOT_ANIM_HEIGHT = 100;
+
+export function resolveMagicCastSpotAnimHeight(
+    spell?: Pick<SpellDataEntry, "castSpotAnimHeight">,
+    poweredStaff?: Pick<PoweredStaffSpellData, "castSpotAnimHeight">,
+): number {
+    return (
+        spell?.castSpotAnimHeight ??
+        poweredStaff?.castSpotAnimHeight ??
+        DEFAULT_MAGIC_CAST_SPOT_ANIM_HEIGHT
+    );
+}
+
+export function resolveMagicImpactSpotAnimHeight(
+    landed: boolean,
+    spell?: Pick<
+        SpellDataEntry,
+        "impactSpotAnimHeight" | "splashSpotAnimHeight" | "projectileEndHeight"
+    >,
+    poweredStaff?: Pick<PoweredStaffSpellData, "impactSpotAnimHeight" | "splashSpotAnimHeight">,
+): number {
+    if (!landed) {
+        return (
+            spell?.splashSpotAnimHeight ??
+            poweredStaff?.splashSpotAnimHeight ??
+            DEFAULT_MAGIC_SPLASH_SPOT_ANIM_HEIGHT
+        );
+    }
+
+    return (
+        spell?.impactSpotAnimHeight ??
+        poweredStaff?.impactSpotAnimHeight ??
+        (spell?.projectileEndHeight !== undefined
+            ? Math.max(0, Math.round(spell.projectileEndHeight * 4))
+            : DEFAULT_MAGIC_IMPACT_SPOT_ANIM_HEIGHT)
+    );
+}
 
 export interface SpellDataProvider {
     getSpellData(spellId: number): SpellDataEntry | undefined;

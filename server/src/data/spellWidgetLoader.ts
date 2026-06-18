@@ -28,7 +28,7 @@ export type SpellWidgetInfo = {
 };
 
 const SPELLBOOK_ROOT_ENUM_ID = 1981;
-const SPELL_BUTTON_PARAM_ID = 596;
+export const SPELL_BUTTON_PARAM_ID = 596;
 const SPELL_NAME_PARAM_ID = 601;
 
 const SPELLBOOK_ENUM_KEY_TO_NAME: Record<number, SpellbookName> = {
