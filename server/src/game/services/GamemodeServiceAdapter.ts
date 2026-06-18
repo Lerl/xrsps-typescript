@@ -2,6 +2,7 @@ import type { WebSocket } from "ws";
 
 import { logger } from "../../utils/logger";
 import type { InterfaceService } from "../../widgets/InterfaceService";
+import type { PathService } from "../../pathfinding/PathService";
 import type { GameEventBus } from "../events/GameEventBus";
 import type { GamemodeServerServices } from "../gamemodes/GamemodeDefinition";
 import type { GroundItemManager } from "../items/GroundItemManager";
@@ -11,6 +12,7 @@ import type { AppearanceService } from "./AppearanceService";
 import type { DataLoaderService } from "./DataLoaderService";
 import type { EquipmentService } from "./EquipmentService";
 import type { InventoryService } from "./InventoryService";
+import type { LocationService } from "./LocationService";
 import type { MessagingService } from "./MessagingService";
 import type { PlayerCombatService } from "./PlayerCombatService";
 import type { VariableService } from "./VariableService";
@@ -54,6 +56,8 @@ export interface GamemodeServiceAdapterDeps {
     eventBus: GameEventBus;
     npcManager?: NpcManager;
     groundItems?: Pick<GroundItemManager, "registerStaticSpawn">;
+    locationService?: LocationService;
+    pathService?: PathService;
 }
 
 /**
@@ -113,6 +117,12 @@ export function buildGamemodeServices(deps: GamemodeServiceAdapterDeps): Gamemod
         getObjType: (itemId) => deps.dataLoaders.getObjType(itemId),
         spawnNpc: (config) => deps.npcManager?.spawnTransientNpc(config),
         removeNpc: (npcId) => deps.npcManager?.removeNpc(npcId) ?? false,
+        emitLocChange: (oldId, newId, tile, level, opts) =>
+            deps.locationService?.emitLocChange(oldId, newId, tile, level, opts),
+        addCollisionFlags: (x, y, level, flags) =>
+            deps.pathService?.getCollisionOverlays()?.addFlags(x, y, level, flags),
+        removeCollisionFlags: (x, y, level, flags) =>
+            deps.pathService?.getCollisionOverlays()?.removeFlags(x, y, level, flags),
         registerStaticGroundItem: (spawn) => {
             deps.groundItems?.registerStaticSpawn(spawn, deps.getCurrentTick());
         },

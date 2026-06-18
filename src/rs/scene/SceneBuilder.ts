@@ -42,6 +42,14 @@ function readTerrainValue(buffer: ByteBuffer, newFormat: boolean, signed: boolea
     }
 }
 
+type TerrainOverride = {
+    underlay?: number;
+    overlay?: number;
+    shape?: number;
+    rotation?: number;
+    renderFlags?: number;
+};
+
 export class SceneBuilder {
     static readonly BLEND_RADIUS = 5;
 
@@ -73,6 +81,7 @@ export class SceneBuilder {
     // Dynamic loc spawns: Map<"x,y,level", {id,type,rotation}> - locs not in base map data
     private locSpawns: Map<string, { id: number; type: LocModelType; rotation: number }> =
         new Map();
+    private terrainOverrides: Map<string, TerrainOverride> = new Map();
 
     constructor(
         readonly cacheInfo: CacheInfo,
@@ -143,6 +152,20 @@ export class SceneBuilder {
 
     clearLocSpawns(): void {
         this.locSpawns.clear();
+    }
+
+    setTerrainOverride(
+        x: number,
+        y: number,
+        level: number,
+        override: TerrainOverride,
+    ): void {
+        const key = `${x},${y},${level}`;
+        this.terrainOverrides.set(key, override);
+    }
+
+    clearTerrainOverrides(): void {
+        this.terrainOverrides.clear();
     }
 
     static fillEmptyTerrain(info: CacheInfo): boolean {
@@ -219,6 +242,7 @@ export class SceneBuilder {
             }
         }
 
+        this.applyTerrainOverrides(scene);
         this.addTileModels(scene, smoothUnderlays);
         scene.setTileMinLevels();
 
@@ -235,6 +259,35 @@ export class SceneBuilder {
         }
 
         return scene;
+    }
+
+    private applyTerrainOverrides(scene: Scene): void {
+        if (this.terrainOverrides.size === 0) return;
+
+        for (const [key, override] of this.terrainOverrides.entries()) {
+            const parts = key.split(",");
+            if (parts.length !== 3) continue;
+            const x = Number(parts[0]) | 0;
+            const y = Number(parts[1]) | 0;
+            const level = Number(parts[2]) | 0;
+            if (!scene.isWithinBounds(level, x, y)) continue;
+
+            if (typeof override.underlay === "number") {
+                scene.tileUnderlays[level][x][y] = Math.max(0, override.underlay | 0);
+            }
+            if (typeof override.overlay === "number") {
+                scene.tileOverlays[level][x][y] = override.overlay | 0;
+            }
+            if (typeof override.shape === "number") {
+                scene.tileShapes[level][x][y] = Math.max(0, override.shape | 0);
+            }
+            if (typeof override.rotation === "number") {
+                scene.tileRotations[level][x][y] = override.rotation & 0x3;
+            }
+            if (typeof override.renderFlags === "number") {
+                scene.tileRenderFlags[level][x][y] = override.renderFlags & 0xff;
+            }
+        }
     }
 
     loadEmptyTerrain(

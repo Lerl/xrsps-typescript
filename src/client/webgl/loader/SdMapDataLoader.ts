@@ -1193,6 +1193,7 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
             loadedTextureIds,
             locOverrides,
             locSpawns,
+            terrainOverrides,
             instance: instanceInput,
             extraLocs: extraLocsInput,
             extraNpcs: extraNpcsInput,
@@ -1360,6 +1361,43 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
             }
         } else {
             state.sceneBuilder.clearLocSpawns();
+        }
+
+        if (terrainOverrides && terrainOverrides.size > 0) {
+            state.sceneBuilder.clearTerrainOverrides();
+            for (const [key, overrideValue] of terrainOverrides.entries()) {
+                const parts = key.split(",");
+                if (parts.length !== 3) continue;
+                const worldX = parseInt(parts[0]);
+                const worldY = parseInt(parts[1]);
+                const level = parseInt(parts[2]);
+                const sceneX = worldX - baseX;
+                const sceneY = worldY - baseY;
+                state.sceneBuilder.setTerrainOverride(sceneX, sceneY, level, {
+                    underlay:
+                        typeof overrideValue.underlay === "number"
+                            ? overrideValue.underlay | 0
+                            : undefined,
+                    overlay:
+                        typeof overrideValue.overlay === "number"
+                            ? overrideValue.overlay | 0
+                            : undefined,
+                    shape:
+                        typeof overrideValue.shape === "number"
+                            ? overrideValue.shape | 0
+                            : undefined,
+                    rotation:
+                        typeof overrideValue.rotation === "number"
+                            ? overrideValue.rotation & 0x3
+                            : undefined,
+                    renderFlags:
+                        typeof overrideValue.renderFlags === "number"
+                            ? overrideValue.renderFlags & 0xff
+                            : undefined,
+                });
+            }
+        } else {
+            state.sceneBuilder.clearTerrainOverrides();
         }
 
         console.time(`build scene ${mapX},${mapY}`);

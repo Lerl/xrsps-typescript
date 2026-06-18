@@ -11144,6 +11144,7 @@ export class OsrsClient {
             newTile?: { x: number; y: number };
             oldRotation?: number;
             newRotation?: number;
+            newShape?: number;
         },
     ): void {
         // Handle loc change (e.g., door open/close)
@@ -11157,6 +11158,19 @@ export class OsrsClient {
             }
         } catch (err) {
             console.warn("onLocChange error", err);
+        }
+    }
+
+    refreshGamemodeWorldLocs(): void {
+        try {
+            if (
+                this.renderer &&
+                typeof (this.renderer as any).refreshGamemodeWorldLocs === "function"
+            ) {
+                (this.renderer as any).refreshGamemodeWorldLocs();
+            }
+        } catch (err) {
+            console.warn("refreshGamemodeWorldLocs error", err);
         }
     }
 

@@ -31,6 +31,11 @@ import { flushPackets } from "../../network/packet";
 import { createTextureArray } from "../../picogl/PicoTexture";
 import { RS_TO_RADIANS } from "../../rs/MathConstants";
 import { CollisionFlag } from "../../shared/CollisionFlag";
+import {
+    getWorldLocChanges,
+    getWorldLocSpawns,
+    getWorldTerrainOverrides,
+} from "../../shared/gamemode/GamemodeContentStore";
 import { OsrsMenuEntry } from "../../rs/MenuEntry";
 import { MenuTargetType } from "../../rs/MenuEntry";
 import type { OverlayFloorType } from "../../rs/config/floortype/OverlayFloorType";
@@ -541,6 +546,19 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
     > = new Map();
     // Track spawned locs not in base map data: Map<"x,y,level", {id,type,rotation}>
     private locSpawns: Map<string, { id: number; type: number; rotation: number }> = new Map();
+    private terrainOverrides: Map<
+        string,
+        {
+            underlay?: number;
+            overlay?: number;
+            shape?: number;
+            rotation?: number;
+            renderFlags?: number;
+        }
+    > = new Map();
+    private gamemodeWorldLocOverrideKeys: Set<string> = new Set();
+    private gamemodeWorldLocSpawnKeys: Set<string> = new Set();
+    private gamemodeWorldTerrainOverrideKeys: Set<string> = new Set();
     private pendingLocUpdates: Set<number> = new Set();
     private pendingLocReloadMaps: Map<number, { mapX: number; mapY: number }> = new Map();
     private pendingLocReloadFlushTimer?: ReturnType<typeof setTimeout>;
@@ -5589,6 +5607,122 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         return schema;
     }
 
+    private getMapIdForWorldTile(x: number, y: number): number {
+        return getMapSquareId(Math.floor((x | 0) / 64), Math.floor((y | 0) / 64));
+    }
+
+    private applyGamemodeWorldLocs(): Set<number> {
+        const affectedMapIds = new Set<number>();
+        const nextOverrideKeys = new Set<string>();
+        const nextSpawnKeys = new Set<string>();
+
+        for (const change of getWorldLocChanges()) {
+            const x = change.x | 0;
+            const y = change.y | 0;
+            const level = change.level | 0;
+            const oldId = change.oldId | 0;
+            const key = `${x},${y},${level},${oldId}`;
+            nextOverrideKeys.add(key);
+            affectedMapIds.add(this.getMapIdForWorldTile(x, y));
+
+            this.locOverrides.set(key, {
+                newId: change.newId | 0,
+                newRotation:
+                    typeof change.newRotation === "number" ? change.newRotation & 0x3 : undefined,
+                moveToX: typeof change.moveToX === "number" ? change.moveToX | 0 : undefined,
+                moveToY: typeof change.moveToY === "number" ? change.moveToY | 0 : undefined,
+                matchType:
+                    typeof change.matchType === "number"
+                        ? (change.matchType as LocModelType)
+                        : undefined,
+                matchRotation:
+                    typeof change.matchRotation === "number"
+                        ? change.matchRotation & 0x3
+                        : undefined,
+            });
+        }
+
+        for (const spawn of getWorldLocSpawns()) {
+            const x = spawn.x | 0;
+            const y = spawn.y | 0;
+            const level = spawn.level | 0;
+            const key = `${x},${y},${level}`;
+            nextSpawnKeys.add(key);
+            affectedMapIds.add(this.getMapIdForWorldTile(x, y));
+
+            this.locSpawns.set(key, {
+                id: spawn.locId | 0,
+                type: spawn.shape | 0,
+                rotation: spawn.rotation & 0x3,
+            });
+        }
+
+        const nextTerrainKeys = new Set<string>();
+        for (const terrain of getWorldTerrainOverrides()) {
+            const x = terrain.x | 0;
+            const y = terrain.y | 0;
+            const level = terrain.level | 0;
+            const key = `${x},${y},${level}`;
+            nextTerrainKeys.add(key);
+            affectedMapIds.add(this.getMapIdForWorldTile(x, y));
+
+            this.terrainOverrides.set(key, {
+                underlay:
+                    typeof terrain.underlay === "number" ? terrain.underlay | 0 : undefined,
+                overlay: typeof terrain.overlay === "number" ? terrain.overlay | 0 : undefined,
+                shape: typeof terrain.shape === "number" ? terrain.shape | 0 : undefined,
+                rotation:
+                    typeof terrain.rotation === "number" ? terrain.rotation & 0x3 : undefined,
+                renderFlags:
+                    typeof terrain.renderFlags === "number"
+                        ? terrain.renderFlags & 0xff
+                        : undefined,
+            });
+        }
+
+        for (const key of this.gamemodeWorldLocOverrideKeys) {
+            if (nextOverrideKeys.has(key)) continue;
+            this.locOverrides.delete(key);
+            const [xRaw, yRaw] = key.split(",");
+            affectedMapIds.add(this.getMapIdForWorldTile(Number(xRaw) | 0, Number(yRaw) | 0));
+        }
+        for (const key of this.gamemodeWorldLocSpawnKeys) {
+            if (nextSpawnKeys.has(key)) continue;
+            this.locSpawns.delete(key);
+            const [xRaw, yRaw] = key.split(",");
+            affectedMapIds.add(this.getMapIdForWorldTile(Number(xRaw) | 0, Number(yRaw) | 0));
+        }
+        for (const key of this.gamemodeWorldTerrainOverrideKeys) {
+            if (nextTerrainKeys.has(key)) continue;
+            this.terrainOverrides.delete(key);
+            const [xRaw, yRaw] = key.split(",");
+            affectedMapIds.add(this.getMapIdForWorldTile(Number(xRaw) | 0, Number(yRaw) | 0));
+        }
+
+        this.gamemodeWorldLocOverrideKeys = nextOverrideKeys;
+        this.gamemodeWorldLocSpawnKeys = nextSpawnKeys;
+        this.gamemodeWorldTerrainOverrideKeys = nextTerrainKeys;
+
+        return affectedMapIds;
+    }
+
+    refreshGamemodeWorldLocs(): void {
+        const affectedMapIds = this.applyGamemodeWorldLocs();
+        if (affectedMapIds.size === 0 || !this.osrsClient.loadedCache || this.instanceActive) {
+            return;
+        }
+
+        for (const mapId of affectedMapIds) {
+            if (!this.mapManager.mapSquares.has(mapId) && !this.mapManager.loadingMapIds.has(mapId)) {
+                continue;
+            }
+            const mapX = mapId >> 8;
+            const mapY = mapId & 0xff;
+            this.pendingLocUpdates.add(mapId);
+            this.scheduleLocReload(mapX, mapY);
+        }
+    }
+
     override async queueLoadMap(
         mapX: number,
         mapY: number,
@@ -5601,6 +5735,8 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         // Suppress normal map streaming while an instance scene is active
         if (this.instanceActive && typeof locReloadBatchId !== "number") return;
 
+        this.applyGamemodeWorldLocs();
+
         const input: SdMapLoaderInput = {
             mapX,
             mapY,
@@ -5612,6 +5748,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
             locOverrides: this.locOverrides,
             extraLocs: this.getExtraLocsForMap(mapX, mapY),
             locSpawns: this.locSpawns,
+            terrainOverrides: this.terrainOverrides,
         };
 
         const mapData = await this.osrsClient.workerPool.queueLoad<
@@ -5704,6 +5841,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
             loadedTextureIds: this.loadedTextureIds,
             instance: { templateChunks, regionX, regionY },
             locOverrides: this.locOverrides,
+            terrainOverrides: this.terrainOverrides,
             extraLocs,
         };
 
@@ -14468,6 +14606,10 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         }
         this.locAnimTimers.clear();
         this.locSpawns.clear();
+        this.terrainOverrides.clear();
+        this.gamemodeWorldLocOverrideKeys.clear();
+        this.gamemodeWorldLocSpawnKeys.clear();
+        this.gamemodeWorldTerrainOverrideKeys.clear();
         this.mapsToLoad.clear();
         this.pendingStreamMapsByGeneration.clear();
         this.observedGridRevision = -1;

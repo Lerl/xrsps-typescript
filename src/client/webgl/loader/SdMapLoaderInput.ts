@@ -27,6 +27,16 @@ export type SdMapLoaderInput = {
     >;
     // Dynamic loc spawns: Map<"x,y,level", {id,type,rotation}> - locs not in base map data
     locSpawns?: Map<string, { id: number; type: number; rotation: number }>;
+    terrainOverrides?: Map<
+        string,
+        {
+            underlay?: number;
+            overlay?: number;
+            shape?: number;
+            rotation?: number;
+            renderFlags?: number;
+        }
+    >;
 
     /**
      * Instance mode: when present, the loader uses buildInstanceScene() instead

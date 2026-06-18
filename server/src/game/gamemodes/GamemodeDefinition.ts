@@ -106,6 +106,21 @@ export interface GamemodeServerServices {
     getObjType(itemId: number): unknown;
     spawnNpc(config: NpcSpawnConfig): NpcState | undefined;
     removeNpc(npcId: number): boolean;
+    emitLocChange(
+        oldId: number,
+        newId: number,
+        tile: { x: number; y: number },
+        level: number,
+        opts?: {
+            oldTile?: { x: number; y: number };
+            newTile?: { x: number; y: number };
+            oldRotation?: number;
+            newRotation?: number;
+            newShape?: number;
+        },
+    ): void;
+    addCollisionFlags(x: number, y: number, level: number, flags: number): void;
+    removeCollisionFlags(x: number, y: number, level: number, flags: number): void;
     registerStaticGroundItem(spawn: StaticGroundItemSpawn): void;
     getInterfaceService(): InterfaceService | undefined;
     getCurrentTick(): number;

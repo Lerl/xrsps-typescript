@@ -1254,6 +1254,8 @@ export class WSServer {
                     eventBus: this.eventBus,
                     npcManager: this.npcManager,
                     groundItems: this.groundItems,
+                    locationService: this.locationService,
+                    pathService: this.options.pathService,
                 }),
             });
             logger.info(`Boot: gamemode "${this.gamemode.id}" initialized`);

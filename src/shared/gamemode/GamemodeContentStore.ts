@@ -5,6 +5,39 @@ import type {
     LeagueTaskRow,
 } from "./GamemodeDataTypes";
 
+export type WorldLocChangeRow = {
+    oldId: number;
+    newId: number;
+    x: number;
+    y: number;
+    level: number;
+    newRotation?: number;
+    moveToX?: number;
+    moveToY?: number;
+    matchType?: number;
+    matchRotation?: number;
+};
+
+export type WorldLocSpawnRow = {
+    locId: number;
+    x: number;
+    y: number;
+    level: number;
+    shape: number;
+    rotation: number;
+};
+
+export type WorldTerrainOverrideRow = {
+    x: number;
+    y: number;
+    level: number;
+    underlay?: number;
+    overlay?: number;
+    shape?: number;
+    rotation?: number;
+    renderFlags?: number;
+};
+
 let tasksByStructId: Map<number, LeagueTaskRow> | null = null;
 let tasksByTaskId: Map<number, LeagueTaskRow> | null = null;
 let relicsByStructId: Map<number, LeagueRelicRow> | null = null;
@@ -18,6 +51,9 @@ let customEnumOverrides: Map<number, any[]> | null = null;
 let replacedCacheStructIds: Set<number> = new Set();
 
 let dynamicWidgetGroups: Map<number, { root: any; widgets: Map<number, any> }> | null = null;
+let worldLocChanges: WorldLocChangeRow[] = [];
+let worldLocSpawns: WorldLocSpawnRow[] = [];
+let worldTerrainOverrides: WorldTerrainOverrideRow[] = [];
 
 let ready = false;
 
@@ -29,6 +65,9 @@ export function loadFromPayload(payload: {
     gamemodeId: string;
     datasets: Array<{ key: string; rows: unknown[] }>;
 }): void {
+    worldLocChanges = [];
+    worldLocSpawns = [];
+    worldTerrainOverrides = [];
     for (const dataset of payload.datasets) {
         switch (dataset.key) {
             case "leagueTasks":
@@ -138,6 +177,35 @@ export function loadFromPayload(payload: {
                 } catch (err) {
                     console.log("[GamemodeContentStore] failed to register custom items", err);
                 }
+                break;
+            case "worldLocChanges":
+                worldLocChanges = (dataset.rows as WorldLocChangeRow[]).filter(
+                    (row) =>
+                        typeof row?.oldId === "number" &&
+                        typeof row?.newId === "number" &&
+                        typeof row?.x === "number" &&
+                        typeof row?.y === "number" &&
+                        typeof row?.level === "number",
+                );
+                break;
+            case "worldLocSpawns":
+                worldLocSpawns = (dataset.rows as WorldLocSpawnRow[]).filter(
+                    (row) =>
+                        typeof row?.locId === "number" &&
+                        typeof row?.x === "number" &&
+                        typeof row?.y === "number" &&
+                        typeof row?.level === "number" &&
+                        typeof row?.shape === "number" &&
+                        typeof row?.rotation === "number",
+                );
+                break;
+            case "worldTerrainOverrides":
+                worldTerrainOverrides = (dataset.rows as WorldTerrainOverrideRow[]).filter(
+                    (row) =>
+                        typeof row?.x === "number" &&
+                        typeof row?.y === "number" &&
+                        typeof row?.level === "number",
+                );
                 break;
         }
     }
@@ -275,4 +343,16 @@ export function getDynamicWidgetGroup(
     groupId: number,
 ): { root: any; widgets: Map<number, any> } | undefined {
     return dynamicWidgetGroups?.get(groupId | 0);
+}
+
+export function getWorldLocChanges(): readonly WorldLocChangeRow[] {
+    return worldLocChanges;
+}
+
+export function getWorldLocSpawns(): readonly WorldLocSpawnRow[] {
+    return worldLocSpawns;
+}
+
+export function getWorldTerrainOverrides(): readonly WorldTerrainOverrideRow[] {
+    return worldTerrainOverrides;
 }

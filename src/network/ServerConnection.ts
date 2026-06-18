@@ -2158,6 +2158,11 @@ function processServerMessage(msg: any): void {
         try {
             const { loadFromPayload } = require("../shared/gamemode/GamemodeContentStore");
             loadFromPayload(msg.payload);
+            const g: any = (typeof window !== "undefined" ? window : globalThis) as any;
+            const mv = g?.__osrsClient;
+            if (mv && typeof mv.refreshGamemodeWorldLocs === "function") {
+                mv.refreshGamemodeWorldLocs();
+            }
             console.log(`[ws] gamemode_data loaded: ${msg.payload?.gamemodeId ?? "unknown"}`);
         } catch (err) {
             console.log("[ws] failed to load gamemode_data", err);
