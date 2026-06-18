@@ -11,7 +11,6 @@ import {
     RectWithinRangeRouteStrategy,
     RouteStrategy,
 } from "../../pathfinding/legacy/pathfinder/RouteStrategy";
-import { CollisionFlag } from "../../pathfinding/legacy/pathfinder/flag/CollisionFlag";
 import { logger } from "../../utils/logger";
 import { DoorStateManager } from "../../world/DoorStateManager";
 import {
