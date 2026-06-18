@@ -1,5 +1,12 @@
 import { Model } from "../../../rs/model/Model";
 import { ModelData } from "../../../rs/model/ModelData";
+import type { TextureLoader } from "../../../rs/texture/TextureLoader";
+import {
+    getModelFaces,
+    isModelFaceTransparent,
+    type ModelFace,
+    SceneBuffer,
+} from "../buffer/SceneBuffer";
 import type { WebGLOsrsRenderer } from "../WebGLOsrsRenderer";
 
 type FrameKey = string; // `${spotId}|${frameIdx}|${pass}|${version}` where pass is 0=opaque,1=alpha
@@ -21,9 +28,20 @@ export class GfxCache {
         return false;
     }
 
-    private isAlphaBlendedSpot(spotId: number): boolean {
-        const base = this.ensureBase(spotId | 0);
-        return !!base && this.hasFaceTransparency(base);
+    private selectFacesForPass(
+        model: Model,
+        textureLoader: TextureLoader,
+        transparent: boolean,
+    ): ModelFace[] {
+        const faces = getModelFaces(model);
+        if (this.hasFaceTransparency(model)) {
+            return transparent ? [] : faces;
+        }
+        return faces.filter((face) =>
+            transparent
+                ? isModelFaceTransparent(textureLoader, face)
+                : !isModelFaceTransparent(textureLoader, face),
+        );
     }
 
     private getSpotType(spotId: number): any | undefined {
@@ -138,15 +156,7 @@ export class GfxCache {
         const pass = transparent ? 1 : 0;
         const key = `${spotId | 0}|${frameIdx | 0}|${pass}|${FRAME_GEOMETRY_VERSION}` as FrameKey;
         const existing = this.frameGeom.get(key);
-        if (existing) {
-            const alphaBlendedSpot = this.isAlphaBlendedSpot(spotId | 0);
-            const staleAlphaBlendedPass =
-                alphaBlendedSpot &&
-                ((transparent && (existing.indices.length | 0) > 0) ||
-                    (!transparent && (existing.indices.length | 0) === 0));
-            if (!staleAlphaBlendedPass) return existing;
-            this.frameGeom.delete(key);
-        }
+        if (existing) return existing;
 
         const base = this.ensureBase(spotId);
         if (!base) return undefined;
@@ -181,30 +191,16 @@ export class GfxCache {
         } catch {}
 
         // Convert to interleaved + index arrays using SceneBuffer
+        const textureLoader = (this.renderer.osrsClient as any).textureLoader as TextureLoader;
         const textureIdIndexMap =
             (this.renderer as any).textureIdIndexMap ?? new Map<number, number>();
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const SceneBufferMod = require("../buffer/SceneBuffer");
-        const SceneBufferCls = SceneBufferMod.SceneBuffer;
-        const getFaces = SceneBufferMod.getModelFaces;
-        const isTrans = SceneBufferMod.isModelFaceTransparent;
 
-        const sceneBuf = new SceneBufferCls(
-            (this.renderer.osrsClient as any).textureLoader,
+        const sceneBuf = new SceneBuffer(
+            textureLoader,
             textureIdIndexMap,
             ((model as any).verticesCount | 0) + 16,
         );
-        const facesAll = getFaces(model);
-        const singleBlendedPass = this.hasFaceTransparency(model);
-        const faces = singleBlendedPass
-            ? transparent
-                ? []
-                : facesAll
-            : facesAll.filter((f: any) =>
-                  transparent
-                      ? isTrans((this.renderer.osrsClient as any).textureLoader, f)
-                      : !isTrans((this.renderer.osrsClient as any).textureLoader, f),
-              );
+        const faces = this.selectFacesForPass(model, textureLoader, transparent);
         if (faces.length > 0) sceneBuf.addModel(model, faces);
         const out = {
             vertices: sceneBuf.vertexBuf.byteArray(),

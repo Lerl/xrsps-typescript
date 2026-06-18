@@ -271,11 +271,15 @@ vec3 shadeWater(vec2 worldUv, vec2 vanillaUv, vec3 worldPos, Material mat, Water
     return clamp(baseColor, 0.0, 1.0);
 }
 
+vec4 sampleModelTexture(uint textureId, vec2 texCoord) {
+    if (textureId == 0u) {
+        return vec4(1.0);
+    }
+    return texture(u_textures, vec3(texCoord, float(textureId)), -2.0).bgra;
+}
+
 void main() {
-    // Palette-only faces do not use the texture array.
-    vec4 textureColor = v_texId == 0u
-        ? vec4(1.0)
-        : texture(u_textures, vec3(v_texCoord, v_texId), -2.0).bgra;
+    vec4 textureColor = sampleModelTexture(v_texId, v_texCoord);
     float alpha = textureColor.a * v_color.a;
 
 #ifdef DISCARD_ALPHA
@@ -288,7 +292,7 @@ void main() {
     // Only fetch material and do animation if texture is animated
     Material mat = getMaterial(v_texId);
     int frameCount = max(mat.frameCount, 1);
-    if (frameCount > 1) {
+    if (v_texId != 0u && frameCount > 1) {
         float frameSpeed = float(max(mat.animSpeed, 1));
         float frameT = mod(u_currentTime * frameSpeed, float(frameCount));
         float frame0 = floor(frameT);

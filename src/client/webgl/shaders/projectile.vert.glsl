@@ -48,6 +48,7 @@ flat out float v_plane;
 
 #include "./includes/material.glsl";
 #include "./includes/height-map.glsl";
+#include "./includes/priority-depth.glsl";
 
 #include "./includes/vertex.glsl";
 
@@ -141,8 +142,8 @@ void main() {
     localPos = localPos * rotationZ(rollAngle) * rotationX(pitchAngle) * rotationY(yawAngle);
     localPos += vec4(tilePos.x, 0.0, tilePos.y, 0.0);
 
-    // OSRS parity: projectiles are grounded against the height map in the shader,
-    // same as NPCs/players, then a ground-relative vertical offset is applied.
+    // Projectiles are grounded against the height map in the shader,
+    // then a ground-relative vertical offset is applied.
     localPos.y -= getHeightInterp(tilePos, projInfo.plane);
 
     // Apply CPU-provided ground-relative offset only.
@@ -165,19 +166,7 @@ void main() {
 
     vec4 viewPos = u_viewMatrix * localPos;
 
-    const float PRIORITY_LAYER_EPSILON   = 0.015;
-    const float TOP_PRIORITY_EXTRA_BIAS  = 0.01;
-
-    uint pr = vertex.priority & 0x7u;
-    if (pr > 0u) {
-        float layer = float(pr);
-
-        if (pr == 7u) {
-            layer += TOP_PRIORITY_EXTRA_BIAS / PRIORITY_LAYER_EPSILON;
-        }
-
-        viewPos.z += layer * PRIORITY_LAYER_EPSILON;
-    }
+    applyPriorityDepthBias(viewPos, vertex.priority);
 
     gl_Position = u_projectionMatrix * viewPos;
     v_plane = float(projInfo.plane);

@@ -50,6 +50,7 @@ flat out float v_plane;
 
 #include "./includes/material.glsl";
 #include "./includes/height-map.glsl";
+#include "./includes/priority-depth.glsl";
 
 #include "./includes/vertex.glsl";
 
@@ -141,24 +142,10 @@ void main() {
 
     // Depth layering (pre-projection)
     const float PLANE_LAYER_EPSILON      = 0.01;     // plane separation
-    const float PRIORITY_LAYER_EPSILON   = 0.015;   // stronger per-face bias
-    const float TOP_PRIORITY_EXTRA_BIAS  = 0.01;   // extra for band 7
-
     // Plane-based separation
     viewPos.z += float(npcInfo.plane) * PLANE_LAYER_EPSILON;
 
-    // Compressed per-face priority: 0..7 (from CPU-side compressPriority)
-    uint pr = vertex.priority & 0x7u;
-    if (pr > 0u) {
-        float layer = float(pr);
-
-        // Make the very top band (7) unambiguously in front
-        if (pr == 7u) {
-            layer += TOP_PRIORITY_EXTRA_BIAS / PRIORITY_LAYER_EPSILON;
-        }
-
-        viewPos.z += layer * PRIORITY_LAYER_EPSILON;
-    }
+    applyPriorityDepthBias(viewPos, vertex.priority);
 
     gl_Position = u_projectionMatrix * viewPos;
     v_plane = float(npcInfo.plane);
