@@ -14,6 +14,10 @@ import {
 import { CollisionFlag } from "../../pathfinding/legacy/pathfinder/flag/CollisionFlag";
 import { logger } from "../../utils/logger";
 import { DoorStateManager } from "../../world/DoorStateManager";
+import {
+    deriveConnectedLocCollisionRect,
+    type LocCollisionRect,
+} from "../../world/LocCollisionRect";
 import { loadVisibleLocTypeForPlayer } from "../../world/LocTransforms";
 import type { Actor } from "../actor";
 import { PlayerState } from "../player";
@@ -184,8 +188,8 @@ export class LocInteractionHandler {
             pending.action,
         );
         const rect = this.resolveLocRouteRect(tile, visibleLoc.sizeX, visibleLoc.sizeY, level);
-        const routeSizeX = Math.max(rect.sizeX, visibleLoc.sizeX);
-        const routeSizeY = Math.max(rect.sizeY, visibleLoc.sizeY);
+        const routeSizeX = rect.sizeX;
+        const routeSizeY = rect.sizeY;
         const strategy = this.selectLocRouteStrategy(
             visibleLoc.locId,
             rect.tile,
@@ -569,8 +573,8 @@ export class LocInteractionHandler {
             visibleLoc.sizeY,
             level,
         );
-        const routeSizeX = Math.max(rect.sizeX, visibleLoc.sizeX);
-        const routeSizeY = Math.max(rect.sizeY, visibleLoc.sizeY);
+        const routeSizeX = rect.sizeX;
+        const routeSizeY = rect.sizeY;
         const destInside =
             destination.x >= rect.tile.x &&
             destination.x <= rect.tile.x + routeSizeX - 1 &&
@@ -633,7 +637,7 @@ export class LocInteractionHandler {
         sizeX: number,
         sizeY: number,
         level?: number,
-    ): { tile: { x: number; y: number }; sizeX: number; sizeY: number } {
+    ): LocCollisionRect {
         const normalized = {
             tile: { x: tile.x, y: tile.y },
             sizeX: Math.max(1, sizeX),
@@ -656,32 +660,13 @@ export class LocInteractionHandler {
         sizeX: number,
         sizeY: number,
         level: number,
-    ): { tile: { x: number; y: number }; sizeX: number; sizeY: number } | undefined {
-        const mask = CollisionFlag.OBJECT | CollisionFlag.OBJECT_ROUTE_BLOCKER;
-        let minX = Number.POSITIVE_INFINITY;
-        let minY = Number.POSITIVE_INFINITY;
-        let maxX = Number.NEGATIVE_INFINITY;
-        let maxY = Number.NEGATIVE_INFINITY;
-        let found = false;
-        for (let dx = 0; dx < sizeX; dx++) {
-            for (let dy = 0; dy < sizeY; dy++) {
-                const wx = tile.x + dx;
-                const wy = tile.y + dy;
-                const flag = this.pathService.getCollisionFlagAt(wx, wy, level);
-                if (flag === undefined) continue;
-                if ((flag & mask) === 0) continue;
-                found = true;
-                if (wx < minX) minX = wx;
-                if (wy < minY) minY = wy;
-                if (wx > maxX) maxX = wx;
-                if (wy > maxY) maxY = wy;
-            }
-        }
-        if (!found) return undefined;
-        return {
-            tile: { x: minX, y: minY },
-            sizeX: Math.max(1, maxX - minX + 1),
-            sizeY: Math.max(1, maxY - minY + 1),
-        };
+    ): LocCollisionRect | undefined {
+        return deriveConnectedLocCollisionRect(
+            (x, y, p) => this.pathService.getCollisionFlagAt(x, y, p),
+            tile,
+            sizeX,
+            sizeY,
+            level,
+        );
     }
 }

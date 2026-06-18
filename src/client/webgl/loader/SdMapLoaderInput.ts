@@ -25,7 +25,7 @@ export type SdMapLoaderInput = {
             matchRotation?: number;
         }
     >;
-    // Dynamic loc spawns: Map<"x,y,level", {id,type,rotation}> - locs not in base map data
+    // Dynamic loc spawns: first key fields are "x,y,level"; extra fields may distinguish stacked spawns.
     locSpawns?: Map<string, { id: number; type: number; rotation: number }>;
     terrainOverrides?: Map<
         string,

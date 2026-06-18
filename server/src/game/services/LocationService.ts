@@ -2,8 +2,11 @@ import { WebSocket } from "ws";
 
 import { faceAngleRs } from "../../../../src/rs/utils/rotation";
 import { encodeMessage } from "../../network/messages";
-import { CollisionFlag } from "../../pathfinding/legacy/pathfinder/flag/CollisionFlag";
 import { logger } from "../../utils/logger";
+import {
+    deriveConnectedLocCollisionRect,
+    type LocCollisionRect,
+} from "../../world/LocCollisionRect";
 import type { ServerServices } from "../ServerServices";
 import type { NpcState } from "../npc";
 import type { PlayerState } from "../player";
@@ -221,39 +224,18 @@ export class LocationService {
         sizeX: number,
         sizeY: number,
         level: number,
-    ): { tile: { x: number; y: number }; sizeX: number; sizeY: number } | undefined {
+    ): LocCollisionRect | undefined {
         const pathService = this.services.pathService;
         if (!pathService?.getCollisionFlagAt) {
             return undefined;
         }
-        const mask = CollisionFlag.OBJECT | CollisionFlag.OBJECT_ROUTE_BLOCKER;
-        let minX = Number.POSITIVE_INFINITY;
-        let minY = Number.POSITIVE_INFINITY;
-        let maxX = Number.NEGATIVE_INFINITY;
-        let maxY = Number.NEGATIVE_INFINITY;
-        let found = false;
-        for (let dx = 0; dx < Math.max(1, sizeX); dx++) {
-            for (let dy = 0; dy < Math.max(1, sizeY); dy++) {
-                const wx = tile.x + dx;
-                const wy = tile.y + dy;
-                const flag = pathService.getCollisionFlagAt(wx, wy, level);
-                if (flag === undefined) continue;
-                if ((flag & mask) === 0) continue;
-                found = true;
-                if (wx < minX) minX = wx;
-                if (wy < minY) minY = wy;
-                if (wx > maxX) maxX = wx;
-                if (wy > maxY) maxY = wy;
-            }
-        }
-        if (!found) {
-            return undefined;
-        }
-        return {
-            tile: { x: minX, y: minY },
-            sizeX: Math.max(1, maxX - minX + 1),
-            sizeY: Math.max(1, maxY - minY + 1),
-        };
+        return deriveConnectedLocCollisionRect(
+            (x, y, p) => pathService.getCollisionFlagAt(x, y, p),
+            tile,
+            sizeX,
+            sizeY,
+            level,
+        );
     }
 
     resolveSceneBaseCoordinate(currentBase: number, playerTile: number): number {

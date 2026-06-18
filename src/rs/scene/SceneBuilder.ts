@@ -78,7 +78,7 @@ export class SceneBuilder {
         }
     > = new Map();
 
-    // Dynamic loc spawns: Map<"x,y,level", {id,type,rotation}> - locs not in base map data
+    // Dynamic loc spawns: keyed by scene tile plus loc tuple, for locs not in base map data.
     private locSpawns: Map<string, { id: number; type: LocModelType; rotation: number }> =
         new Map();
     private terrainOverrides: Map<string, TerrainOverride> = new Map();
@@ -146,8 +146,8 @@ export class SceneBuilder {
         type: LocModelType,
         rotation: number,
     ): void {
-        const key = `${x},${y},${level}`;
-        this.locSpawns.set(key, { id, type, rotation });
+        const key = `${x},${y},${level},${id},${type},${rotation & 0x3}`;
+        this.locSpawns.set(key, { id, type, rotation: rotation & 0x3 });
     }
 
     clearLocSpawns(): void {
@@ -664,7 +664,7 @@ export class SceneBuilder {
         // Process loc spawns (locs not present in base map data, e.g. fires placed on empty ground)
         for (const [key, spawn] of this.locSpawns.entries()) {
             const parts = key.split(",");
-            if (parts.length !== 3) continue;
+            if (parts.length < 3) continue;
             const sx = parseInt(parts[0]);
             const sy = parseInt(parts[1]);
             const sl = parseInt(parts[2]);

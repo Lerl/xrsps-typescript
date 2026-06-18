@@ -544,7 +544,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         string,
         { locId: number; x: number; y: number; level: number; shape: number; rotation: number }
     > = new Map();
-    // Track spawned locs not in base map data: Map<"x,y,level", {id,type,rotation}>
+    // Track spawned locs not in base map data. The first three key fields are world x,y,level.
     private locSpawns: Map<string, { id: number; type: number; rotation: number }> = new Map();
     private terrainOverrides: Map<
         string,
@@ -5646,7 +5646,9 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
             const x = spawn.x | 0;
             const y = spawn.y | 0;
             const level = spawn.level | 0;
-            const key = `${x},${y},${level}`;
+            const key = `${x},${y},${level},${spawn.locId | 0},${spawn.shape | 0},${
+                spawn.rotation & 0x3
+            }`;
             nextSpawnKeys.add(key);
             affectedMapIds.add(this.getMapIdForWorldTile(x, y));
 

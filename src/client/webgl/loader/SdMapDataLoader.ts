@@ -1344,7 +1344,7 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
             state.sceneBuilder.clearLocSpawns();
             for (const [key, spawnValue] of locSpawns.entries()) {
                 const parts = key.split(",");
-                if (parts.length !== 3) continue;
+                if (parts.length < 3) continue;
                 const worldX = parseInt(parts[0]);
                 const worldY = parseInt(parts[1]);
                 const level = parseInt(parts[2]);
