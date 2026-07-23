@@ -824,6 +824,8 @@ export class WSServer {
             skipMusicTrack: (player) => this.soundManager?.skipTrackForPlayer(player) ?? false,
             queueCombatSnapshot: (...args: Parameters<typeof this.queueCombatSnapshot>) =>
                 this.queueCombatSnapshot(...args),
+            queueClientScript: (playerId, scriptId, ...args) =>
+                this.broadcastService.queueClientScript(playerId, scriptId, ...args),
             queueWidgetEvent: (pid, evt) => this.queueWidgetEvent(pid, evt),
             queueSmithingInterfaceMessage: (pid, p) =>
                 this.broadcastService.queueSmithingInterfaceMessage(pid, p as any),

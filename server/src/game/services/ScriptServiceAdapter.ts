@@ -138,6 +138,7 @@ export interface ScriptServiceAdapterDeps {
         activePrayers?: string[],
         activeSpellId?: number,
     ) => void;
+    queueClientScript: (playerId: number, scriptId: number, ...args: (number | string)[]) => void;
     queueWidgetEvent: (playerId: number, event: WidgetAction) => void;
     queueSmithingInterfaceMessage: (playerId: number, payload: Record<string, unknown>) => void;
     queueExternalNpcTeleportSync: (npc: NpcState) => void;
@@ -667,7 +668,7 @@ export function buildScriptServices(deps: ScriptServiceAdapterDeps): ScriptServi
                 }
             },
             queueClientScript: (playerId, scriptId, ...args) =>
-                deps.variableService.queueVarp(playerId, 0, 0), // placeholder
+                deps.queueClientScript(playerId, scriptId, ...args),
             queueWidgetEvent: (playerId, event) => deps.queueWidgetEvent(playerId, event),
         },
         movement: {
