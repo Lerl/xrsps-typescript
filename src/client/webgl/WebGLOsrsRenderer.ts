@@ -1663,6 +1663,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                     this.osrsClient.loadedCache?.info?.revision ?? 0,
                 );
             } else {
+                state.showCredentialValidationError();
                 this.osrsClient.handleLoginKeyInput("Enter", "");
                 this.syncMobileLoginInput(true);
             }
@@ -6855,6 +6856,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                                 this.osrsClient.loadedCache?.info?.revision ?? 0,
                             );
                         } else {
+                            loginState.showCredentialValidationError();
                             this.osrsClient.handleLoginKeyInput("Enter", "");
                         }
                     } else if (keyEvent.code === "Backspace") {

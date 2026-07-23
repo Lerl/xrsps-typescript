@@ -17,6 +17,7 @@ import {
 } from "../player";
 import type { PersistenceProvider } from "./PersistenceProvider";
 import { DEFAULT_BANK_CAPACITY } from "./PlayerBankSystem";
+import { getSqliteDatabase, type SqliteDatabase } from "./SqliteDatabase";
 
 const DEFAULT_DATA_DIR = path.resolve(__dirname, "../../../data");
 const MAX_TILE_COORD = 32767;
@@ -47,15 +48,6 @@ function readJsonFile<T>(filePath: string, fallback: T): T {
         return JSON.parse(raw) as T;
     } catch {
         return fallback;
-    }
-}
-
-function writeJsonFile(filePath: string, data: unknown): void {
-    try {
-        fs.mkdirSync(path.dirname(filePath), { recursive: true });
-        fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
-    } catch {
-        // Best-effort persistence only; ignore write failures for now.
     }
 }
 
@@ -487,67 +479,89 @@ export type { PersistenceProvider };
 
 export interface PlayerPersistenceOptions {
     dataDir?: string;
-    storePath?: string;
+    databasePath?: string;
     defaultsPath?: string;
 }
 
 /**
- * Default JSON file-based persistence provider.
- * Stores all player data in a single aggregate JSON file per gamemode.
+ * Default SQLite-backed persistence provider.
+ * Stores each player state as an independent row per gamemode.
  */
 export class PlayerPersistence implements PersistenceProvider {
-    private readonly store = new Map<string, PlayerPersistentVars>();
     private readonly defaults: PlayerPersistentVars | undefined;
-    private readonly storePath: string;
     private readonly defaultsPath: string;
+    private readonly database: SqliteDatabase;
 
     constructor(options: PlayerPersistenceOptions = {}) {
         const dataDir = options.dataDir ? path.resolve(options.dataDir) : DEFAULT_DATA_DIR;
-        this.storePath = options.storePath
-            ? path.resolve(options.storePath)
-            : path.join(dataDir, "player-state.json");
         this.defaultsPath = options.defaultsPath
             ? path.resolve(options.defaultsPath)
             : path.join(dataDir, "player-defaults.json");
+        this.database = getSqliteDatabase({ dataDir, databasePath: options.databasePath });
         this.defaults = readJsonFile<PlayerPersistentVars | undefined>(
             this.defaultsPath,
             undefined,
         );
-        const data = readJsonFile<Record<string, PlayerPersistentVars>>(this.storePath, {});
-        for (const [key, snapshot] of Object.entries(data)) {
-            this.store.set(key, snapshot);
-        }
     }
 
     applyToPlayer(player: PlayerState, key: string): void {
-        const snapshot = mergeStates(this.defaults, this.store.get(key));
+        const snapshot = mergeStates(this.defaults, this.getSnapshot(key));
         player.applyPersistentVars(snapshot);
     }
 
     hasKey(key: string): boolean {
-        return this.store.has(key);
+        return (
+            this.database.connection
+                .prepare("SELECT 1 FROM player_states WHERE account_name = ?")
+                .get(key) !== undefined
+        );
     }
 
     saveSnapshot(key: string, player: PlayerState): void {
         const snapshot = player.exportPersistentVars();
-        this.store.set(key, snapshot);
-        this.flush();
+        this.upsertSnapshot(key, snapshot, new Date().toISOString());
     }
 
     savePlayers(entries: Array<{ key: string; player: PlayerState }>): void {
         if (!entries || entries.length === 0) return;
-        for (const entry of entries) {
-            const snapshot = entry.player.exportPersistentVars();
-            this.store.set(entry.key, snapshot);
+        const now = new Date().toISOString();
+        this.database.connection.exec("BEGIN IMMEDIATE");
+        try {
+            for (const entry of entries) {
+                this.upsertSnapshot(entry.key, entry.player.exportPersistentVars(), now);
+            }
+            this.database.connection.exec("COMMIT");
+        } catch (err) {
+            try {
+                this.database.connection.exec("ROLLBACK");
+            } catch {
+                // The original error is more useful to callers.
+            }
+            throw err;
         }
-        this.flush();
     }
 
-    private flush(): void {
-        const payload: Record<string, PlayerPersistentVars> = {};
-        for (const [key, snapshot] of this.store.entries()) {
-            payload[key] = snapshot;
+    private getSnapshot(key: string): PlayerPersistentVars | undefined {
+        const row = this.database.connection
+            .prepare("SELECT state_json AS stateJson FROM player_states WHERE account_name = ?")
+            .get(key) as { stateJson?: unknown } | undefined;
+        if (!row || typeof row.stateJson !== "string") return undefined;
+        try {
+            return JSON.parse(row.stateJson) as PlayerPersistentVars;
+        } catch {
+            return undefined;
         }
-        writeJsonFile(this.storePath, payload);
+    }
+
+    private upsertSnapshot(key: string, snapshot: PlayerPersistentVars, updatedAt: string): void {
+        this.database.connection
+            .prepare(
+                `INSERT INTO player_states (account_name, state_json, updated_at)
+                 VALUES (?, ?, ?)
+                 ON CONFLICT(account_name) DO UPDATE SET
+                    state_json = excluded.state_json,
+                    updated_at = excluded.updated_at`,
+            )
+            .run(key, JSON.stringify(snapshot), updatedAt);
     }
 }

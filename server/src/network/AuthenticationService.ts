@@ -1,8 +1,10 @@
 import { resolvePlayerDisplay } from "../../../src/rs/chat/PlayerType";
+import { MIN_PASSWORD_LENGTH } from "../../../src/shared/authentication";
 import { VARBIT_ACCOUNT_TYPE } from "../../../src/shared/vars";
 import type { GamemodeDefinition } from "../game/gamemodes/GamemodeDefinition";
 import type { PlayerState } from "../game/player";
 import { logger } from "../utils/logger";
+import { AccountStore, normalizeAccountName } from "./AccountStore";
 
 const ADMIN_USERNAMES_ENV = (
     process?.env?.ADMIN_USERNAMES ??
@@ -24,6 +26,15 @@ export interface PlayerLookup {
     getTotalPlayerCount(): number;
 }
 
+export interface AuthenticationOptions {
+    accountStore: AccountStore;
+    allowAccountRegistration?: boolean;
+}
+
+export type CredentialAuthenticationResult =
+    | { ok: true; created: boolean; accountName: string }
+    | { ok: false; reason: "invalid_credentials" | "password_too_short" };
+
 /**
  * Handles login rate limiting, admin detection, and account type normalization.
  * Extracted from WSServer.
@@ -36,6 +47,7 @@ export class AuthenticationService {
     constructor(
         private readonly playerLookup: PlayerLookup,
         private readonly gamemode: GamemodeDefinition,
+        private readonly options: AuthenticationOptions,
     ) {}
 
     checkLoginRateLimit(ip: string): boolean {
@@ -69,6 +81,27 @@ export class AuthenticationService {
 
     normalizePlayerNameForAuth(name: string | undefined): string {
         return (name ?? "").trim().toLowerCase();
+    }
+
+    authenticateCredentials(
+        username: string | undefined,
+        password: string | undefined,
+    ): CredentialAuthenticationResult {
+        const accountName = normalizeAccountName(username);
+        if (!accountName) return { ok: false, reason: "invalid_credentials" };
+        if (typeof password === "string" && password.length < MIN_PASSWORD_LENGTH) {
+            return { ok: false, reason: "password_too_short" };
+        }
+
+        const allowRegistration = this.options.allowAccountRegistration !== false;
+        const authentication = this.options.accountStore.authenticate(
+            username,
+            password,
+            allowRegistration,
+        );
+        return authentication.ok
+            ? authentication
+            : { ok: false, reason: "invalid_credentials" };
     }
 
     isAdminPlayer(player: PlayerState | undefined): boolean {

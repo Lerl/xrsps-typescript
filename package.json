@@ -1,6 +1,9 @@
 {
   "name": "xrsps",
   "version": "0.1.0",
+  "engines": {
+    "node": ">=22.5.0"
+  },
   "repository": {
     "url": "https://github.com/xrsps/xrsps-typescript"
   },

@@ -447,8 +447,8 @@ function printReport(opts: HarnessOptions, storePath: string, results: HarnessRe
 async function main(): Promise<void> {
     const opts = parseCliArgs();
     ensureOutputDir(opts.outputDir);
-    const storePath = path.join(opts.outputDir, "player-state.json");
-    const persistence = new PlayerPersistence({ dataDir: opts.outputDir, storePath });
+    const storePath = path.join(opts.outputDir, "game.sqlite");
+    const persistence = new PlayerPersistence({ dataDir: opts.outputDir, databasePath: storePath });
     const players = createPlayers(opts.players, new Prng(opts.seed));
     const results: HarnessResult[] = [];
 

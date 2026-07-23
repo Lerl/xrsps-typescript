@@ -8,8 +8,7 @@
  *   - Redis (in-memory with optional persistence)
  *   - Custom binary format (optimized for large player counts)
  *
- * The default implementation is {@link PlayerPersistence} which uses a single
- * aggregate JSON file per gamemode.
+ * The default implementation is {@link PlayerPersistence} which uses SQLite.
  */
 import type { PlayerPersistentVars, PlayerState } from "../player";
 

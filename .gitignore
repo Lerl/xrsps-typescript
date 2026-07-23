@@ -61,3 +61,5 @@ server/data/gamemodes/vanilla/player-state.json
 .codex
 AGENT.md
 server/data/gamemodes/*/player-state.json
+server/data/gamemodes/*/accounts.json
+server/data/gamemodes/*/game.sqlite*

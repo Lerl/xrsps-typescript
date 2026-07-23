@@ -1,15 +1,15 @@
 import { isIosStandalonePwa } from "../../util/DeviceUtil";
+import { MIN_PASSWORD_LENGTH } from "../../shared/authentication";
 import { LoginIndex } from "./GameState";
 
 const STORAGE_KEY_TITLE_MUSIC_DISABLED = "osrs:titleMusicDisabled";
 const STORAGE_KEY_LAST_SERVER = "osrs:lastServer";
 const STORAGE_KEY_IOS_PWA_LOGIN_STATE = "osrs:iosPwaLoginState";
-const IOS_PWA_LOGIN_STATE_VERSION = 1;
+const IOS_PWA_LOGIN_STATE_VERSION = 2;
 
 type PersistedIosPwaLoginState = {
     version: number;
     username: string;
-    password: string;
     rememberUsername: boolean;
     isUsernameHidden: boolean;
 };
@@ -74,6 +74,8 @@ export class LoginState {
 
             const parsed = JSON.parse(raw) as Partial<PersistedIosPwaLoginState>;
             if (parsed.version !== IOS_PWA_LOGIN_STATE_VERSION) {
+                // Clear version 1 data, which included a plaintext password.
+                window.localStorage.removeItem(STORAGE_KEY_IOS_PWA_LOGIN_STATE);
                 return;
             }
 
@@ -93,11 +95,8 @@ export class LoginState {
             if (typeof parsed.username === "string") {
                 this.username = parsed.username.slice(0, 320);
             }
-            if (typeof parsed.password === "string") {
-                this.password = parsed.password.slice(0, 20);
-            }
 
-            if (this.username.length > 0 || this.password.length > 0) {
+            if (this.username.length > 0) {
                 this.loginIndex = LoginIndex.LOGIN_FORM;
                 this.currentLoginField = this.username.length > 0 ? 1 : 0;
                 this.setResponse("", "Enter your username & password.", "", "");
@@ -116,7 +115,6 @@ export class LoginState {
             const payload: PersistedIosPwaLoginState = {
                 version: IOS_PWA_LOGIN_STATE_VERSION,
                 username: this.rememberUsername ? this.username.slice(0, 320) : "",
-                password: this.rememberUsername ? this.password.slice(0, 20) : "",
                 rememberUsername: this.rememberUsername,
                 isUsernameHidden: this.isUsernameHidden,
             };
@@ -380,6 +378,28 @@ export class LoginState {
      * Check if credentials are valid for login attempt.
      */
     canAttemptLogin(): boolean {
-        return this.username.trim().length > 0 && this.password.length > 0;
+        return this.getCredentialValidationMessage() === undefined;
+    }
+
+    /** Get the client-side validation error for the current login credentials. */
+    getCredentialValidationMessage(): string | undefined {
+        if (this.username.trim().length === 0) {
+            return "Please enter your username/email address.";
+        }
+        if (this.password.length === 0) {
+            return "Please enter your password.";
+        }
+        if (this.password.length < MIN_PASSWORD_LENGTH) {
+            return `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
+        }
+        return undefined;
+    }
+
+    /** Show the current credential validation error on the login form. */
+    showCredentialValidationError(): void {
+        const message = this.getCredentialValidationMessage();
+        if (message) {
+            this.setResponse("", message, "", "");
+        }
     }
 }

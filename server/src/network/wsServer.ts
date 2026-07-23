@@ -124,6 +124,7 @@ import { LocTileLookupService } from "../world/LocTileLookupService";
 import { locCanResolveToId } from "../world/LocTransforms";
 import { MapCollisionService } from "../world/MapCollisionService";
 import { AuthenticationService } from "./AuthenticationService";
+import { AccountStore } from "./AccountStore";
 import { BroadcastService } from "./BroadcastService";
 import { LoginHandshakeService } from "./LoginHandshakeService";
 import { MessageRouter, type MessageRouterServices } from "./MessageRouter";
@@ -1057,12 +1058,18 @@ export class WSServer {
     }
 
     private initDeferredDeps(opts: WSServerOptions): void {
+        const gamemodeDataDir = getGamemodeDataDir(this.gamemode.id);
         this.authService = new AuthenticationService(
             {
                 hasConnectedPlayer: (u) => this.players?.hasConnectedPlayer(u) ?? false,
                 getTotalPlayerCount: () => this.players?.getTotalPlayerCount() ?? 0,
             },
             this.gamemode,
+            {
+                accountStore: new AccountStore({ dataDir: gamemodeDataDir }),
+                allowAccountRegistration:
+                    (process.env.ALLOW_ACCOUNT_REGISTRATION ?? "true").toLowerCase() !== "false",
+            },
         );
         this.gameContext = new GameContext({
             ticker: opts.ticker,

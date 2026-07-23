@@ -131,7 +131,7 @@ export class LoginHandshakeService {
         payload: { username?: string; password?: string; revision?: number },
     ): void {
         const { username, password, revision } = payload;
-        const normalizedUsername = (username || "").trim().toLowerCase();
+        const normalizedUsername = this.svc.authService.normalizePlayerNameForAuth(username);
 
         const sendLoginError = (errorCode: number, error: string) => {
             this.svc.networkLayer.withDirectSendBypass("login_response", () =>
@@ -187,8 +187,20 @@ export class LoginHandshakeService {
             return;
         }
 
+        // 6. Verify an existing password hash or register a new account.
+        const authentication = this.svc.authService.authenticateCredentials(username, password);
+        if (!authentication.ok) {
+            sendLoginError(
+                3,
+                authentication.reason === "password_too_short"
+                    ? "Password must be at least 8 characters."
+                    : "Invalid username or password.",
+            );
+            return;
+        }
+
         // All checks passed - login successful
-        const displayName = (username ?? "").slice(0, 12);
+        const displayName = (username ?? "").trim().slice(0, 12);
         this.setPendingLoginName(ws, displayName);
         this.svc.networkLayer.withDirectSendBypass("login_response", () =>
             this.svc.networkLayer.sendWithGuard(
@@ -203,7 +215,11 @@ export class LoginHandshakeService {
                 "login_response",
             ),
         );
-        logger.info(`Login successful: ${username}`);
+        logger.info(
+            `Login successful: ${authentication.accountName}${
+                authentication.created ? " (new account)" : ""
+            }`,
+        );
     }
 
     handleHandshakeMessage(
