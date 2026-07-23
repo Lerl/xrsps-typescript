@@ -89,6 +89,19 @@ export abstract class GameRenderer<T extends MapSquare = MapSquare> extends Rend
         // Base implementation does nothing - subclasses override
     }
 
+    /**
+     * Reset the loaded scene and its streaming state.
+     *
+     * A simple MapManager.clearMaps() only releases resident map squares; it
+     * intentionally keeps the current-region coordinates so it can continue
+     * normal streaming.  A new game session must also invalidate those
+     * coordinates so logging back in at the same location schedules a fresh
+     * scene load.
+     */
+    clearMaps(): void {
+        this.mapManager.cleanUp();
+    }
+
     initCache(): void {
         if (!this.osrsClient.loadedCache) return;
         this.mapManager.init(

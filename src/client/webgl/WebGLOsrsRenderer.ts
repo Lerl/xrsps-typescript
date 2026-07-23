@@ -6407,7 +6407,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         );
     }
 
-    clearMaps(): void {
+    override clearMaps(): void {
         this.mapManager.cleanUp();
         this.mapsToLoad.clear();
         this.pendingStreamMapsByGeneration.clear();

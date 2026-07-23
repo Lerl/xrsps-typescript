@@ -12766,9 +12766,9 @@ export class OsrsClient {
         }
 
         try {
-            this.renderer?.mapManager?.clearMaps?.();
+            this.renderer?.clearMaps();
         } catch (err) {
-            console.warn("[OsrsClient] MapManager clearMaps error:", err);
+            console.warn("[OsrsClient] Renderer clearMaps error:", err);
         }
 
         // Clear projectiles
