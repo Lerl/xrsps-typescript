@@ -12,7 +12,8 @@ import {
     VARP_COLLECTION_CATEGORY_COUNT2,
     VARP_COLLECTION_CATEGORY_COUNT3,
     buildTabChangeArgs,
-} from "../../../src/game/scripts/types";
+    getCategoryStructId,
+} from "../../../src/game/collectionlog";
 import {
     type IScriptRegistry,
     type ScriptServices,
@@ -208,11 +209,28 @@ export function registerCollectionLogWidgetHandlers(
                 categoryIndex,
             );
 
-            // Set category kill/completion count varps
-            // For now just set to 0 - real implementation would look up player's stats
-            services.variables.queueVarp?.(player.id, VARP_COLLECTION_CATEGORY_COUNT, 0);
-            services.variables.queueVarp?.(player.id, VARP_COLLECTION_CATEGORY_COUNT2, 0);
-            services.variables.queueVarp?.(player.id, VARP_COLLECTION_CATEGORY_COUNT3, 0);
+            // Category statistics are persisted by the category's collection-log struct ID.
+            // Use those values rather than resetting the detail view to zero each time.
+            const categoryStructId = getCategoryStructId(tabIndex, categoryIndex);
+            const categoryStats =
+                categoryStructId > 0
+                    ? player.collectionLog.getCategoryStat(categoryStructId)
+                    : undefined;
+            services.variables.queueVarp?.(
+                player.id,
+                VARP_COLLECTION_CATEGORY_COUNT,
+                categoryStats?.count1 ?? 0,
+            );
+            services.variables.queueVarp?.(
+                player.id,
+                VARP_COLLECTION_CATEGORY_COUNT2,
+                categoryStats?.count2 ?? 0,
+            );
+            services.variables.queueVarp?.(
+                player.id,
+                VARP_COLLECTION_CATEGORY_COUNT3,
+                categoryStats?.count3 ?? 0,
+            );
 
             // Re-run script 7797 with selected category index so the list redraw keeps
             // the clicked row highlighted and script 2731->2732 draws the matching log.
