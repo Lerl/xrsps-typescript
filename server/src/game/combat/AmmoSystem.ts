@@ -64,6 +64,7 @@ const ARMADYL_CROSSBOW = 11785;
 const ZARYTE_CROSSBOW = 26374;
 const DRAGON_HUNTER_CROSSBOW = 21012;
 const KARIL_CROSSBOW = 4734;
+const BOLT_RACKS = 4740;
 
 // Ballistae
 const LIGHT_BALLISTA = 19478;
@@ -457,6 +458,8 @@ const ALL_BOLTS = [
     ONYX_DRAGON_BOLTS_E,
 ];
 
+const KARIL_AMMO = [BOLT_RACKS];
+
 const CROSSBOW_BOLT_REQUIREMENTS: Map<number, number[]> = new Map([
     [BRONZE_CROSSBOW, [BRONZE_BOLTS]],
     [IRON_CROSSBOW, [BRONZE_BOLTS, IRON_BOLTS]],
@@ -469,7 +472,7 @@ const CROSSBOW_BOLT_REQUIREMENTS: Map<number, number[]> = new Map([
     [ARMADYL_CROSSBOW, ALL_BOLTS],
     [ZARYTE_CROSSBOW, ALL_BOLTS],
     [DRAGON_HUNTER_CROSSBOW, ALL_BOLTS],
-    [KARIL_CROSSBOW, ALL_BOLTS], // Actually uses bolt racks, simplified here
+    [KARIL_CROSSBOW, KARIL_AMMO],
 ]);
 
 // Javelins for ballistae
@@ -804,6 +807,18 @@ export function calculateAmmoConsumption(
     // Dark bow shoots 2 arrows
     const quantity = weaponId === DARK_BOW ? 2 : 1;
     const actualQuantity = Math.min(quantity, ammoQuantity);
+
+    // Bolt racks are consumed when fired and cannot be recovered by Ava's
+    // devices or spawned on the ground like ordinary ammunition.
+    if (weaponId === KARIL_CROSSBOW && ammoId === BOLT_RACKS) {
+        return {
+            consumed: true,
+            ammoId,
+            quantityUsed: actualQuantity,
+            dropped: false,
+            broke: true,
+        };
+    }
 
     // Check for Ava's device
     const hasAvas = AVAS_DEVICES.has(capeSlot);
