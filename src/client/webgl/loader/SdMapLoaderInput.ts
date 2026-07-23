@@ -15,6 +15,12 @@ export type SdMapLoaderInput = {
      */
     doorOnly?: boolean;
 
+    /**
+     * Rebuild only non-door location geometry and the scene data required to
+     * interact with it. Used for ordinary LOC_ADD_CHANGE updates.
+     */
+    locOnly?: boolean;
+
     loadedTextureIds: Set<number>;
 
     // Dynamic loc overrides: Map<"x,y,level,oldId", {newId,newRotation?,moveToX?,moveToY?,seqId?,seqRandomStart?,matchType?,matchRotation?}>

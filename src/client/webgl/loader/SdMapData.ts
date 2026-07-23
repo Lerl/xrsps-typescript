@@ -26,6 +26,42 @@ export interface MinimapIcon {
     displayY?: number;
 }
 
+/**
+ * GPU data for a mutable group of location models. Terrain deliberately lives
+ * outside this payload so a loc packet can replace objects without recreating
+ * the map-square terrain mesh.
+ */
+export type LocGeometryData = {
+    vertices: Uint8Array;
+    indices: Int32Array;
+
+    modelTextureData: Uint16Array;
+    modelTextureDataAlpha: Uint16Array;
+    modelTextureDataLod: Uint16Array;
+    modelTextureDataLodAlpha: Uint16Array;
+    modelTextureDataInteract: Uint16Array;
+    modelTextureDataInteractAlpha: Uint16Array;
+    modelTextureDataInteractLod: Uint16Array;
+    modelTextureDataInteractLodAlpha: Uint16Array;
+
+    drawRanges: DrawRange[];
+    drawRangesAlpha: DrawRange[];
+    drawRangesPlanes: Uint8Array;
+    drawRangesAlphaPlanes: Uint8Array;
+    drawRangesLod: DrawRange[];
+    drawRangesLodAlpha: DrawRange[];
+    drawRangesLodPlanes: Uint8Array;
+    drawRangesLodAlphaPlanes: Uint8Array;
+    drawRangesInteract: DrawRange[];
+    drawRangesInteractAlpha: DrawRange[];
+    drawRangesInteractPlanes: Uint8Array;
+    drawRangesInteractAlphaPlanes: Uint8Array;
+    drawRangesInteractLod: DrawRange[];
+    drawRangesInteractLodAlpha: DrawRange[];
+    drawRangesInteractLodPlanes: Uint8Array;
+    drawRangesInteractLodAlphaPlanes: Uint8Array;
+};
+
 export type SdMapData = {
     mapX: number;
     mapY: number;
@@ -39,6 +75,9 @@ export type SdMapData = {
 
     /** True when this payload only contains replacement door geometry. */
     doorOnly?: boolean;
+
+    /** True when this payload only contains replacement non-door loc geometry. */
+    locOnly?: boolean;
 
     borderSize: number;
     heightMapSize: number;
@@ -57,6 +96,8 @@ export type SdMapData = {
 
     vertices: Uint8Array;
     indices: Int32Array;
+    /** Static and animated non-door locs, kept separate from terrain. */
+    loc: LocGeometryData;
     doorVertices: Uint8Array;
     doorIndices: Int32Array;
     npcVertices: Uint8Array;
