@@ -68,6 +68,23 @@ export interface NpcCombatProfile {
     species: string[];
 }
 
+export type NpcCombatStat = "attack" | "strength" | "defence" | "magic" | "ranged";
+
+type NpcCombatLevelField =
+    | "attackLevel"
+    | "strengthLevel"
+    | "defenceLevel"
+    | "magicLevel"
+    | "rangedLevel";
+
+const NPC_COMBAT_STAT_FIELD: Record<NpcCombatStat, NpcCombatLevelField> = {
+    attack: "attackLevel",
+    strength: "strengthLevel",
+    defence: "defenceLevel",
+    magic: "magicLevel",
+    ranged: "rangedLevel",
+};
+
 /**
  * Default combat profile for NPCs without stats defined.
  * Represents a very weak level 1 NPC.
@@ -180,6 +197,7 @@ export class NpcState extends Actor {
      * Loaded at spawn time - no runtime lookups needed.
      */
     readonly combat: NpcCombatProfile;
+    private readonly baseCombatLevels: Record<NpcCombatStat, number>;
     private hitpoints: number;
     private maxHitpoints: number;
     private combatLevel: number;
@@ -277,8 +295,21 @@ export class NpcState extends Actor {
             1,
             Math.trunc(options.aggressionSearchDelayTicks ?? TARGET_SEARCH_INTERVAL),
         );
-        // Combat profile - use provided or default
-        this.combat = options.combatProfile ?? DEFAULT_NPC_COMBAT_PROFILE;
+        // Combat levels are mutable during a fight (for specials such as the
+        // dragon warhammer), so each NPC must own its profile rather than share
+        // the default or spawn-definition object.
+        const combatProfile = options.combatProfile ?? DEFAULT_NPC_COMBAT_PROFILE;
+        this.combat = {
+            ...combatProfile,
+            species: [...combatProfile.species],
+        };
+        this.baseCombatLevels = {
+            attack: this.combat.attackLevel,
+            strength: this.combat.strengthLevel,
+            defence: this.combat.defenceLevel,
+            magic: this.combat.magicLevel,
+            ranged: this.combat.rangedLevel,
+        };
 
         this.setTurnSpeed(this.rotationSpeed);
 
@@ -370,6 +401,7 @@ export class NpcState extends Actor {
         this.clearInteractionTarget();
         this.clearPendingSeqs();
         this.hitpoints = this.maxHitpoints;
+        this.restoreCombatLevels();
         this.poisonEffect = undefined;
         this.venomEffect = undefined;
         this.diseaseEffect = undefined;
@@ -377,6 +409,36 @@ export class NpcState extends Actor {
         this.freezeExpiryTick = 0;
         this.freezeImmunityUntilTick = 0;
         this.returningToSpawn = false;
+    }
+
+    getCombatStat(stat: NpcCombatStat): number {
+        return this.combat[NPC_COMBAT_STAT_FIELD[stat]];
+    }
+
+    drainCombatStat(stat: NpcCombatStat, amountRaw: number): number {
+        if (!Number.isFinite(amountRaw) || amountRaw <= 0) return 0;
+        const field = NPC_COMBAT_STAT_FIELD[stat];
+        const current = Math.max(0, Math.floor(this.combat[field]));
+        const amount = Math.max(0, Math.floor(amountRaw));
+        const next = Math.max(0, current - amount);
+        this.combat[field] = next;
+        return current - next;
+    }
+
+    drainCombatStatByFraction(stat: NpcCombatStat, fractionRaw: number): number {
+        if (!Number.isFinite(fractionRaw) || fractionRaw <= 0) return 0;
+        const field = NPC_COMBAT_STAT_FIELD[stat];
+        const current = Math.max(0, Math.floor(this.combat[field]));
+        const fraction = Math.min(1, Math.max(0, fractionRaw));
+        const next = Math.max(0, Math.floor(current * (1 - fraction)));
+        this.combat[field] = next;
+        return current - next;
+    }
+
+    private restoreCombatLevels(): void {
+        for (const stat of Object.keys(NPC_COMBAT_STAT_FIELD) as NpcCombatStat[]) {
+            this.combat[NPC_COMBAT_STAT_FIELD[stat]] = this.baseCombatLevels[stat];
+        }
     }
 
     beginSpawnRecovery(): void {

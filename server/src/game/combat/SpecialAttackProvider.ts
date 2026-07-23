@@ -14,6 +14,7 @@ export interface SpecialAttackEffect {
     drainDefence?: number;
     drainDefenceByDamage?: number;
     drainMagicByDamage?: boolean;
+    drainCombatStatByDamage?: boolean;
     drainAttack?: number;
     drainStrength?: number;
     drainRanged?: number;

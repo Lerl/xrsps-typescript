@@ -103,6 +103,12 @@ type SpecialAttackPayload = {
         prayerDisableTicks?: number;
         drainMagicByDamage?: boolean;
         drainCombatStatByDamage?: boolean;
+        drainDefence?: number;
+        drainDefenceByDamage?: number;
+        drainAttack?: number;
+        drainStrength?: number;
+        drainRanged?: number;
+        drainAllCombatByDamage?: boolean;
         ignoreProtectionPrayer?: boolean;
     };
     /** Dark bow specific: minimum damage per hit */
@@ -1128,11 +1134,26 @@ export class PlayerCombatManager {
                 if (specialDef.effects?.drainMagicByDamage) {
                     effects.drainMagicByDamage = true;
                 }
-                const drainCombatStatByDamage = (
-                    specialDef.effects as { drainCombatStatByDamage?: boolean } | undefined
-                )?.drainCombatStatByDamage;
-                if (drainCombatStatByDamage || specialDef.effects?.drainAllCombatByDamage) {
+                if (specialDef.effects?.drainCombatStatByDamage) {
                     effects.drainCombatStatByDamage = true;
+                }
+                if (specialDef.effects?.drainDefence !== undefined) {
+                    effects.drainDefence = specialDef.effects.drainDefence;
+                }
+                if (specialDef.effects?.drainDefenceByDamage !== undefined) {
+                    effects.drainDefenceByDamage = specialDef.effects.drainDefenceByDamage;
+                }
+                if (specialDef.effects?.drainAttack !== undefined) {
+                    effects.drainAttack = specialDef.effects.drainAttack;
+                }
+                if (specialDef.effects?.drainStrength !== undefined) {
+                    effects.drainStrength = specialDef.effects.drainStrength;
+                }
+                if (specialDef.effects?.drainRanged !== undefined) {
+                    effects.drainRanged = specialDef.effects.drainRanged;
+                }
+                if (specialDef.effects?.drainAllCombatByDamage) {
+                    effects.drainAllCombatByDamage = true;
                 }
                 if (specialDef.effects?.ignoreProtectionPrayer) {
                     effects.ignoreProtectionPrayer = true;

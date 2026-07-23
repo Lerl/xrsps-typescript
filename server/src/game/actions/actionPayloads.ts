@@ -85,6 +85,12 @@ export interface CombatSpecialEffectsData {
     prayerDisableTicks?: number;
     drainMagicByDamage?: boolean;
     drainCombatStatByDamage?: boolean;
+    drainDefence?: number;
+    drainDefenceByDamage?: number;
+    drainAttack?: number;
+    drainStrength?: number;
+    drainRanged?: number;
+    drainAllCombatByDamage?: boolean;
     ignoreProtectionPrayer?: boolean;
 }
 

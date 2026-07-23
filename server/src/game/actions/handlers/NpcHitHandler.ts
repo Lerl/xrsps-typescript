@@ -11,6 +11,7 @@
  */
 import { logger } from "../../../utils/logger";
 import { AttackType } from "../../combat/AttackType";
+import { combatEffectApplicator } from "../../combat/CombatEffectApplicator";
 import { HITMARK_DAMAGE } from "../../combat/HitEffects";
 import type { NpcState } from "../../npc";
 import type { PlayerState } from "../../player";
@@ -418,42 +419,7 @@ export class NpcHitHandler {
         const special = data.special as SpecialAttackPayload | undefined;
         const se = special?.effects;
         if (!se || !landed) return;
-
-        const dealt = npcHitsplat.amount;
-
-        // Freeze
-        const freezeTicks = se.freezeTicks;
-        if (typeof freezeTicks === "number" && Number.isFinite(freezeTicks) && freezeTicks > 0) {
-            npc.applyFreeze(freezeTicks, tick);
-        }
-
-        // Heal on damage
-        const healFraction = se.healFraction;
-        if (
-            dealt > 0 &&
-            typeof healFraction === "number" &&
-            Number.isFinite(healFraction) &&
-            healFraction > 0
-        ) {
-            player.skillSystem.applyHitpointsHeal(Math.floor(dealt * healFraction));
-        }
-
-        // Prayer restore
-        const prayerFraction = se.prayerFraction;
-        if (
-            dealt > 0 &&
-            typeof prayerFraction === "number" &&
-            Number.isFinite(prayerFraction) &&
-            prayerFraction > 0
-        ) {
-            const restore = Math.floor(dealt * prayerFraction);
-            if (restore > 0) {
-                const current = player.prayer.getPrayerLevel();
-                const base = player.skillSystem.getSkill(5).baseLevel; // SkillId.Prayer
-                const target = Math.min(base, current + restore);
-                player.skillSystem.setSkillBoost(5, target);
-            }
-        }
+        combatEffectApplicator.applySpecialEffects(player, npc, npcHitsplat.amount, se, tick);
 
         const sync = player.skillSystem.takeSkillSync();
         if (sync) {

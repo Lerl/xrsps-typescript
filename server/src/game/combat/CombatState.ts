@@ -334,6 +334,18 @@ export interface SpecialAttackEffects {
     drainMagicByDamage?: boolean;
     /** Drain random combat stat by damage dealt */
     drainCombatStatByDamage?: boolean;
+    /** Reduce target Defence by this fraction on a successful hit. */
+    drainDefence?: number;
+    /** Drain combat stats, beginning with Defence, by this multiple of the damage dealt. */
+    drainDefenceByDamage?: number;
+    /** Reduce target Attack by this fraction on a successful hit. */
+    drainAttack?: number;
+    /** Reduce target Strength by this fraction on a successful hit. */
+    drainStrength?: number;
+    /** Reduce target Ranged by this fraction on a successful hit. */
+    drainRanged?: number;
+    /** Drain every target combat stat by the damage dealt. */
+    drainAllCombatByDamage?: boolean;
 }
 
 // =============================================================================

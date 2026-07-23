@@ -122,6 +122,12 @@ export interface SpecialAttackPayload {
         prayerDisableTicks?: number;
         drainMagicByDamage?: boolean;
         drainCombatStatByDamage?: boolean;
+        drainDefence?: number;
+        drainDefenceByDamage?: number;
+        drainAttack?: number;
+        drainStrength?: number;
+        drainRanged?: number;
+        drainAllCombatByDamage?: boolean;
         ignoreProtectionPrayer?: boolean;
     };
 }
