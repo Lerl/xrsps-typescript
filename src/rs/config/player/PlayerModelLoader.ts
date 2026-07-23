@@ -19,6 +19,11 @@ import {
     PLAYER_BODY_RECOLOR_TO_2,
 } from "./PlayerDesignColors";
 
+// Model face colours are stored as unsigned 16-bit HSL values.  Some of the
+// PlayerComposition palette constants originate from signed Java shorts, so
+// normalise them before comparing them with ModelData.faceColors.
+const asUnsignedHsl = (color: number): number => color & 0xffff;
+
 // Phase A: compose body from IdentityKits only (no equipment yet)
 export class PlayerModelLoader {
     private readonly defaultKitsCache = new Map<number, number[]>();
@@ -61,11 +66,17 @@ export class PlayerModelLoader {
                         const idx = (colors[c] ?? 0) | 0;
                         const pal1 = PLAYER_BODY_RECOLOR_TO_1[c] ?? [];
                         if (idx >= 0 && idx < pal1.length) {
-                            md.recolor(PLAYER_BODY_RECOLOR_FROM_1[c] | 0, pal1[idx] | 0);
+                            md.recolor(
+                                asUnsignedHsl(PLAYER_BODY_RECOLOR_FROM_1[c] | 0),
+                                asUnsignedHsl(pal1[idx] | 0),
+                            );
                         }
                         const pal2 = PLAYER_BODY_RECOLOR_TO_2[c] ?? [];
                         if (idx >= 0 && idx < pal2.length) {
-                            md.recolor(PLAYER_BODY_RECOLOR_FROM_2[c] | 0, pal2[idx] | 0);
+                            md.recolor(
+                                asUnsignedHsl(PLAYER_BODY_RECOLOR_FROM_2[c] | 0),
+                                asUnsignedHsl(pal2[idx] | 0),
+                            );
                         }
                     }
                     modelDatas.push(md);
