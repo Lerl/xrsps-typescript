@@ -37,6 +37,9 @@ export type SdMapData = {
 
     smoothTerrain: boolean;
 
+    /** True when this payload only contains replacement door geometry. */
+    doorOnly?: boolean;
+
     borderSize: number;
     heightMapSize: number;
 

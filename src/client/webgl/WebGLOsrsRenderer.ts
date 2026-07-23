@@ -168,6 +168,7 @@ import { buildGroundItemGeometry } from "./ground/GroundItemMeshBuilder";
 import { type MinimapIcon, SdMapData } from "./loader/SdMapData";
 import { SdMapDataLoader } from "./loader/SdMapDataLoader";
 import { SdMapLoaderInput } from "./loader/SdMapLoaderInput";
+import { isDoorLocType } from "./loc/SceneLocs";
 import {
     DynamicNpcAnimLoader,
     DynamicNpcFrameGeometry,
@@ -560,6 +561,10 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
     private gamemodeWorldLocSpawnKeys: Set<string> = new Set();
     private gamemodeWorldTerrainOverrideKeys: Set<string> = new Set();
     private pendingLocUpdates: Set<number> = new Set();
+    // Doors have their own GPU geometry.  Keep these separate from general loc
+    // updates so opening one does not recreate terrain and every static model
+    // in its map square.
+    private pendingDoorLocUpdates: Set<number> = new Set();
     private pendingLocReloadMaps: Map<number, { mapX: number; mapY: number }> = new Map();
     private pendingLocReloadFlushTimer?: ReturnType<typeof setTimeout>;
     private nextLocReloadBatchId: number = 1;
@@ -5739,6 +5744,11 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
 
         this.applyGamemodeWorldLocs();
 
+        const mapId = getMapSquareId(mapX, mapY);
+        const doorOnly =
+            typeof locReloadBatchId === "number" &&
+            !this.pendingLocUpdates.has(mapId) &&
+            this.pendingDoorLocUpdates.has(mapId);
         const input: SdMapLoaderInput = {
             mapX,
             mapY,
@@ -5746,6 +5756,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
             loadNpcs: this.loadNpcs,
             smoothTerrain: this.smoothTerrain,
             minimizeDrawCalls: !this.hasMultiDraw,
+            doorOnly,
             loadedTextureIds: this.loadedTextureIds,
             locOverrides: this.locOverrides,
             extraLocs: this.getExtraLocsForMap(mapX, mapY),
@@ -5759,7 +5770,6 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
             SdMapDataLoader
         >(this.dataLoader, input);
 
-        const mapId = getMapSquareId(mapX, mapY);
         if (mapData && this.isValidMapData(mapData)) {
             if (typeof locReloadBatchId === "number") {
                 this.resolveLocReloadBatchMap(locReloadBatchId, mapId, mapData);
@@ -5773,6 +5783,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                 this.mapManager.loadingMapIds.delete(mapId);
             }
             this.pendingLocUpdates.delete(mapId);
+            this.pendingDoorLocUpdates.delete(mapId);
             this.queuedLocReloadBatchByMap.delete(mapId);
             if (typeof locReloadBatchId === "number") {
                 this.resolveLocReloadBatchMap(locReloadBatchId, mapId, undefined);
@@ -6322,28 +6333,57 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         const mapId = getMapSquareId(mapX, mapY);
         const existing = this.mapManager.getMap(mapX, mapY);
         const isLocUpdate = this.pendingLocUpdates.has(mapId);
+        const isDoorOnlyUpdate = !isLocUpdate && this.pendingDoorLocUpdates.has(mapId);
 
-        if (isLocUpdate && existing instanceof WebGLMapSquare) {
-            existing.refreshSceneGeometry(
-                this.osrsClient.seqTypeLoader,
-                this.osrsClient.seqFrameLoader,
-                this.app,
-                mainProgram,
-                mainAlphaProgram,
-                textureArray,
-                textureMaterials,
-                waterTextures,
-                sceneUniformBuffer,
-                mapData,
-                getClientCycle() | 0,
-                existing.timeLoaded,
-            );
+        // A door-only payload is valid only while the original map square is
+        // still resident and no broader loc update has superseded it.
+        if (mapData.doorOnly && (!isDoorOnlyUpdate || !(existing instanceof WebGLMapSquare))) {
+            this.pendingDoorLocUpdates.delete(mapId);
+            this.pendingLocUpdates.add(mapId);
+            void this.queueLoadMap(mapX, mapY);
+            return;
+        }
 
-            this.registerMinimapData(mapData);
+        if ((isLocUpdate || isDoorOnlyUpdate) && existing instanceof WebGLMapSquare) {
+            if (isDoorOnlyUpdate && mapData.doorOnly) {
+                existing.refreshDoorGeometry(
+                    this.app,
+                    mainProgram,
+                    mainAlphaProgram,
+                    textureArray,
+                    textureMaterials,
+                    waterTextures,
+                    sceneUniformBuffer,
+                    mapData,
+                    existing.timeLoaded,
+                );
+            } else {
+                existing.refreshSceneGeometry(
+                    this.osrsClient.seqTypeLoader,
+                    this.osrsClient.seqFrameLoader,
+                    this.app,
+                    mainProgram,
+                    mainAlphaProgram,
+                    textureArray,
+                    textureMaterials,
+                    waterTextures,
+                    sceneUniformBuffer,
+                    mapData,
+                    getClientCycle() | 0,
+                    existing.timeLoaded,
+                );
+            }
+
+            if (!mapData.doorOnly) {
+                this.registerMinimapData(mapData);
+            }
 
             this.mapManager.addMap(mapX, mapY, existing);
-            this.rebuildGroundItemsForMap(existing, this.groundItemStacks.get(mapId));
+            if (!mapData.doorOnly) {
+                this.rebuildGroundItemsForMap(existing, this.groundItemStacks.get(mapId));
+            }
             this.pendingLocUpdates.delete(mapId);
+            this.pendingDoorLocUpdates.delete(mapId);
             this.updateTextureArray(mapData.loadedTextures);
             return;
         }
@@ -6397,6 +6437,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         this.updateTextureArray(mapData.loadedTextures);
 
         this.pendingLocUpdates.delete(mapId);
+        this.pendingDoorLocUpdates.delete(mapId);
     }
 
     isValidMapData(mapData: SdMapData): boolean {
@@ -6416,6 +6457,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         this.activeStreamGeneration = 0;
         this.activeStreamExpectedMapIds.clear();
         this.pendingLocUpdates.clear();
+        this.pendingDoorLocUpdates.clear();
         this.pendingLocReloadMaps.clear();
         this.pendingLocReloadBatches.clear();
         this.queuedLocReloadBatchByMap.clear();
@@ -14618,6 +14660,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         this.activeStreamGeneration = 0;
         this.activeStreamExpectedMapIds.clear();
         this.pendingLocUpdates.clear();
+        this.pendingDoorLocUpdates.clear();
         this.pendingLocReloadMaps.clear();
         this.pendingLocReloadBatches.clear();
         this.queuedLocReloadBatchByMap.clear();
@@ -14769,6 +14812,15 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
 
             const oldTile = opts?.oldTile ?? tile;
             const newTile = opts?.newTile;
+            const oldLocType =
+                (oldId | 0) > 0 ? this.osrsClient.locTypeLoader.load(oldId | 0) : undefined;
+            const newLocType =
+                (newId | 0) > 0 ? this.osrsClient.locTypeLoader.load(newId | 0) : undefined;
+            const isDoorOnlyUpdate =
+                oldLocType !== undefined &&
+                newLocType !== undefined &&
+                isDoorLocType(oldLocType) &&
+                isDoorLocType(newLocType);
             const matchesChangedTile = (target: {
                 tileX: number;
                 tileY: number;
@@ -14875,7 +14927,12 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                 const mx = Number(mxRaw) | 0;
                 const my = Number(myRaw) | 0;
                 const mapId = getMapSquareId(mx, my);
-                this.pendingLocUpdates.add(mapId);
+                if (isDoorOnlyUpdate && !this.pendingLocUpdates.has(mapId)) {
+                    this.pendingDoorLocUpdates.add(mapId);
+                } else {
+                    this.pendingLocUpdates.add(mapId);
+                    this.pendingDoorLocUpdates.delete(mapId);
+                }
                 this.scheduleLocReload(mx, my);
             }
 

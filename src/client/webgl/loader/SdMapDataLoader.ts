@@ -1190,6 +1190,7 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
             loadNpcs,
             smoothTerrain,
             minimizeDrawCalls,
+            doorOnly = false,
             loadedTextureIds,
             locOverrides,
             locSpawns,
@@ -1224,6 +1225,10 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
         const borderSize = 6;
 
         const isInstance = !!instanceInput;
+        // Door updates apply to a map square that is already rendered.  They
+        // only need its doors, collision, and interaction index; instance
+        // scenes still use the full path because they have one combined mesh.
+        const shouldLoadDoorOnly = doorOnly && !isInstance;
         const CHUNK_SIZE = 8;
         const INSTANCE_SIZE = 13 * CHUNK_SIZE; // 104
 
@@ -1402,7 +1407,7 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
 
         console.time(`build scene ${mapX},${mapY}`);
         let scene: Scene;
-        const locLoadType = LocLoadType.MODELS;
+        const locLoadType = shouldLoadDoorOnly ? LocLoadType.NO_MODELS : LocLoadType.MODELS;
         if (instanceInput) {
             scene = state.sceneBuilder.buildInstanceScene(
                 instanceInput.templateChunks,
@@ -1453,7 +1458,9 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
         const sceneBuf = new SceneBuffer(textureLoader, textureIdIndexMap, 100000);
         const doorSceneBuf = new SceneBuffer(textureLoader, textureIdIndexMap, 20000);
         const coreSize = isInstance ? INSTANCE_SIZE : Scene.MAP_SQUARE_SIZE;
-        sceneBuf.addTerrain(scene, usedBorderSize, maxLevel, coreSize, usedBorderSize);
+        if (!shouldLoadDoorOnly) {
+            sceneBuf.addTerrain(scene, usedBorderSize, maxLevel, coreSize, usedBorderSize);
+        }
 
         const sceneLocs = getSceneLocs(
             locTypeLoader,
@@ -1465,14 +1472,21 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
         );
         const sceneModels: SceneModel[] = [];
         const doorSceneModels: SceneModel[] = [];
-        for (const locModel of sceneLocs.locs) {
-            const locType = locTypeLoader.load(locModel.interactId);
-            if (isDoorLocType(locType)) {
-                doorSceneModels.push(locModel);
-            } else {
-                sceneModels.push(locModel);
+        if (!shouldLoadDoorOnly) {
+            for (const locModel of sceneLocs.locs) {
+                const locType = locTypeLoader.load(locModel.interactId);
+                if (isDoorLocType(locType)) {
+                    doorSceneModels.push(locModel);
+                } else {
+                    sceneModels.push(locModel);
+                }
             }
         }
+        const locEntities = shouldLoadDoorOnly
+            ? sceneLocs.locEntities.filter((loc) =>
+                  isDoorLocType(locTypeLoader.load(loc.interactId)),
+              )
+            : sceneLocs.locEntities;
 
         // Create loc animated groups and add transformed locs
         const locAnimatedGroups = addLocEntities(
@@ -1483,10 +1497,18 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
             sceneModels,
             doorSceneModels,
             sceneBuf,
-            sceneLocs.locEntities,
+            locEntities,
         );
 
-        addSceneModels(this.modelHashBuf!, textureLoader, sceneBuf, sceneModels, minimizeDrawCalls);
+        if (!shouldLoadDoorOnly) {
+            addSceneModels(
+                this.modelHashBuf!,
+                textureLoader,
+                sceneBuf,
+                sceneModels,
+                minimizeDrawCalls,
+            );
+        }
         addSceneModels(
             this.modelHashBuf!,
             textureLoader,
@@ -1496,13 +1518,15 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
         );
 
         // Animated locs
-        const locsAnimated = sceneBuf.addLocAnimatedGroups(locAnimatedGroups);
+        const locsAnimated = shouldLoadDoorOnly
+            ? []
+            : sceneBuf.addLocAnimatedGroups(locAnimatedGroups);
         console.log(`animated locs: ${locsAnimated.length}`);
 
         // Npcs
 
         let npcInstances: NpcInstance[] = [];
-        if (loadNpcs) {
+        if (!shouldLoadDoorOnly && loadNpcs) {
             const maxPlane = Math.max(0, maxLevel | 0);
             const currentMapId = getMapSquareId(mapX, mapY);
             npcInstances = state.npcInstances.filter((instance) => {
@@ -1518,7 +1542,7 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
                 return npcMapX === mapX && npcMapY === mapY;
             });
         }
-        if (extraNpcsInput) {
+        if (!shouldLoadDoorOnly && extraNpcsInput) {
             for (const npc of extraNpcsInput) {
                 npcInstances.push({
                     typeId: npc.id,
@@ -1528,19 +1552,21 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
                 });
             }
         }
-        const { npcSceneBuf, npcs } = buildNpcGeometry(
-            npcModelLoader,
-            basTypeLoader,
-            textureLoader,
-            textureIdIndexMap,
-            npcInstances,
-            renderPosX != null
-                ? Math.floor(renderPosX * Scene.MAP_SQUARE_SIZE)
-                : mapX * Scene.MAP_SQUARE_SIZE,
-            renderPosY != null
-                ? Math.floor(renderPosY * Scene.MAP_SQUARE_SIZE)
-                : mapY * Scene.MAP_SQUARE_SIZE,
-        );
+        const { npcSceneBuf, npcs } = shouldLoadDoorOnly
+            ? { npcSceneBuf: new SceneBuffer(textureLoader, textureIdIndexMap, 1), npcs: [] }
+            : buildNpcGeometry(
+                  npcModelLoader,
+                  basTypeLoader,
+                  textureLoader,
+                  textureIdIndexMap,
+                  npcInstances,
+                  renderPosX != null
+                      ? Math.floor(renderPosX * Scene.MAP_SQUARE_SIZE)
+                      : mapX * Scene.MAP_SQUARE_SIZE,
+                  renderPosY != null
+                      ? Math.floor(renderPosY * Scene.MAP_SQUARE_SIZE)
+                      : mapY * Scene.MAP_SQUARE_SIZE,
+              );
 
         // Build per-level CSR mappings of loc IDs per interior tile (64x64 region) at tile origin.
         // We only include object IDs for origins (e.g., loc.startX/startY matches the tile) and direct
@@ -1862,15 +1888,19 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
             doorSceneBuf.drawCommandsInteractLodAlpha,
         );
 
-        const heightMapTextureData = loadHeightMapTextureData(scene);
-        const waterMaskTextureData = loadWaterMaskTextureData(scene);
-        const terrainPickData = buildTerrainPickData(
-            scene,
-            usedBorderSize,
-            maxLevel,
-            coreSize,
-            usedBorderSize,
-        );
+        const heightMapTextureData = shouldLoadDoorOnly
+            ? new Int16Array(0)
+            : loadHeightMapTextureData(scene);
+        const waterMaskTextureData = shouldLoadDoorOnly
+            ? new Uint8Array(0)
+            : loadWaterMaskTextureData(scene);
+        const terrainPickData = shouldLoadDoorOnly
+            ? {
+                  tileOffsets: new Uint32Array(0),
+                  vertices: new Float32Array(0),
+                  planes: new Uint8Array(0),
+              }
+            : buildTerrainPickData(scene, usedBorderSize, maxLevel, coreSize, usedBorderSize);
 
         const vertices = sceneBuf.vertexBuf.byteArray();
         const indices = new Int32Array(sceneBuf.indices);
@@ -1879,58 +1909,69 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
         const npcVertices = npcSceneBuf.vertexBuf.byteArray();
         const npcIndices = new Int32Array(npcSceneBuf.indices);
 
-        const minimapBlobs: Blob[] = new Array(Scene.MAX_LEVELS);
-        if (typeof OffscreenCanvas !== "undefined") {
-            for (let level = 0; level < Scene.MAX_LEVELS; level++) {
-                minimapBlobs[level] = await loadMinimapBlob(
-                    state.minimapImageRenderer,
-                    scene,
-                    level,
-                    usedBorderSize,
-                );
-            }
-        } else {
-            const transparent = transparentPng1x1();
-            for (let level = 0; level < Scene.MAX_LEVELS; level++) {
-                minimapBlobs[level] = transparent;
+        const minimapBlobs: Blob[] = shouldLoadDoorOnly ? [] : new Array(Scene.MAX_LEVELS);
+        if (!shouldLoadDoorOnly) {
+            if (typeof OffscreenCanvas !== "undefined") {
+                for (let level = 0; level < Scene.MAX_LEVELS; level++) {
+                    minimapBlobs[level] = await loadMinimapBlob(
+                        state.minimapImageRenderer,
+                        scene,
+                        level,
+                        usedBorderSize,
+                    );
+                }
+            } else {
+                const transparent = transparentPng1x1();
+                for (let level = 0; level < Scene.MAX_LEVELS; level++) {
+                    minimapBlobs[level] = transparent;
+                }
             }
         }
 
         // Extract minimap icons for dynamic rendering
-        const mapFunctionToSprite = createMapFunctionResolver(state);
-        const minimapIcons: MinimapIcon[][] = new Array(Scene.MAX_LEVELS);
-        const worldMapIcons: MinimapIcon[][] = new Array(Scene.MAX_LEVELS);
-        for (let level = 0; level < Scene.MAX_LEVELS; level++) {
-            minimapIcons[level] = extractMinimapIcons(
-                scene,
-                state.locTypeLoader,
-                state.varManager,
-                usedBorderSize,
-                level,
-                mapFunctionToSprite,
-            );
-            worldMapIcons[level] = extractWorldMapIcons(
-                scene,
-                state.locTypeLoader,
-                state.varManager,
-                usedBorderSize,
-                level,
-                mapFunctionToSprite,
-            );
+        const minimapIcons: MinimapIcon[][] = shouldLoadDoorOnly ? [] : new Array(Scene.MAX_LEVELS);
+        const worldMapIcons: MinimapIcon[][] = shouldLoadDoorOnly
+            ? []
+            : new Array(Scene.MAX_LEVELS);
+        if (!shouldLoadDoorOnly) {
+            const mapFunctionToSprite = createMapFunctionResolver(state);
+            for (let level = 0; level < Scene.MAX_LEVELS; level++) {
+                minimapIcons[level] = extractMinimapIcons(
+                    scene,
+                    state.locTypeLoader,
+                    state.varManager,
+                    usedBorderSize,
+                    level,
+                    mapFunctionToSprite,
+                );
+                worldMapIcons[level] = extractWorldMapIcons(
+                    scene,
+                    state.locTypeLoader,
+                    state.varManager,
+                    usedBorderSize,
+                    level,
+                    mapFunctionToSprite,
+                );
+            }
         }
 
         const loadedTextures = new Map<number, Int32Array>();
         const usedTextureIds = new Set<number>();
-        for (const textureId of sceneBuf.usedTextureIds) {
-            if (!loadedTextureIds.has(textureId)) {
-                try {
-                    const pixels = textureLoader.getPixelsArgb(textureId, 128, true, 1.0);
-                    loadedTextures.set(textureId, pixels);
-                } catch (e) {
-                    console.warn(`SdMapDataLoader: failed to load primary texture ${textureId}`, e);
+        if (!shouldLoadDoorOnly) {
+            for (const textureId of sceneBuf.usedTextureIds) {
+                if (!loadedTextureIds.has(textureId)) {
+                    try {
+                        const pixels = textureLoader.getPixelsArgb(textureId, 128, true, 1.0);
+                        loadedTextures.set(textureId, pixels);
+                    } catch (e) {
+                        console.warn(
+                            `SdMapDataLoader: failed to load primary texture ${textureId}`,
+                            e,
+                        );
+                    }
                 }
+                usedTextureIds.add(textureId);
             }
-            usedTextureIds.add(textureId);
         }
         for (const textureId of doorSceneBuf.usedTextureIds) {
             if (!loadedTextureIds.has(textureId) && !loadedTextures.has(textureId)) {
@@ -1943,16 +1984,18 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
             }
             usedTextureIds.add(textureId);
         }
-        for (const textureId of npcSceneBuf.usedTextureIds) {
-            if (!loadedTextureIds.has(textureId) && !loadedTextures.has(textureId)) {
-                try {
-                    const pixels = textureLoader.getPixelsArgb(textureId, 128, true, 1.0);
-                    loadedTextures.set(textureId, pixels);
-                } catch (e) {
-                    console.warn(`SdMapDataLoader: failed to load NPC texture ${textureId}`, e);
+        if (!shouldLoadDoorOnly) {
+            for (const textureId of npcSceneBuf.usedTextureIds) {
+                if (!loadedTextureIds.has(textureId) && !loadedTextures.has(textureId)) {
+                    try {
+                        const pixels = textureLoader.getPixelsArgb(textureId, 128, true, 1.0);
+                        loadedTextures.set(textureId, pixels);
+                    } catch (e) {
+                        console.warn(`SdMapDataLoader: failed to load NPC texture ${textureId}`, e);
+                    }
                 }
+                usedTextureIds.add(textureId);
             }
-            usedTextureIds.add(textureId);
         }
 
         console.timeEnd(`load map ${mapX},${mapY}`);
@@ -2039,6 +2082,7 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
                 loadNpcs,
 
                 smoothTerrain,
+                doorOnly: shouldLoadDoorOnly,
 
                 borderSize: usedBorderSize,
                 heightMapSize: mapSize,
