@@ -1,10 +1,20 @@
 import type { IdkTypeLoader } from "../../rs/config/idktype/IdkTypeLoader";
 import type { ObjTypeLoader } from "../../rs/config/objtype/ObjTypeLoader";
 import { Gender, PlayerAppearance } from "../../rs/config/player/PlayerAppearance";
+import {
+    PLAYER_BODY_RECOLOR_FROM_1,
+    PLAYER_BODY_RECOLOR_FROM_2,
+    PLAYER_BODY_RECOLOR_TO_1,
+    PLAYER_BODY_RECOLOR_TO_2,
+} from "../../rs/config/player/PlayerDesignColors";
 import { Model } from "../../rs/model/Model";
 import { ModelData } from "../../rs/model/ModelData";
 import type { ModelLoader } from "../../rs/model/ModelLoader";
 import type { TextureLoader } from "../../rs/texture/TextureLoader";
+
+// PlayerComposition palette values originate from signed Java shorts, while
+// ModelData stores face colours as unsigned 16-bit HSL values.
+const asUnsignedHsl = (color: number): number => color & 0xffff;
 
 /**
  * Lightweight player chathead builder using IDK kits for head/jaw.
@@ -344,7 +354,28 @@ export class PlayerChatheadFactory {
 
         const merged = ModelData.merge(parts, parts.length);
 
-        // TODO: Apply player recolor based on appearance.colors palette when palettes are wired.
+        // Match the PlayerComposition palette applied to in-world player models.
+        // The chathead contains the head/jaw kits, so this covers hair and skin while
+        // remaining correct for any additional recolorable chathead geometry.
+        const colors = Array.isArray(appearance.colors) ? appearance.colors : [];
+        for (let colorIndex = 0; colorIndex < 5; colorIndex++) {
+            const paletteIndex = (colors[colorIndex] ?? 0) | 0;
+            const primaryPalette = PLAYER_BODY_RECOLOR_TO_1[colorIndex] ?? [];
+            if (paletteIndex >= 0 && paletteIndex < primaryPalette.length) {
+                merged.recolor(
+                    asUnsignedHsl(PLAYER_BODY_RECOLOR_FROM_1[colorIndex] | 0),
+                    asUnsignedHsl(primaryPalette[paletteIndex] | 0),
+                );
+            }
+
+            const secondaryPalette = PLAYER_BODY_RECOLOR_TO_2[colorIndex] ?? [];
+            if (paletteIndex >= 0 && paletteIndex < secondaryPalette.length) {
+                merged.recolor(
+                    asUnsignedHsl(PLAYER_BODY_RECOLOR_FROM_2[colorIndex] | 0),
+                    asUnsignedHsl(secondaryPalette[paletteIndex] | 0),
+                );
+            }
+        }
 
         let model = merged.light(this.textureLoader, 64 + 64, 850, -30, -50, -30);
         this.cache.set(key, model);
